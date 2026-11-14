@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ImagePullBackOff / ErrImagePull (Kubernetes) — how to fix</title>
+<meta name="description" content="The node couldn&#x27;t download the container image. Wrong name or tag, a private registry without imagePullSecrets, or rate limits.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-imagepullbackoff/">
+<meta property="og:title" content="ImagePullBackOff / ErrImagePull (Kubernetes) — how to fix"><meta property="og:description" content="The node couldn&#x27;t download the container image. Wrong name or tag, a private registry without imagePullSecrets, or rate limits.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-imagepullbackoff/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ImagePullBackOff / ErrImagePull (Kubernetes) \u2014 how to fix", "description": "The node couldn't download the container image. Wrong name or tag, a private registry without imagePullSecrets, or rate limits.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-imagepullbackoff/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "ImagePullBackOff / ErrImagePull", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-imagepullbackoff/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>ImagePullBackOff / ErrImagePull (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Failed to pull image &quot;myregistry.io/web:1.4&quot;: rpc error: code = NotFound desc = failed to pull and unpack image &quot;myregistry.io/web:1.4&quot;: not found
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>kubectl describe pod &lt;pod&gt;</code> and read the Events. <code>not found</code> → fix the image name/tag. <code>unauthorized</code> / <code>pull access denied</code> → add <code>imagePullSecrets</code>. <code>toomanyrequests</code> → Docker Hub rate limit: authenticate or use a mirror.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>ErrImagePull</code> is the first failed pull; <code>ImagePullBackOff</code> means Kubernetes keeps retrying with growing delays.</p>
+<h2 id="step-1-read-the-exact-reason">Step 1: read the exact reason</h2>
+<pre><code class="language-bash">kubectl describe pod &lt;pod&gt;
+</code></pre>
+<p>The <strong>Events</strong> section shows the registry's message.</p>
+<h2 id="not-found-manifest-unknown">not found / manifest unknown</h2>
+<ul>
+<li>Typo in the image name or tag. Tags are case-sensitive.</li>
+<li>The tag was never pushed. Check: <code>docker manifest inspect myregistry.io/web:1.4</code>.</li>
+<li><strong>No image for the node's architecture:</strong> <code>no match for platform in manifest</code>. Build a multi-arch image (<code>docker buildx build --platform linux/amd64,linux/arm64 ... --push</code>).</li>
+<li>Local images (built with <code>docker build</code> on your laptop) aren't visible to the cluster. With kind use <code>kind load docker-image web:1.4</code>; with minikube <code>minikube image load web:1.4</code>; and set <code>imagePullPolicy: IfNotPresent</code>.</li>
+</ul>
+<h2 id="unauthorized-pull-access-denied-authentication-required">unauthorized / pull access denied / authentication required</h2>
+<p>The registry is private. Create a pull secret and reference it:</p>
+<pre><code class="language-bash">kubectl create secret docker-registry regcred \
+  --docker-server=myregistry.io --docker-username=USER --docker-password=TOKEN \
+  -n &lt;namespace&gt;
+</code></pre>
+<pre><code class="language-yaml">spec:
+  imagePullSecrets:
+    - name: regcred
+</code></pre>
+<p>The secret must be in the <strong>same namespace</strong> as the pod. On EKS/GKE/AKS, managed registries (ECR, Artifact Registry, ACR) are usually authorised through node IAM roles instead; check those permissions.</p>
+<h2 id="toomanyrequests">toomanyrequests</h2>
+<p>Docker Hub limits anonymous pulls per IP. Authenticate with a pull secret for <code>docker.io</code>, mirror the images to your own registry, or use an alternative such as <code>public.ecr.aws</code>.</p>
+<h2 id="timeouts-io-timeout">Timeouts / i/o timeout</h2>
+<p>The node can't reach the registry: DNS, firewall, proxy or a missing NAT gateway on private nodes. Test from a node, or with a debug pod running <code>nslookup</code> / <code>wget</code> against the registry.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-exec-format-error/">exec format error</a></li><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li><li><a href="/kubernetes/k8s-error-converting-yaml-to-json-mapping-values-are-not-allowed/">error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

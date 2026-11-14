@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: &#x27;int&#x27; object is not subscriptable (Python) — how to fix</title>
+<meta name="description" content="You used square brackets on an integer, as if it were a list, string or dict. The variable holds a number where you expected a container.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-int-object-is-not-subscriptable/">
+<meta property="og:title" content="TypeError: &#x27;int&#x27; object is not subscriptable (Python) — how to fix"><meta property="og:description" content="You used square brackets on an integer, as if it were a list, string or dict. The variable holds a number where you expected a container.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-int-object-is-not-subscriptable/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: 'int' object is not subscriptable (Python) \u2014 how to fix", "description": "You used square brackets on an integer, as if it were a list, string or dict. The variable holds a number where you expected a container.", "dateModified": "2026-11-03", "url": "https://errorfix-hollis.github.io/python/python-typeerror-int-object-is-not-subscriptable/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: 'int' object is not subscriptable", "item": "https://errorfix-hollis.github.io/python/python-typeerror-int-object-is-not-subscriptable/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: &#x27;int&#x27; object is not subscriptable (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;main.py&quot;, line 3, in &lt;module&gt;
+    print(n[0])
+TypeError: &#x27;int&#x27; object is not subscriptable
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find where the variable became an <code>int</code> (<code>print(type(x))</code>). To get digits use <code>str(n)[0]</code> or <code>int(str(n)[0])</code>; don't reuse a list's name for a counter; and check functions return the container, not a count.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>"Subscriptable" means "supports <code>x[...]</code>". Lists, tuples, strings and dicts are subscriptable; <code>int</code>, <code>float</code>, <code>bool</code> and <code>None</code> are not. Python raises this when the object before <code>[</code> is an <code>int</code>. The same applies to <code>'float' object is not subscriptable</code>.</p>
+<p>Start by checking what the value really is:</p>
+<pre><code class="language-python">print(type(x), x)
+</code></pre>
+<h2 id="cause-1-you-want-a-digit-of-a-number">Cause 1: you want a digit of a number</h2>
+<pre><code class="language-python">n = 2026
+first = n[0]        # TypeError
+</code></pre>
+<p>Convert to a string first:</p>
+<pre><code class="language-python">first = str(n)[0]             # '2'
+first_digit = int(str(n)[0])  # 2
+digits = [int(d) for d in str(n)]   # [2, 0, 2, 6]
+</code></pre>
+<p>Or use arithmetic: <code>last = n % 10</code>, <code>first = n // 10 ** (len(str(n)) - 1)</code>.</p>
+<h2 id="cause-2-a-variable-got-overwritten-with-a-number">Cause 2: a variable got overwritten with a number</h2>
+<pre><code class="language-python">scores = [90, 85, 70]
+for scores in range(3):      # reuses the name!
+    pass
+print(scores[0])             # scores is now 2
+</code></pre>
+<p>Or with <code>sum</code>/<code>len</code>:</p>
+<pre><code class="language-python">items = [3, 4]
+items = len(items)
+items[0]                     # TypeError
+</code></pre>
+<p>Fix: use distinct names (<code>for i in range(...)</code>, <code>count = len(items)</code>).</p>
+<h2 id="cause-3-function-returns-a-number-not-a-list">Cause 3: function returns a number, not a list</h2>
+<pre><code class="language-python">def get_ids():
+    ids = [1, 2, 3]
+    return len(ids)          # oops
+
+get_ids()[0]                 # TypeError
+</code></pre>
+<p>Check the <code>return</code> statement. Methods like <code>list.count()</code>, <code>str.find()</code>, <code>cursor.rowcount</code> and <code>dict.get(key, 0)</code> return integers, too.</p>
+<h2 id="cause-4-nested-data-is-shallower-than-you-think">Cause 4: nested data is shallower than you think</h2>
+<pre><code class="language-python">data = {&quot;user&quot;: {&quot;id&quot;: 7}}
+data[&quot;user&quot;][&quot;id&quot;][0]        # 'int' object is not subscriptable
+</code></pre>
+<p>Print the intermediate value (<code>print(data["user"])</code>) or use <code>json.dumps(data, indent=2)</code> to see the real structure.</p>
+<h2 id="cause-5-a-2d-list-that-is-really-1d">Cause 5: a 2D list that is really 1D</h2>
+<pre><code class="language-python">grid = [0] * 5
+grid[1][2] = 9               # grid[1] is the int 0
+</code></pre>
+<p>Build a real 2D list:</p>
+<pre><code class="language-python">grid = [[0] * 5 for _ in range(5)]
+grid[1][2] = 9
+</code></pre>
+<p>(Don't use <code>[[0] * 5] * 5</code> — that creates five references to the same row.)</p>
+<h2 id="cause-6-pandasnumpy-scalars">Cause 6: pandas/numpy scalars</h2>
+<p><code>df["col"].sum()</code>, <code>df.shape[0]</code> and <code>arr.max()</code> return scalars. Indexing them again (<code>df.shape[0][0]</code>) raises this error, sometimes with <code>'numpy.int64' object is not subscriptable</code>. Drop the extra index.</p>
+<p class="upd">Last updated 2026-11-03.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-indexerror-list-index-out-of-range/">IndexError: list index out of range</a></li><li><a href="/python/python-typeerror-nonetype-object-is-not-subscriptable/">TypeError: &#x27;NoneType&#x27; object is not subscriptable</a></li><li><a href="/python/python-typeerror-string-indices-must-be-integers/">TypeError: string indices must be integers</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

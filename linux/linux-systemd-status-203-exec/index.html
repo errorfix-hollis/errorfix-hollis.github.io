@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>status=203/EXEC (Linux) — how to fix</title>
+<meta name="description" content="systemd could not execute the program in ExecStart= at all: the path is wrong or relative, the file isn&#x27;t executable, the script has a bad shebang or CRLF line endings, or SELinux blocks it. The app itself never started.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-systemd-status-203-exec/">
+<meta property="og:title" content="status=203/EXEC (Linux) — how to fix"><meta property="og:description" content="systemd could not execute the program in ExecStart= at all: the path is wrong or relative, the file isn&#x27;t executable, the script has a bad shebang or CRLF line endings, or SELinux blocks it. The app itself never started.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-systemd-status-203-exec/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "status=203/EXEC (Linux) \u2014 how to fix", "description": "systemd could not execute the program in ExecStart= at all: the path is wrong or relative, the file isn't executable, the script has a bad shebang or CRLF line endings, or SELinux blocks it. The app itself never started.", "dateModified": "2026-11-08", "url": "https://errorfix-hollis.github.io/linux/linux-systemd-status-203-exec/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "status=203/EXEC", "item": "https://errorfix-hollis.github.io/linux/linux-systemd-status-203-exec/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>status=203/EXEC (Linux) — how to fix</h1>
+<pre class="err"><code>myapp.service: Main process exited, code=exited, status=203/EXEC
+myapp.service: Failed to execute /opt/myapp/start.sh: Permission denied
+myapp.service: Failed at step EXEC spawning /opt/myapp/start.sh: No such file or directory
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>journalctl -u myapp -n 20</code> to see the exact reason after 'Failed at step EXEC'. Use an absolute path in ExecStart, <code>chmod +x</code> the file, make sure the script starts with a valid shebang like <code>#!/bin/bash</code> and has LF line endings (<code>sed -i 's/\r$//' start.sh</code>), then <code>sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart myapp</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Exit status 203 is systemd's own code for <strong>EXEC</strong>: it forked the service process, but the <code>execve()</code> of the <code>ExecStart=</code> command failed. Your program never ran, so its own logs are empty. The real reason is in the journal, right next to the status line:</p>
+<pre><code class="language-bash">sudo systemctl status myapp
+journalctl -u myapp -n 30 --no-pager
+</code></pre>
+<p>Look for <code>Failed at step EXEC spawning &lt;path&gt;: &lt;reason&gt;</code> or <code>Failed to execute &lt;path&gt;: &lt;reason&gt;</code>. The reason maps to the fixes below.</p>
+<h2 id="cause-1-no-such-file-or-directory-wrong-path">Cause 1: <code>No such file or directory</code> — wrong path</h2>
+<p><code>ExecStart=</code> needs an absolute path to the executable (systemd 239+ allows a bare command name only if it's in systemd's fixed search path, and it does <em>not</em> use your shell's <code>PATH</code>).</p>
+<pre><code class="language-ini"># wrong
+ExecStart=node server.js
+ExecStart=~/app/start.sh
+# right
+ExecStart=/usr/bin/node /opt/myapp/server.js
+</code></pre>
+<p>Find the real path with <code>command -v node</code>. Tools installed with nvm, pyenv or in a virtualenv live in your home directory; use their full path, e.g. <code>/home/app/.nvm/versions/node/v20.11.0/bin/node</code> or <code>/opt/myapp/venv/bin/python</code>.</p>
+<p><code>~</code> and <code>$HOME</code> are not expanded. Shell features (pipes, <code>&amp;&amp;</code>, redirects) don't work either; wrap them in <code>/bin/bash -c '...'</code> or a script.</p>
+<h2 id="cause-2-no-such-file-or-directory-but-the-file-exists">Cause 2: <code>No such file or directory</code> — but the file exists</h2>
+<p>For a script this means the <strong>interpreter</strong> from the shebang is missing. Typical reasons:</p>
+<ul>
+<li>Windows line endings: the kernel looks for <code>/bin/bash\r</code>. Check and fix:</li>
+</ul>
+<pre><code class="language-bash">head -1 /opt/myapp/start.sh | od -c | head -2   # look for \r
+sed -i 's/\r$//' /opt/myapp/start.sh
+</code></pre>
+<p>(Or paste the file into the <a href="/tools/line-ending-whitespace-inspector/">line ending inspector</a>.)
+- A shebang pointing to a path that doesn't exist on this machine (<code>#!/usr/local/bin/python3</code>). See <a href="/linux/linux-bad-interpreter-no-such-file/">bad interpreter: No such file or directory</a>.
+- A binary built for another architecture or against a missing dynamic loader (e.g. a glibc binary on Alpine).</p>
+<h2 id="cause-3-permission-denied">Cause 3: <code>Permission denied</code></h2>
+<pre><code class="language-bash">ls -l /opt/myapp/start.sh
+sudo chmod +x /opt/myapp/start.sh
+</code></pre>
+<p>Also check:</p>
+<ul>
+<li>The <code>User=</code> in the unit can traverse every directory in the path (<code>namei -l /opt/myapp/start.sh</code>). Files in <code>/home/someone/</code> are often unreadable for other users, and <code>ProtectHome=true</code> hides <code>/home</code> completely.</li>
+<li>The filesystem isn't mounted <code>noexec</code> (common for <code>/tmp</code> and some data disks): <code>findmnt -T /opt/myapp</code>.</li>
+<li><strong>SELinux</strong> (RHEL, Fedora, Rocky): binaries in home directories or with the wrong label are denied. Check <code>sudo ausearch -m avc -ts recent</code>, and fix with <code>sudo restorecon -Rv /opt/myapp</code> or move the file to a standard location such as <code>/usr/local/bin</code>.</li>
+</ul>
+<h2 id="cause-4-exec-format-error">Cause 4: <code>Exec format error</code></h2>
+<p>The file has no shebang line at all, or it's a binary for another CPU architecture. Add <code>#!/bin/bash</code> (or the right interpreter) as the very first line, with nothing before it, or run it explicitly: <code>ExecStart=/bin/bash /opt/myapp/start.sh</code>.</p>
+<h2 id="apply-the-fix">Apply the fix</h2>
+<pre><code class="language-bash">sudo systemctl daemon-reload
+sudo systemctl restart myapp
+sudo systemctl status myapp
+</code></pre>
+<p>Test the exact command as the service user first, which reproduces most problems instantly:</p>
+<pre><code class="language-bash">sudo -u app /opt/myapp/start.sh
+</code></pre>
+<p>If the service starts and <em>then</em> fails repeatedly, you'll see <a href="/linux/linux-start-request-repeated-too-quickly/">start request repeated too quickly</a> instead; that's an application problem, not 203.</p>
+<p class="upd">Last updated 2026-11-08.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/linux/linux-job-for-service-failed-because-the-control-process-exited-with-error-code/">Job for X.service failed because the control process exited with error code</a></li><li><a href="/linux/linux-start-request-repeated-too-quickly/">Start request repeated too quickly</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-cannot-execute-binary-file/">cannot execute binary file: Exec format error</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

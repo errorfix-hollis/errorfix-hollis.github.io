@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal: refusing to merge unrelated histories (Git) — how to fix</title>
+<meta name="description" content="Git won&#x27;t merge two branches that share no common commit. Fix it with --allow-unrelated-histories, or rebase your work onto the remote.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-refusing-to-merge-unrelated-histories/">
+<meta property="og:title" content="fatal: refusing to merge unrelated histories (Git) — how to fix"><meta property="og:description" content="Git won&#x27;t merge two branches that share no common commit. Fix it with --allow-unrelated-histories, or rebase your work onto the remote.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-refusing-to-merge-unrelated-histories/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal: refusing to merge unrelated histories (Git) \u2014 how to fix", "description": "Git won't merge two branches that share no common commit. Fix it with --allow-unrelated-histories, or rebase your work onto the remote.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/git/git-refusing-to-merge-unrelated-histories/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "fatal: refusing to merge unrelated histories", "item": "https://errorfix-hollis.github.io/git/git-refusing-to-merge-unrelated-histories/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>fatal: refusing to merge unrelated histories (Git) — how to fix</h1>
+<pre class="err"><code>fatal: refusing to merge unrelated histories</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>git pull origin main --allow-unrelated-histories</code>, resolve any conflicts, then commit.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Git found that the two branches you are combining have <strong>no commit in common</strong>. They are two separate projects as far as Git is concerned, so since Git 2.9 it refuses to merge them unless you say that's what you want.</p>
+<h2 id="why-it-happens">Why it happens</h2>
+<ul>
+<li>You ran <code>git init</code> locally, made commits, then added a remote that <strong>already has commits</strong> (often a README, LICENSE or <code>.gitignore</code> created on GitHub/GitLab when you made the repository).</li>
+<li>You re-created the <code>.git</code> folder, so your local history no longer matches the remote.</li>
+<li>You are combining two different repositories on purpose.</li>
+</ul>
+<h2 id="fix-1-allow-the-merge-most-common">Fix 1: allow the merge (most common)</h2>
+<pre><code class="language-bash">git pull origin main --allow-unrelated-histories
+# resolve conflicts if any (often README.md), then:
+git add .
+git commit -m &quot;Merge remote history&quot;
+git push origin main
+</code></pre>
+<p>Replace <code>main</code> with your branch name (<code>master</code> on older repos).</p>
+<h2 id="fix-2-rebase-your-commits-on-top-of-the-remote">Fix 2: rebase your commits on top of the remote</h2>
+<p>This keeps a straight history without a merge commit:</p>
+<pre><code class="language-bash">git fetch origin
+git rebase origin/main
+git push origin main
+</code></pre>
+<p>If Git still complains, <code>git rebase --root --onto origin/main</code> replays every local commit, including the first one, on top of the remote.</p>
+<h2 id="fix-3-the-remote-content-doesnt-matter">Fix 3: the remote content doesn't matter</h2>
+<p>If the remote only has a generated README you don't need, overwrite it. <strong>This deletes the remote commits</strong>:</p>
+<pre><code class="language-bash">git push --force origin main
+</code></pre>
+<h2 id="how-to-avoid-it">How to avoid it</h2>
+<p>When creating a repository on GitHub for an existing local project, leave "Add a README", ".gitignore" and "license" <strong>unchecked</strong>, then push your local repository into the empty remote.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li><li><a href="/git/git-could-not-resolve-host/">fatal: unable to access ... Could not resolve host: github.com</a></li><li><a href="/git/git-destination-path-already-exists-and-is-not-an-empty-directory/">fatal: destination path &#x27;X&#x27; already exists and is not an empty directory.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

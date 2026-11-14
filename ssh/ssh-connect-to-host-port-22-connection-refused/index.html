@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ssh: connect to host port 22: Connection refused — how to fix</title>
+<meta name="description" content="The machine was reached, but nothing accepted the connection on port 22 — sshd isn&#x27;t running, isn&#x27;t installed, listens on another port or address, or a firewall actively rejects the connection.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/ssh/ssh-connect-to-host-port-22-connection-refused/">
+<meta property="og:title" content="ssh: connect to host port 22: Connection refused — how to fix"><meta property="og:description" content="The machine was reached, but nothing accepted the connection on port 22 — sshd isn&#x27;t running, isn&#x27;t installed, listens on another port or address, or a firewall actively rejects the connection.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/ssh/ssh-connect-to-host-port-22-connection-refused/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ssh: connect to host port 22: Connection refused \u2014 how to fix", "description": "The machine was reached, but nothing accepted the connection on port 22 \u2014 sshd isn't running, isn't installed, listens on another port or address, or a firewall actively rejects the connection.", "dateModified": "2026-11-06", "url": "https://errorfix-hollis.github.io/ssh/ssh-connect-to-host-port-22-connection-refused/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "SSH", "item": "https://errorfix-hollis.github.io/ssh/"}, {"@type": "ListItem", "position": 3, "name": "ssh: connect to host port 22: Connection refused", "item": "https://errorfix-hollis.github.io/ssh/ssh-connect-to-host-port-22-connection-refused/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/ssh/">SSH</a></p>
+<article><h1>ssh: connect to host port 22: Connection refused — how to fix</h1>
+<pre class="err"><code>ssh: connect to host 192.168.1.50 port 22: Connection refused
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> On the server (via console): <code>sudo systemctl status ssh</code> (Debian/Ubuntu) or <code>sshd</code> (RHEL/Fedora/Arch); install with <code>sudo apt install openssh-server</code> and start with <code>sudo systemctl enable --now ssh</code>. Check the listening port with <code>sudo ss -ltnp | grep ssh</code> and connect with <code>ssh -p &lt;port&gt;</code> if it isn't 22. Open the firewall: <code>sudo ufw allow OpenSSH</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>"Connection refused" is a TCP-level answer: your packet reached a host, and that host replied with a reset (RST) because no program is listening on that port — or a firewall is configured to <em>reject</em> (not drop) it. This is good news compared with "Connection timed out": the network path works and the IP is right (or at least something answers at that IP).</p>
+<p>Test from the client:</p>
+<pre><code class="language-bash">nc -vz 192.168.1.50 22
+ssh -v user@192.168.1.50          # -v shows exactly where it stops
+</code></pre>
+<p>Everything else needs to happen on the server, through a console, cloud provider's serial/web console, or another access method.</p>
+<h2 id="cause-1-openssh-server-isnt-installed">Cause 1: OpenSSH server isn't installed</h2>
+<p>Desktop installs of Ubuntu, Debian, Fedora Workstation and WSL don't include the SSH <em>server</em>, only the client.</p>
+<pre><code class="language-bash"># Debian / Ubuntu / Raspberry Pi OS
+sudo apt update &amp;&amp; sudo apt install openssh-server
+# Fedora / RHEL / Rocky
+sudo dnf install openssh-server
+# Arch
+sudo pacman -S openssh
+</code></pre>
+<p>On Raspberry Pi OS, SSH is disabled by default: enable it with <code>sudo raspi-config</code> → Interface Options → SSH, or create an empty file named <code>ssh</code> on the boot partition before first boot.</p>
+<h2 id="cause-2-sshd-isnt-running">Cause 2: sshd isn't running</h2>
+<p>The service name is <code>ssh</code> on Debian/Ubuntu and <code>sshd</code> on most others.</p>
+<pre><code class="language-bash">sudo systemctl status ssh          # or sshd
+sudo systemctl enable --now ssh
+</code></pre>
+<p>If it fails to start, the reason is in the log (usually a config error):</p>
+<pre><code class="language-bash">sudo sshd -t                       # test config
+journalctl -xeu ssh --no-pager | tail -30
+</code></pre>
+<p>On Ubuntu 22.10+ sshd is socket-activated: <code>ssh.socket</code> listens, not <code>ssh.service</code>. Check <code>systemctl status ssh.socket</code>. To change the port there, edit <code>/etc/ssh/sshd_config</code> and then run <code>sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart ssh.socket</code> (the socket unit is regenerated from the config).</p>
+<h2 id="cause-3-sshd-listens-on-a-different-port-or-address">Cause 3: sshd listens on a different port or address</h2>
+<pre><code class="language-bash">sudo ss -ltnp | grep -i ssh
+# LISTEN 0 128 0.0.0.0:2222 ... users:((&quot;sshd&quot;,pid=812,...))
+</code></pre>
+<p>If it shows another port, connect with it:</p>
+<pre><code class="language-bash">ssh -p 2222 user@192.168.1.50
+</code></pre>
+<p>Or put it in <code>~/.ssh/config</code>:</p>
+<pre><code class="language-text">Host myserver
+    HostName 192.168.1.50
+    Port 2222
+    User me
+</code></pre>
+<p>If it listens only on <code>127.0.0.1:22</code>, check <code>ListenAddress</code> in <code>/etc/ssh/sshd_config</code> (and files in <code>/etc/ssh/sshd_config.d/</code>). Remove it or set <code>ListenAddress 0.0.0.0</code>.</p>
+<h2 id="cause-4-firewall-rejects-the-port">Cause 4: firewall rejects the port</h2>
+<pre><code class="language-bash">sudo ufw status
+sudo ufw allow OpenSSH             # or: sudo ufw allow 22/tcp
+
+sudo firewall-cmd --list-all
+sudo firewall-cmd --permanent --add-service=ssh &amp;&amp; sudo firewall-cmd --reload
+</code></pre>
+<p>A rejecting <code>iptables</code>/<code>nftables</code> rule (<code>-j REJECT</code>) produces "refused"; a dropping one produces a timeout. Cloud security groups usually drop, so they cause timeouts, not refusals.</p>
+<h2 id="cause-5-wrong-host">Cause 5: wrong host</h2>
+<p>The IP might belong to a different machine than you think (DHCP gave your server a new address, or the name resolves to an old IP). Verify with <code>ping</code>, <code>getent hosts myserver</code>, or check your router's DHCP leases. For a hostname with both IPv6 and IPv4 records, try <code>ssh -4 user@host</code>.</p>
+<h2 id="cause-6-containers-and-vms">Cause 6: containers and VMs</h2>
+<ul>
+<li><strong>Docker:</strong> containers don't run sshd. Use <code>docker exec -it &lt;container&gt; sh</code> instead. If you really run sshd in a container, publish the port (<code>-p 2222:22</code>) and connect to the host's port 2222.</li>
+<li><strong>VirtualBox NAT:</strong> add a port forwarding rule (host 2222 → guest 22) and use <code>ssh -p 2222 user@127.0.0.1</code>.</li>
+<li><strong>WSL:</strong> install and start <code>openssh-server</code> inside the distro, or connect to Windows' own OpenSSH server instead.</li>
+</ul>
+<h2 id="cause-7-your-ip-is-banned-by-fail2ban">Cause 7: your IP is banned by fail2ban</h2>
+<p>fail2ban with the <code>REJECT</code> action makes your IP get "refused" after too many failed logins. On the server: <code>sudo fail2ban-client status sshd</code> and <code>sudo fail2ban-client set sshd unbanip &lt;your-ip&gt;</code>.</p>
+<p class="upd">Last updated 2026-11-06.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/ssh/ssh-connection-timed-out/">ssh: connect to host port 22: Connection timed out</a></li><li><a href="/ssh/ssh-kex-exchange-identification-connection-closed/">kex_exchange_identification: Connection closed by remote host</a></li><li><a href="/ssh/ssh-permission-denied-publickey/">Permission denied (publickey)</a></li><li><a href="/ssh/ssh-connection-closed-by-remote-host/">Connection closed by remote host</a></li><li><a href="/ssh/ssh-host-key-verification-failed/">Host key verification failed.</a></li><li><a href="/ssh/ssh-load-key-invalid-format/">Load key &quot;id_rsa&quot;: invalid format</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

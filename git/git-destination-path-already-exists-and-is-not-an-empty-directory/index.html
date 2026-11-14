@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal: destination path &#x27;X&#x27; already exists and is not an empty directory. (Git) — how to fix</title>
+<meta name="description" content="git clone creates a new folder named after the repo, and a non-empty folder with that name already exists where you ran the command.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-destination-path-already-exists-and-is-not-an-empty-directory/">
+<meta property="og:title" content="fatal: destination path &#x27;X&#x27; already exists and is not an empty directory. (Git) — how to fix"><meta property="og:description" content="git clone creates a new folder named after the repo, and a non-empty folder with that name already exists where you ran the command.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-destination-path-already-exists-and-is-not-an-empty-directory/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal: destination path 'X' already exists and is not an empty directory. (Git) \u2014 how to fix", "description": "git clone creates a new folder named after the repo, and a non-empty folder with that name already exists where you ran the command.", "dateModified": "2026-11-13", "url": "https://errorfix-hollis.github.io/git/git-destination-path-already-exists-and-is-not-an-empty-directory/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "fatal: destination path 'X' already exists and is not an empty directory.", "item": "https://errorfix-hollis.github.io/git/git-destination-path-already-exists-and-is-not-an-empty-directory/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>fatal: destination path &#x27;X&#x27; already exists and is not an empty directory. (Git) — how to fix</h1>
+<pre class="err"><code>$ git clone https://github.com/user/project.git
+fatal: destination path &#x27;project&#x27; already exists and is not an empty directory.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Clone into a different folder: <code>git clone &lt;url&gt; project2</code>. If the existing folder is an old copy, update it instead (<code>cd project &amp;&amp; git pull</code>) or delete it (<code>rm -rf project</code>). To clone into an existing non-empty folder, use <code>git init &amp;&amp; git remote add origin &lt;url&gt; &amp;&amp; git fetch &amp;&amp; git checkout -t origin/main</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>git clone &lt;url&gt;</code> creates a directory (by default the repo name) and checks out files into it. Git refuses to clone into a directory that already contains anything, so it never overwrites your files. Empty directories are fine.</p>
+<p>Look at what's there:</p>
+<pre><code class="language-bash">ls -la project
+git -C project status     # is it already a clone?
+</code></pre>
+<h2 id="fix-1-its-an-old-clone-just-update-it">Fix 1: it's an old clone — just update it</h2>
+<pre><code class="language-bash">cd project
+git remote -v        # confirm it's the same repo
+git pull
+</code></pre>
+<h2 id="fix-2-clone-into-a-different-directory-name">Fix 2: clone into a different directory name</h2>
+<p>The second argument to <code>git clone</code> sets the target folder:</p>
+<pre><code class="language-bash">git clone https://github.com/user/project.git project-new
+</code></pre>
+<h2 id="fix-3-delete-the-existing-folder-and-clone-fresh">Fix 3: delete the existing folder and clone fresh</h2>
+<p>Only if you don't need what's in it:</p>
+<pre><code class="language-bash">rm -rf project
+git clone https://github.com/user/project.git
+</code></pre>
+<p>On Windows PowerShell: <code>Remove-Item -Recurse -Force project</code>.</p>
+<h2 id="fix-4-clone-into-the-current-directory">Fix 4: clone into the current directory (<code>.</code>)</h2>
+<p><code>git clone &lt;url&gt; .</code> works only if the current directory is empty. Hidden files count: an <code>.idea/</code>, <code>.DS_Store</code> or <code>.env</code> makes it "not empty". Check with <code>ls -la</code>.</p>
+<h2 id="fix-5-clone-into-an-existing-non-empty-folder-keep-your-files">Fix 5: clone into an existing non-empty folder (keep your files)</h2>
+<p>Common when a server folder already has files, or you created a project locally before the repo existed:</p>
+<pre><code class="language-bash">cd project
+git init
+git remote add origin https://github.com/user/project.git
+git fetch origin
+git checkout -t origin/main        # or origin/master
+</code></pre>
+<p>If checkout complains <code>untracked working tree files would be overwritten</code>, those local files conflict with files in the repo. Move them aside, or overwrite them with the repo's version:</p>
+<pre><code class="language-bash">git checkout -f -t origin/main     # replaces conflicting local files!
+</code></pre>
+<p>If the folder already has its own commits, merge instead:</p>
+<pre><code class="language-bash">git pull origin main --allow-unrelated-histories
+</code></pre>
+<p>See <a href="/git/git-refusing-to-merge-unrelated-histories/">refusing to merge unrelated histories</a>.</p>
+<h2 id="fix-6-scripts-and-ci-that-clone-repeatedly">Fix 6: scripts and CI that clone repeatedly</h2>
+<p>Make the step idempotent:</p>
+<pre><code class="language-bash">if [ -d project/.git ]; then
+  git -C project pull --ff-only
+else
+  git clone https://github.com/user/project.git project
+fi
+</code></pre>
+<p>In a Dockerfile, a previous <code>COPY . .</code> may already have put files in the target; clone to a separate path or drop the duplicate copy.</p>
+<h2 id="same-error-from-other-tools">Same error from other tools</h2>
+<p>Tools that run <code>git clone</code> under the hood (plugin managers, Homebrew taps, install scripts) print the same message when their target folder already exists, often left over from an interrupted install. Remove or rename that folder and re-run the tool.</p>
+<p class="upd">Last updated 2026-11-13.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-not-a-git-repository/">fatal: not a git repository (or any of the parent directories): .git</a></li><li><a href="/git/git-refusing-to-merge-unrelated-histories/">fatal: refusing to merge unrelated histories</a></li><li><a href="/git/git-remote-origin-already-exists/">error: remote origin already exists.</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

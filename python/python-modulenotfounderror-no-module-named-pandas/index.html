@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;pandas&#x27; (Python) — how to fix</title>
+<meta name="description" content="pandas is not installed in the Python interpreter that is running your code. Usually it was installed into a different Python, virtualenv or conda env.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-pandas/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;pandas&#x27; (Python) — how to fix"><meta property="og:description" content="pandas is not installed in the Python interpreter that is running your code. Usually it was installed into a different Python, virtualenv or conda env.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-pandas/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'pandas' (Python) \u2014 how to fix", "description": "pandas is not installed in the Python interpreter that is running your code. Usually it was installed into a different Python, virtualenv or conda env.", "dateModified": "2026-11-14", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-pandas/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'pandas'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-pandas/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;pandas&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;analysis.py&quot;, line 1, in &lt;module&gt;
+    import pandas as pd
+ModuleNotFoundError: No module named &#x27;pandas&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install it with the same interpreter that runs the script: <code>python -m pip install pandas</code> (or <code>py -m pip install pandas</code> on Windows, <code>conda install pandas</code> in conda). In Jupyter run <code>%pip install pandas</code> in a cell, then restart the kernel. In VS Code select the right interpreter.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Python searched every folder on <code>sys.path</code> for a package called <code>pandas</code> and didn't find one. Either pandas is not installed at all, or it is installed for a <em>different</em> Python than the one running your code. The second case is the usual one on machines with several Pythons (system, Homebrew, python.org, Anaconda, venvs).</p>
+<p>See which interpreter is running:</p>
+<pre><code class="language-bash">python -c &quot;import sys; print(sys.executable)&quot;
+</code></pre>
+<h2 id="fix-1-install-with-python-m-pip">Fix 1: install with <code>python -m pip</code></h2>
+<p>Always install through the interpreter you run, so pip and Python match:</p>
+<pre><code class="language-bash">python -m pip install pandas
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Windows</td>
+<td><code>py -m pip install pandas</code></td>
+</tr>
+<tr>
+<td>macOS / Linux</td>
+<td><code>python3 -m pip install pandas</code></td>
+</tr>
+<tr>
+<td>Inside an activated venv</td>
+<td><code>python -m pip install pandas</code></td>
+</tr>
+<tr>
+<td>Anaconda / Miniconda</td>
+<td><code>conda install pandas</code></td>
+</tr>
+</tbody>
+</table>
+<p>Verify:</p>
+<pre><code class="language-bash">python -c &quot;import pandas; print(pandas.__version__, pandas.__file__)&quot;
+</code></pre>
+<p>If pip itself is missing, see <a href="/python/python-pip-command-not-found/">pip: command not found</a>.</p>
+<h2 id="fix-2-externally-managed-environment-on-debianubuntumacos-homebrew">Fix 2: <code>externally-managed-environment</code> on Debian/Ubuntu/macOS Homebrew</h2>
+<p>Newer system Pythons block <code>pip install</code> globally. Use a virtual environment:</p>
+<pre><code class="language-bash">python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install pandas
+</code></pre>
+<p>Or install the distro package: <code>sudo apt install python3-pandas</code>. Details on the <a href="/python/python-externally-managed-environment/">externally-managed-environment</a> page.</p>
+<h2 id="fix-3-jupyter-notebook-jupyterlab">Fix 3: Jupyter Notebook / JupyterLab</h2>
+<p>The notebook kernel may use a different Python than your terminal. Install from inside the notebook:</p>
+<pre><code class="language-python">%pip install pandas
+</code></pre>
+<p>Then <strong>Kernel → Restart</strong>. <code>%pip</code> installs into the kernel's own environment (unlike <code>!pip</code>, which may use another one). Check with:</p>
+<pre><code class="language-python">import sys; print(sys.executable)
+</code></pre>
+<p>To use a venv as a kernel:</p>
+<pre><code class="language-bash">python -m pip install ipykernel
+python -m ipykernel install --user --name myenv
+</code></pre>
+<h2 id="fix-4-vs-code-pycharm-uses-another-interpreter">Fix 4: VS Code / PyCharm uses another interpreter</h2>
+<ul>
+<li><strong>VS Code:</strong> <code>Ctrl+Shift+P</code> → <strong>Python: Select Interpreter</strong> → pick the venv or conda env where pandas is installed. The interpreter is shown in the status bar.</li>
+<li><strong>PyCharm:</strong> <strong>Settings → Project → Python Interpreter</strong>, choose the right one or click <strong>+</strong> and add <code>pandas</code>.</li>
+</ul>
+<p>Running with the green "Run" button can use a different interpreter than your terminal.</p>
+<h2 id="fix-5-sudo-or-cron-runs-a-different-python">Fix 5: <code>sudo</code> or cron runs a different Python</h2>
+<p><code>sudo python script.py</code> uses root's environment, and cron uses a minimal <code>PATH</code>. Call the venv's interpreter by full path:</p>
+<pre><code class="language-bash">/home/me/project/.venv/bin/python script.py
+</code></pre>
+<h2 id="fix-6-a-file-named-pandaspy">Fix 6: a file named <code>pandas.py</code></h2>
+<p>If the error changes to <code>AttributeError: module 'pandas' has no attribute 'DataFrame'</code> after installing, a local <code>pandas.py</code> (or a folder called <code>pandas</code>) is shadowing the library. Rename it and delete <code>__pycache__</code>.</p>
+<h2 id="install-fails">Install fails?</h2>
+<p>On a very new Python version a wheel may not exist yet, so pip tries to compile from source and fails. Upgrade pip first (<code>python -m pip install -U pip</code>) or use a Python version pandas supports. See <a href="/python/python-failed-building-wheel/">Failed building wheel</a>.</p>
+<p class="upd">Last updated 2026-11-14.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-externally-managed-environment/">error: externally-managed-environment</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-numpy/">ModuleNotFoundError: No module named &#x27;numpy&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

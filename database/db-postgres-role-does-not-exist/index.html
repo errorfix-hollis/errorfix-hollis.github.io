@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FATAL: role &quot;username&quot; does not exist (PostgreSQL) — how to fix</title>
+<meta name="description" content="PostgreSQL has no database user (role) with that name. By default psql connects as your OS username. Connect as the postgres superuser and create the role, or pass the right user with -U.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-role-does-not-exist/">
+<meta property="og:title" content="FATAL: role &quot;username&quot; does not exist (PostgreSQL) — how to fix"><meta property="og:description" content="PostgreSQL has no database user (role) with that name. By default psql connects as your OS username. Connect as the postgres superuser and create the role, or pass the right user with -U.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-role-does-not-exist/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "FATAL: role \"username\" does not exist (PostgreSQL) \u2014 how to fix", "description": "PostgreSQL has no database user (role) with that name. By default psql connects as your OS username. Connect as the postgres superuser and create the role, or pass the right user with -U.", "dateModified": "2026-10-28", "url": "https://errorfix-hollis.github.io/database/db-postgres-role-does-not-exist/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "FATAL: role \"username\" does not exist", "item": "https://errorfix-hollis.github.io/database/db-postgres-role-does-not-exist/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>FATAL: role &quot;username&quot; does not exist (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>psql: error: connection to server on socket &quot;/var/run/postgresql/.s.PGSQL.5432&quot; failed: FATAL:  role &quot;me&quot; does not exist
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Create a role matching your login: <code>sudo -u postgres createuser --interactive</code> (or <code>sudo -u postgres psql -c "CREATE ROLE me LOGIN CREATEDB;"</code>), then <code>createdb me</code>. Or connect explicitly: <code>psql -U postgres -h localhost</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Without <code>-U</code>, <code>psql</code> uses your operating-system username as the PostgreSQL role, and a database with the same name. Fresh installs only have the <code>postgres</code> role, so <code>psql</code> as user <code>me</code> fails.</p>
+<h2 id="fix-on-linux">Fix on Linux</h2>
+<pre><code class="language-bash">sudo -u postgres createuser --interactive      # name: me, superuser? choose
+sudo -u postgres createdb -O me me
+psql                                            # now works
+</code></pre>
+<p>Or in SQL:</p>
+<pre><code class="language-bash">sudo -u postgres psql
+</code></pre>
+<pre><code class="language-sql">CREATE ROLE me WITH LOGIN PASSWORD 'secret' CREATEDB;
+CREATE DATABASE me OWNER me;
+</code></pre>
+<h2 id="fix-on-macos-homebrew">Fix on macOS (Homebrew)</h2>
+<p>Homebrew creates a superuser named after <strong>your</strong> macOS user, not <code>postgres</code>. So <code>role "postgres" does not exist</code> is the common error there:</p>
+<pre><code class="language-bash">createuser -s postgres
+</code></pre>
+<p>or connect with your own user: <code>psql -d postgres</code>.</p>
+<h2 id="fix-with-docker">Fix with Docker</h2>
+<p>The superuser is whatever <code>POSTGRES_USER</code> was set to on <strong>first</strong> start (default <code>postgres</code>):</p>
+<pre><code class="language-bash">docker exec -it db psql -U postgres
+</code></pre>
+<p>Changing <code>POSTGRES_USER</code> later has no effect because the data directory already exists. Either create the role manually or remove the volume to re-initialize (this deletes the data):</p>
+<pre><code class="language-bash">docker compose down -v
+</code></pre>
+<h2 id="in-application-config">In application config</h2>
+<p>Check the username in your connection string, e.g. <code>postgresql://app:secret@localhost:5432/appdb</code>. ORMs (Django, Rails, Prisma) then need the database to exist too; <code>FATAL: database "appdb" does not exist</code> is fixed with <code>createdb -O app appdb</code>.</p>
+<p class="upd">Last updated 2026-10-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-postgres-connection-refused/">psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused</a></li><li><a href="/database/db-postgres-password-authentication-failed/">FATAL: password authentication failed for user &quot;postgres&quot;</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

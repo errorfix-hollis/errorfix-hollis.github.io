@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error TS1286: ESM syntax is not allowed in a CommonJS module when &#x27;verbatimModuleSyntax&#x27; is enabled. (TypeScript) — how to fix</title>
+<meta name="description" content="With verbatimModuleSyntax on, TypeScript emits imports exactly as written, so it refuses import/export in files it treats as CommonJS (no &quot;type&quot;: &quot;module&quot; in package.json, or a .cts file). Make the file ESM or turn the option off.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-ts1286-esm-syntax-is-not-allowed-in-a-commonjs-module/">
+<meta property="og:title" content="error TS1286: ESM syntax is not allowed in a CommonJS module when &#x27;verbatimModuleSyntax&#x27; is enabled. (TypeScript) — how to fix"><meta property="og:description" content="With verbatimModuleSyntax on, TypeScript emits imports exactly as written, so it refuses import/export in files it treats as CommonJS (no &quot;type&quot;: &quot;module&quot; in package.json, or a .cts file). Make the file ESM or turn the option off.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-ts1286-esm-syntax-is-not-allowed-in-a-commonjs-module/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error TS1286: ESM syntax is not allowed in a CommonJS module when 'verbatimModuleSyntax' is enabled. (TypeScript) \u2014 how to fix", "description": "With verbatimModuleSyntax on, TypeScript emits imports exactly as written, so it refuses import/export in files it treats as CommonJS (no \"type\": \"module\" in package.json, or a .cts file). Make the file ESM or turn the option off.", "dateModified": "2026-11-12", "url": "https://errorfix-hollis.github.io/javascript/js-ts1286-esm-syntax-is-not-allowed-in-a-commonjs-module/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "error TS1286: ESM syntax is not allowed in a CommonJS module when 'verbatimModuleSyntax' is enabled.", "item": "https://errorfix-hollis.github.io/javascript/js-ts1286-esm-syntax-is-not-allowed-in-a-commonjs-module/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>error TS1286: ESM syntax is not allowed in a CommonJS module when &#x27;verbatimModuleSyntax&#x27; is enabled. (TypeScript) — how to fix</h1>
+<pre class="err"><code>src/index.ts:1:1 - error TS1286: ESM syntax is not allowed in a CommonJS module when &#x27;verbatimModuleSyntax&#x27; is enabled.
+
+1 import express from &quot;express&quot;;
+  ~~~~~~
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> If the project should be ESM, add <code>"type": "module"</code> to package.json (with <code>"module": "NodeNext"</code> in tsconfig) or rename the file to <code>.mts</code>. If it should stay CommonJS, set <code>"verbatimModuleSyntax": false</code> in tsconfig (or use <code>import x = require("x")</code> / <code>export =</code> syntax).</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>verbatimModuleSyntax</code> (TypeScript 5.0+) tells the compiler: <em>don't rewrite my imports and exports, emit them as written</em> (only <code>import type</code> is dropped). That's only possible if the output format matches the source syntax.</p>
+<p>When <code>module</code> is <code>NodeNext</code>/<code>Node16</code>, TypeScript decides per file whether it's ESM or CommonJS, the same way Node does:</p>
+<ul>
+<li><code>.mts</code> / <code>.mjs</code> → ESM</li>
+<li><code>.cts</code> / <code>.cjs</code> → CommonJS</li>
+<li><code>.ts</code> / <code>.js</code> → ESM if the nearest <code>package.json</code> has <code>"type": "module"</code>, otherwise <strong>CommonJS</strong></li>
+</ul>
+<p>If a file is CommonJS and contains <code>import ... from</code> or <code>export</code>, TypeScript would have to convert it to <code>require()</code>, which <code>verbatimModuleSyntax</code> forbids. So you get TS1286. (<code>module: "commonjs"</code> with the flag on gives the same error for every file.)</p>
+<p>The sibling error <strong>TS1287</strong> says <em>"A top-level 'export' modifier cannot be used on value declarations in a CommonJS module"</em>, same cause, same fixes.</p>
+<h2 id="fix-1-make-the-project-esm-recommended-for-new-code">Fix 1: make the project ESM (recommended for new code)</h2>
+<pre><code class="language-json">// package.json
+{
+  &quot;type&quot;: &quot;module&quot;
+}
+</code></pre>
+<pre><code class="language-json">// tsconfig.json
+{
+  &quot;compilerOptions&quot;: {
+    &quot;module&quot;: &quot;NodeNext&quot;,
+    &quot;moduleResolution&quot;: &quot;NodeNext&quot;,
+    &quot;verbatimModuleSyntax&quot;: true
+  }
+}
+</code></pre>
+<p>In ESM, relative imports need file extensions in the source, written as <code>.js</code> even though the file is <code>.ts</code>:</p>
+<pre><code class="language-ts">import { helper } from &quot;./helper.js&quot;;
+</code></pre>
+<p>Also replace <code>__dirname</code> with <code>import.meta.dirname</code> (Node 20.11+) and <code>require()</code> with <code>import</code>.</p>
+<h2 id="fix-2-make-just-one-file-esm">Fix 2: make just one file ESM</h2>
+<p>Rename it to <code>.mts</code>. Its output becomes <code>.mjs</code>, which Node always runs as ESM, without changing the rest of the package.</p>
+<h2 id="fix-3-keep-commonjs-turn-the-flag-off">Fix 3: keep CommonJS, turn the flag off</h2>
+<p>If your package is intentionally CommonJS (older tooling, Jest without ESM, etc.), let TypeScript transform imports to <code>require()</code>:</p>
+<pre><code class="language-json">{
+  &quot;compilerOptions&quot;: {
+    &quot;module&quot;: &quot;NodeNext&quot;,
+    &quot;verbatimModuleSyntax&quot;: false,
+    &quot;esModuleInterop&quot;: true
+  }
+}
+</code></pre>
+<p>Many templates (e.g. <code>tsc --init</code> in TS 5.9+, Vite templates) turn <code>verbatimModuleSyntax</code> on by default, which is why this suddenly appears in new projects. If you turn it off and still want type-only imports enforced, keep using <code>import type</code> by convention or a lint rule (<code>@typescript-eslint/consistent-type-imports</code>).</p>
+<h2 id="fix-4-keep-the-flag-and-commonjs-use-cjs-syntax">Fix 4: keep the flag and CommonJS, use CJS syntax</h2>
+<p>TypeScript's CommonJS-shaped syntax is allowed with the flag on:</p>
+<pre><code class="language-ts">import express = require(&quot;express&quot;);
+import type { Request } from &quot;express&quot;;
+
+const app = express();
+export = app;
+</code></pre>
+<p>This is rarely worth it outside of declaration-heavy library code.</p>
+<h2 id="fix-5-a-bundler-handles-modules">Fix 5: a bundler handles modules</h2>
+<p>If Vite, esbuild, tsup or Next.js does the bundling and <code>tsc</code> only type-checks, use:</p>
+<pre><code class="language-json">{
+  &quot;compilerOptions&quot;: {
+    &quot;module&quot;: &quot;ESNext&quot;,
+    &quot;moduleResolution&quot;: &quot;Bundler&quot;,
+    &quot;noEmit&quot;: true
+  }
+}
+</code></pre>
+<p>With <code>module: "ESNext"</code> every file is ESM, so TS1286 can't occur.</p>
+<h2 id="check-how-typescript-sees-a-file">Check how TypeScript sees a file</h2>
+<pre><code class="language-bash">npx tsc --explainFiles | grep -A2 &quot;src/index.ts&quot;
+</code></pre>
+<p>It prints lines like <em>"File is CommonJS module because 'package.json' does not have field "type""</em>, which tells you exactly which rule applied.</p>
+<p class="upd">Last updated 2026-11-12.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-ts1484-is-a-type-and-must-be-imported-using-a-type-only-import/">TS1484: &#x27;X&#x27; is a type and must be imported using a type-only import when &#x27;verbatimModuleSyntax&#x27; is enabled.</a></li><li><a href="/javascript/node-cannot-use-import-statement-outside-a-module/">SyntaxError: Cannot use import statement outside a module</a></li><li><a href="/npm/node-err-require-esm/">Error [ERR_REQUIRE_ESM]: require() of ES Module not supported</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error[E0425]: cannot find value `x` in this scope (Rust) — how to fix</title>
+<meta name="description" content="You used a variable, constant or function name that doesn&#x27;t exist where you used it: it is out of scope (declared inside a block), misspelled, not imported, or `self` is missing in a method.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/rust/rust-e0425-cannot-find-value-in-this-scope/">
+<meta property="og:title" content="error[E0425]: cannot find value `x` in this scope (Rust) — how to fix"><meta property="og:description" content="You used a variable, constant or function name that doesn&#x27;t exist where you used it: it is out of scope (declared inside a block), misspelled, not imported, or `self` is missing in a method.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/rust/rust-e0425-cannot-find-value-in-this-scope/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error[E0425]: cannot find value `x` in this scope (Rust) \u2014 how to fix", "description": "You used a variable, constant or function name that doesn't exist where you used it: it is out of scope (declared inside a block), misspelled, not imported, or `self` is missing in a method.", "dateModified": "2026-11-07", "url": "https://errorfix-hollis.github.io/rust/rust-e0425-cannot-find-value-in-this-scope/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Rust", "item": "https://errorfix-hollis.github.io/rust/"}, {"@type": "ListItem", "position": 3, "name": "error[E0425]: cannot find value `x` in this scope", "item": "https://errorfix-hollis.github.io/rust/rust-e0425-cannot-find-value-in-this-scope/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/rust/">Rust</a></p>
+<article><h1>error[E0425]: cannot find value `x` in this scope (Rust) — how to fix</h1>
+<pre class="err"><code>error[E0425]: cannot find value `total` in this scope
+ --&gt; src/main.rs:7:20
+  |
+7 |     println!(&quot;{}&quot;, total);
+  |                    ^^^^^ not found in this scope
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Declare the variable in the scope where you use it (e.g. before the <code>if</code>/loop and assign inside), fix the spelling, add <code>self.</code> for struct fields inside methods, or import the item with <code>use crate::module::NAME;</code> (and make it <code>pub</code>). Run <code>cargo check</code> and follow the <code>help: a local variable with a similar name exists</code> hints.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Rust resolves every name at compile time. E0425 is reported for values and functions (<code>cannot find value</code>, <code>cannot find function</code>); types get E0412 and modules/crates E0433. The name is simply not visible at that point.</p>
+<h2 id="cause-1-variable-declared-inside-a-block">Cause 1: variable declared inside a block</h2>
+<p><code>let</code> bindings live until the end of the enclosing <code>{}</code> block:</p>
+<pre><code class="language-rust">fn main() {
+    let items = vec![1, 2, 3];
+    for x in &amp;items {
+        let total = x * 2;
+    }
+    println!(&quot;{}&quot;, total);   // E0425
+}
+</code></pre>
+<p>Fix: declare it in the outer scope:</p>
+<pre><code class="language-rust">let mut total = 0;
+for x in &amp;items {
+    total += x * 2;
+}
+println!(&quot;{}&quot;, total);
+</code></pre>
+<p>For values set in an <code>if</code>, use the fact that <code>if</code> is an expression:</p>
+<pre><code class="language-rust">let label = if n &gt; 0 { &quot;positive&quot; } else { &quot;non-positive&quot; };
+</code></pre>
+<h2 id="cause-2-struct-field-used-without-self">Cause 2: struct field used without <code>self</code></h2>
+<p>Rust has no implicit <code>this</code>:</p>
+<pre><code class="language-rust">struct Counter { count: u32 }
+
+impl Counter {
+    fn inc(&amp;mut self) {
+        count += 1;          // E0425
+        self.count += 1;     // correct
+    }
+}
+</code></pre>
+<p>If the method has no <code>self</code> parameter (an associated function), you can't access fields at all; add <code>&amp;self</code> or <code>&amp;mut self</code>.</p>
+<h2 id="cause-3-function-or-constant-in-another-module">Cause 3: function or constant in another module</h2>
+<pre><code class="language-rust">mod util {
+    pub fn helper() {}
+    pub const MAX: usize = 10;
+}
+
+fn main() {
+    helper();            // E0425
+    util::helper();      // ok
+}
+</code></pre>
+<p>Or import it: <code>use crate::util::{helper, MAX};</code>. Items are private by default, so add <code>pub</code> (a private item gives E0603 instead). For a file <code>src/util.rs</code>, declare <code>mod util;</code> in <code>main.rs</code> or <code>lib.rs</code>.</p>
+<p>From a binary using its own library crate, refer to it by the package name: <code>use my_crate::helper;</code>.</p>
+<h2 id="cause-4-typo-or-case">Cause 4: typo or case</h2>
+<p><code>cargo check</code> usually adds a hint like <code>help: a local variable with a similar name exists: `totals`</code>. Remember Rust is case-sensitive and constants are <code>SCREAMING_CASE</code>.</p>
+<h2 id="cause-5-variable-used-inside-a-closure-or-thread-before-it-exists">Cause 5: variable used inside a closure or thread before it exists</h2>
+<p>Moving the <code>let</code> after the closure that uses it, or referring to a variable defined in another function, gives E0425. Closures can only capture variables that are already declared in an enclosing scope.</p>
+<h2 id="cause-6-macros-and-cfg">Cause 6: macros and <code>cfg</code></h2>
+<ul>
+<li>A variable declared inside a macro body is hygienic: <code>macro_rules!</code> locals aren't visible to the caller unless the identifier is passed in as a macro argument.</li>
+<li>Code behind <code>#[cfg(feature = "x")]</code> or <code>#[cfg(test)]</code> is removed when the condition is false, so names defined there vanish. Enable the feature (<code>cargo build --features x</code>) or move the definition outside the <code>cfg</code>.</li>
+</ul>
+<h2 id="cause-7-function-defined-inside-another-function">Cause 7: function defined inside another function</h2>
+<p>Nested <code>fn</code> items are only visible in the enclosing function. Move helpers to module level if several functions need them.</p>
+<p class="upd">Last updated 2026-11-07.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/rust/rust-borrow-of-moved-value/">error[E0382]: borrow of moved value</a></li><li><a href="/rust/rust-e0308-mismatched-types/">error[E0308]: mismatched types</a></li><li><a href="/rust/rust-e0599-no-method-named-found/">error[E0599]: no method named `x` found for struct `T` in the current scope</a></li><li><a href="/rust/rust-cannot-borrow-as-mutable/">error[E0502]: cannot borrow as mutable because it is also borrowed as immutable</a></li><li><a href="/rust/rust-e0106-missing-lifetime-specifier/">error[E0106]: missing lifetime specifier</a></li><li><a href="/rust/rust-e0277-trait-bound-not-satisfied/">error[E0277]: the trait bound is not satisfied</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

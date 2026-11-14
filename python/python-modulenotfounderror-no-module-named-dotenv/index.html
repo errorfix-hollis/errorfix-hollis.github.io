@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;dotenv&#x27; (Python) — how to fix</title>
+<meta name="description" content="The import name is dotenv but the package on PyPI is python-dotenv. Either it isn&#x27;t installed, or it&#x27;s installed into a different Python/virtualenv than the one running your code.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-dotenv/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;dotenv&#x27; (Python) — how to fix"><meta property="og:description" content="The import name is dotenv but the package on PyPI is python-dotenv. Either it isn&#x27;t installed, or it&#x27;s installed into a different Python/virtualenv than the one running your code.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-dotenv/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'dotenv' (Python) \u2014 how to fix", "description": "The import name is dotenv but the package on PyPI is python-dotenv. Either it isn't installed, or it's installed into a different Python/virtualenv than the one running your code.", "dateModified": "2026-11-12", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-dotenv/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'dotenv'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-dotenv/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;dotenv&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 1, in &lt;module&gt;
+    from dotenv import load_dotenv
+ModuleNotFoundError: No module named &#x27;dotenv&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install the right package into the interpreter you run: <code>python -m pip install python-dotenv</code> (not <code>pip install dotenv</code>). Inside a venv, activate it first. If you installed <code>dotenv</code> by mistake, <code>pip uninstall dotenv</code> then install <code>python-dotenv</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>from dotenv import load_dotenv</code> imports the module <code>dotenv</code>, which is provided by the PyPI package <strong><code>python-dotenv</code></strong>. Python can't find that module on its <code>sys.path</code>.</p>
+<p>Three usual reasons: the package isn't installed, the wrong package was installed, or it was installed for a different Python.</p>
+<h2 id="fix-1-install-python-dotenv-not-dotenv">Fix 1: install <code>python-dotenv</code> (not <code>dotenv</code>)</h2>
+<pre><code class="language-bash">python -m pip install python-dotenv
+</code></pre>
+<p>There is an unrelated, old package on PyPI called <code>dotenv</code>. If you installed that, remove it first because it can break the import:</p>
+<pre><code class="language-bash">python -m pip uninstall -y dotenv
+python -m pip install python-dotenv
+</code></pre>
+<p>Add it to your dependencies so it's installed everywhere:</p>
+<pre><code class="language-text"># requirements.txt
+python-dotenv&gt;=1.0
+</code></pre>
+<p>Poetry: <code>poetry add python-dotenv</code>. uv: <code>uv add python-dotenv</code>. Pipenv: <code>pipenv install python-dotenv</code>.</p>
+<h2 id="fix-2-installed-for-a-different-interpreter">Fix 2: installed for a different interpreter</h2>
+<p><code>pip</code> and <code>python</code> can point to different installations. Using <code>python -m pip</code> guarantees they match. Check:</p>
+<pre><code class="language-bash">python -c &quot;import sys; print(sys.executable)&quot;
+python -m pip show python-dotenv
+</code></pre>
+<p>If <code>pip show</code> prints nothing, it's not installed for that interpreter.</p>
+<p><strong>Virtualenv:</strong> activate it before installing and running:</p>
+<pre><code class="language-bash">python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install python-dotenv
+</code></pre>
+<p><strong>VS Code / PyCharm:</strong> select the venv interpreter (VS Code: <em>Python: Select Interpreter</em>). The editor's Run button may use a different Python than your terminal.</p>
+<p><strong>Jupyter:</strong> install from inside the notebook so it goes to the kernel's Python:</p>
+<pre><code class="language-python">%pip install python-dotenv
+</code></pre>
+<p>On Debian/Ubuntu system Python you may get <a href="/python/python-externally-managed-environment/">externally-managed-environment</a>; use a venv, or <code>sudo apt install python3-dotenv</code>.</p>
+<h2 id="fix-3-docker-deployment">Fix 3: Docker / deployment</h2>
+<p>The image needs the package too. Make sure it's in <code>requirements.txt</code> and the Dockerfile installs it:</p>
+<pre><code class="language-dockerfile">COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+</code></pre>
+<p>In production you often don't need <code>.env</code> files at all: the platform sets real environment variables. You can make the import optional:</p>
+<pre><code class="language-python">try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+</code></pre>
+<h2 id="fix-4-a-local-file-shadows-the-module">Fix 4: a local file shadows the module</h2>
+<p>A file named <code>dotenv.py</code> (or a folder <code>dotenv/</code>) in your project shadows the real package, usually giving <code>ImportError: cannot import name 'load_dotenv'</code>. Rename it and delete <code>__pycache__</code>.</p>
+<h2 id="check-it-works">Check it works</h2>
+<pre><code class="language-python">from dotenv import load_dotenv
+import os
+load_dotenv()                 # reads .env from the current dir or parents
+print(os.getenv(&quot;MY_VAR&quot;))
+</code></pre>
+<p><code>load_dotenv()</code> doesn't override variables already set in the environment unless you pass <code>override=True</code>.</p>
+<p class="upd">Last updated 2026-11-12.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-externally-managed-environment/">error: externally-managed-environment</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-yaml/">ModuleNotFoundError: No module named &#x27;yaml&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>npx: command not found (Node.js) — how to fix</title>
+<meta name="description" content="The shell can&#x27;t find the npx executable. Node.js isn&#x27;t installed, was installed without npm (some distro packages), or its bin directory isn&#x27;t on your PATH (common with nvm in new shells, CI and IDE terminals).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-npx-command-not-found/">
+<meta property="og:title" content="npx: command not found (Node.js) — how to fix"><meta property="og:description" content="The shell can&#x27;t find the npx executable. Node.js isn&#x27;t installed, was installed without npm (some distro packages), or its bin directory isn&#x27;t on your PATH (common with nvm in new shells, CI and IDE terminals).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-npx-command-not-found/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "npx: command not found (Node.js) \u2014 how to fix", "description": "The shell can't find the npx executable. Node.js isn't installed, was installed without npm (some distro packages), or its bin directory isn't on your PATH (common with nvm in new shells, CI and IDE terminals).", "dateModified": "2026-11-01", "url": "https://errorfix-hollis.github.io/npm/npm-npx-command-not-found/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "npx: command not found", "item": "https://errorfix-hollis.github.io/npm/npm-npx-command-not-found/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>npx: command not found (Node.js) — how to fix</h1>
+<pre class="err"><code>bash: npx: command not found
+zsh: command not found: npx
+&#x27;npx&#x27; is not recognized as an internal or external command, operable program or batch file.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check <code>node -v</code> and <code>npm -v</code>. If npm works, run <code>npm install -g npm</code> (npx ships with npm 7+) or use <code>npm exec -- &lt;pkg&gt;</code>. If Node is missing, install it with nvm (<code>nvm install --lts</code>) or the NodeSource/official installer, not the old distro package. With nvm, open a new shell or run <code>source ~/.nvm/nvm.sh</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>npx</code> is a command-line tool bundled with npm (since npm 5.2; in npm 7+ it's a wrapper around <code>npm exec</code>). It lives in the same directory as <code>node</code> and <code>npm</code>. "command not found" means that directory isn't on your <code>PATH</code>, or npx was never installed.</p>
+<p>Start by checking what does exist:</p>
+<pre><code class="language-bash">which node npm npx
+node -v
+npm -v
+echo $PATH
+</code></pre>
+<h2 id="cause-1-nodejs-isnt-installed">Cause 1: Node.js isn't installed</h2>
+<p>Install a current LTS. With nvm (Linux/macOS, no sudo needed):</p>
+<pre><code class="language-bash">curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+source ~/.nvm/nvm.sh
+nvm install --lts
+npx --version
+</code></pre>
+<p>On Windows, use the installer from nodejs.org (leave "Add to PATH" checked) or <code>winget install OpenJS.NodeJS.LTS</code>, then open a <strong>new</strong> terminal.</p>
+<p>On macOS with Homebrew: <code>brew install node</code>.</p>
+<h2 id="cause-2-debianubuntus-nodejs-package-without-npm">Cause 2: Debian/Ubuntu's nodejs package without npm</h2>
+<p><code>sudo apt install nodejs</code> from the distro repos installs Node but not npm/npx (and is often an old version). Either install the separate package:</p>
+<pre><code class="language-bash">sudo apt install npm
+</code></pre>
+<p>or, better, remove it and use nvm or NodeSource's packages, which include npm and npx.</p>
+<h2 id="cause-3-nvm-isnt-loaded-in-this-shell">Cause 3: nvm isn't loaded in this shell</h2>
+<p>nvm works by modifying <code>PATH</code> from your shell startup file. In a new terminal that didn't load it, or a non-interactive script, <code>node</code> and <code>npx</code> vanish:</p>
+<pre><code class="language-bash">source ~/.nvm/nvm.sh
+nvm use --lts
+nvm alias default 'lts/*'     # so new shells get a version automatically
+</code></pre>
+<p>Make sure <code>~/.bashrc</code> or <code>~/.zshrc</code> contains the lines the nvm installer added. Scripts run by cron, systemd or <code>sudo</code> don't read those files; use full paths (<code>~/.nvm/versions/node/v22.x.x/bin/npx</code>) or source nvm.sh in the script.</p>
+<p><code>sudo npx ...</code> fails for the same reason: sudo resets <code>PATH</code>. Avoid sudo with npx; if you must, <code>sudo env "PATH=$PATH" npx ...</code>.</p>
+<h2 id="cause-4-npm-is-very-old-or-npx-was-removed">Cause 4: npm is very old, or npx was removed</h2>
+<p>Old npm versions (&lt; 5.2) have no npx. Update npm itself:</p>
+<pre><code class="language-bash">npm install -g npm@latest
+</code></pre>
+<p>If npm works but npx doesn't, you can always use the equivalent:</p>
+<pre><code class="language-bash">npm exec -- create-vite@latest my-app
+# same as: npx create-vite@latest my-app
+</code></pre>
+<h2 id="cause-5-windows-path-or-ide-terminal">Cause 5: Windows PATH or IDE terminal</h2>
+<p>After installing Node on Windows, already-open terminals and VS Code keep the old <code>PATH</code>. Close and reopen them (restart VS Code fully). Check that <code>C:\Program Files\nodejs\</code> is in your PATH (System Properties -&gt; Environment Variables). In PowerShell, if you get <code>npx.ps1 cannot be loaded because running scripts is disabled</code>, run <code>Set-ExecutionPolicy -Scope CurrentUser RemoteSigned</code> or call <code>npx.cmd</code>.</p>
+<h2 id="cause-6-ci-and-docker-images">Cause 6: CI and Docker images</h2>
+<p>Images like <code>alpine</code> or <code>python</code> don't include Node. Use a <code>node:22</code> image, or in GitHub Actions add <code>actions/setup-node</code> before steps that call <code>npx</code>.</p>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-command-not-found/">command not found</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/npm-eacces-permission-denied/">npm ERR! code EACCES</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li><li><a href="/npm/node-err-require-esm/">Error [ERR_REQUIRE_ESM]: require() of ES Module not supported</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

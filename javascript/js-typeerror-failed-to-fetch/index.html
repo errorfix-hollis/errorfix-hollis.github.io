@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: Failed to fetch (JavaScript) — how to fix</title>
+<meta name="description" content="fetch() never got an HTTP response it was allowed to read. The usual causes are CORS, the server being down or unreachable, mixed content (HTTP from an HTTPS page), a wrong URL, or a browser extension blocking the request.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-typeerror-failed-to-fetch/">
+<meta property="og:title" content="TypeError: Failed to fetch (JavaScript) — how to fix"><meta property="og:description" content="fetch() never got an HTTP response it was allowed to read. The usual causes are CORS, the server being down or unreachable, mixed content (HTTP from an HTTPS page), a wrong URL, or a browser extension blocking the request.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-typeerror-failed-to-fetch/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: Failed to fetch (JavaScript) \u2014 how to fix", "description": "fetch() never got an HTTP response it was allowed to read. The usual causes are CORS, the server being down or unreachable, mixed content (HTTP from an HTTPS page), a wrong URL, or a browser extension blocking the request.", "dateModified": "2026-11-13", "url": "https://errorfix-hollis.github.io/javascript/js-typeerror-failed-to-fetch/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: Failed to fetch", "item": "https://errorfix-hollis.github.io/javascript/js-typeerror-failed-to-fetch/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>TypeError: Failed to fetch (JavaScript) — how to fix</h1>
+<pre class="err"><code>Uncaught (in promise) TypeError: Failed to fetch
+    at fetchData (app.js:12:22)
+TypeError: NetworkError when attempting to fetch resource.   (Firefox)
+TypeError: Load failed                                        (Safari)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Open DevTools → Console and Network: the real reason is printed next to the failed request. CORS → add <code>Access-Control-Allow-Origin</code> on the server (or proxy the API). <code>ERR_CONNECTION_REFUSED</code> → start the server / fix host and port. Mixed content → call the API over <code>https://</code>. Also disable ad blockers and check the URL scheme.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>fetch()</code> rejects its promise with <code>TypeError</code> only on <em>network-level</em> failures. An HTTP 404 or 500 does <strong>not</strong> cause this — those resolve normally with <code>response.ok === false</code>. So "Failed to fetch" means the browser either couldn't reach the server, or got a response but refused to give it to your script.</p>
+<p>The message itself is deliberately vague for security. The details are in DevTools:</p>
+<ul>
+<li><strong>Console</strong>: look for a red line just before the TypeError (CORS, mixed content, CSP).</li>
+<li><strong>Network tab</strong>: the request's status column shows <code>(failed)</code>, <code>CORS error</code>, <code>net::ERR_CONNECTION_REFUSED</code>, <code>(blocked:mixed-content)</code> etc.</li>
+</ul>
+<h2 id="cause-1-cors">Cause 1: CORS</h2>
+<p>Console shows: <code>has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present</code>. The server must allow your page's origin:</p>
+<pre><code class="language-js">// Express
+import cors from &quot;cors&quot;;
+app.use(cors({ origin: &quot;http://localhost:5173&quot; }));
+</code></pre>
+<p>Requests with JSON bodies or custom headers send a preflight <code>OPTIONS</code> request first; the server must answer it with 2xx and the <code>Access-Control-Allow-*</code> headers. <code>mode: "no-cors"</code> does <strong>not</strong> fix this — it gives you an empty, unreadable response. During development, a dev-server proxy avoids CORS completely:</p>
+<pre><code class="language-js">// vite.config.js
+export default { server: { proxy: { &quot;/api&quot;: &quot;http://localhost:3000&quot; } } };
+</code></pre>
+<p>Then call <code>fetch("/api/items")</code>. Full guide: <a href="/web/web-cors-no-access-control-allow-origin/">CORS No 'Access-Control-Allow-Origin'</a>.</p>
+<h2 id="cause-2-server-not-running-or-wrong-hostport">Cause 2: server not running or wrong host/port</h2>
+<p>Network tab shows <code>net::ERR_CONNECTION_REFUSED</code> or <code>ERR_NAME_NOT_RESOLVED</code>. Check the API is up:</p>
+<pre><code class="language-bash">curl -i http://localhost:3000/api/items
+</code></pre>
+<p>Common mistakes: wrong port, <code>localhost</code> in a URL used from a phone or another container, server bound only to <code>127.0.0.1</code>, or an env var like <code>VITE_API_URL</code> undefined (producing <code>undefined/api/items</code>). Log the URL you're fetching.</p>
+<h2 id="cause-3-mixed-content">Cause 3: mixed content</h2>
+<p>An <code>https://</code> page can't fetch <code>http://</code> URLs. Console shows <code>Mixed Content: ... was loaded over HTTPS, but requested an insecure resource</code>. Serve the API over HTTPS, or use a relative URL. See <a href="/web/web-mixed-content-blocked/">mixed content blocked</a>.</p>
+<h2 id="cause-4-invalid-or-self-signed-certificate">Cause 4: invalid or self-signed certificate</h2>
+<p><code>net::ERR_CERT_AUTHORITY_INVALID</code> on an HTTPS API (e.g. a local dev server with a self-signed cert). Open the API URL directly in the browser and accept it for dev, or use a trusted local cert (mkcert).</p>
+<h2 id="cause-5-browser-extensions-csp-or-firewalls">Cause 5: browser extensions, CSP, or firewalls</h2>
+<p>Ad blockers and privacy extensions block URLs containing words like <code>analytics</code>, <code>track</code>, <code>ads</code> (<code>net::ERR_BLOCKED_BY_CLIENT</code>). Test in a private window without extensions. A Content Security Policy <code>connect-src</code> directive can also block the request — the console says so explicitly.</p>
+<h2 id="cause-6-request-aborted-or-page-navigated-away">Cause 6: request aborted or page navigated away</h2>
+<p>A form <code>submit</code> that reloads the page cancels in-flight fetches. Call <code>event.preventDefault()</code> in the submit handler. Timeouts via <code>AbortController</code> reject with <code>AbortError</code>, not this TypeError.</p>
+<h2 id="handle-it-in-code">Handle it in code</h2>
+<pre><code class="language-js">try {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+} catch (err) {
+  console.error(&quot;Request failed:&quot;, url, err);
+}
+</code></pre>
+<p>In Node.js 18+, the same failure appears as <code>TypeError: fetch failed</code> with the real reason in <code>err.cause</code> (e.g. <code>ECONNREFUSED</code>).</p>
+<p class="upd">Last updated 2026-11-13.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-err-connection-refused/">ERR_CONNECTION_REFUSED</a></li><li><a href="/web/web-mixed-content-blocked/">Mixed Content: The page was loaded over HTTPS, but requested an insecure resource. This request has been blocked.</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

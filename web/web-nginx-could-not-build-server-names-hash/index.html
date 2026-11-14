@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>nginx: [emerg] could not build server_names_hash, you should increase server_names_hash_bucket_size — how to fix</title>
+<meta name="description" content="nginx stores all server_name values in a hash table, and one of your names is too long (or you have too many) for the default bucket size. Raise server_names_hash_bucket_size (and/or server_names_hash_max_size) in the http block.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-nginx-could-not-build-server-names-hash/">
+<meta property="og:title" content="nginx: [emerg] could not build server_names_hash, you should increase server_names_hash_bucket_size — how to fix"><meta property="og:description" content="nginx stores all server_name values in a hash table, and one of your names is too long (or you have too many) for the default bucket size. Raise server_names_hash_bucket_size (and/or server_names_hash_max_size) in the http block.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-nginx-could-not-build-server-names-hash/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "nginx: [emerg] could not build server_names_hash, you should increase server_names_hash_bucket_size \u2014 how to fix", "description": "nginx stores all server_name values in a hash table, and one of your names is too long (or you have too many) for the default bucket size. Raise server_names_hash_bucket_size (and/or server_names_hash_max_size) in the http block.", "dateModified": "2026-11-08", "url": "https://errorfix-hollis.github.io/web/web-nginx-could-not-build-server-names-hash/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "nginx: [emerg] could not build server_names_hash, you should increase server_names_hash_bucket_size", "item": "https://errorfix-hollis.github.io/web/web-nginx-could-not-build-server-names-hash/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>nginx: [emerg] could not build server_names_hash, you should increase server_names_hash_bucket_size — how to fix</h1>
+<pre class="err"><code>nginx: [emerg] could not build server_names_hash, you should increase server_names_hash_bucket_size: 64
+nginx: configuration file /etc/nginx/nginx.conf test failed
+nginx: [warn] could not build optimal server_names_hash, you should increase either server_names_hash_max_size: 512 or server_names_hash_bucket_size: 64; ignoring server_names_hash_bucket_size
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> In the <code>http { }</code> block of /etc/nginx/nginx.conf set <code>server_names_hash_bucket_size 128;</code> (on Debian/Ubuntu just uncomment the existing line and change 64 to 128). For the 'optimal' warning with many names, also set <code>server_names_hash_max_size 1024;</code>. Then <code>sudo nginx -t &amp;&amp; sudo systemctl reload nginx</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>nginx builds a hash table of every <code>server_name</code> at startup. Each hash bucket has a fixed size (<code>server_names_hash_bucket_size</code>, default 32, 64 or 128 depending on the CPU cache line size), and <strong>a single name plus overhead must fit in one bucket</strong>. A long hostname, such as a cloud load balancer name or a deep subdomain like <code>my-app-staging-eu-west-1.internal.example.com</code>, overflows it and nginx refuses to start (<code>[emerg]</code>).</p>
+<p>The <code>[warn] could not build optimal server_names_hash</code> variant means the table works but isn't efficient, usually because you have many server names. That one is only a warning, but worth fixing.</p>
+<h2 id="fix-raise-the-bucket-size">Fix: raise the bucket size</h2>
+<p>Edit <code>/etc/nginx/nginx.conf</code>. The directive must be in the <code>http</code> context, not inside a <code>server</code> block:</p>
+<pre><code class="language-nginx">http {
+    server_names_hash_bucket_size 128;
+    # server_names_hash_max_size 1024;   # if you have many names
+
+    include /etc/nginx/conf.d/*.conf;
+    include /etc/nginx/sites-enabled/*;
+}
+</code></pre>
+<p>On Debian and Ubuntu the default <code>nginx.conf</code> already contains a commented line:</p>
+<pre><code class="language-nginx"># server_names_hash_bucket_size 64;
+</code></pre>
+<p>Uncomment it and set 128 (use powers of two: 64, 128, 256). Then:</p>
+<pre><code class="language-bash">sudo nginx -t
+sudo systemctl reload nginx
+</code></pre>
+<p>If 128 still isn't enough, the name is extremely long or there's a mistake (see below); try 256.</p>
+<h2 id="fix-for-the-optimal-warning">Fix for the "optimal" warning</h2>
+<p>With hundreds or thousands of names (multi-tenant hosting, big redirect maps), raise the maximum table size first:</p>
+<pre><code class="language-nginx">http {
+    server_names_hash_max_size 2048;
+    server_names_hash_bucket_size 128;
+}
+</code></pre>
+<p>The nginx docs recommend increasing <code>server_names_hash_max_size</code> first, and only then the bucket size.</p>
+<h2 id="where-it-must-go">Where it must go</h2>
+<ul>
+<li>Put it <strong>once</strong>, in <code>http {}</code>. Placing it inside <code>server {}</code> gives <code>"server_names_hash_bucket_size" directive is not allowed here</code>. Placing it twice gives <code>"server_names_hash_bucket_size" directive is duplicate</code>.</li>
+<li>A file in <code>conf.d/</code> is included inside <code>http</code>, so a one-line <code>conf.d/00-hash.conf</code> with the directive also works, as long as the main file doesn't set it too.</li>
+<li>In the official Docker image, mount your own <code>nginx.conf</code> or add a file in <code>/etc/nginx/conf.d/</code>.</li>
+</ul>
+<h2 id="check-for-broken-server_name-lines">Check for broken server_name lines</h2>
+<p>A missing semicolon makes nginx treat the following line as more server names, creating a huge "name":</p>
+<pre><code class="language-nginx">server_name example.com www.example.com   # &lt;- missing ;
+root /var/www/html;
+</code></pre>
+<p>Here <code>root</code> and <code>/var/www/html;</code> become server names. Find all names with:</p>
+<pre><code class="language-bash">sudo nginx -T 2&gt;/dev/null | grep -n server_name
+</code></pre>
+<p>Similarly, don't put URLs in <code>server_name</code> (<code>https://example.com/</code>); it takes only hostnames, wildcards (<code>*.example.com</code>) or regexes (<code>~^www\d+\.example\.com$</code>).</p>
+<p class="upd">Last updated 2026-11-08.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-nginx-403-forbidden/">403 Forbidden nginx</a></li><li><a href="/web/web-nginx-502-bad-gateway/">502 Bad Gateway (nginx)</a></li><li><a href="/web/web-nginx-bind-address-already-in-use/">nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use)</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

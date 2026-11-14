@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SyntaxError: unterminated string literal (Python) — how to fix</title>
+<meta name="description" content="A string was opened with a quote but never closed on the same line. Python 3.10+ says &#x27;unterminated string literal&#x27;; older versions say &#x27;EOL while scanning string literal&#x27;.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-syntaxerror-unterminated-string-literal/">
+<meta property="og:title" content="SyntaxError: unterminated string literal (Python) — how to fix"><meta property="og:description" content="A string was opened with a quote but never closed on the same line. Python 3.10+ says &#x27;unterminated string literal&#x27;; older versions say &#x27;EOL while scanning string literal&#x27;.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-syntaxerror-unterminated-string-literal/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "SyntaxError: unterminated string literal (Python) \u2014 how to fix", "description": "A string was opened with a quote but never closed on the same line. Python 3.10+ says 'unterminated string literal'; older versions say 'EOL while scanning string literal'.", "dateModified": "2026-11-14", "url": "https://errorfix-hollis.github.io/python/python-syntaxerror-unterminated-string-literal/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "SyntaxError: unterminated string literal", "item": "https://errorfix-hollis.github.io/python/python-syntaxerror-unterminated-string-literal/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>SyntaxError: unterminated string literal (Python) — how to fix</h1>
+<pre class="err"><code>  File &quot;main.py&quot;, line 3
+    print(&quot;Hello world)
+          ^
+SyntaxError: unterminated string literal (detected at line 3)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Add the missing closing quote. If the string contains the same quote, switch quote types (<code>"It's"</code>) or escape it (<code>'It\'s'</code>). For Windows paths ending in a backslash use a forward slash or double the backslash (<code>"C:\\temp\\"</code>). For multi-line text use triple quotes <code>"""..."""</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A normal string literal (<code>'...'</code> or <code>"..."</code>) must start and end on the same line. When Python reaches the end of the line still inside a string, it stops with:</p>
+<ul>
+<li>Python 3.10+: <code>SyntaxError: unterminated string literal (detected at line N)</code></li>
+<li>Python 3.9 and older: <code>SyntaxError: EOL while scanning string literal</code></li>
+</ul>
+<p>The caret <code>^</code> points at the opening quote. For triple-quoted strings that never close you get <code>SyntaxError: unterminated triple-quoted string literal</code>.</p>
+<h2 id="cause-1-missing-closing-quote">Cause 1: missing closing quote</h2>
+<pre><code class="language-python">print(&quot;Hello world)      # SyntaxError
+print(&quot;Hello world&quot;)     # fixed
+</code></pre>
+<p>Mismatched quotes count too: <code>"Hello'</code> opens with <code>"</code> and never closes it.</p>
+<h2 id="cause-2-the-same-quote-appears-inside-the-string">Cause 2: the same quote appears inside the string</h2>
+<pre><code class="language-python">msg = 'It's done'        # the ' in It's closes the string
+</code></pre>
+<p>Fixes:</p>
+<pre><code class="language-python">msg = &quot;It's done&quot;        # use the other quote type
+msg = 'It\'s done'       # or escape it
+</code></pre>
+<p>Same for double quotes: <code>"She said "hi""</code> → <code>'She said "hi"'</code>.</p>
+<h2 id="cause-3-a-trailing-backslash-windows-paths">Cause 3: a trailing backslash (Windows paths)</h2>
+<p>A backslash escapes the next character, so <code>\"</code> at the end is an escaped quote, not a closing one:</p>
+<pre><code class="language-python">path = &quot;C:\Users\me\&quot;          # SyntaxError: the final \&quot; is escaped
+</code></pre>
+<p>Raw strings don't help here, because a raw string can't end in a single backslash either (<code>r"C:\temp\"</code> fails too). Options:</p>
+<pre><code class="language-python">path = &quot;C:\\Users\\me\\&quot;        # double the backslashes
+path = &quot;C:/Users/me/&quot;           # forward slashes work on Windows
+path = r&quot;C:\Users\me&quot; + &quot;\\&quot;    # raw string + escaped backslash
+
+from pathlib import Path
+path = Path(&quot;C:/Users/me&quot;)      # best: let pathlib handle it
+</code></pre>
+<p>Note: even without a trailing backslash, <code>"C:\Users"</code> causes <code>SyntaxError: (unicode error) 'unicodeescape' codec can't decode bytes</code>, because <code>\U</code> starts a Unicode escape. Use <code>r"C:\Users"</code> or forward slashes.</p>
+<h2 id="cause-4-text-over-several-lines">Cause 4: text over several lines</h2>
+<pre><code class="language-python">sql = &quot;SELECT *
+       FROM users&quot;            # SyntaxError
+</code></pre>
+<p>Use triple quotes, or implicit concatenation inside parentheses:</p>
+<pre><code class="language-python">sql = &quot;&quot;&quot;SELECT *
+FROM users&quot;&quot;&quot;
+
+sql = (
+    &quot;SELECT * &quot;
+    &quot;FROM users&quot;
+)
+</code></pre>
+<h2 id="cause-5-f-string-quotes-before-python-312">Cause 5: f-string quotes (before Python 3.12)</h2>
+<p>Until Python 3.12 you could not reuse the outer quote type inside an f-string expression:</p>
+<pre><code class="language-python">f&quot;Name: {user[&quot;name&quot;]}&quot;     # SyntaxError on 3.11 and older
+f&quot;Name: {user['name']}&quot;     # works everywhere
+</code></pre>
+<h2 id="cause-6-smart-quotes-pasted-from-a-document">Cause 6: smart quotes pasted from a document</h2>
+<p>Text copied from Word, Slack or a web page can contain <code>"</code> <code>"</code> <code>'</code> <code>'</code> (curly quotes). Python doesn't treat them as quotes; it usually reports <code>invalid character '"' (U+201C)</code>, but a mix of straight and curly quotes can leave a string unterminated. Retype the quotes in your editor, or search for <code>U+201C</code>, <code>U+201D</code>, <code>U+2018</code>, <code>U+2019</code>.</p>
+<h2 id="finding-it-in-a-big-file">Finding it in a big file</h2>
+<p>Most editors highlight the rest of the line (or the rest of the file) in string colour from the broken quote onwards. Run <code>python -m py_compile file.py</code> to get the exact line without running the program.</p>
+<p class="upd">Last updated 2026-11-14.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-indentationerror-unexpected-indent/">IndentationError: unexpected indent</a></li><li><a href="/python/python-syntaxerror-invalid-syntax/">SyntaxError: invalid syntax</a></li><li><a href="/python/python-unicodedecodeerror-utf-8/">UnicodeDecodeError: &#x27;utf-8&#x27; codec can&#x27;t decode byte 0xff in position 0: invalid start byte</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

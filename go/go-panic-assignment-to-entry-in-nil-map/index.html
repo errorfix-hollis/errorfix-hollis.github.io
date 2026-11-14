@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>panic: assignment to entry in nil map (Go) — how to fix</title>
+<meta name="description" content="You wrote to a map that was declared but never initialised. A nil map can be read from, but any write panics. Create it with make() or a literal first.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-panic-assignment-to-entry-in-nil-map/">
+<meta property="og:title" content="panic: assignment to entry in nil map (Go) — how to fix"><meta property="og:description" content="You wrote to a map that was declared but never initialised. A nil map can be read from, but any write panics. Create it with make() or a literal first.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-panic-assignment-to-entry-in-nil-map/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "panic: assignment to entry in nil map (Go) \u2014 how to fix", "description": "You wrote to a map that was declared but never initialised. A nil map can be read from, but any write panics. Create it with make() or a literal first.", "dateModified": "2026-11-06", "url": "https://errorfix-hollis.github.io/go/go-panic-assignment-to-entry-in-nil-map/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "panic: assignment to entry in nil map", "item": "https://errorfix-hollis.github.io/go/go-panic-assignment-to-entry-in-nil-map/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>panic: assignment to entry in nil map (Go) — how to fix</h1>
+<pre class="err"><code>panic: assignment to entry in nil map
+
+goroutine 1 [running]:
+main.main()
+	/home/me/app/main.go:7 +0x2c
+exit status 2
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Initialise the map before writing: <code>m := make(map[string]int)</code> or <code>m := map[string]int{}</code>. For struct fields, initialise them in a constructor (<code>func NewX() *X { return &amp;X{items: map[string]int{}} }</code>) or lazily (<code>if s.items == nil { s.items = make(map[string]int) }</code>). Nested maps need each inner map created too.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The zero value of a map type in Go is <code>nil</code>. A nil map behaves like an empty map for reading — <code>len(m)</code> is 0, <code>m["x"]</code> returns the zero value, <code>range</code> does nothing, <code>delete</code> is a no-op — but writing to it panics at runtime, because there is no hash table allocated to store the entry.</p>
+<pre><code class="language-go">var m map[string]int   // nil
+fmt.Println(m[&quot;a&quot;])    // 0, fine
+m[&quot;a&quot;] = 1             // panic: assignment to entry in nil map
+</code></pre>
+<p>The stack trace shows the file and line of the write.</p>
+<h2 id="fix-1-create-the-map-with-make-or-a-literal">Fix 1: create the map with <code>make</code> or a literal</h2>
+<pre><code class="language-go">m := make(map[string]int)          // empty, ready to use
+m := make(map[string]int, 100)     // with a capacity hint
+m := map[string]int{}              // same as make, literal form
+m := map[string]int{&quot;a&quot;: 1}        // pre-filled
+</code></pre>
+<p><code>var m map[string]int</code> alone only declares it.</p>
+<h2 id="cause-2-map-field-in-a-struct">Cause 2: map field in a struct</h2>
+<p>Struct fields get zero values, so a map field is nil until you set it:</p>
+<pre><code class="language-go">type Cache struct {
+    items map[string]string
+}
+
+c := Cache{}            // or &amp;Cache{}, or var c Cache
+c.items[&quot;k&quot;] = &quot;v&quot;      // panic
+</code></pre>
+<p>Fix with a constructor:</p>
+<pre><code class="language-go">func NewCache() *Cache {
+    return &amp;Cache{items: make(map[string]string)}
+}
+</code></pre>
+<p>Or initialise lazily in the method that writes, which also makes the zero value usable:</p>
+<pre><code class="language-go">func (c *Cache) Set(k, v string) {
+    if c.items == nil {
+        c.items = make(map[string]string)
+    }
+    c.items[k] = v
+}
+</code></pre>
+<p>Lazy init must use a pointer receiver (<code>*Cache</code>), otherwise you initialise a copy. If several goroutines call it, protect it with a <code>sync.Mutex</code> (or use <code>sync.Map</code>) — concurrent map writes cause a separate fatal error.</p>
+<h2 id="cause-3-nested-maps">Cause 3: nested maps</h2>
+<p>Creating the outer map doesn't create the inner ones:</p>
+<pre><code class="language-go">graph := make(map[string]map[string]int)
+graph[&quot;a&quot;][&quot;b&quot;] = 1     // panic: graph[&quot;a&quot;] is nil
+</code></pre>
+<p>Create the inner map on first use:</p>
+<pre><code class="language-go">inner, ok := graph[&quot;a&quot;]
+if !ok {
+    inner = make(map[string]int)
+    graph[&quot;a&quot;] = inner
+}
+inner[&quot;b&quot;] = 1
+</code></pre>
+<p>Often a composite key is simpler: <code>map[[2]string]int</code> or a struct key <code>map[edge]int</code>.</p>
+<h2 id="cause-4-maps-inside-slices">Cause 4: maps inside slices</h2>
+<pre><code class="language-go">rows := make([]map[string]any, 3)   // three nil maps
+rows[0][&quot;id&quot;] = 1                   // panic
+</code></pre>
+<p>Fill each element: <code>for i := range rows { rows[i] = map[string]any{} }</code>, or build with <code>append(rows, map[string]any{"id": 1})</code>.</p>
+<h2 id="cause-5-a-function-returned-a-nil-map">Cause 5: a function returned a nil map</h2>
+<p>A function that returns <code>nil</code> on an early path (<code>return nil, err</code>) and a caller that ignores the error and writes to the result. Check the error, or have the function return an empty map instead of nil.</p>
+<p>Note that <code>json.Unmarshal</code> into a struct allocates maps when the JSON has the key; if the key is missing, the field stays nil. Initialise it before writing to it.</p>
+<h2 id="finding-it">Finding it</h2>
+<p>Run with the race detector and full traces when it's intermittent:</p>
+<pre><code class="language-bash">go run -race .
+GOTRACEBACK=all go run .
+</code></pre>
+<p>The top frame of the panic is the exact line; the variable being indexed there is nil. <code>go vet</code> doesn't catch this, but staticcheck sometimes flags obvious cases (<code>SA5000</code>).</p>
+<p class="upd">Last updated 2026-11-06.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-all-goroutines-are-asleep-deadlock/">fatal error: all goroutines are asleep - deadlock!</a></li><li><a href="/go/go-declared-and-not-used/">declared and not used</a></li><li><a href="/go/go-undefined/">undefined: X</a></li><li><a href="/go/go-cannot-find-main-module/">go: cannot find main module, but found .git/config</a></li><li><a href="/go/go-cannot-use-as-value-in-assignment/">cannot use x (variable of type T) as U value in assignment</a></li><li><a href="/go/go-fatal-error-concurrent-map-writes/">fatal error: concurrent map writes</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

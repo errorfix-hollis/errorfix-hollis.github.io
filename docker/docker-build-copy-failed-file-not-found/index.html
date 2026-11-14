@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>COPY failed: file not found in build context (Docker) — how to fix</title>
+<meta name="description" content="Docker can only COPY files that are inside the build context (the folder you pass to docker build, usually &quot;.&quot;). The file is outside it, excluded by .dockerignore, or the path is wrong.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-build-copy-failed-file-not-found/">
+<meta property="og:title" content="COPY failed: file not found in build context (Docker) — how to fix"><meta property="og:description" content="Docker can only COPY files that are inside the build context (the folder you pass to docker build, usually &quot;.&quot;). The file is outside it, excluded by .dockerignore, or the path is wrong.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-build-copy-failed-file-not-found/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "COPY failed: file not found in build context (Docker) \u2014 how to fix", "description": "Docker can only COPY files that are inside the build context (the folder you pass to docker build, usually \".\"). The file is outside it, excluded by .dockerignore, or the path is wrong.", "dateModified": "2026-10-29", "url": "https://errorfix-hollis.github.io/docker/docker-build-copy-failed-file-not-found/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "COPY failed: file not found in build context", "item": "https://errorfix-hollis.github.io/docker/docker-build-copy-failed-file-not-found/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>COPY failed: file not found in build context (Docker) — how to fix</h1>
+<pre class="err"><code>=&gt; ERROR [3/5] COPY ../config/app.conf /etc/app/
+failed to solve: failed to compute cache key: failed to calculate checksum of ref: &quot;/config/app.conf&quot;: not found
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Paths in COPY are relative to the build context, not the Dockerfile. Build from a parent folder with <code>-f</code>: <code>docker build -f app/Dockerfile .</code> and use <code>COPY config/app.conf /etc/app/</code>. Also check <code>.dockerignore</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>docker build .</code> sends the contents of <code>.</code> (the <em>build context</em>) to the builder. <code>COPY</code> and <code>ADD</code> can only see files in that context. They can't reach <code>../</code> or absolute host paths.</p>
+<h2 id="cause-1-file-is-outside-the-context">Cause 1: file is outside the context</h2>
+<pre><code>project/
+  config/app.conf
+  app/Dockerfile      # COPY ../config/app.conf ...  ← not allowed
+</code></pre>
+<p>Build from the parent and point to the Dockerfile:</p>
+<pre><code class="language-bash">cd project
+docker build -f app/Dockerfile -t myapp .
+</code></pre>
+<pre><code class="language-dockerfile">COPY config/app.conf /etc/app/
+COPY app/ /src/
+</code></pre>
+<p>docker-compose:</p>
+<pre><code class="language-yaml">services:
+  app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+</code></pre>
+<h2 id="cause-2-dockerignore-excludes-it">Cause 2: <code>.dockerignore</code> excludes it</h2>
+<pre><code class="language-bash">cat .dockerignore
+</code></pre>
+<p>Patterns like <code>*</code>, <code>*.conf</code>, <code>config/</code> or <code>**/*.json</code> remove files from the context. Add an exception with <code>!</code>:</p>
+<pre><code>*
+!src/
+!package.json
+!config/app.conf
+</code></pre>
+<h2 id="cause-3-wrong-path-or-case">Cause 3: wrong path or case</h2>
+<p>Paths are case-sensitive in Linux builds even on Mac/Windows: <code>COPY Package.json</code> won't find <code>package.json</code>. List what the builder actually receives:</p>
+<pre><code class="language-bash">docker build --no-cache --progress=plain -f - . &lt;&lt;'EOF2'
+FROM busybox
+COPY . /ctx
+RUN find /ctx -maxdepth 3
+EOF2
+</code></pre>
+<h2 id="cause-4-file-is-generated-by-a-previous-step-you-didnt-run">Cause 4: file is generated by a previous step you didn't run</h2>
+<p><code>COPY dist/ ...</code> fails if you didn't build <code>dist/</code> before <code>docker build</code>. Run the build first, or build inside the image with a multi-stage Dockerfile.</p>
+<h2 id="cause-5-copy-from-with-the-wrong-path">Cause 5: COPY --from with the wrong path</h2>
+<p>In multi-stage builds, <code>COPY --from=builder /app/dist ./dist</code> must use the absolute path <em>inside the builder stage</em>. Check the builder's <code>WORKDIR</code>.</p>
+<p class="upd">Last updated 2026-10-29.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-exec-format-error/">exec format error</a></li><li><a href="/docker/docker-no-space-left-on-device/">no space left on device (Docker)</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li><li><a href="/docker/docker-container-name-already-in-use/">Conflict. The container name is already in use by container</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

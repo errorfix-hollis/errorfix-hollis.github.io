@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR: JAVA_HOME is not set and no &#x27;java&#x27; command could be found in your PATH. — how to fix</title>
+<meta name="description" content="Gradle, Maven or another tool can&#x27;t find a Java installation. Install a JDK and set JAVA_HOME to its folder.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-home-is-not-set/">
+<meta property="og:title" content="ERROR: JAVA_HOME is not set and no &#x27;java&#x27; command could be found in your PATH. — how to fix"><meta property="og:description" content="Gradle, Maven or another tool can&#x27;t find a Java installation. Install a JDK and set JAVA_HOME to its folder.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-home-is-not-set/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH. \u2014 how to fix", "description": "Gradle, Maven or another tool can't find a Java installation. Install a JDK and set JAVA_HOME to its folder.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/java/java-home-is-not-set/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.", "item": "https://errorfix-hollis.github.io/java/java-home-is-not-set/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>ERROR: JAVA_HOME is not set and no &#x27;java&#x27; command could be found in your PATH. — how to fix</h1>
+<pre class="err"><code>ERROR: JAVA_HOME is not set and no &#x27;java&#x27; command could be found in your PATH.</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install a JDK, then set <code>JAVA_HOME</code> to its root folder (the one containing <code>bin/java</code>), e.g. <code>export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64</code> in <code>~/.bashrc</code>, and add <code>$JAVA_HOME/bin</code> to PATH.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The tool's launcher script looks at the <code>JAVA_HOME</code> environment variable, then for <code>java</code> on your PATH. It found neither.</p>
+<h2 id="step-1-install-a-jdk-if-you-havent">Step 1: install a JDK (if you haven't)</h2>
+<pre><code class="language-bash"># Ubuntu / Debian
+sudo apt install openjdk-21-jdk
+# Fedora
+sudo dnf install java-21-openjdk-devel
+# macOS
+brew install openjdk@21
+</code></pre>
+<p>Windows: install Eclipse Temurin or Microsoft OpenJDK; tick "Set JAVA_HOME" in the installer.</p>
+<h2 id="step-2-find-the-jdk-folder">Step 2: find the JDK folder</h2>
+<pre><code class="language-bash"># Linux
+dirname &quot;$(dirname &quot;$(readlink -f &quot;$(which java)&quot;)&quot;)&quot;
+ls /usr/lib/jvm/
+# macOS
+/usr/libexec/java_home -V
+</code></pre>
+<h2 id="step-3-set-java_home">Step 3: set JAVA_HOME</h2>
+<p><strong>Linux</strong> (<code>~/.bashrc</code> or <code>~/.zshrc</code>):</p>
+<pre><code class="language-bash">export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+export PATH=&quot;$JAVA_HOME/bin:$PATH&quot;
+</code></pre>
+<p><strong>macOS</strong> (<code>~/.zshrc</code>):</p>
+<pre><code class="language-bash">export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+</code></pre>
+<p><strong>Windows (PowerShell, persistent):</strong></p>
+<pre><code class="language-powershell">setx JAVA_HOME &quot;C:\Program Files\Eclipse Adoptium\jdk-21.0.4.7-hotspot&quot;
+</code></pre>
+<p>Then add <code>%JAVA_HOME%\bin</code> to <em>Path</em> in System Properties → Environment Variables, and open a <strong>new</strong> terminal.</p>
+<p><code>JAVA_HOME</code> must point to the JDK <strong>root</strong>, not its <code>bin</code> folder.</p>
+<h2 id="android-flutter">Android / Flutter</h2>
+<p>Android Studio bundles a JDK. Point to it, e.g. <code>JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"</code> on macOS, or <code>C:\Program Files\Android\Android Studio\jbr</code> on Windows. Flutter can be told directly: <code>flutter config --jdk-dir &lt;path&gt;</code>.</p>
+<h2 id="check">Check</h2>
+<pre><code class="language-bash">echo $JAVA_HOME
+&quot;$JAVA_HOME/bin/java&quot; -version
+</code></pre>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-unsupportedclassversionerror/">java.lang.UnsupportedClassVersionError: has been compiled by a more recent version of the Java Runtime</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-comparison-method-violates-its-general-contract/">java.lang.IllegalArgumentException: Comparison method violates its general contract!</a></li><li><a href="/java/java-concurrentmodificationexception/">java.util.ConcurrentModificationException</a></li><li><a href="/java/java-could-not-find-or-load-main-class/">Error: Could not find or load main class</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

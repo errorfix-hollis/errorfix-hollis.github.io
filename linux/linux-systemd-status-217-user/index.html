@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Main process exited, code=exited, status=217/USER (Linux) — how to fix</title>
+<meta name="description" content="systemd couldn&#x27;t switch to the account in User= (or Group=) before starting the service, almost always because that user or group doesn&#x27;t exist on this machine or the name is misspelled.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-systemd-status-217-user/">
+<meta property="og:title" content="Main process exited, code=exited, status=217/USER (Linux) — how to fix"><meta property="og:description" content="systemd couldn&#x27;t switch to the account in User= (or Group=) before starting the service, almost always because that user or group doesn&#x27;t exist on this machine or the name is misspelled.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-systemd-status-217-user/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Main process exited, code=exited, status=217/USER (Linux) \u2014 how to fix", "description": "systemd couldn't switch to the account in User= (or Group=) before starting the service, almost always because that user or group doesn't exist on this machine or the name is misspelled.", "dateModified": "2026-11-12", "url": "https://errorfix-hollis.github.io/linux/linux-systemd-status-217-user/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "Main process exited, code=exited, status=217/USER", "item": "https://errorfix-hollis.github.io/linux/linux-systemd-status-217-user/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>Main process exited, code=exited, status=217/USER (Linux) — how to fix</h1>
+<pre class="err"><code>myapp.service: Failed to determine user credentials: No such process
+myapp.service: Failed at step USER spawning /usr/bin/node: No such process
+myapp.service: Main process exited, code=exited, status=217/USER
+myapp.service: Failed with result &#x27;exit-code&#x27;.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the user exists: <code>id myuser</code> / <code>getent passwd myuser</code>. Create it (<code>sudo useradd --system --no-create-home --shell /usr/sbin/nologin myuser</code>) or fix <code>User=</code>/<code>Group=</code> in the unit, then <code>sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart myapp</code>. Alternatively use <code>DynamicUser=yes</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Codes in the <code>2xx</code> range are systemd's own failures <em>before</em> your program runs. <code>217/USER</code> means the <code>USER</code> step failed: systemd tried to resolve the <code>User=</code> setting into a UID and couldn't. The sibling <code>216/GROUP</code> means the same for <code>Group=</code> or <code>SupplementaryGroups=</code>.</p>
+<p>Your program never started, so its own logs are empty. Look at the unit log:</p>
+<pre><code class="language-bash">journalctl -u myapp -b --no-pager | tail -20
+systemctl cat myapp | grep -Ei '^(User|Group|SupplementaryGroups|DynamicUser)='
+</code></pre>
+<h2 id="cause-1-the-user-doesnt-exist">Cause 1: the user doesn't exist</h2>
+<p>The unit was copied from another server, a package's post-install script didn't run, or a deploy script forgot to create the account.</p>
+<pre><code class="language-bash">getent passwd myuser || echo &quot;no such user&quot;
+</code></pre>
+<p>Create a system user for the service:</p>
+<pre><code class="language-bash">sudo useradd --system --no-create-home --shell /usr/sbin/nologin myuser
+</code></pre>
+<p>If the app needs a home or data directory:</p>
+<pre><code class="language-bash">sudo useradd --system --home-dir /var/lib/myapp --create-home --shell /usr/sbin/nologin myuser
+</code></pre>
+<p>Then:</p>
+<pre><code class="language-bash">sudo systemctl restart myapp
+</code></pre>
+<h2 id="cause-2-a-typo-or-stray-text-in-user">Cause 2: a typo or stray text in <code>User=</code></h2>
+<p>Common mistakes: <code>www_data</code> instead of Debian/Ubuntu's <code>www-data</code>, <code>nginx</code> vs <code>www-data</code> across distros, or a trailing comment. systemd unit files have no inline comments:</p>
+<pre><code class="language-ini"># wrong: the user name becomes &quot;deploy # app user&quot;
+User=deploy # app user
+</code></pre>
+<pre><code class="language-ini"># right
+# app user
+User=deploy
+</code></pre>
+<p>Compare against the real name with <code>getent passwd | cut -d: -f1 | grep -i deploy</code>. After editing:</p>
+<pre><code class="language-bash">sudo systemctl daemon-reload
+sudo systemctl restart myapp
+</code></pre>
+<h2 id="cause-3-users-from-ldapsssdnis-that-arent-available-yet">Cause 3: users from LDAP/SSSD/NIS that aren't available yet</h2>
+<p>If <code>myuser</code> comes from a directory service, it may not resolve early in boot. The service fails at boot but works when started manually. Order the unit after user lookups are available:</p>
+<pre><code class="language-ini">[Unit]
+Wants=nss-user-lookup.target
+After=nss-user-lookup.target network-online.target
+</code></pre>
+<p>For services that must always start, prefer a local system account.</p>
+<h2 id="cause-4-user-services-systemctl-user">Cause 4: user services (<code>systemctl --user</code>)</h2>
+<p>In a <strong>user</strong> unit, <code>User=</code> is not supported (the manager already runs as you); remove it. Setting <code>User=</code> in <code>~/.config/systemd/user/*.service</code> to another account fails at the USER/GROUP step because an unprivileged manager can't switch users.</p>
+<h2 id="alternative-let-systemd-create-the-user">Alternative: let systemd create the user</h2>
+<p>For services that don't need a persistent account, <code>DynamicUser=</code> allocates a transient UID at start:</p>
+<pre><code class="language-ini">[Service]
+DynamicUser=yes
+StateDirectory=myapp        # /var/lib/myapp, owned by the dynamic user
+ExecStart=/usr/bin/myapp
+</code></pre>
+<p>This also implies a read-only filesystem except for <code>StateDirectory</code>, <code>CacheDirectory</code>, <code>LogsDirectory</code> and <code>RuntimeDirectory</code>, so check your app doesn't write elsewhere.</p>
+<h2 id="related-exit-codes">Related exit codes</h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Step</th>
+<th>Usual cause</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>200/CHDIR</code></td>
+<td>WorkingDirectory</td>
+<td>directory missing or not accessible to <code>User=</code></td>
+</tr>
+<tr>
+<td><code>203/EXEC</code></td>
+<td>ExecStart</td>
+<td>binary missing, not executable, wrong shebang (<a href="/linux/linux-systemd-status-203-exec/">details</a>)</td>
+</tr>
+<tr>
+<td><code>216/GROUP</code></td>
+<td>Group</td>
+<td>group doesn't exist</td>
+</tr>
+<tr>
+<td><code>217/USER</code></td>
+<td>User</td>
+<td>user doesn't exist</td>
+</tr>
+<tr>
+<td><code>226/NAMESPACE</code></td>
+<td>sandboxing</td>
+<td><code>ReadWritePaths=</code>/<code>ProtectHome=</code> path missing</td>
+</tr>
+</tbody>
+</table>
+<p>Full list: <code>man systemd.exec</code>, section <em>Process Exit Codes</em>.</p>
+<p class="upd">Last updated 2026-11-12.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-job-for-service-failed-because-the-control-process-exited-with-error-code/">Job for X.service failed because the control process exited with error code</a></li><li><a href="/linux/linux-start-request-repeated-too-quickly/">Start request repeated too quickly</a></li><li><a href="/linux/linux-systemd-status-203-exec/">status=203/EXEC</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

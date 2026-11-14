@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR: deadlock detected (PostgreSQL) — how to fix</title>
+<meta name="description" content="Two (or more) PostgreSQL transactions each hold a lock the other needs, so neither can proceed. Postgres aborts one of them with SQLSTATE 40P01.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-deadlock-detected/">
+<meta property="og:title" content="ERROR: deadlock detected (PostgreSQL) — how to fix"><meta property="og:description" content="Two (or more) PostgreSQL transactions each hold a lock the other needs, so neither can proceed. Postgres aborts one of them with SQLSTATE 40P01.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-deadlock-detected/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR: deadlock detected (PostgreSQL) \u2014 how to fix", "description": "Two (or more) PostgreSQL transactions each hold a lock the other needs, so neither can proceed. Postgres aborts one of them with SQLSTATE 40P01.", "dateModified": "2026-11-10", "url": "https://errorfix-hollis.github.io/database/db-postgres-deadlock-detected/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR: deadlock detected", "item": "https://errorfix-hollis.github.io/database/db-postgres-deadlock-detected/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR: deadlock detected (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>ERROR:  deadlock detected
+DETAIL:  Process 12345 waits for ShareLock on transaction 67890; blocked by process 12346.
+Process 12346 waits for ShareLock on transaction 67889; blocked by process 12345.
+HINT:  See server log for query details.
+CONTEXT:  while updating tuple (0,5) in relation &quot;accounts&quot;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Make every transaction lock rows in the same order (e.g. <code>ORDER BY id</code> with <code>SELECT ... FOR UPDATE</code>), keep transactions short, and retry the aborted transaction on SQLSTATE <code>40P01</code>. Check the server log for both queries involved.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Transaction A locked row 1 and wants row 2; transaction B locked row 2 and wants row 1. Neither can finish. After <code>deadlock_timeout</code> (default 1s) Postgres checks for such cycles, picks a victim, and aborts it with <code>deadlock detected</code> (SQLSTATE <code>40P01</code>). The other transaction continues normally.</p>
+<p>The victim's whole transaction is rolled back. Nothing is corrupted, but your application must handle the error.</p>
+<h2 id="find-the-queries-involved">Find the queries involved</h2>
+<p>The client message hides the statements. The server log has them:</p>
+<pre><code>DETAIL: Process 12345: UPDATE accounts SET balance = balance - 10 WHERE id = 1
+        Process 12346: UPDATE accounts SET balance = balance - 5 WHERE id = 2
+</code></pre>
+<p>Turn on <code>log_lock_waits = on</code> to also log waits longer than <code>deadlock_timeout</code>. Live blocking can be seen with:</p>
+<pre><code class="language-sql">SELECT pid, pg_blocking_pids(pid) AS blocked_by, state, query
+FROM pg_stat_activity
+WHERE cardinality(pg_blocking_pids(pid)) &gt; 0;
+</code></pre>
+<h2 id="cause-1-fix-1-rows-locked-in-different-orders">Cause 1 / Fix 1: rows locked in different orders</h2>
+<p>The classic case: a transfer that updates the two accounts in parameter order.</p>
+<pre><code class="language-sql">-- tx A: transfer 1 -&gt; 2        -- tx B: transfer 2 -&gt; 1
+UPDATE accounts ... WHERE id=1;  UPDATE accounts ... WHERE id=2;
+UPDATE accounts ... WHERE id=2;  UPDATE accounts ... WHERE id=1;  -- deadlock
+</code></pre>
+<p>Lock in a consistent order up front:</p>
+<pre><code class="language-sql">BEGIN;
+SELECT id FROM accounts WHERE id IN (1, 2) ORDER BY id FOR UPDATE;
+UPDATE accounts SET balance = balance - 10 WHERE id = 1;
+UPDATE accounts SET balance = balance + 10 WHERE id = 2;
+COMMIT;
+</code></pre>
+<p>The same applies to batch updates: <code>UPDATE ... WHERE id IN (...)</code> doesn't guarantee order, so lock with <code>SELECT ... ORDER BY id FOR UPDATE</code> first, or sort the batch in the application.</p>
+<h2 id="cause-2-fix-2-foreign-keys-and-parent-rows">Cause 2 / Fix 2: foreign keys and parent rows</h2>
+<p>Inserting child rows takes a <code>FOR KEY SHARE</code> lock on the referenced parent row. Two transactions that insert children and then update the same parents can deadlock. Update the parent first, or avoid updating parent rows in the same transaction that inserts children.</p>
+<h2 id="cause-3-fix-3-long-transactions">Cause 3 / Fix 3: long transactions</h2>
+<p>The longer a transaction holds locks, the more likely a cycle. Don't do network calls or user interaction inside a transaction, and commit as early as possible.</p>
+<h2 id="cause-4-fix-4-explicit-table-locks-and-ddl">Cause 4 / Fix 4: explicit table locks and DDL</h2>
+<p><code>LOCK TABLE</code>, <code>ALTER TABLE</code> or <code>CREATE INDEX</code> (without <code>CONCURRENTLY</code>) running alongside normal traffic can deadlock with it. Run migrations during low traffic, use <code>CREATE INDEX CONCURRENTLY</code>, and set <code>lock_timeout</code> for DDL:</p>
+<pre><code class="language-sql">SET lock_timeout = '5s';
+</code></pre>
+<h2 id="always-retry-on-40p01">Always: retry on 40P01</h2>
+<p>Deadlocks can't be ruled out completely under concurrency, so retry the whole transaction:</p>
+<pre><code class="language-python">from psycopg import errors
+
+for attempt in range(3):
+    try:
+        with conn.transaction():
+            transfer(conn, a, b, amount)
+        break
+    except errors.DeadlockDetected:
+        if attempt == 2:
+            raise
+</code></pre>
+<p>Retry the entire transaction, not just the failed statement — everything before it was rolled back.</p>
+<p class="upd">Last updated 2026-11-10.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-error-1205-lock-wait-timeout-exceeded/">ERROR 1205 (HY000): Lock wait timeout exceeded; try restarting transaction</a></li><li><a href="/database/db-postgres-could-not-serialize-access/">ERROR: could not serialize access due to concurrent update</a></li><li><a href="/database/db-postgres-duplicate-key-value-violates-unique-constraint/">ERROR: duplicate key value violates unique constraint</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

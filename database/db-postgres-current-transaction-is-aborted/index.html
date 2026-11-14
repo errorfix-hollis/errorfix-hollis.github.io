@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR: current transaction is aborted, commands ignored until end of transaction block (PostgreSQL) — how to fix</title>
+<meta name="description" content="An earlier statement in the same PostgreSQL transaction failed, so the transaction is now in an aborted state and every later statement is rejected until you ROLLBACK. This error is a symptom; the real error came before it.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-current-transaction-is-aborted/">
+<meta property="og:title" content="ERROR: current transaction is aborted, commands ignored until end of transaction block (PostgreSQL) — how to fix"><meta property="og:description" content="An earlier statement in the same PostgreSQL transaction failed, so the transaction is now in an aborted state and every later statement is rejected until you ROLLBACK. This error is a symptom; the real error came before it.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-current-transaction-is-aborted/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR: current transaction is aborted, commands ignored until end of transaction block (PostgreSQL) \u2014 how to fix", "description": "An earlier statement in the same PostgreSQL transaction failed, so the transaction is now in an aborted state and every later statement is rejected until you ROLLBACK. This error is a symptom; the real error came before it.", "dateModified": "2026-11-11", "url": "https://errorfix-hollis.github.io/database/db-postgres-current-transaction-is-aborted/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR: current transaction is aborted, commands ignored until end of transaction block", "item": "https://errorfix-hollis.github.io/database/db-postgres-current-transaction-is-aborted/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR: current transaction is aborted, commands ignored until end of transaction block (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>ERROR:  current transaction is aborted, commands ignored until end of transaction block
+psycopg2.errors.InFailedSqlTransaction: current transaction is aborted, commands ignored until end of transaction block
+org.postgresql.util.PSQLException: ERROR: current transaction is aborted, commands ignored until end of transaction block
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find the first error in the transaction (check the earlier exception or the server log) and fix that. Then always <code>ROLLBACK</code> (e.g. <code>conn.rollback()</code> in psycopg2) after an exception before reusing the connection, or use <code>SAVEPOINT</code> / autocommit if you want later statements to continue.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>PostgreSQL treats a transaction as all-or-nothing. When any statement inside <code>BEGIN ... COMMIT</code> fails, the whole transaction is marked as failed (SQLSTATE <code>25P02</code>). From then on the server ignores every command except <code>ROLLBACK</code> (or <code>ROLLBACK TO SAVEPOINT</code>) and answers each one with this error.</p>
+<pre><code class="language-sql">BEGIN;
+INSERT INTO users (id, email) VALUES (1, 'a@x.com');  -- ERROR: duplicate key ...
+SELECT * FROM users;                                    -- ERROR: current transaction is aborted
+ROLLBACK;                                               -- now the session works again
+</code></pre>
+<p>So this message never tells you what went wrong. The cause is the <strong>first</strong> error in the transaction.</p>
+<h2 id="fix-1-find-the-original-error">Fix 1: find the original error</h2>
+<ul>
+<li>In application logs, scroll up: the previous exception (<code>UniqueViolation</code>, <code>UndefinedTable</code>, <code>relation does not exist</code>, a type cast error...) is the real problem.</li>
+<li>If your code swallows exceptions, enable statement error logging on the server and check its log:</li>
+</ul>
+<pre><code class="language-sql">SHOW log_min_error_statement;   -- default 'error' already logs failing statements
+</code></pre>
+<pre><code class="language-bash">sudo tail -f /var/log/postgresql/postgresql-*-main.log
+</code></pre>
+<h2 id="fix-2-roll-back-after-an-exception-psycopg2-psycopg">Fix 2: roll back after an exception (psycopg2 / psycopg)</h2>
+<p>psycopg2 opens a transaction implicitly on the first statement. If you catch an exception and keep using the connection, every later query fails:</p>
+<pre><code class="language-python">try:
+    cur.execute(&quot;INSERT INTO users (email) VALUES (%s)&quot;, (email,))
+except psycopg2.errors.UniqueViolation:
+    conn.rollback()          # required before the next statement
+else:
+    conn.commit()
+</code></pre>
+<p>Using the connection as a context manager commits on success and rolls back on exception:</p>
+<pre><code class="language-python">with conn:                   # transaction block
+    with conn.cursor() as cur:
+        cur.execute(...)
+</code></pre>
+<h2 id="fix-3-use-a-savepoint-to-continue-after-an-expected-failure">Fix 3: use a savepoint to continue after an expected failure</h2>
+<p>If you want one statement to fail without losing the rest of the transaction, wrap it in a savepoint:</p>
+<pre><code class="language-sql">BEGIN;
+INSERT INTO log VALUES (...);
+SAVEPOINT try_insert;
+INSERT INTO users ... ;               -- may fail
+ROLLBACK TO SAVEPOINT try_insert;    -- only if it failed
+COMMIT;                              -- log row is kept
+</code></pre>
+<p>Often simpler: avoid the error entirely with <code>INSERT ... ON CONFLICT DO NOTHING</code> (or <code>DO UPDATE</code>).</p>
+<p>In Django, wrap the risky part in a nested atomic block, which creates a savepoint:</p>
+<pre><code class="language-python">from django.db import IntegrityError, transaction
+
+try:
+    with transaction.atomic():
+        Profile.objects.create(user=user)
+except IntegrityError:
+    pass   # outer transaction is still usable
+</code></pre>
+<h2 id="fix-4-jdbc-spring">Fix 4: JDBC / Spring</h2>
+<p>With <code>autoCommit=false</code>, call <code>connection.rollback()</code> in the <code>catch</code> block. In Spring <code>@Transactional</code>, an exception caught inside the method still leaves the transaction aborted; let it propagate, or move the risky call into a method annotated <code>@Transactional(propagation = Propagation.REQUIRES_NEW)</code> so it runs in its own transaction.</p>
+<h2 id="fix-5-connection-pools-returning-dirty-connections">Fix 5: connection pools returning dirty connections</h2>
+<p>If the error appears on a random request that did nothing wrong, a previous user of a pooled connection left it in an aborted transaction. Make sure every code path commits or rolls back (use <code>try/finally</code> or context managers), and configure the pool to roll back on return (PgBouncer in transaction mode, HikariCP and SQLAlchemy do this by default).</p>
+<h2 id="in-psql">In psql</h2>
+<p>Run <code>ROLLBACK;</code> to recover. To make psql auto-savepoint each statement in interactive sessions:</p>
+<pre><code class="language-sql">\set ON_ERROR_ROLLBACK interactive
+</code></pre>
+<p class="upd">Last updated 2026-11-11.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-postgres-deadlock-detected/">ERROR: deadlock detected</a></li><li><a href="/database/db-postgres-duplicate-key-value-violates-unique-constraint/">ERROR: duplicate key value violates unique constraint</a></li><li><a href="/database/db-postgres-relation-does-not-exist/">ERROR: relation does not exist</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

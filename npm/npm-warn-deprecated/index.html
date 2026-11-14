@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>npm WARN deprecated &lt;package&gt;@&lt;version&gt;: &lt;message&gt; — how to fix</title>
+<meta name="description" content="A warning, not an error: the package author marked that version as deprecated on the registry. Your install still succeeded. Most of these come from transitive dependencies you don&#x27;t control directly.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-warn-deprecated/">
+<meta property="og:title" content="npm WARN deprecated &lt;package&gt;@&lt;version&gt;: &lt;message&gt; — how to fix"><meta property="og:description" content="A warning, not an error: the package author marked that version as deprecated on the registry. Your install still succeeded. Most of these come from transitive dependencies you don&#x27;t control directly.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-warn-deprecated/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "npm WARN deprecated <package>@<version>: <message> \u2014 how to fix", "description": "A warning, not an error: the package author marked that version as deprecated on the registry. Your install still succeeded. Most of these come from transitive dependencies you don't control directly.", "dateModified": "2026-11-13", "url": "https://errorfix-hollis.github.io/npm/npm-warn-deprecated/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "npm WARN deprecated <package>@<version>: <message>", "item": "https://errorfix-hollis.github.io/npm/npm-warn-deprecated/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>npm WARN deprecated &lt;package&gt;@&lt;version&gt;: &lt;message&gt; — how to fix</h1>
+<pre class="err"><code>npm WARN deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm WARN deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm WARN deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>npm ls &lt;package&gt;</code> to see which dependency pulls it in. If it's a direct dependency, upgrade or replace it (<code>npm install &lt;pkg&gt;@latest</code>). If it's transitive, update the parent (<code>npm update</code>, <code>npm outdated</code>), or force a newer version with <code>overrides</code> in package.json. Otherwise it's safe to ignore; the install did not fail.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Package maintainers can run <code>npm deprecate pkg@version "message"</code>. From then on, every install of that version prints <code>npm WARN deprecated</code> with their message. It's <strong>informational</strong>: npm installed the package anyway, and your build is not broken.</p>
+<p>If your install actually failed, the real error is further down, usually starting with <code>npm ERR!</code> / <code>npm error</code> (e.g. <a href="/npm/npm-eresolve-unable-to-resolve-dependency-tree/">ERESOLVE</a> or <a href="/npm/npm-elifecycle/">ELIFECYCLE</a>). Scroll past the warnings.</p>
+<p>Deprecation reasons vary: unmaintained, security issues, renamed package, or "use a newer major version".</p>
+<h2 id="step-1-find-out-who-depends-on-it">Step 1: find out who depends on it</h2>
+<pre><code class="language-bash">npm ls inflight
+npm explain glob      # same as npm why
+</code></pre>
+<p>Example output:</p>
+<pre><code class="language-text">my-app@1.0.0
+└─┬ jest@29.7.0
+  └─┬ @jest/core@29.7.0
+    └─┬ glob@7.2.3
+      └── inflight@1.0.6
+</code></pre>
+<p>The top-level entry under your app is what you can act on.</p>
+<h2 id="fix-1-its-your-direct-dependency-upgrade-or-replace">Fix 1: it's your direct dependency — upgrade or replace</h2>
+<pre><code class="language-bash">npm outdated
+npm install request@latest      # if a maintained version exists
+</code></pre>
+<p>Common replacements:</p>
+<table>
+<thead>
+<tr>
+<th>Deprecated</th>
+<th>Use instead</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>request</code>, <code>request-promise</code></td>
+<td>built-in <code>fetch</code> (Node 18+), <code>undici</code>, <code>axios</code>, <code>got</code></td>
+</tr>
+<tr>
+<td><code>uuid</code> &lt; 7 (<code>require('uuid/v4')</code>)</td>
+<td><code>uuid</code> latest, or <code>crypto.randomUUID()</code></td>
+</tr>
+<tr>
+<td><code>node-sass</code></td>
+<td><code>sass</code> (Dart Sass)</td>
+</tr>
+<tr>
+<td><code>querystring</code></td>
+<td><code>URLSearchParams</code></td>
+</tr>
+<tr>
+<td><code>core-js@2</code></td>
+<td><code>core-js@3</code></td>
+</tr>
+<tr>
+<td><code>@babel/plugin-proposal-*</code></td>
+<td><code>@babel/plugin-transform-*</code> (or drop, now in preset-env)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="fix-2-its-transitive-update-the-parent">Fix 2: it's transitive — update the parent</h2>
+<pre><code class="language-bash">npm update                 # within your semver ranges
+npm install jest@latest    # new major of the parent, may need code changes
+</code></pre>
+<p>Many warnings (<code>inflight</code>, <code>glob@7</code>, <code>rimraf@3</code>) disappear once the tools that use them release new majors.</p>
+<h2 id="fix-3-force-a-newer-version-with-overrides">Fix 3: force a newer version with overrides</h2>
+<p>If the parent works fine with a newer version of the deprecated dep, override it in <code>package.json</code> (npm 8.3+):</p>
+<pre><code class="language-json">{
+  &quot;overrides&quot;: {
+    &quot;glob&quot;: &quot;^10.4.0&quot;,
+    &quot;rimraf&quot;: &quot;^5.0.0&quot;
+  }
+}
+</code></pre>
+<p>Then reinstall:</p>
+<pre><code class="language-bash">rm -rf node_modules package-lock.json
+npm install
+</code></pre>
+<p>Test your app afterwards: a new major can break the parent package. Yarn uses <code>resolutions</code>, pnpm uses <code>pnpm.overrides</code>.</p>
+<h2 id="fix-4-check-security-not-just-deprecation">Fix 4: check security, not just deprecation</h2>
+<p>Deprecation isn't the same as a vulnerability. To see actual known vulnerabilities:</p>
+<pre><code class="language-bash">npm audit
+</code></pre>
+<h2 id="can-i-hide-the-warnings">Can I hide the warnings?</h2>
+<pre><code class="language-bash">npm install --loglevel=error
+</code></pre>
+<p>This hides all warnings, including useful ones. In CI it's fine for clean logs; locally, prefer fixing the source. Ignoring a deprecation of a dev-only tool (like <code>inflight</code> under Jest) is a reasonable choice when no upgrade exists yet.</p>
+<p class="upd">Last updated 2026-11-13.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/npm-elifecycle/">npm ERR! code ELIFECYCLE</a></li><li><a href="/npm/npm-eresolve-unable-to-resolve-dependency-tree/">npm ERR! code ERESOLVE unable to resolve dependency tree</a></li><li><a href="/npm/npm-err-code-e404/">npm ERR! code E404 - Not Found</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error getting credentials - err: exec: &quot;docker-credential-desktop&quot;: executable file not found in $PATH — how to fix</title>
+<meta name="description" content="Docker&#x27;s config.json tells it to use a credential helper (credsStore) that isn&#x27;t installed or can&#x27;t run, so every pull, build or login fails. Fix or remove the credsStore entry in ~/.docker/config.json.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-error-getting-credentials/">
+<meta property="og:title" content="error getting credentials - err: exec: &quot;docker-credential-desktop&quot;: executable file not found in $PATH — how to fix"><meta property="og:description" content="Docker&#x27;s config.json tells it to use a credential helper (credsStore) that isn&#x27;t installed or can&#x27;t run, so every pull, build or login fails. Fix or remove the credsStore entry in ~/.docker/config.json.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-error-getting-credentials/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error getting credentials - err: exec: \"docker-credential-desktop\": executable file not found in $PATH \u2014 how to fix", "description": "Docker's config.json tells it to use a credential helper (credsStore) that isn't installed or can't run, so every pull, build or login fails. Fix or remove the credsStore entry in ~/.docker/config.json.", "dateModified": "2026-11-05", "url": "https://errorfix-hollis.github.io/docker/docker-error-getting-credentials/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "error getting credentials - err: exec: \"docker-credential-desktop\": executable file not found in $PATH", "item": "https://errorfix-hollis.github.io/docker/docker-error-getting-credentials/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>error getting credentials - err: exec: &quot;docker-credential-desktop&quot;: executable file not found in $PATH — how to fix</h1>
+<pre class="err"><code>error getting credentials - err: exec: &quot;docker-credential-desktop&quot;: executable file not found in $PATH, out: ``
+failed to solve: error getting credentials - err: exit status 1, out: ``
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Open <code>~/.docker/config.json</code> and remove (or fix) the <code>"credsStore": "desktop"</code> line, then run <code>docker login</code> again. If the helper should exist, make sure it is on PATH (e.g. <code>/Applications/Docker.app/Contents/Resources/bin</code> on macOS) or install <code>docker-credential-pass</code>/<code>secretservice</code> on Linux.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Before talking to a registry, Docker reads <code>~/.docker/config.json</code>. If it contains <code>"credsStore": "X"</code>, Docker runs a program called <code>docker-credential-X</code> to get the password. When that program is missing, not on <code>PATH</code>, or crashes, you get <code>error getting credentials</code>, even for public images.</p>
+<p>Look at the file:</p>
+<pre><code class="language-bash">cat ~/.docker/config.json
+</code></pre>
+<pre><code class="language-json">{
+  &quot;auths&quot;: { &quot;https://index.docker.io/v1/&quot;: {} },
+  &quot;credsStore&quot;: &quot;desktop&quot;
+}
+</code></pre>
+<p>Helpers you might see: <code>desktop</code> (Docker Desktop), <code>osxkeychain</code> (macOS), <code>wincred</code> (Windows), <code>pass</code> / <code>secretservice</code> (Linux), <code>ecr-login</code>, <code>gcloud</code>.</p>
+<h2 id="cause-1-leftover-docker-desktop-config-wsl-uninstalled-desktop-switched-to-colimaorbstackdocker-engine">Cause 1: leftover Docker Desktop config (WSL, uninstalled Desktop, switched to Colima/OrbStack/Docker Engine)</h2>
+<p>The config still points to <code>docker-credential-desktop</code> but that binary is gone. Remove the line:</p>
+<pre><code class="language-bash">cp ~/.docker/config.json ~/.docker/config.json.bak
+# remove the credsStore key (needs jq)
+jq 'del(.credsStore)' ~/.docker/config.json.bak &gt; ~/.docker/config.json
+docker login
+</code></pre>
+<p>Or edit by hand and delete the <code>"credsStore": "desktop"</code> line (watch the trailing comma; check the result in the <a href="/tools/json-formatter/">JSON formatter</a>). Without a helper, <code>docker login</code> stores a base64-encoded (not encrypted) credential in <code>config.json</code> and warns about it. That is fine for a throwaway box; on a workstation prefer a real helper.</p>
+<p>In WSL, also check for <code>"credsStore": "desktop.exe"</code> — that works only when Docker Desktop's WSL integration is enabled.</p>
+<h2 id="cause-2-the-helper-exists-but-is-not-on-path">Cause 2: the helper exists but is not on PATH</h2>
+<p>On macOS this happens with a Docker Desktop install whose CLI tools aren't linked, often in IDEs or shells with a minimal PATH:</p>
+<pre><code class="language-bash">ls /Applications/Docker.app/Contents/Resources/bin/docker-credential-*
+export PATH=&quot;$PATH:/Applications/Docker.app/Contents/Resources/bin&quot;
+</code></pre>
+<p>Docker Desktop → Settings → Advanced lets you choose System vs User installation of the CLI tools. Re-applying the setting re-creates the symlinks.</p>
+<h2 id="cause-3-the-helper-fails-exit-status-1">Cause 3: the helper fails (<code>exit status 1</code>)</h2>
+<p>If the helper runs but errors (locked keychain, no D-Bus session over SSH, <code>pass</code> not initialised), the message ends with <code>exit status 1</code>. Test it directly:</p>
+<pre><code class="language-bash">echo &quot;https://index.docker.io/v1/&quot; | docker-credential-desktop get
+</code></pre>
+<ul>
+<li>macOS over SSH: the keychain is locked; run <code>security unlock-keychain</code> or switch to <code>osxkeychain</code> in a GUI session.</li>
+<li>Linux <code>pass</code>: initialise with <code>gpg --generate-key</code> then <code>pass init &lt;gpg-id&gt;</code>.</li>
+<li>Headless Linux with <code>secretservice</code>: there is no keyring daemon; use <code>pass</code> or drop <code>credsStore</code>.</li>
+</ul>
+<h2 id="cause-4-sudo-uses-a-different-config">Cause 4: sudo uses a different config</h2>
+<p><code>sudo docker ...</code> reads <code>/root/.docker/config.json</code>. Either fix that file too, or add yourself to the <code>docker</code> group so you don't need sudo.</p>
+<h2 id="cause-5-credhelpers-for-a-specific-registry">Cause 5: credHelpers for a specific registry</h2>
+<p><code>"credHelpers": {"123.dkr.ecr.us-east-1.amazonaws.com": "ecr-login"}</code> needs <code>docker-credential-ecr-login</code> installed (<code>apt install amazon-ecr-credential-helper</code> or <code>brew install docker-credential-helper-ecr</code>). Install it or remove that entry.</p>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-failed-to-solve-did-not-complete-successfully/">failed to solve: process &quot;/bin/sh -c ...&quot; did not complete successfully: exit code: 1</a></li><li><a href="/docker/docker-unauthorized-authentication-required/">unauthorized: authentication required</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27; (MySQL) — how to fix</title>
+<meta name="description" content="An INSERT or UPDATE would create a second row with the same value in a PRIMARY KEY or UNIQUE index. Decide whether to skip, update the existing row, or fix the data or auto-increment counter.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-mysql-error-1062-duplicate-entry/">
+<meta property="og:title" content="ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27; (MySQL) — how to fix"><meta property="og:description" content="An INSERT or UPDATE would create a second row with the same value in a PRIMARY KEY or UNIQUE index. Decide whether to skip, update the existing row, or fix the data or auto-increment counter.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-mysql-error-1062-duplicate-entry/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR 1062 (23000): Duplicate entry '1' for key 'PRIMARY' (MySQL) \u2014 how to fix", "description": "An INSERT or UPDATE would create a second row with the same value in a PRIMARY KEY or UNIQUE index. Decide whether to skip, update the existing row, or fix the data or auto-increment counter.", "dateModified": "2026-11-05", "url": "https://errorfix-hollis.github.io/database/db-mysql-error-1062-duplicate-entry/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR 1062 (23000): Duplicate entry '1' for key 'PRIMARY'", "item": "https://errorfix-hollis.github.io/database/db-mysql-error-1062-duplicate-entry/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27; (MySQL) — how to fix</h1>
+<pre class="err"><code>ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;
+ERROR 1062 (23000): Duplicate entry &#x27;alice@example.com&#x27; for key &#x27;users.email&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find the existing row: <code>SELECT * FROM t WHERE email='alice@example.com';</code>. To update instead of failing use <code>INSERT ... ON DUPLICATE KEY UPDATE col=VALUES(col)</code> (or <code>AS new</code> alias in 8.0.19+); to skip use <code>INSERT IGNORE</code>. Don't insert explicit ids into AUTO_INCREMENT columns; if the counter is behind, run <code>ALTER TABLE t AUTO_INCREMENT = &lt;max(id)+1&gt;;</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The value in quotes already exists in the index named after <code>for key</code>. <code>PRIMARY</code> is the primary key; anything else (<code>users.email</code>, <code>uniq_slug</code>) is a UNIQUE index. MySQL 8 prefixes the table name; older versions show just the index name.</p>
+<p>See the index and the conflicting row:</p>
+<pre><code class="language-sql">SHOW INDEX FROM users WHERE Non_unique = 0;
+SELECT * FROM users WHERE email = 'alice@example.com';
+</code></pre>
+<h2 id="cause-1-the-row-really-exists-you-want-an-upsert">Cause 1: the row really exists — you want an upsert</h2>
+<p>Update the existing row instead:</p>
+<pre><code class="language-sql">INSERT INTO users (email, name) VALUES ('alice@example.com', 'Alice')
+ON DUPLICATE KEY UPDATE name = VALUES(name);
+</code></pre>
+<p>In MySQL 8.0.20+ <code>VALUES()</code> is deprecated in favour of a row alias:</p>
+<pre><code class="language-sql">INSERT INTO users (email, name) VALUES ('alice@example.com', 'Alice') AS new
+ON DUPLICATE KEY UPDATE name = new.name;
+</code></pre>
+<p>Or skip duplicates silently:</p>
+<pre><code class="language-sql">INSERT IGNORE INTO users (email, name) VALUES ('alice@example.com', 'Alice');
+</code></pre>
+<p><code>INSERT IGNORE</code> also turns other errors (bad values, truncation) into warnings, so check <code>SHOW WARNINGS</code>. <code>REPLACE INTO</code> deletes and re-inserts the row, which fires delete triggers and cascades and gets a new auto-increment id — usually not what you want.</p>
+<h2 id="cause-2-inserting-explicit-ids-into-an-auto_increment-column">Cause 2: inserting explicit ids into an AUTO_INCREMENT column</h2>
+<p>Seed scripts and copied rows often include <code>id</code>. Leave it out and let MySQL assign one:</p>
+<pre><code class="language-sql">INSERT INTO orders (customer_id, total) VALUES (42, 9.99);
+</code></pre>
+<h2 id="cause-3-auto_increment-counter-is-behind-the-data">Cause 3: AUTO_INCREMENT counter is behind the data</h2>
+<p>After an import that inserted explicit ids, the counter can point at an id that's taken. Check and reset:</p>
+<pre><code class="language-sql">SELECT MAX(id) FROM orders;
+SHOW TABLE STATUS LIKE 'orders';   -- Auto_increment column
+ALTER TABLE orders AUTO_INCREMENT = 100001;   -- MAX(id) + 1
+</code></pre>
+<p>MySQL never sets the counter below <code>MAX(id)+1</code>, so a too-low value is ignored.</p>
+<h2 id="cause-4-duplicate-entry-127-for-key-primary-or-255-32767-2147483647">Cause 4: <code>Duplicate entry '127' for key 'PRIMARY'</code> (or 255, 32767, 2147483647)</h2>
+<p>The id column type is full: <code>TINYINT</code> stops at 127, <code>SMALLINT</code> at 32767, <code>INT</code> at 2147483647 (signed). Every new insert tries the maximum again. Widen the column:</p>
+<pre><code class="language-sql">ALTER TABLE events MODIFY id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT;
+</code></pre>
+<h2 id="cause-5-duplicates-when-adding-a-unique-index">Cause 5: duplicates when adding a UNIQUE index</h2>
+<p><code>ALTER TABLE users ADD UNIQUE (email)</code> fails if duplicates already exist. Find them first:</p>
+<pre><code class="language-sql">SELECT email, COUNT(*) FROM users GROUP BY email HAVING COUNT(*) &gt; 1;
+</code></pre>
+<p>Note that with a case-insensitive collation (the default <code>utf8mb4_0900_ai_ci</code>), <code>Alice@Example.com</code> and <code>alice@example.com</code> are duplicates, and trailing spaces can be too.</p>
+<h2 id="cause-6-race-conditions-in-application-code">Cause 6: race conditions in application code</h2>
+<p>"Check if exists, then insert" from two requests at once lets both pass the check. Rely on the unique index and handle the error (or use the upsert above). In application code catch the driver's integrity error — e.g. <code>IntegrityError</code> with errno 1062 in Python, <code>SQLIntegrityConstraintViolationException</code> in Java.</p>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-error-1205-lock-wait-timeout-exceeded/">ERROR 1205 (HY000): Lock wait timeout exceeded; try restarting transaction</a></li><li><a href="/database/db-postgres-duplicate-key-value-violates-unique-constraint/">ERROR: duplicate key value violates unique constraint</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li><li><a href="/database/db-mysql-error-1130-host-is-not-allowed-to-connect/">ERROR 1130 (HY000): Host is not allowed to connect to this MySQL server</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

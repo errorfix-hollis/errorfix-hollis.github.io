@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>no matching host key type found. Their offer: ssh-rsa — how to fix</title>
+<meta name="description" content="OpenSSH 8.8+ disables the old SHA-1 `ssh-rsa` signature algorithm, and the server (old router, NAS, legacy Linux, old Gerrit/Bitbucket) only offers that. Enable it just for that host, or upgrade the server&#x27;s SSH.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/ssh/ssh-no-matching-host-key-type-found/">
+<meta property="og:title" content="no matching host key type found. Their offer: ssh-rsa — how to fix"><meta property="og:description" content="OpenSSH 8.8+ disables the old SHA-1 `ssh-rsa` signature algorithm, and the server (old router, NAS, legacy Linux, old Gerrit/Bitbucket) only offers that. Enable it just for that host, or upgrade the server&#x27;s SSH.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/ssh/ssh-no-matching-host-key-type-found/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "no matching host key type found. Their offer: ssh-rsa \u2014 how to fix", "description": "OpenSSH 8.8+ disables the old SHA-1 `ssh-rsa` signature algorithm, and the server (old router, NAS, legacy Linux, old Gerrit/Bitbucket) only offers that. Enable it just for that host, or upgrade the server's SSH.", "dateModified": "2026-11-04", "url": "https://errorfix-hollis.github.io/ssh/ssh-no-matching-host-key-type-found/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "SSH", "item": "https://errorfix-hollis.github.io/ssh/"}, {"@type": "ListItem", "position": 3, "name": "no matching host key type found. Their offer: ssh-rsa", "item": "https://errorfix-hollis.github.io/ssh/ssh-no-matching-host-key-type-found/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/ssh/">SSH</a></p>
+<article><h1>no matching host key type found. Their offer: ssh-rsa — how to fix</h1>
+<pre class="err"><code>Unable to negotiate with 192.168.1.10 port 22: no matching host key type found. Their offer: ssh-rsa,ssh-dss
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Allow it for that host only: <code>ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa user@host</code>, or permanently in <code>~/.ssh/config</code> under <code>Host oldbox</code>. Better: upgrade the server's OpenSSH and give it an ed25519 host key.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>During connection setup the client and server must agree on a host key algorithm. Since OpenSSH 8.8 (2021), the client no longer accepts <code>ssh-rsa</code> — RSA signatures with SHA-1, which is considered broken. The newer <code>rsa-sha2-256</code> / <code>rsa-sha2-512</code> algorithms use the <em>same RSA key</em> with SHA-2, but very old servers (OpenSSH &lt; 7.2, Dropbear on routers, old switches, some embedded devices) only know <code>ssh-rsa</code>. <code>ssh-dss</code> (DSA) has been disabled even longer.</p>
+<p>"Their offer" lists what the server supports. If nothing in it is enabled on your side, negotiation fails.</p>
+<h2 id="fix-1-allow-ssh-rsa-for-one-connection">Fix 1: allow ssh-rsa for one connection</h2>
+<pre><code class="language-bash">ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa user@192.168.1.10
+</code></pre>
+<ul>
+<li><code>HostKeyAlgorithms</code> – lets you accept the server's ssh-rsa host key (fixes this error).</li>
+<li><code>PubkeyAcceptedAlgorithms</code> – lets you authenticate with your RSA key using SHA-1 signatures. Without it you may get past this error and then hit <code>Permission denied (publickey)</code>.</li>
+</ul>
+<p>On OpenSSH older than 8.5 the second option is called <code>PubkeyAcceptedKeyTypes</code>.</p>
+<h2 id="fix-2-make-it-permanent-for-that-host-only">Fix 2: make it permanent for that host only</h2>
+<pre><code class="language-sshconfig"># ~/.ssh/config
+Host oldrouter
+    HostName 192.168.1.10
+    User admin
+    HostKeyAlgorithms +ssh-rsa
+    PubkeyAcceptedAlgorithms +ssh-rsa
+</code></pre>
+<p>Then <code>ssh oldrouter</code>. Don't put this under <code>Host *</code>; keep the weakened setting limited to the legacy device.</p>
+<p>For Git remotes on an old server, the same <code>Host</code> block works with the Git host name, or set it per command:</p>
+<pre><code class="language-bash">GIT_SSH_COMMAND=&quot;ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa&quot; git pull
+</code></pre>
+<h2 id="related-no-matching-key-exchange-method-cipher">Related: no matching key exchange method / cipher</h2>
+<p>Very old servers often fail at other steps too:</p>
+<pre><code class="language-text">Unable to negotiate ... no matching key exchange method found. Their offer: diffie-hellman-group1-sha1
+Unable to negotiate ... no matching cipher found. Their offer: aes128-cbc,3des-cbc
+</code></pre>
+<p>Enable those the same way, only for that host:</p>
+<pre><code class="language-bash">ssh -o KexAlgorithms=+diffie-hellman-group1-sha1 -o Ciphers=+aes128-cbc user@host
+</code></pre>
+<h2 id="fix-3-upgrade-the-server-proper-fix">Fix 3: upgrade the server (proper fix)</h2>
+<p>If you control the server, update OpenSSH (7.2+ supports <code>rsa-sha2-*</code>) and add a modern host key:</p>
+<pre><code class="language-bash">sudo ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N ''
+# ensure sshd_config contains:  HostKey /etc/ssh/ssh_host_ed25519_key
+sudo systemctl restart ssh        # or sshd
+</code></pre>
+<p>For network devices, check for a firmware update that brings a newer SSH stack.</p>
+<h2 id="client-side-switch-your-own-key-to-ed25519">Client side: switch your own key to ed25519</h2>
+<p>If the server is modern but rejects your old RSA key setup, generate a new key and install it:</p>
+<pre><code class="language-bash">ssh-keygen -t ed25519 -C &quot;me@laptop&quot;
+ssh-copy-id -i ~/.ssh/id_ed25519.pub user@host
+</code></pre>
+<h2 id="check-what-your-client-supports">Check what your client supports</h2>
+<pre><code class="language-bash">ssh -Q HostKeyAlgorithms
+ssh -Q PubkeyAcceptedAlgorithms
+ssh -vvv user@host 2&gt;&amp;1 | grep -i 'host key algorithms'
+</code></pre>
+<h2 id="rhel-fedora-crypto-policies">RHEL / Fedora crypto policies</h2>
+<p>On RHEL 9 and Fedora, the system-wide crypto policy also blocks SHA-1. Per-host options may not be enough; for a temporary workaround use <code>sudo update-crypto-policies --set DEFAULT:SHA1</code> (and revert later), or <code>LEGACY</code> as a last resort.</p>
+<p class="upd">Last updated 2026-11-04.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/ssh/ssh-connection-timed-out/">ssh: connect to host port 22: Connection timed out</a></li><li><a href="/ssh/ssh-host-key-verification-failed/">Host key verification failed.</a></li><li><a href="/ssh/ssh-permission-denied-publickey/">Permission denied (publickey)</a></li><li><a href="/ssh/ssh-connect-to-host-port-22-connection-refused/">ssh: connect to host port 22: Connection refused</a></li><li><a href="/ssh/ssh-connection-closed-by-remote-host/">Connection closed by remote host</a></li><li><a href="/ssh/ssh-kex-exchange-identification-connection-closed/">kex_exchange_identification: Connection closed by remote host</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

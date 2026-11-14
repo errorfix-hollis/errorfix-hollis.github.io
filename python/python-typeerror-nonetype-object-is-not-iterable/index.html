@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: &#x27;NoneType&#x27; object is not iterable (Python) — how to fix</title>
+<meta name="description" content="You looped over, unpacked or called list()/sorted() on a value that is None. Usually a function forgot to return, returned None on some path, or you assigned the result of an in-place method like list.sort().">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-nonetype-object-is-not-iterable/">
+<meta property="og:title" content="TypeError: &#x27;NoneType&#x27; object is not iterable (Python) — how to fix"><meta property="og:description" content="You looped over, unpacked or called list()/sorted() on a value that is None. Usually a function forgot to return, returned None on some path, or you assigned the result of an in-place method like list.sort().">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-nonetype-object-is-not-iterable/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: 'NoneType' object is not iterable (Python) \u2014 how to fix", "description": "You looped over, unpacked or called list()/sorted() on a value that is None. Usually a function forgot to return, returned None on some path, or you assigned the result of an in-place method like list.sort().", "dateModified": "2026-11-05", "url": "https://errorfix-hollis.github.io/python/python-typeerror-nonetype-object-is-not-iterable/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: 'NoneType' object is not iterable", "item": "https://errorfix-hollis.github.io/python/python-typeerror-nonetype-object-is-not-iterable/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: &#x27;NoneType&#x27; object is not iterable (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 9, in &lt;module&gt;
+    for item in get_items():
+TypeError: &#x27;NoneType&#x27; object is not iterable
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find which value is None (print it right before the line). Make sure the function returns a list on every path (<code>return []</code> instead of falling off the end), don't assign the result of in-place methods (<code>items.sort()</code> returns None; use <code>sorted(items)</code>), and guard optional values: <code>for x in items or []:</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Something tried to iterate over <code>None</code>: a <code>for</code> loop, tuple unpacking (<code>a, b = value</code>), <code>list()</code>, <code>sorted()</code>, <code>sum()</code>, <code>in</code>, <code>*args</code> expansion or <code>", ".join(...)</code>. Since Python 3.10 unpacking gives a slightly different message: <code>TypeError: cannot unpack non-iterable NoneType object</code>. Same causes, same fixes.</p>
+<p>Find the culprit first:</p>
+<pre><code class="language-python">result = get_items()
+print(type(result), result)
+</code></pre>
+<h2 id="cause-1-the-function-has-no-return-on-some-path">Cause 1: the function has no <code>return</code> on some path</h2>
+<p>A function that ends without <code>return</code> returns <code>None</code>:</p>
+<pre><code class="language-python">def get_items(user):
+    if user.active:
+        return user.items
+    # inactive users fall off the end -&gt; None
+
+for item in get_items(user):   # TypeError
+    ...
+</code></pre>
+<p>Fix: return an empty collection on every path.</p>
+<pre><code class="language-python">def get_items(user):
+    if user.active:
+        return user.items
+    return []
+</code></pre>
+<p>The same happens when you <code>print()</code> a value instead of <code>return</code>ing it.</p>
+<h2 id="cause-2-assigning-the-result-of-an-in-place-method">Cause 2: assigning the result of an in-place method</h2>
+<p><code>list.sort()</code>, <code>list.append()</code>, <code>list.extend()</code>, <code>list.reverse()</code>, <code>dict.update()</code>, <code>random.shuffle()</code> modify the object and return <code>None</code>:</p>
+<pre><code class="language-python">items = items.sort()      # items is now None
+for x in items: ...       # TypeError
+</code></pre>
+<p>Fix:</p>
+<pre><code class="language-python">items.sort()              # in place, don't reassign
+# or
+items = sorted(items)     # returns a new list
+</code></pre>
+<h2 id="cause-3-unpacking-a-function-that-returns-none">Cause 3: unpacking a function that returns None</h2>
+<pre><code class="language-python">def load():
+    try:
+        return read_a(), read_b()
+    except OSError as e:
+        log(e)            # returns None here
+
+a, b = load()             # cannot unpack non-iterable NoneType object
+</code></pre>
+<p>Re-raise the exception, or return a default tuple such as <code>return None, None</code>, and handle it at the call site.</p>
+<h2 id="cause-4-an-api-regex-or-lookup-returned-none">Cause 4: an API, regex or lookup returned None</h2>
+<p>Many functions return <code>None</code> on "not found":</p>
+<pre><code class="language-python">m = re.match(r&quot;(\d+)-(\d+)&quot;, text)
+start, end = m.groups() if m else (None, None)
+
+data = response.json().get(&quot;items&quot;)   # None if the key is missing
+for item in data or []:
+    ...
+</code></pre>
+<p><code>dict.get(key)</code> returns <code>None</code> unless you pass a default: <code>d.get("items", [])</code>. Test your patterns with the <a href="/tools/regex-tester/">regex tester</a> if a <code>re.match</code> unexpectedly returns <code>None</code>.</p>
+<h2 id="cause-5-optional-arguments-defaulting-to-none">Cause 5: optional arguments defaulting to None</h2>
+<pre><code class="language-python">def process(values=None):
+    for v in values:      # TypeError when called as process()
+        ...
+</code></pre>
+<p>Fix:</p>
+<pre><code class="language-python">def process(values=None):
+    if values is None:
+        values = []
+    for v in values:
+        ...
+</code></pre>
+<p>Don't use <code>values=[]</code> as the default — mutable defaults are shared between calls.</p>
+<h2 id="cause-6-pandas-orm-methods-with-inplacetrue">Cause 6: pandas / ORM methods with <code>inplace=True</code></h2>
+<p><code>df = df.dropna(inplace=True)</code> sets <code>df</code> to <code>None</code>. Either use <code>inplace=True</code> without assignment, or drop <code>inplace</code> and assign: <code>df = df.dropna()</code>.</p>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li><li><a href="/python/python-typeerror-nonetype-object-is-not-subscriptable/">TypeError: &#x27;NoneType&#x27; object is not subscriptable</a></li><li><a href="/python/python-valueerror-too-many-values-to-unpack/">ValueError: too many values to unpack (expected 2)</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

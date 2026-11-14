@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>no space left on device (Docker) — how to fix</title>
+<meta name="description" content="Docker has filled the disk with old images, containers, volumes and build cache. Check usage with docker system df and prune.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-no-space-left-on-device/">
+<meta property="og:title" content="no space left on device (Docker) — how to fix"><meta property="og:description" content="Docker has filled the disk with old images, containers, volumes and build cache. Check usage with docker system df and prune.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-no-space-left-on-device/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "no space left on device (Docker) \u2014 how to fix", "description": "Docker has filled the disk with old images, containers, volumes and build cache. Check usage with docker system df and prune.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/docker/docker-no-space-left-on-device/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "no space left on device (Docker)", "item": "https://errorfix-hollis.github.io/docker/docker-no-space-left-on-device/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>no space left on device (Docker) — how to fix</h1>
+<pre class="err"><code>failed to register layer: write /usr/lib/x86_64-linux-gnu/libLLVM.so: no space left on device
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>docker system df</code> to see what's using space, then <code>docker system prune</code> (add <code>-a</code> to also remove unused images, <code>--volumes</code> for unused volumes) and <code>docker builder prune</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The filesystem holding Docker's data (<code>/var/lib/docker</code> on Linux, a virtual disk on Docker Desktop) is full.</p>
+<h2 id="step-1-see-whats-using-space">Step 1: see what's using space</h2>
+<pre><code class="language-bash">docker system df
+</code></pre>
+<h2 id="step-2-clean-up">Step 2: clean up</h2>
+<pre><code class="language-bash">docker container prune      # stopped containers
+docker image prune -a       # images not used by any container
+docker builder prune        # build cache (often the biggest)
+docker volume prune         # unused volumes — check first, this deletes data!
+</code></pre>
+<p>Or all at once:</p>
+<pre><code class="language-bash">docker system prune -a
+</code></pre>
+<p><code>--volumes</code> also removes unused volumes. Make sure no database you care about lives in one.</p>
+<h2 id="step-3-check-the-host-disk">Step 3: check the host disk</h2>
+<pre><code class="language-bash">df -h /var/lib/docker
+sudo du -sh /var/lib/docker/*
+</code></pre>
+<p>Large container logs are a hidden culprit. Find them:</p>
+<pre><code class="language-bash">sudo du -sh /var/lib/docker/containers/*/*-json.log | sort -h | tail
+</code></pre>
+<p>Limit log size in <code>/etc/docker/daemon.json</code> and restart Docker:</p>
+<pre><code class="language-json">{ &quot;log-driver&quot;: &quot;json-file&quot;, &quot;log-opts&quot;: { &quot;max-size&quot;: &quot;10m&quot;, &quot;max-file&quot;: &quot;3&quot; } }
+</code></pre>
+<h2 id="docker-desktop-macos-windows">Docker Desktop (macOS / Windows)</h2>
+<p>The virtual disk has a fixed maximum. After pruning, raise the limit in <em>Settings → Resources → Disk image size</em> if needed.</p>
+<h2 id="inodes">Inodes</h2>
+<p>If <code>df -h</code> shows free space but you still get the error, check inodes with <code>df -i</code>. Millions of small files in images or volumes can use them up; pruning helps here too.</p>
+<h2 id="move-dockers-data-directory">Move Docker's data directory</h2>
+<p>If the root partition is small, put Docker on a bigger disk by setting <code>"data-root": "/mnt/big/docker"</code> in <code>daemon.json</code>, stop Docker, copy <code>/var/lib/docker</code> there, and start it again.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-no-space-left-on-device/">No space left on device</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li><li><a href="/docker/docker-container-name-already-in-use/">Conflict. The container name is already in use by container</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,6 @@
+document.querySelectorAll('article pre:not(.err):not(.out)').forEach(p=>{const b=document.createElement('button');b.className='copy';b.textContent='copy';b.onclick=()=>{navigator.clipboard.writeText(p.innerText.replace(/\ncopy$/,'')).then(()=>{b.textContent='copied';setTimeout(()=>b.textContent='copy',1200)})};p.appendChild(b)});
+(function(){const r=document.getElementById('results');if(!r)return;const q=new URLSearchParams(location.search).get('q')||'';document.querySelectorAll('input[name=q]').forEach(i=>i.value=q);
+const norm=s=>s.toLowerCase().replace(/[^a-z0-9 ]+/g,' ');const words=norm(q).split(/\s+/).filter(w=>w.length>1);
+fetch('/index.json').then(x=>x.json()).then(idx=>{if(!words.length){r.innerHTML='<p>Type or paste an error message above.</p>';return}
+const sc=idx.map(e=>{const t=norm(e.e),d=norm(e.d+' '+e.k);let s=0;words.forEach(w=>{if(t.includes(w))s+=3;else if(d.includes(w))s+=1});return[s,e]}).filter(x=>x[0]>0).sort((a,b)=>b[0]-a[0]).slice(0,30);
+r.innerHTML=sc.length?'<ul class="list big">'+sc.map(([s,e])=>`<li><a href="${e.u}">${e.e.replace(/</g,'&lt;')}</a><span>${e.d}</span></li>`).join('')+'</ul>':'<p>No match yet. Browse <a href="/all/">all errors</a>.</p>'})})();

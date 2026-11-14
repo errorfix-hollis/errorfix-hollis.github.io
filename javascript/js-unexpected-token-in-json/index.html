@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SyntaxError: Unexpected token &#x27;&lt;&#x27;, &quot;&lt;!DOCTYPE &quot;... is not valid JSON (JavaScript) — how to fix</title>
+<meta name="description" content="You called response.json() but the server returned HTML (an error page, a 404, or your app&#x27;s index.html). Check the URL and the response status.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-unexpected-token-in-json/">
+<meta property="og:title" content="SyntaxError: Unexpected token &#x27;&lt;&#x27;, &quot;&lt;!DOCTYPE &quot;... is not valid JSON (JavaScript) — how to fix"><meta property="og:description" content="You called response.json() but the server returned HTML (an error page, a 404, or your app&#x27;s index.html). Check the URL and the response status.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-unexpected-token-in-json/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "SyntaxError: Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON (JavaScript) \u2014 how to fix", "description": "You called response.json() but the server returned HTML (an error page, a 404, or your app's index.html). Check the URL and the response status.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/javascript/js-unexpected-token-in-json/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "SyntaxError: Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON", "item": "https://errorfix-hollis.github.io/javascript/js-unexpected-token-in-json/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>SyntaxError: Unexpected token &#x27;&lt;&#x27;, &quot;&lt;!DOCTYPE &quot;... is not valid JSON (JavaScript) — how to fix</h1>
+<pre class="err"><code>Uncaught (in promise) SyntaxError: Unexpected token &#x27;&lt;&#x27;, &quot;&lt;!DOCTYPE &quot;... is not valid JSON
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Open the request in DevTools → Network and look at the response: it's HTML, not JSON. Usually the API URL is wrong (404 → index.html), the server crashed (500 page), or you need to log in. Check <code>res.ok</code> before calling <code>res.json()</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>JSON.parse</code> (which <code>response.json()</code> uses) got text starting with <code>&lt;</code>. JSON never starts with <code>&lt;</code>, but HTML does: <code>&lt;!DOCTYPE html&gt;</code>. So the server sent a web page instead of JSON.</p>
+<h2 id="find-out-what-came-back">Find out what came back</h2>
+<p>DevTools → <strong>Network</strong> → click the request → <strong>Response</strong>. Or log it:</p>
+<pre><code class="language-js">const res = await fetch('/api/items');
+const text = await res.text();
+console.log(res.status, text.slice(0, 300));
+</code></pre>
+<h2 id="common-causes">Common causes</h2>
+<p><strong>1. Wrong URL, and a single-page app fallback serves <code>index.html</code>.</strong> Dev servers (Vite, CRA) and hosts like Netlify/Vercel return <code>index.html</code> for unknown paths, with status 200. Check the path, a missing <code>/api</code> prefix, or a missing dev-server proxy setting.</p>
+<p><strong>2. The API crashed</strong> and returned an HTML error page (500, 502 Bad Gateway).</p>
+<p><strong>3. Not logged in</strong>: you got redirected to an HTML login page.</p>
+<p><strong>4. Relative URL resolved differently</strong>: <code>fetch('api/items')</code> on <code>/dashboard/</code> requests <code>/dashboard/api/items</code>. Use a leading slash: <code>fetch('/api/items')</code>.</p>
+<h2 id="make-your-code-fail-clearly">Make your code fail clearly</h2>
+<pre><code class="language-js">const res = await fetch(url);
+if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+const type = res.headers.get('content-type') || '';
+if (!type.includes('application/json')) throw new Error(`Expected JSON, got ${type}`);
+const data = await res.json();
+</code></pre>
+<h2 id="other-unexpected-token-variants">Other "Unexpected token" variants</h2>
+<ul>
+<li><code>Unexpected token u in JSON at position 0</code> — you parsed <code>undefined</code> (e.g. <code>JSON.parse(localStorage.getItem('missing'))</code>, which is actually <code>null</code>… or an undefined variable). Check the value before parsing.</li>
+<li><code>Unexpected end of JSON input</code> — the response body was empty (e.g. a 204 response). Don't call <code>.json()</code> on empty responses.</li>
+<li><code>Unexpected token o in JSON</code> — you parsed something that is already an object (<code>"[object Object]"</code>). Skip <code>JSON.parse</code>.</li>
+</ul>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li><li><a href="/javascript/js-hydration-failed-initial-ui-does-not-match/">Hydration failed because the initial UI does not match what was rendered on the server</a></li><li><a href="/javascript/js-invalid-hook-call/">Invalid hook call. Hooks can only be called inside of the body of a function component.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

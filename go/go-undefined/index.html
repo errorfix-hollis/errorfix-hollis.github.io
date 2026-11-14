@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>undefined: X (Go) — how to fix</title>
+<meta name="description" content="The Go compiler cannot find a name you used. Usually the file that defines it is not being compiled, the name is unexported from another package, or there is a typo or build-tag mismatch.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-undefined/">
+<meta property="og:title" content="undefined: X (Go) — how to fix"><meta property="og:description" content="The Go compiler cannot find a name you used. Usually the file that defines it is not being compiled, the name is unexported from another package, or there is a typo or build-tag mismatch.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-undefined/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "undefined: X (Go) \u2014 how to fix", "description": "The Go compiler cannot find a name you used. Usually the file that defines it is not being compiled, the name is unexported from another package, or there is a typo or build-tag mismatch.", "dateModified": "2026-11-02", "url": "https://errorfix-hollis.github.io/go/go-undefined/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "undefined: X", "item": "https://errorfix-hollis.github.io/go/go-undefined/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>undefined: X (Go) — how to fix</h1>
+<pre class="err"><code>./main.go:8:2: undefined: helper
+# command-line-arguments
+./main.go:12:9: undefined: Config
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Build the whole package, not one file: <code>go run .</code> instead of <code>go run main.go</code>. For names from another package, capitalise them (<code>Helper</code>, not <code>helper</code>) and qualify them (<code>utils.Helper</code>). Check for typos, <code>//go:build</code> tags and <code>_test.go</code>-only definitions.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Go resolves every identifier at compile time. <code>undefined: helper</code> means that, in the set of files being compiled for this package, nothing declares <code>helper</code> in scope at that point. The code may well exist on disk; the compiler just isn't seeing it.</p>
+<h2 id="fix-1-you-ran-a-single-file-go-run-maingo">Fix 1: you ran a single file (<code>go run main.go</code>)</h2>
+<p>The most common cause. If <code>helper</code> is declared in <code>util.go</code> in the same folder, this fails:</p>
+<pre><code class="language-bash">go run main.go        # only compiles main.go -&gt; undefined: helper
+</code></pre>
+<p>Compile the whole package instead:</p>
+<pre><code class="language-bash">go run .              # all .go files in the current directory
+go build ./...        # every package in the module
+</code></pre>
+<p>The same applies to <code>go test file_test.go</code> — use <code>go test ./...</code> or <code>go test .</code>.</p>
+<h2 id="fix-2-unexported-name-from-another-package">Fix 2: unexported name from another package</h2>
+<p>Only identifiers that start with an <strong>uppercase letter</strong> are visible outside their package.</p>
+<pre><code class="language-go">// package utils
+func helper() {}   // unexported
+func Helper() {}   // exported
+</code></pre>
+<pre><code class="language-go">import &quot;example.com/myapp/utils&quot;
+
+utils.Helper()     // OK
+utils.helper()     // error (undefined / not exported)
+helper()           // error: must be qualified with the package name
+</code></pre>
+<p>Rename the declaration to start with a capital letter, and always call it as <code>pkg.Name</code>.</p>
+<h2 id="fix-3-build-tags-or-os-specific-files">Fix 3: build tags or OS-specific files</h2>
+<p>Files can be excluded from a build:</p>
+<ul>
+<li>A <code>//go:build linux</code> (or old <code>// +build</code>) line at the top.</li>
+<li>File name suffixes such as <code>_windows.go</code>, <code>_linux.go</code>, <code>_arm64.go</code>.</li>
+<li><code>_test.go</code> files are only compiled by <code>go test</code>.</li>
+</ul>
+<p>If the definition lives only in one of these, it is undefined on other platforms or in normal builds. Check which files are included:</p>
+<pre><code class="language-bash">go list -f '{{.GoFiles}} {{.IgnoredGoFiles}}' .
+</code></pre>
+<p>Provide an implementation for every target (e.g. <code>foo_linux.go</code> and <code>foo_other.go</code> with <code>//go:build !linux</code>), or move shared code to an untagged file.</p>
+<h2 id="fix-4-different-package-names-in-one-folder">Fix 4: different package names in one folder</h2>
+<p>All non-test files in a directory must have the same <code>package</code> clause. If <code>util.go</code> says <code>package util</code> while <code>main.go</code> says <code>package main</code>, you get an error like <code>found packages main (main.go) and util (util.go)</code>, or the names are undefined. Make them match, or move the file into its own directory and import it.</p>
+<h2 id="fix-5-scope-typos-and-generated-code">Fix 5: scope, typos and generated code</h2>
+<ul>
+<li>Variables declared inside <code>if</code>, <code>for</code> or <code>{}</code> blocks are not visible outside them:</li>
+</ul>
+<pre><code class="language-go">if ok {
+    x := 1
+}
+fmt.Println(x) // undefined: x
+</code></pre>
+<p>Declare <code>x</code> before the block (<code>var x int</code>) and assign inside it.</p>
+<ul>
+<li>Go is case-sensitive: <code>config</code> and <code>Config</code> are different names.</li>
+<li>Code from <code>go generate</code>, protobuf or mocks must actually be generated: run <code>go generate ./...</code> / <code>protoc</code> first.</li>
+<li>Calling a newer standard library function (e.g. <code>slices.Contains</code>, <code>min</code>/<code>max</code> builtins in Go 1.21) with an older toolchain or an older <code>go</code> line in <code>go.mod</code> also gives <code>undefined</code>. Check <code>go version</code> and the <code>go</code> directive in <code>go.mod</code>.</li>
+</ul>
+<h2 id="fix-6-stale-editormodule-state">Fix 6: stale editor/module state</h2>
+<p>If <code>go build ./...</code> works but your editor shows the error, restart gopls (VS Code: "Go: Restart Language Server"). If a dependency's symbol is undefined, you may be on an older version:</p>
+<pre><code class="language-bash">go get example.com/lib@latest
+go mod tidy
+</code></pre>
+<p class="upd">Last updated 2026-11-02.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-cannot-find-main-module/">go: cannot find main module, but found .git/config</a></li><li><a href="/go/go-declared-and-not-used/">declared and not used</a></li><li><a href="/go/go-imported-and-not-used/">&quot;fmt&quot; imported and not used</a></li><li><a href="/go/go-all-goroutines-are-asleep-deadlock/">fatal error: all goroutines are asleep - deadlock!</a></li><li><a href="/go/go-cannot-use-as-value-in-assignment/">cannot use x (variable of type T) as U value in assignment</a></li><li><a href="/go/go-fatal-error-concurrent-map-writes/">fatal error: concurrent map writes</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;bs4&#x27; (Python) — how to fix</title>
+<meta name="description" content="BeautifulSoup 4 is imported as bs4 but installed as the PyPI package beautifulsoup4. It&#x27;s missing from the Python interpreter that runs your script.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-bs4/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;bs4&#x27; (Python) — how to fix"><meta property="og:description" content="BeautifulSoup 4 is imported as bs4 but installed as the PyPI package beautifulsoup4. It&#x27;s missing from the Python interpreter that runs your script.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-bs4/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'bs4' (Python) \u2014 how to fix", "description": "BeautifulSoup 4 is imported as bs4 but installed as the PyPI package beautifulsoup4. It's missing from the Python interpreter that runs your script.", "dateModified": "2026-11-12", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-bs4/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'bs4'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-bs4/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;bs4&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;scraper.py&quot;, line 2, in &lt;module&gt;
+    from bs4 import BeautifulSoup
+ModuleNotFoundError: No module named &#x27;bs4&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>python -m pip install beautifulsoup4</code> with the same Python you use to run the script (activate your venv first). Don't install the old <code>BeautifulSoup</code> package (v3, Python 2 only). For Jupyter use <code>%pip install beautifulsoup4</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>from bs4 import BeautifulSoup</code> needs the module <code>bs4</code>, which comes from the PyPI package <strong><code>beautifulsoup4</code></strong>. Python didn't find it in any directory on <code>sys.path</code> for the interpreter that's running.</p>
+<h2 id="fix-1-install-beautifulsoup4">Fix 1: install <code>beautifulsoup4</code></h2>
+<pre><code class="language-bash">python -m pip install beautifulsoup4
+</code></pre>
+<p>Notes on package names:</p>
+<ul>
+<li><code>beautifulsoup4</code>: correct, current package.</li>
+<li><code>bs4</code>: a dummy package on PyPI that just depends on <code>beautifulsoup4</code>. It works, but use the real name in <code>requirements.txt</code>.</li>
+<li><code>BeautifulSoup</code> (no 4): BeautifulSoup <strong>3</strong>, Python 2 only. Installing it on Python 3 fails with a syntax error about <code>print</code>.</li>
+</ul>
+<p>Add a parser too if you use one other than the built-in <code>html.parser</code>:</p>
+<pre><code class="language-bash">python -m pip install lxml          # BeautifulSoup(html, &quot;lxml&quot;)
+python -m pip install html5lib      # BeautifulSoup(html, &quot;html5lib&quot;)
+</code></pre>
+<p>Otherwise you'll get <code>bs4.FeatureNotFound: Couldn't find a tree builder with the features you requested: lxml</code>.</p>
+<h2 id="fix-2-installed-but-for-another-python">Fix 2: installed, but for another Python</h2>
+<p>The most common cause when <code>pip install</code> "already worked". Check what's running:</p>
+<pre><code class="language-bash">python -c &quot;import sys; print(sys.executable)&quot;
+python -m pip show beautifulsoup4
+</code></pre>
+<ul>
+<li>Using a <strong>venv</strong>? Activate it (<code>source .venv/bin/activate</code>, Windows <code>.venv\Scripts\activate</code>) and install inside it.</li>
+<li><strong>Several Pythons</strong> (e.g. 3.11 and 3.12, or Homebrew + system)? Use <code>python3.12 -m pip install beautifulsoup4</code> with the exact version you run.</li>
+<li><strong>VS Code / PyCharm</strong>: pick the same interpreter in the editor (VS Code: <em>Python: Select Interpreter</em>).</li>
+<li><strong>Jupyter</strong>: run <code>%pip install beautifulsoup4</code> in a cell, then restart the kernel.</li>
+<li><strong>Windows</strong>: <code>py -m pip install beautifulsoup4</code> targets the default <code>py</code> launcher Python.</li>
+</ul>
+<p>On Debian/Ubuntu system Python, <code>pip install</code> may be blocked with <a href="/python/python-externally-managed-environment/">externally-managed-environment</a>. Use a venv or <code>sudo apt install python3-bs4</code>.</p>
+<h2 id="fix-3-a-file-named-bs4py">Fix 3: a file named <code>bs4.py</code></h2>
+<p>If your script is called <code>bs4.py</code> (or there's a <code>bs4/</code> folder next to it), Python imports that instead of the library. You then usually see <code>ImportError: cannot import name 'BeautifulSoup' from partially initialized module 'bs4'</code>. Rename the file and delete <code>__pycache__/</code>.</p>
+<h2 id="fix-4-docker-cron-ci">Fix 4: Docker, cron, CI</h2>
+<p>Each environment has its own Python. Make sure the dependency is listed:</p>
+<pre><code class="language-text"># requirements.txt
+beautifulsoup4&gt;=4.12
+requests&gt;=2.31
+</code></pre>
+<p>For cron jobs, call the venv's interpreter by absolute path:</p>
+<pre><code class="language-cron">0 * * * * /home/me/scraper/.venv/bin/python /home/me/scraper/scraper.py
+</code></pre>
+<h2 id="verify">Verify</h2>
+<pre><code class="language-python">import bs4
+print(bs4.__version__)
+from bs4 import BeautifulSoup
+print(BeautifulSoup(&quot;&lt;p&gt;hi&lt;/p&gt;&quot;, &quot;html.parser&quot;).p.text)
+</code></pre>
+<p class="upd">Last updated 2026-11-12.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-externally-managed-environment/">error: externally-managed-environment</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-dotenv/">ModuleNotFoundError: No module named &#x27;dotenv&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

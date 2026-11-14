@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>java.lang.UnsupportedClassVersionError: has been compiled by a more recent version of the Java Runtime — how to fix</title>
+<meta name="description" content="The code was compiled for a newer Java than the one running it. Run it with a newer JDK, or compile for the older version with --release.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-unsupportedclassversionerror/">
+<meta property="og:title" content="java.lang.UnsupportedClassVersionError: has been compiled by a more recent version of the Java Runtime — how to fix"><meta property="og:description" content="The code was compiled for a newer Java than the one running it. Run it with a newer JDK, or compile for the older version with --release.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-unsupportedclassversionerror/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "java.lang.UnsupportedClassVersionError: has been compiled by a more recent version of the Java Runtime \u2014 how to fix", "description": "The code was compiled for a newer Java than the one running it. Run it with a newer JDK, or compile for the older version with --release.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/java/java-unsupportedclassversionerror/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "java.lang.UnsupportedClassVersionError: has been compiled by a more recent version of the Java Runtime", "item": "https://errorfix-hollis.github.io/java/java-unsupportedclassversionerror/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>java.lang.UnsupportedClassVersionError: has been compiled by a more recent version of the Java Runtime — how to fix</h1>
+<pre class="err"><code>Error: LinkageError occurred while loading main class com.example.App
+        java.lang.UnsupportedClassVersionError: com/example/App has been compiled by a more recent version of the Java Runtime (class file version 65.0), this version of the Java Runtime only recognizes class file versions up to 55.0
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check <code>java -version</code>. Install/switch to the Java version that matches the class file version (65 = Java 21, 61 = Java 17, 55 = Java 11), or rebuild with <code>--release 11</code> (Maven: <code>&lt;maven.compiler.release&gt;11&lt;/maven.compiler.release&gt;</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Every <code>.class</code> file records which Java version it targets. The JVM you're running is <strong>older</strong> than that and refuses to load it.</p>
+<h2 id="class-file-version-java-version">Class file version → Java version</h2>
+<table>
+<thead>
+<tr>
+<th>Class file version</th>
+<th>Java</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>52.0</td>
+<td>8</td>
+</tr>
+<tr>
+<td>55.0</td>
+<td>11</td>
+</tr>
+<tr>
+<td>61.0</td>
+<td>17</td>
+</tr>
+<tr>
+<td>65.0</td>
+<td>21</td>
+</tr>
+<tr>
+<td>69.0</td>
+<td>25</td>
+</tr>
+</tbody>
+</table>
+<p>In the example, the class needs Java 21 (65.0) but the runtime is Java 11 (55.0).</p>
+<h2 id="fix-1-run-it-with-a-newer-java">Fix 1: run it with a newer Java</h2>
+<pre><code class="language-bash">java -version
+</code></pre>
+<p>Ubuntu/Debian: <code>sudo apt install openjdk-21-jre</code> and choose it with <code>sudo update-alternatives --config java</code>. macOS: <code>brew install openjdk@21</code>. SDKMAN works everywhere: <code>sdk install java 21-tem</code>.</p>
+<p>Make sure <code>JAVA_HOME</code> and your IDE point to the same JDK. Multiple installed versions are the usual reason "but I installed Java 21!" still fails.</p>
+<h2 id="fix-2-compile-for-the-older-java">Fix 2: compile for the older Java</h2>
+<p><strong>javac:</strong></p>
+<pre><code class="language-bash">javac --release 11 App.java
+</code></pre>
+<p><strong>Maven:</strong></p>
+<pre><code class="language-xml">&lt;properties&gt;
+  &lt;maven.compiler.release&gt;11&lt;/maven.compiler.release&gt;
+&lt;/properties&gt;
+</code></pre>
+<p><strong>Gradle:</strong></p>
+<pre><code class="language-groovy">java { toolchain { languageVersion = JavaLanguageVersion.of(11) } }
+</code></pre>
+<p><code>--release</code> also stops you from using APIs that don't exist in the older version, unlike the old <code>-source</code>/<code>-target</code> flags.</p>
+<h2 id="its-a-library-not-your-code">It's a library, not your code</h2>
+<p>If the class belongs to a dependency (e.g. <code>org/springframework/...</code>), that library version requires a newer Java. Spring Boot 3 needs Java 17+, for example. Either upgrade Java or use an older library version.</p>
+<h2 id="in-intellij-eclipse">In IntelliJ / Eclipse</h2>
+<p>Set the project SDK and the run configuration's JRE to the same version: IntelliJ <em>File → Project Structure → Project SDK</em> and <em>Run → Edit Configurations → JRE</em>.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-home-is-not-set/">ERROR: JAVA_HOME is not set and no &#x27;java&#x27; command could be found in your PATH.</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-comparison-method-violates-its-general-contract/">java.lang.IllegalArgumentException: Comparison method violates its general contract!</a></li><li><a href="/java/java-concurrentmodificationexception/">java.util.ConcurrentModificationException</a></li><li><a href="/java/java-could-not-find-or-load-main-class/">Error: Could not find or load main class</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

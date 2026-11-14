@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>sudo: unable to resolve host (Linux) — how to fix</title>
+<meta name="description" content="The machine&#x27;s hostname isn&#x27;t listed in /etc/hosts. Add it next to 127.0.1.1 (or 127.0.0.1).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-sudo-unable-to-resolve-host/">
+<meta property="og:title" content="sudo: unable to resolve host (Linux) — how to fix"><meta property="og:description" content="The machine&#x27;s hostname isn&#x27;t listed in /etc/hosts. Add it next to 127.0.1.1 (or 127.0.0.1).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-sudo-unable-to-resolve-host/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "sudo: unable to resolve host (Linux) \u2014 how to fix", "description": "The machine's hostname isn't listed in /etc/hosts. Add it next to 127.0.1.1 (or 127.0.0.1).", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/linux/linux-sudo-unable-to-resolve-host/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "sudo: unable to resolve host", "item": "https://errorfix-hollis.github.io/linux/linux-sudo-unable-to-resolve-host/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>sudo: unable to resolve host (Linux) — how to fix</h1>
+<pre class="err"><code>sudo: unable to resolve host myserver: Name or service not known</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>hostname</code> to see the name, then add <code>127.0.1.1 myserver</code> to <code>/etc/hosts</code> (e.g. <code>echo "127.0.1.1 $(hostname)" | sudo tee -a /etc/hosts</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>sudo looks up the machine's own hostname. After changing the hostname (or on some cloud/container images), <code>/etc/hosts</code> no longer contains it, so the lookup fails. sudo still works, but prints the warning and may be slow.</p>
+<h2 id="fix">Fix</h2>
+<pre><code class="language-bash">hostname
+cat /etc/hosts
+</code></pre>
+<p>Add the hostname (Debian/Ubuntu use <code>127.0.1.1</code> for it):</p>
+<pre><code class="language-bash">echo &quot;127.0.1.1 $(hostname)&quot; | sudo tee -a /etc/hosts
+</code></pre>
+<p>Or edit the file and make the line look like:</p>
+<pre><code class="language-text">127.0.0.1   localhost
+127.0.1.1   myserver
+</code></pre>
+<h2 id="changing-the-hostname-properly">Changing the hostname properly</h2>
+<pre><code class="language-bash">sudo hostnamectl set-hostname newname
+</code></pre>
+<p>Then update <code>/etc/hosts</code> to match. On cloud VMs, cloud-init may rewrite <code>/etc/hosts</code> at boot. Set <code>manage_etc_hosts: true</code> in cloud-init config, or edit <code>/etc/cloud/templates/hosts.debian.tmpl</code>.</p>
+<h2 id="wsl">WSL</h2>
+<p>WSL regenerates <code>/etc/hosts</code> on start. If the name is missing, check <code>generateHosts</code> in <code>/etc/wsl.conf</code>.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-command-not-found/">command not found</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/linux/linux-cannot-execute-binary-file/">cannot execute binary file: Exec format error</a></li><li><a href="/linux/linux-could-not-get-lock-dpkg/">E: Could not get lock /var/lib/dpkg/lock-frontend</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

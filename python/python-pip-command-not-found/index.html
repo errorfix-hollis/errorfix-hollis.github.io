@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>pip: command not found (Python) — how to fix</title>
+<meta name="description" content="The pip command isn&#x27;t on your PATH. Use python3 -m pip, or install pip for your Python.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-pip-command-not-found/">
+<meta property="og:title" content="pip: command not found (Python) — how to fix"><meta property="og:description" content="The pip command isn&#x27;t on your PATH. Use python3 -m pip, or install pip for your Python.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-pip-command-not-found/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "pip: command not found (Python) \u2014 how to fix", "description": "The pip command isn't on your PATH. Use python3 -m pip, or install pip for your Python.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/python/python-pip-command-not-found/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "pip: command not found", "item": "https://errorfix-hollis.github.io/python/python-pip-command-not-found/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>pip: command not found (Python) — how to fix</h1>
+<pre class="err"><code>bash: pip: command not found
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Use <code>python3 -m pip install &lt;package&gt;</code>. If that says <code>No module named pip</code>, install it: <code>sudo apt install python3-pip</code> (Debian/Ubuntu) or <code>python3 -m ensurepip --upgrade</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Your shell can't find a program called <code>pip</code>. Many systems only ship <code>pip3</code>, or pip is installed but its folder isn't on your PATH.</p>
+<h2 id="fix-1-use-python-m-pip">Fix 1: use python -m pip</h2>
+<p>This always works when pip is installed for that Python, and it's the officially recommended way:</p>
+<pre><code class="language-bash">python3 -m pip --version
+python3 -m pip install requests
+</code></pre>
+<p>On Windows: <code>py -m pip install requests</code>.</p>
+<h2 id="fix-2-try-pip3">Fix 2: try pip3</h2>
+<pre><code class="language-bash">pip3 install requests
+</code></pre>
+<h2 id="fix-3-install-pip">Fix 3: install pip</h2>
+<pre><code class="language-bash"># Debian / Ubuntu
+sudo apt update &amp;&amp; sudo apt install python3-pip
+
+# Fedora
+sudo dnf install python3-pip
+
+# any OS, from Python itself
+python3 -m ensurepip --upgrade
+</code></pre>
+<p>On Debian/Ubuntu 23.04+, installing packages with pip outside a virtual environment then gives <code>externally-managed-environment</code>. Use a venv (<code>python3 -m venv .venv</code>), which always includes pip.</p>
+<h2 id="windows-pip-is-not-recognized-as-an-internal-or-external-command">Windows: 'pip' is not recognized as an internal or external command</h2>
+<p>Python's <code>Scripts</code> folder isn't on PATH. Re-run the Python installer, choose <strong>Modify</strong>, and tick <strong>Add Python to environment variables</strong>, or use <code>py -m pip</code> which doesn't need PATH.</p>
+<h2 id="macos">macOS</h2>
+<p>The system Python doesn't include pip on recent macOS. Install Python from python.org or Homebrew (<code>brew install python</code>), then use <code>python3 -m pip</code>, ideally inside a virtual environment.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-externally-managed-environment/">error: externally-managed-environment</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

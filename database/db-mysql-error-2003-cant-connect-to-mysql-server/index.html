@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR 2003 (HY000): Can&#x27;t connect to MySQL server on &#x27;host&#x27; (111) — how to fix</title>
+<meta name="description" content="The client could not open a TCP connection to the MySQL server. The number in parentheses tells you why: 111/10061 = connection refused (nothing listening), 110/10060 = timed out (firewall or wrong host).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-mysql-error-2003-cant-connect-to-mysql-server/">
+<meta property="og:title" content="ERROR 2003 (HY000): Can&#x27;t connect to MySQL server on &#x27;host&#x27; (111) — how to fix"><meta property="og:description" content="The client could not open a TCP connection to the MySQL server. The number in parentheses tells you why: 111/10061 = connection refused (nothing listening), 110/10060 = timed out (firewall or wrong host).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-mysql-error-2003-cant-connect-to-mysql-server/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR 2003 (HY000): Can't connect to MySQL server on 'host' (111) \u2014 how to fix", "description": "The client could not open a TCP connection to the MySQL server. The number in parentheses tells you why: 111/10061 = connection refused (nothing listening), 110/10060 = timed out (firewall or wrong host).", "dateModified": "2026-11-10", "url": "https://errorfix-hollis.github.io/database/db-mysql-error-2003-cant-connect-to-mysql-server/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR 2003 (HY000): Can't connect to MySQL server on 'host' (111)", "item": "https://errorfix-hollis.github.io/database/db-mysql-error-2003-cant-connect-to-mysql-server/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR 2003 (HY000): Can&#x27;t connect to MySQL server on &#x27;host&#x27; (111) — how to fix</h1>
+<pre class="err"><code>ERROR 2003 (HY000): Can&#x27;t connect to MySQL server on &#x27;127.0.0.1:3306&#x27; (111)
+ERROR 2003 (HY000): Can&#x27;t connect to MySQL server on &#x27;10.0.0.5&#x27; (110)
+ERROR 2003 (HY000): Can&#x27;t connect to MySQL server on &#x27;localhost&#x27; (10061)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the server is running (<code>sudo systemctl status mysql</code>) and listening on the right address (<code>sudo ss -ltnp | grep 3306</code>). For remote access set <code>bind-address = 0.0.0.0</code> in mysqld.cnf, restart, and open port 3306 in the firewall/security group. In Docker, connect to the service name, not localhost.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Error 2003 is a <strong>network-level</strong> failure: the client never reached MySQL's login step. The code in parentheses is the OS error:</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+<th>Usual cause</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>111 (Linux), 61 (macOS), 10061 (Windows)</td>
+<td>Connection refused</td>
+<td>MySQL not running, or not listening on that IP/port</td>
+</tr>
+<tr>
+<td>110 (Linux), 60 (macOS), 10060 (Windows)</td>
+<td>Timed out</td>
+<td>Firewall drops packets, wrong IP, server unreachable</td>
+</tr>
+<tr>
+<td>113</td>
+<td>No route to host</td>
+<td>Network/firewall rejects it</td>
+</tr>
+</tbody>
+</table>
+<p>If you instead see <code>ERROR 2002 ... through socket</code>, the client used a Unix socket — see <a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">Can't connect through socket</a>. If you get <code>ERROR 1045 Access denied</code>, networking works and it's a credentials problem.</p>
+<h2 id="cause-1-the-server-isnt-running">Cause 1: the server isn't running</h2>
+<pre><code class="language-bash">sudo systemctl status mysql     # or mysqld / mariadb
+sudo systemctl start mysql
+sudo journalctl -u mysql -n 50  # why it didn't start
+</code></pre>
+<p>Common reasons it fails to start: full disk, bad config line, or port 3306 already taken.</p>
+<h2 id="cause-2-its-listening-on-a-different-address-or-port">Cause 2: it's listening on a different address or port</h2>
+<pre><code class="language-bash">sudo ss -ltnp | grep mysqld
+</code></pre>
+<p><code>127.0.0.1:3306</code> means only local connections are accepted. To allow remote clients, edit <code>/etc/mysql/mysql.conf.d/mysqld.cnf</code> (Debian/Ubuntu) or <code>/etc/my.cnf</code>:</p>
+<pre><code class="language-ini">[mysqld]
+bind-address = 0.0.0.0
+</code></pre>
+<pre><code class="language-bash">sudo systemctl restart mysql
+</code></pre>
+<p>Also check for <code>skip-networking</code> (disables TCP entirely) and a non-default <code>port</code>. Connect with the right port explicitly: <code>mysql -h 10.0.0.5 -P 3307 -u app -p</code>.</p>
+<p>After opening it up, the user must be allowed from remote hosts (<code>'app'@'%'</code>, not just <code>'app'@'localhost'</code>), otherwise you'll get error 1130 <code>Host ... is not allowed to connect</code>.</p>
+<h2 id="cause-3-firewall-or-cloud-security-group-code-110">Cause 3: firewall or cloud security group (code 110)</h2>
+<pre><code class="language-bash">sudo ufw allow from 203.0.113.0/24 to any port 3306   # restrict to your network
+nc -vz 10.0.0.5 3306                                   # test from the client
+</code></pre>
+<p>On AWS/GCP/Azure, add an inbound rule for TCP 3306 in the security group / firewall rules. For RDS, also check that the instance is "publicly accessible" if connecting from outside the VPC. Don't expose 3306 to the whole internet; use an SSH tunnel instead:</p>
+<pre><code class="language-bash">ssh -L 3306:127.0.0.1:3306 user@dbhost
+mysql -h 127.0.0.1 -u app -p
+</code></pre>
+<h2 id="cause-4-docker-networking">Cause 4: Docker networking</h2>
+<p>Inside a container, <code>localhost</code> is the container itself. With Docker Compose, use the service name as host:</p>
+<pre><code class="language-yaml">services:
+  db:
+    image: mysql:8.4
+  app:
+    environment:
+      DB_HOST: db
+</code></pre>
+<p>From the host machine, publish the port (<code>ports: ["3306:3306"]</code>) and connect to <code>127.0.0.1</code>. If the app starts before MySQL finishes initializing, you get 111 for the first seconds — add a healthcheck with <code>depends_on: condition: service_healthy</code> or retry in the app.</p>
+<h2 id="cause-5-localhost-vs-127001">Cause 5: localhost vs 127.0.0.1</h2>
+<p>The <code>mysql</code> client treats <code>-h localhost</code> as "use the Unix socket", and <code>-h 127.0.0.1</code> as TCP. If one works and the other doesn't, the server is either not listening on TCP or the socket path differs.</p>
+<p class="upd">Last updated 2026-11-10.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-postgres-connection-refused/">psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li><li><a href="/database/db-mysql-error-1130-host-is-not-allowed-to-connect/">ERROR 1130 (HY000): Host is not allowed to connect to this MySQL server</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

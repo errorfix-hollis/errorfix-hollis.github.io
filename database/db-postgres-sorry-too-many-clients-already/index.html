@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FATAL: sorry, too many clients already (PostgreSQL) — how to fix</title>
+<meta name="description" content="PostgreSQL reached max_connections. Usually an app is leaking connections or opening too many (one pool per worker/process); the fix is a connection pool, not just a higher limit.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-sorry-too-many-clients-already/">
+<meta property="og:title" content="FATAL: sorry, too many clients already (PostgreSQL) — how to fix"><meta property="og:description" content="PostgreSQL reached max_connections. Usually an app is leaking connections or opening too many (one pool per worker/process); the fix is a connection pool, not just a higher limit.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-sorry-too-many-clients-already/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "FATAL: sorry, too many clients already (PostgreSQL) \u2014 how to fix", "description": "PostgreSQL reached max_connections. Usually an app is leaking connections or opening too many (one pool per worker/process); the fix is a connection pool, not just a higher limit.", "dateModified": "2026-11-03", "url": "https://errorfix-hollis.github.io/database/db-postgres-sorry-too-many-clients-already/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "FATAL: sorry, too many clients already", "item": "https://errorfix-hollis.github.io/database/db-postgres-sorry-too-many-clients-already/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>FATAL: sorry, too many clients already (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: FATAL:  sorry, too many clients already
+FATAL: remaining connection slots are reserved for non-replication superuser connections
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> See who holds connections: <code>SELECT usename, application_name, state, count(*) FROM pg_stat_activity GROUP BY 1,2,3 ORDER BY 4 DESC;</code>. Kill idle ones with <code>pg_terminate_backend</code>, close connections in your code / cap pool size, put PgBouncer in front, and set <code>idle_in_transaction_session_timeout</code>. Raise <code>max_connections</code> only modestly (needs restart).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Every PostgreSQL connection is a separate server process. When the number of connections reaches <code>max_connections</code> (default 100), new ones are refused. A few slots are kept for superusers (<code>superuser_reserved_connections</code>, default 3), which is why you may see "remaining connection slots are reserved..." first.</p>
+<h2 id="step-1-see-who-is-connected">Step 1: see who is connected</h2>
+<p>Connect as a superuser (the reserved slots let you in) and run:</p>
+<pre><code class="language-sql">SHOW max_connections;
+
+SELECT usename, datname, application_name, client_addr, state, count(*)
+FROM pg_stat_activity
+WHERE backend_type = 'client backend'
+GROUP BY 1,2,3,4,5
+ORDER BY count(*) DESC;
+</code></pre>
+<p>Look for: hundreds of <code>idle</code> connections from one app (pool too large or leaked), or <code>idle in transaction</code> (code opened a transaction and never committed).</p>
+<h2 id="step-2-free-slots-now">Step 2: free slots now</h2>
+<pre><code class="language-sql">-- terminate connections idle for more than 10 minutes
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE state = 'idle'
+  AND backend_type = 'client backend'
+  AND state_change &lt; now() - interval '10 minutes'
+  AND pid &lt;&gt; pg_backend_pid();
+</code></pre>
+<p>Restarting the misbehaving application also releases its connections.</p>
+<h2 id="cause-1-pool-size-number-of-processes">Cause 1: pool size × number of processes</h2>
+<p>Each app process gets its own pool. 4 servers × 8 workers × a pool of 10 = 320 connections. Size pools so the total stays under <code>max_connections</code> minus some headroom:</p>
+<ul>
+<li><strong>SQLAlchemy:</strong> <code>create_engine(url, pool_size=5, max_overflow=5, pool_pre_ping=True)</code></li>
+<li><strong>Django:</strong> connections are per thread/request; keep <code>CONN_MAX_AGE</code> modest and use a pooler for many workers (Django 5.1+ supports <code>"OPTIONS": {"pool": True}</code> with psycopg 3)</li>
+<li><strong>Prisma:</strong> <code>?connection_limit=5</code> in the connection URL</li>
+<li><strong>node-postgres:</strong> <code>new Pool({ max: 10 })</code></li>
+<li><strong>Spring/HikariCP:</strong> <code>spring.datasource.hikari.maximum-pool-size=10</code></li>
+</ul>
+<h2 id="cause-2-leaked-connections">Cause 2: leaked connections</h2>
+<p>Connections opened but never closed — especially in error paths:</p>
+<pre><code class="language-python"># Python: always use context managers
+with psycopg.connect(dsn) as conn:
+    with conn.cursor() as cur:
+        cur.execute(&quot;SELECT 1&quot;)
+</code></pre>
+<pre><code class="language-js">// node-postgres: release clients from a pool
+const client = await pool.connect();
+try { await client.query('SELECT 1'); }
+finally { client.release(); }
+</code></pre>
+<p>In serverless functions (Lambda, Vercel), create the pool <em>outside</em> the handler so it's reused, and use a pooler (RDS Proxy, PgBouncer, Supabase/Neon pooled URLs).</p>
+<h2 id="cause-3-idle-in-transaction">Cause 3: idle in transaction</h2>
+<p>Set server-side timeouts so stuck sessions get cleaned up:</p>
+<pre><code class="language-sql">ALTER SYSTEM SET idle_in_transaction_session_timeout = '5min';
+ALTER SYSTEM SET idle_session_timeout = '30min';   -- PostgreSQL 14+
+SELECT pg_reload_conf();
+</code></pre>
+<h2 id="fix-put-pgbouncer-in-front">Fix: put PgBouncer in front</h2>
+<p>PgBouncer in <code>transaction</code> pool mode lets thousands of client connections share a few dozen server connections. Minimal <code>pgbouncer.ini</code>:</p>
+<pre><code class="language-ini">[databases]
+mydb = host=127.0.0.1 port=5432 dbname=mydb
+
+[pgbouncer]
+listen_port = 6432
+auth_type = scram-sha-256
+auth_file = /etc/pgbouncer/userlist.txt
+pool_mode = transaction
+default_pool_size = 20
+max_client_conn = 1000
+</code></pre>
+<p>Point your app at port 6432. (Transaction mode doesn't support session-level features like <code>SET</code> without <code>LOCAL</code>, advisory locks held across transactions, or — before PgBouncer 1.21 — named prepared statements.)</p>
+<h2 id="raising-max_connections">Raising max_connections</h2>
+<pre><code class="language-sql">ALTER SYSTEM SET max_connections = 200;
+</code></pre>
+<pre><code class="language-bash">sudo systemctl restart postgresql    # requires a restart, not just reload
+</code></pre>
+<p>Each connection costs memory (several MB plus <code>work_mem</code> per sort), so don't set this to thousands. On managed services (RDS, Cloud SQL, Azure) the limit is tied to instance size; change it via the parameter group.</p>
+<p class="upd">Last updated 2026-11-03.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-postgres-connection-refused/">psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused</a></li><li><a href="/database/db-postgres-password-authentication-failed/">FATAL: password authentication failed for user &quot;postgres&quot;</a></li><li><a href="/database/db-sqlite-database-is-locked/">sqlite3.OperationalError: database is locked</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

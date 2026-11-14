@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Received disconnect: Too many authentication failures (SSH) — how to fix</title>
+<meta name="description" content="Your SSH client offered more keys than the server&#x27;s MaxAuthTries allows (default 6) before reaching the right one or password auth. Usually ssh-agent holds many keys and tries them all.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/ssh/ssh-too-many-authentication-failures/">
+<meta property="og:title" content="Received disconnect: Too many authentication failures (SSH) — how to fix"><meta property="og:description" content="Your SSH client offered more keys than the server&#x27;s MaxAuthTries allows (default 6) before reaching the right one or password auth. Usually ssh-agent holds many keys and tries them all.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/ssh/ssh-too-many-authentication-failures/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Received disconnect: Too many authentication failures (SSH) \u2014 how to fix", "description": "Your SSH client offered more keys than the server's MaxAuthTries allows (default 6) before reaching the right one or password auth. Usually ssh-agent holds many keys and tries them all.", "dateModified": "2026-11-02", "url": "https://errorfix-hollis.github.io/ssh/ssh-too-many-authentication-failures/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "SSH", "item": "https://errorfix-hollis.github.io/ssh/"}, {"@type": "ListItem", "position": 3, "name": "Received disconnect: Too many authentication failures", "item": "https://errorfix-hollis.github.io/ssh/ssh-too-many-authentication-failures/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/ssh/">SSH</a></p>
+<article><h1>Received disconnect: Too many authentication failures (SSH) — how to fix</h1>
+<pre class="err"><code>Received disconnect from 203.0.113.10 port 22:2: Too many authentication failures
+Disconnected from 203.0.113.10 port 22
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Tell ssh to use only one key: <code>ssh -o IdentitiesOnly=yes -i ~/.ssh/id_ed25519 user@host</code>, or set <code>IdentitiesOnly yes</code> + <code>IdentityFile</code> for that host in <code>~/.ssh/config</code>. For password login: <code>ssh -o PubkeyAuthentication=no user@host</code>. Clear the agent with <code>ssh-add -D</code> if it has many keys.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Each public key the client offers counts as one authentication attempt. The server's <code>MaxAuthTries</code> (default <strong>6</strong>) caps attempts per connection. If ssh-agent holds 6+ keys, or your config lists many <code>IdentityFile</code> entries, the client exhausts the limit before trying the right key or before asking for a password, and the server disconnects.</p>
+<p>See what's being offered:</p>
+<pre><code class="language-bash">ssh -v user@host 2&gt;&amp;1 | grep -E &quot;Offering|Authentications that can continue&quot;
+ssh-add -l          # keys loaded in the agent
+</code></pre>
+<h2 id="fix-1-offer-only-the-right-key">Fix 1: offer only the right key</h2>
+<p>On the command line:</p>
+<pre><code class="language-bash">ssh -o IdentitiesOnly=yes -i ~/.ssh/id_ed25519 user@host
+</code></pre>
+<p><code>-i</code> alone is <strong>not</strong> enough: ssh still offers every other key in the agent as well, and each one counts as an attempt. <code>IdentitiesOnly=yes</code> restricts it to the identities you specify.</p>
+<p>Permanently, in <code>~/.ssh/config</code>:</p>
+<pre><code>Host myserver
+    HostName 203.0.113.10
+    User deploy
+    IdentityFile ~/.ssh/id_ed25519_myserver
+    IdentitiesOnly yes
+</code></pre>
+<p>Then just <code>ssh myserver</code>. This is the cleanest fix if you have separate keys per server or per Git account.</p>
+<p>For Git over SSH, use the same <code>Host</code> block (e.g. <code>Host github-work</code> with <code>HostName github.com</code>), or:</p>
+<pre><code class="language-bash">GIT_SSH_COMMAND=&quot;ssh -o IdentitiesOnly=yes -i ~/.ssh/work_key&quot; git pull
+</code></pre>
+<h2 id="fix-2-password-login-is-blocked-by-keys">Fix 2: password login is blocked by keys</h2>
+<p>If the server uses passwords and you have keys loaded, the keys use up the attempts. Skip keys:</p>
+<pre><code class="language-bash">ssh -o PubkeyAuthentication=no -o PreferredAuthentications=password user@host
+</code></pre>
+<h2 id="fix-3-clean-up-ssh-agent">Fix 3: clean up ssh-agent</h2>
+<p>Remove all keys from the agent, then add only what you need:</p>
+<pre><code class="language-bash">ssh-add -D
+ssh-add ~/.ssh/id_ed25519
+</code></pre>
+<p>Desktop keyrings (GNOME Keyring, macOS Keychain) may re-add keys automatically at login. On macOS, <code>UseKeychain yes</code> / <code>AddKeysToAgent yes</code> in <code>~/.ssh/config</code> loads keys as you use them; review which keys end up there.</p>
+<p>Avoid <code>Host *</code> blocks with many <code>IdentityFile</code> lines — they apply to every connection.</p>
+<h2 id="fix-4-raise-maxauthtries-on-the-server">Fix 4: raise MaxAuthTries on the server</h2>
+<p>If you control the server and genuinely need more attempts, edit <code>/etc/ssh/sshd_config</code> (or a file in <code>/etc/ssh/sshd_config.d/</code>):</p>
+<pre><code>MaxAuthTries 10
+</code></pre>
+<pre><code class="language-bash">sudo sshd -t &amp;&amp; sudo systemctl reload ssh     # 'sshd' on RHEL/Fedora/Arch
+</code></pre>
+<p>Keep it reasonably low: it limits brute-force attempts per connection. Fixing the client is preferred.</p>
+<h2 id="fix-5-fail2ban-or-similar-locked-you-out">Fix 5: fail2ban or similar locked you out</h2>
+<p>If repeated failures triggered fail2ban, later connections may hang or be refused entirely (<code>Connection refused</code> / timeout) rather than showing this message. From another IP or the console:</p>
+<pre><code class="language-bash">sudo fail2ban-client status sshd
+sudo fail2ban-client set sshd unbanip 198.51.100.7
+</code></pre>
+<p class="upd">Last updated 2026-11-02.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-permission-denied-publickey/">git@github.com: Permission denied (publickey).</a></li><li><a href="/ssh/ssh-connection-timed-out/">ssh: connect to host port 22: Connection timed out</a></li><li><a href="/ssh/ssh-permission-denied-publickey/">Permission denied (publickey)</a></li><li><a href="/ssh/ssh-connect-to-host-port-22-connection-refused/">ssh: connect to host port 22: Connection refused</a></li><li><a href="/ssh/ssh-connection-closed-by-remote-host/">Connection closed by remote host</a></li><li><a href="/ssh/ssh-host-key-verification-failed/">Host key verification failed.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

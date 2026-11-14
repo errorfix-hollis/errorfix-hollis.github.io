@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR: could not serialize access due to concurrent update (PostgreSQL) — how to fix</title>
+<meta name="description" content="PostgreSQL aborted a transaction running at REPEATABLE READ or SERIALIZABLE isolation because another transaction changed the same data concurrently. This is expected behaviour: the application must retry the transaction.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-could-not-serialize-access/">
+<meta property="og:title" content="ERROR: could not serialize access due to concurrent update (PostgreSQL) — how to fix"><meta property="og:description" content="PostgreSQL aborted a transaction running at REPEATABLE READ or SERIALIZABLE isolation because another transaction changed the same data concurrently. This is expected behaviour: the application must retry the transaction.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-could-not-serialize-access/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR: could not serialize access due to concurrent update (PostgreSQL) \u2014 how to fix", "description": "PostgreSQL aborted a transaction running at REPEATABLE READ or SERIALIZABLE isolation because another transaction changed the same data concurrently. This is expected behaviour: the application must retry the transaction.", "dateModified": "2026-11-09", "url": "https://errorfix-hollis.github.io/database/db-postgres-could-not-serialize-access/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR: could not serialize access due to concurrent update", "item": "https://errorfix-hollis.github.io/database/db-postgres-could-not-serialize-access/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR: could not serialize access due to concurrent update (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>ERROR:  could not serialize access due to concurrent update
+ERROR:  could not serialize access due to read/write dependencies among transactions
+DETAIL:  Reason code: Canceled on identification as a pivot, during commit attempt.
+HINT:  The transaction might succeed if retried.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Catch SQLSTATE <code>40001</code> (serialization_failure) and retry the whole transaction from BEGIN, with a few attempts and a small random back-off. Keep transactions short. If you don't need that isolation level, use the default READ COMMITTED or <code>SELECT ... FOR UPDATE</code> instead.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Under <code>REPEATABLE READ</code> and <code>SERIALIZABLE</code>, each transaction sees a snapshot from when it started. If you try to <code>UPDATE</code>/<code>DELETE</code> (or <code>SELECT ... FOR UPDATE</code>) a row that another transaction modified and committed after your snapshot, PostgreSQL can't apply your change without breaking isolation, so it aborts with <strong>SQLSTATE 40001</strong>.</p>
+<p>Two variants:</p>
+<ul>
+<li><strong>"due to concurrent update"</strong> — a row-level write conflict (REPEATABLE READ or SERIALIZABLE).</li>
+<li><strong>"due to read/write dependencies among transactions"</strong> — SERIALIZABLE only; PostgreSQL's SSI detected a dangerous pattern of reads and writes, even if you didn't touch the same rows.</li>
+</ul>
+<p>The PostgreSQL docs are explicit: applications using these levels must be prepared to retry. The HINT says so too.</p>
+<h2 id="fix-1-retry-the-whole-transaction">Fix 1: retry the whole transaction</h2>
+<p>Retry from <code>BEGIN</code>, not just the failed statement — the transaction is already aborted. Python (psycopg 3):</p>
+<pre><code class="language-python">import random, time
+import psycopg
+from psycopg import errors
+
+def run_tx(conn, fn, attempts=5):
+    for i in range(attempts):
+        try:
+            with conn.transaction():
+                return fn(conn)
+        except errors.SerializationFailure:
+            if i == attempts - 1:
+                raise
+            time.sleep(random.uniform(0.01, 0.1) * (2 ** i))
+</code></pre>
+<p>Node (<code>pg</code>): catch errors where <code>err.code === '40001'</code>, <code>ROLLBACK</code>, and re-run. Many ORMs have helpers (e.g. Spring <code>@Retryable</code>, Django: wrap in a loop around <code>transaction.atomic()</code>).</p>
+<p>Also retry on <code>40P01</code> (deadlock_detected); the handling is the same.</p>
+<h2 id="fix-2-use-read-committed-with-explicit-locks">Fix 2: use READ COMMITTED with explicit locks</h2>
+<p>If you set a higher isolation level by habit, the default <code>READ COMMITTED</code> doesn't raise this error — a concurrent update makes your <code>UPDATE</code> re-check the latest row version instead. For read-modify-write logic, lock the row explicitly:</p>
+<pre><code class="language-sql">BEGIN;
+SELECT balance FROM accounts WHERE id = 42 FOR UPDATE;
+UPDATE accounts SET balance = balance - 100 WHERE id = 42;
+COMMIT;
+</code></pre>
+<p>Or do it atomically in one statement:</p>
+<pre><code class="language-sql">UPDATE accounts SET balance = balance - 100 WHERE id = 42 AND balance &gt;= 100;
+</code></pre>
+<p>Check what you are running:</p>
+<pre><code class="language-sql">SHOW transaction_isolation;
+SHOW default_transaction_isolation;
+</code></pre>
+<h2 id="fix-3-reduce-conflicts">Fix 3: reduce conflicts</h2>
+<ul>
+<li>Keep transactions short; don't wait on user input or HTTP calls while one is open.</li>
+<li>Under SERIALIZABLE, declare read-only transactions: <code>BEGIN ISOLATION LEVEL SERIALIZABLE READ ONLY;</code> (or <code>DEFERRABLE</code> for long reports).</li>
+<li>Add indexes used by your <code>WHERE</code> clauses — SSI tracks reads at a coarser granularity (page or relation) when it has to scan, causing more false-positive conflicts.</li>
+<li>Avoid hot rows such as a single counter row updated by every request; use sequences or per-shard counters.</li>
+</ul>
+<h2 id="fix-4-the-error-from-a-replica">Fix 4: the error from a replica</h2>
+<p>On a hot standby you may instead see <code>canceling statement due to conflict with recovery</code>. That's a different problem (replay conflicts); look at <code>hot_standby_feedback</code> and <code>max_standby_streaming_delay</code>.</p>
+<p class="upd">Last updated 2026-11-09.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-error-1205-lock-wait-timeout-exceeded/">ERROR 1205 (HY000): Lock wait timeout exceeded; try restarting transaction</a></li><li><a href="/database/db-postgres-duplicate-key-value-violates-unique-constraint/">ERROR: duplicate key value violates unique constraint</a></li><li><a href="/database/db-sqlite-database-is-locked/">sqlite3.OperationalError: database is locked</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

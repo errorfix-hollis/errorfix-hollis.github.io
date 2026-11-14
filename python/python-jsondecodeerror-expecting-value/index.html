@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0) (Python) — how to fix</title>
+<meta name="description" content="The string you passed to json.loads() (or response.json()) is not JSON at all. At char 0 it is usually empty, HTML (an error page), or plain text; later positions point at invalid JSON syntax.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-jsondecodeerror-expecting-value/">
+<meta property="og:title" content="json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0) (Python) — how to fix"><meta property="og:description" content="The string you passed to json.loads() (or response.json()) is not JSON at all. At char 0 it is usually empty, HTML (an error page), or plain text; later positions point at invalid JSON syntax.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-jsondecodeerror-expecting-value/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0) (Python) \u2014 how to fix", "description": "The string you passed to json.loads() (or response.json()) is not JSON at all. At char 0 it is usually empty, HTML (an error page), or plain text; later positions point at invalid JSON syntax.", "dateModified": "2026-11-05", "url": "https://errorfix-hollis.github.io/python/python-jsondecodeerror-expecting-value/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)", "item": "https://errorfix-hollis.github.io/python/python-jsondecodeerror-expecting-value/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0) (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 5, in &lt;module&gt;
+    data = response.json()
+requests.exceptions.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Print what you are parsing: <code>print(repr(response.text[:500]), response.status_code)</code>. Empty body or HTML means the request failed (check status, URL, auth headers). For files, make sure you don't read the file twice and that it isn't empty. Use <code>json.load(f)</code> for file objects, <code>json.loads(s)</code> for strings, and fix single quotes or trailing commas in hand-written JSON.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The JSON parser looked for a value (<code>{</code>, <code>[</code>, <code>"</code>, a number, <code>true</code>, <code>false</code>, <code>null</code>) and found something else. The position tells you a lot:</p>
+<ul>
+<li><code>line 1 column 1 (char 0)</code> — the input is <strong>empty</strong> or starts with something that isn't JSON (<code>&lt;html&gt;</code>, <code>Internal Server Error</code>, a BOM).</li>
+<li>A later position — the input started as JSON but contains invalid syntax there.</li>
+</ul>
+<p>Always look at the raw input first:</p>
+<pre><code class="language-python">print(response.status_code, response.headers.get(&quot;Content-Type&quot;))
+print(repr(response.text[:500]))
+</code></pre>
+<h2 id="cause-1-the-http-response-is-not-json">Cause 1: the HTTP response is not JSON</h2>
+<p>The server returned an error page, a redirect to a login page, a 204 No Content, or a rate-limit message. <code>response.json()</code> doesn't check the status code.</p>
+<pre><code class="language-python">import requests
+
+r = requests.get(url, headers={&quot;Accept&quot;: &quot;application/json&quot;}, timeout=10)
+r.raise_for_status()                 # raises on 4xx/5xx instead of a confusing JSON error
+if not r.content:
+    data = None
+elif &quot;application/json&quot; in r.headers.get(&quot;Content-Type&quot;, &quot;&quot;):
+    data = r.json()
+else:
+    raise ValueError(f&quot;Expected JSON, got: {r.text[:200]!r}&quot;)
+</code></pre>
+<p>Common reasons for HTML instead of JSON: wrong URL (missing <code>/api/</code> prefix), missing or expired auth token, <code>http://</code> redirecting to <code>https://</code>, or Cloudflare/bot protection. Look up the status code in the <a href="/tools/http-status-codes/">HTTP status codes reference</a>.</p>
+<h2 id="cause-2-the-file-is-empty-or-already-read">Cause 2: the file is empty or already read</h2>
+<pre><code class="language-python">with open(&quot;data.json&quot;) as f:
+    print(f.read())       # consumes the file
+    data = json.load(f)   # reads &quot;&quot; -&gt; Expecting value char 0
+</code></pre>
+<p>Read once, or <code>f.seek(0)</code> before parsing. Also check the file isn't 0 bytes (<code>ls -l data.json</code>) — e.g. it was opened with <code>"w"</code> and truncated by a crashed write.</p>
+<h2 id="cause-3-jsonloads-on-a-file-path-or-jsonload-on-a-string">Cause 3: <code>json.loads</code> on a file path or <code>json.load</code> on a string</h2>
+<pre><code class="language-python">json.loads(&quot;data.json&quot;)      # parses the literal text &quot;data.json&quot; -&gt; error
+</code></pre>
+<p>Use <code>json.load(open(path))</code> for files and <code>json.loads(text)</code> for strings.</p>
+<h2 id="cause-4-not-actually-json-python-repr-single-quotes-comments">Cause 4: not actually JSON (Python repr, single quotes, comments)</h2>
+<p><code>str(dict)</code> produces <code>{'a': 1, 'b': True}</code>, which is not JSON. Single quotes, <code>True</code>/<code>None</code>, trailing commas and <code>//</code> comments are all invalid:</p>
+<pre><code class="language-python">json.loads(&quot;{'a': 1}&quot;)   # Expecting property name enclosed in double quotes
+</code></pre>
+<p>Produce JSON with <code>json.dumps()</code> instead of <code>str()</code>. If you must read Python literals, use <code>ast.literal_eval(text)</code>. Paste the text into the <a href="/tools/json-formatter/">JSON formatter</a> to see exactly where it breaks.</p>
+<h2 id="cause-5-bom-or-json-lines">Cause 5: BOM or JSON Lines</h2>
+<p>A UTF-8 BOM at the start gives <code>Unexpected UTF-8 BOM</code> or <code>Expecting value</code>. Open with <code>encoding="utf-8-sig"</code>.</p>
+<p>A <code>.jsonl</code> / NDJSON file has one object per line; parsing it as a whole gives <code>Extra data</code>. Parse line by line:</p>
+<pre><code class="language-python">with open(&quot;data.jsonl&quot;, encoding=&quot;utf-8&quot;) as f:
+    rows = [json.loads(line) for line in f if line.strip()]
+</code></pre>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-unexpected-token-in-json/">SyntaxError: Unexpected token &#x27;&lt;&#x27;, &quot;&lt;!DOCTYPE &quot;... is not valid JSON</a></li><li><a href="/python/python-object-of-type-is-not-json-serializable/">TypeError: Object of type X is not JSON serializable</a></li><li><a href="/python/python-unicodedecodeerror-utf-8/">UnicodeDecodeError: &#x27;utf-8&#x27; codec can&#x27;t decode byte 0xff in position 0: invalid start byte</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

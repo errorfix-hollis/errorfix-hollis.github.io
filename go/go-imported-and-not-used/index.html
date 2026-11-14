@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>&quot;fmt&quot; imported and not used (Go) — how to fix</title>
+<meta name="description" content="Go doesn&#x27;t compile with unused imports. Remove the import, or let goimports manage imports automatically.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-imported-and-not-used/">
+<meta property="og:title" content="&quot;fmt&quot; imported and not used (Go) — how to fix"><meta property="og:description" content="Go doesn&#x27;t compile with unused imports. Remove the import, or let goimports manage imports automatically.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-imported-and-not-used/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "\"fmt\" imported and not used (Go) \u2014 how to fix", "description": "Go doesn't compile with unused imports. Remove the import, or let goimports manage imports automatically.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/go/go-imported-and-not-used/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "\"fmt\" imported and not used", "item": "https://errorfix-hollis.github.io/go/go-imported-and-not-used/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>&quot;fmt&quot; imported and not used (Go) — how to fix</h1>
+<pre class="err"><code>./main.go:4:2: &quot;fmt&quot; imported and not used</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Delete the unused import line. Better: run <code>goimports -w .</code> (or enable format-on-save with gopls), which adds and removes imports for you. To keep a package for its side effects, import it as <code>_ "pkg"</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Every import must be used in that file. Unused imports slow down builds and hide mistakes, so the compiler rejects them.</p>
+<h2 id="fix-1-remove-it">Fix 1: remove it</h2>
+<pre><code class="language-go">import (
+    &quot;fmt&quot;     // delete this if nothing in the file calls fmt.*
+    &quot;os&quot;
+)
+</code></pre>
+<h2 id="fix-2-let-a-tool-handle-imports">Fix 2: let a tool handle imports</h2>
+<pre><code class="language-bash">go install golang.org/x/tools/cmd/goimports@latest
+goimports -w .
+</code></pre>
+<p>In VS Code with the Go extension (gopls), imports are organised on save by default.</p>
+<h2 id="fix-3-imports-for-side-effects">Fix 3: imports for side effects</h2>
+<p>Some packages register themselves in <code>init()</code> (database drivers, image decoders, <code>net/http/pprof</code>). Import them with the blank identifier:</p>
+<pre><code class="language-go">import (
+    &quot;database/sql&quot;
+    _ &quot;github.com/lib/pq&quot;
+)
+</code></pre>
+<h2 id="fix-4-temporarily-keep-it-while-debugging">Fix 4: temporarily keep it while debugging</h2>
+<pre><code class="language-go">var _ = fmt.Println
+</code></pre>
+<p>Remove it when you're done.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-declared-and-not-used/">declared and not used</a></li><li><a href="/go/go-all-goroutines-are-asleep-deadlock/">fatal error: all goroutines are asleep - deadlock!</a></li><li><a href="/go/go-cannot-find-main-module/">go: cannot find main module, but found .git/config</a></li><li><a href="/go/go-cannot-use-as-value-in-assignment/">cannot use x (variable of type T) as U value in assignment</a></li><li><a href="/go/go-fatal-error-concurrent-map-writes/">fatal error: concurrent map writes</a></li><li><a href="/go/go-invalid-go-version-must-match-format/">go: errors parsing go.mod: invalid go version: must match format 1.23</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

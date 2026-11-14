@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR: relation does not exist (PostgreSQL) — how to fix</title>
+<meta name="description" content="PostgreSQL can&#x27;t find a table, view or sequence with that name in the schemas on your search_path, in the database you&#x27;re connected to. Usually it&#x27;s a case-sensitivity issue, the wrong schema or database, or migrations that never ran.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-relation-does-not-exist/">
+<meta property="og:title" content="ERROR: relation does not exist (PostgreSQL) — how to fix"><meta property="og:description" content="PostgreSQL can&#x27;t find a table, view or sequence with that name in the schemas on your search_path, in the database you&#x27;re connected to. Usually it&#x27;s a case-sensitivity issue, the wrong schema or database, or migrations that never ran.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-relation-does-not-exist/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR: relation does not exist (PostgreSQL) \u2014 how to fix", "description": "PostgreSQL can't find a table, view or sequence with that name in the schemas on your search_path, in the database you're connected to. Usually it's a case-sensitivity issue, the wrong schema or database, or migrations that never ran.", "dateModified": "2026-10-30", "url": "https://errorfix-hollis.github.io/database/db-postgres-relation-does-not-exist/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR: relation does not exist", "item": "https://errorfix-hollis.github.io/database/db-postgres-relation-does-not-exist/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR: relation does not exist (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>ERROR:  relation &quot;users&quot; does not exist
+LINE 1: SELECT * FROM users;
+                      ^
+psycopg2.errors.UndefinedTable: relation &quot;users&quot; does not exist
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> List tables with <code>\dt *.*</code> in psql and check you're in the right database (<code>SELECT current_database();</code>). If the table was created with quotes and capitals, query it with quotes: <code>SELECT * FROM "Users";</code>. If it's in another schema, qualify it (<code>myschema.users</code>) or <code>SET search_path TO myschema, public;</code>. Run your migrations if the table doesn't exist yet.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>"Relation" is Postgres's word for a table, view, materialized view, index or sequence. Error code <code>42P01</code> (<code>undefined_table</code>) means the name you used didn't resolve to any relation visible to the current session. Four things decide that: the exact name (with case), the schemas on <code>search_path</code>, the current database, and your permissions on the schema.</p>
+<p>Start by looking at what exists:</p>
+<pre><code class="language-sql">SELECT current_database(), current_user;
+SHOW search_path;
+SELECT table_schema, table_name
+FROM information_schema.tables
+WHERE table_name ILIKE 'users';
+</code></pre>
+<p>In psql, <code>\dt *.*</code> lists tables in all schemas.</p>
+<h2 id="cause-1-case-sensitivity-quoted-identifiers">Cause 1: case sensitivity (quoted identifiers)</h2>
+<p>Postgres folds unquoted identifiers to lowercase. If the table was created with double quotes and capitals — as many ORMs and GUI tools do — it's stored with that exact case:</p>
+<pre><code class="language-sql">CREATE TABLE &quot;Users&quot; (id int);
+
+SELECT * FROM Users;     -- ERROR: relation &quot;users&quot; does not exist
+SELECT * FROM &quot;Users&quot;;   -- works
+</code></pre>
+<p>Fix: always quote that name, or rename it once to lowercase and avoid quotes in future:</p>
+<pre><code class="language-sql">ALTER TABLE &quot;Users&quot; RENAME TO users;
+</code></pre>
+<h2 id="cause-2-the-table-is-in-another-schema">Cause 2: the table is in another schema</h2>
+<p>If the table lives in <code>app.users</code> but <code>search_path</code> is <code>"$user", public</code>, the unqualified name isn't found.</p>
+<pre><code class="language-sql">SELECT * FROM app.users;                 -- qualify it
+SET search_path TO app, public;          -- this session only
+ALTER ROLE myuser SET search_path TO app, public;   -- persistent for the role
+</code></pre>
+<p>In connection strings you can set it with <code>options=-csearch_path=app,public</code>.</p>
+<h2 id="cause-3-connected-to-the-wrong-database">Cause 3: connected to the wrong database</h2>
+<p>Every database in a Postgres server is separate. Creating a table while connected to <code>postgres</code> and then querying from the app connected to <code>myapp</code> gives this error. Check the database name in your connection URL / env vars (<code>DATABASE_URL</code>, <code>PGDATABASE</code>) against where you created the table:</p>
+<pre><code class="language-bash">psql -d myapp -c '\dt'
+</code></pre>
+<p>In Docker setups, check you're not talking to a different container or a local Postgres on the same port.</p>
+<h2 id="cause-4-migrations-didnt-run">Cause 4: migrations didn't run</h2>
+<p>The table simply doesn't exist yet. Run your migrations against the same database the app uses:</p>
+<pre><code class="language-bash">python manage.py migrate          # Django
+npx prisma migrate deploy         # Prisma
+alembic upgrade head              # SQLAlchemy/Alembic
+bundle exec rails db:migrate      # Rails
+</code></pre>
+<p>In test suites, make sure the test database is migrated too.</p>
+<h2 id="cause-5-created-in-an-uncommitted-transaction">Cause 5: created in an uncommitted transaction</h2>
+<p>If the <code>CREATE TABLE</code> ran inside a transaction that was rolled back, or not yet committed in another session, other connections won't see it. Make sure the creating script commits (psycopg2 doesn't autocommit by default — call <code>conn.commit()</code>).</p>
+<h2 id="cause-6-missing-schema-permission">Cause 6: missing schema permission</h2>
+<p>If you lack <code>USAGE</code> on the schema, Postgres reports <code>permission denied for schema</code> in most cases, but it's worth checking privileges when the table is visible to one role and not another:</p>
+<pre><code class="language-sql">GRANT USAGE ON SCHEMA app TO myuser;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA app TO myuser;
+</code></pre>
+<h2 id="sequences">Sequences</h2>
+<p><code>relation "users_id_seq" does not exist</code> is the same error for a sequence — often from copying a schema dump without its sequences, or a renamed table whose sequence kept the old name. Check with <code>\ds</code>.</p>
+<p class="upd">Last updated 2026-10-30.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-postgres-connection-refused/">psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused</a></li><li><a href="/database/db-postgres-password-authentication-failed/">FATAL: password authentication failed for user &quot;postgres&quot;</a></li><li><a href="/database/db-postgres-role-does-not-exist/">FATAL: role &quot;username&quot; does not exist</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

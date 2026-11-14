@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Unable to connect to the server: dial tcp: i/o timeout (Kubernetes) — how to fix</title>
+<meta name="description" content="kubectl sent a TCP connection to the API server address in your kubeconfig and got no answer. The cluster is down, the address is unreachable from your network (VPN, private endpoint, firewall), or your kubeconfig points at the wrong cluster.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-unable-to-connect-to-the-server-dial-tcp-i-o-timeout/">
+<meta property="og:title" content="Unable to connect to the server: dial tcp: i/o timeout (Kubernetes) — how to fix"><meta property="og:description" content="kubectl sent a TCP connection to the API server address in your kubeconfig and got no answer. The cluster is down, the address is unreachable from your network (VPN, private endpoint, firewall), or your kubeconfig points at the wrong cluster.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-unable-to-connect-to-the-server-dial-tcp-i-o-timeout/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Unable to connect to the server: dial tcp: i/o timeout (Kubernetes) \u2014 how to fix", "description": "kubectl sent a TCP connection to the API server address in your kubeconfig and got no answer. The cluster is down, the address is unreachable from your network (VPN, private endpoint, firewall), or your kubeconfig points at the wrong cluster.", "dateModified": "2026-11-10", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-unable-to-connect-to-the-server-dial-tcp-i-o-timeout/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "Unable to connect to the server: dial tcp: i/o timeout", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-unable-to-connect-to-the-server-dial-tcp-i-o-timeout/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>Unable to connect to the server: dial tcp: i/o timeout (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Unable to connect to the server: dial tcp 10.0.12.34:6443: i/o timeout
+E1110 09:12:03.123456   4321 memcache.go:265] couldn&#x27;t get current server API group list: Get &quot;https://10.0.12.34:6443/api?timeout=32s&quot;: dial tcp 10.0.12.34:6443: i/o timeout
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check <code>kubectl config current-context</code> and the server URL (<code>kubectl config view --minify</code>). Test the port with <code>nc -vz &lt;host&gt; 6443</code>. Connect the VPN or bastion, add your IP to the cluster's authorized networks, start the local cluster (<code>minikube start</code>), or refresh the kubeconfig (<code>aws eks update-kubeconfig ...</code> / <code>gcloud container clusters get-credentials ...</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>i/o timeout</code> is a network-level failure: kubectl's TCP connection attempt got <strong>no response</strong> (packets silently dropped), unlike <code>connection refused</code> where the host actively rejects it. Authentication never happened.</p>
+<p>Start by checking what kubectl is trying to reach:</p>
+<pre><code class="language-bash">kubectl config current-context
+kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'; echo
+nc -vz -w 5 10.0.12.34 6443       # or: curl -k https://10.0.12.34:6443/version
+</code></pre>
+<p>If <code>nc</code> also times out, it's networking, not kubectl.</p>
+<h2 id="cause-1-wrong-context-or-stale-kubeconfig">Cause 1: wrong context or stale kubeconfig</h2>
+<p>You might be pointing at an old or deleted cluster, or a cluster whose IP changed after recreation.</p>
+<pre><code class="language-bash">kubectl config get-contexts
+kubectl config use-context the-right-one
+</code></pre>
+<p>Regenerate credentials for managed clusters:</p>
+<pre><code class="language-bash">aws eks update-kubeconfig --region eu-west-1 --name my-cluster
+gcloud container clusters get-credentials my-cluster --region europe-west1
+az aks get-credentials --resource-group rg --name my-cluster
+</code></pre>
+<p>Also check <code>KUBECONFIG</code> isn't set to a different file: <code>echo $KUBECONFIG</code>.</p>
+<h2 id="cause-2-private-api-endpoint-vpn">Cause 2: private API endpoint / VPN</h2>
+<p>A private IP like <code>10.x</code>, <code>172.16-31.x</code> or <code>192.168.x</code> is only reachable from inside the cluster's network. Connect the VPN, use a bastion host, or tunnel:</p>
+<pre><code class="language-bash">ssh -L 6443:10.0.12.34:6443 user@bastion
+# then point the kubeconfig server at https://127.0.0.1:6443 (TLS name must match, or use tls-server-name)
+</code></pre>
+<ul>
+<li><strong>EKS</strong>: if only the private endpoint is enabled, you need network access to the VPC. Check with <code>aws eks describe-cluster --name my-cluster --query cluster.resourcesVpcConfig</code>.</li>
+<li><strong>GKE</strong>: private clusters need you to be in the VPC or on the authorized networks.</li>
+<li><strong>AKS</strong>: private clusters resolve through a private DNS zone; use <code>az aks command invoke</code> as a fallback.</li>
+</ul>
+<h2 id="cause-3-your-ip-isnt-allowed">Cause 3: your IP isn't allowed</h2>
+<p>Public endpoints often restrict source IPs. If your IP changed (new Wi-Fi, home vs office), you'll time out:</p>
+<pre><code class="language-bash">curl -s https://ifconfig.me
+# EKS
+aws eks update-cluster-config --name my-cluster --resources-vpc-config publicAccessCidrs=&quot;203.0.113.7/32&quot;
+# GKE
+gcloud container clusters update my-cluster --enable-master-authorized-networks --master-authorized-networks 203.0.113.7/32
+# AKS
+az aks update -g rg -n my-cluster --api-server-authorized-ip-ranges 203.0.113.7/32
+</code></pre>
+<p>For self-managed clusters, check cloud security groups and host firewalls allow TCP 6443 from your machine.</p>
+<h2 id="cause-4-the-cluster-or-control-plane-is-down">Cause 4: the cluster or control plane is down</h2>
+<ul>
+<li><strong>minikube</strong>: <code>minikube status</code>, then <code>minikube start</code>. After a restart the IP may change; <code>minikube update-context</code> fixes kubeconfig.</li>
+<li><strong>kind / k3d / Docker Desktop</strong>: make sure Docker is running and the cluster container is up (<code>docker ps</code>).</li>
+<li><strong>kubeadm</strong>: on the control-plane node, check <code>sudo systemctl status kubelet</code> and <code>sudo crictl ps | grep kube-apiserver</code>. An expired certificate or full disk can stop the API server.</li>
+<li><strong>Stopped cloud VMs</strong> or a scaled-to-zero cluster also look exactly like this.</li>
+</ul>
+<h2 id="cause-5-proxy-settings">Cause 5: proxy settings</h2>
+<p>If <code>HTTPS_PROXY</code> is set, kubectl sends traffic through the proxy, which may not reach internal addresses:</p>
+<pre><code class="language-bash">env | grep -i proxy
+export NO_PROXY=$NO_PROXY,10.0.12.34,.internal.example.com
+</code></pre>
+<p>Or set <code>proxy-url</code> per cluster in kubeconfig instead of a global environment variable.</p>
+<h2 id="if-its-intermittent">If it's intermittent</h2>
+<p>Occasional timeouts on large clusters can be API server overload; check API server metrics and raise the timeout for a single request with <code>kubectl --request-timeout=60s get pods</code>.</p>
+<p class="upd">Last updated 2026-11-10.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-x509-certificate-has-expired-or-is-not-yet-valid/">x509: certificate has expired or is not yet valid</a></li><li><a href="/kubernetes/k8s-you-must-be-logged-in-to-the-server-unauthorized/">error: You must be logged in to the server (Unauthorized)</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

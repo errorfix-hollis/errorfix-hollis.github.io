@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OCI runtime create failed: exec: executable file not found in $PATH (Docker) — how to fix</title>
+<meta name="description" content="The command Docker was told to run (CMD, ENTRYPOINT, or the docker run/exec argument) doesn&#x27;t exist inside the image&#x27;s filesystem or $PATH. Common with bash on Alpine/distroless images or a malformed CMD.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-oci-runtime-create-failed-executable-file-not-found/">
+<meta property="og:title" content="OCI runtime create failed: exec: executable file not found in $PATH (Docker) — how to fix"><meta property="og:description" content="The command Docker was told to run (CMD, ENTRYPOINT, or the docker run/exec argument) doesn&#x27;t exist inside the image&#x27;s filesystem or $PATH. Common with bash on Alpine/distroless images or a malformed CMD.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-oci-runtime-create-failed-executable-file-not-found/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "OCI runtime create failed: exec: executable file not found in $PATH (Docker) \u2014 how to fix", "description": "The command Docker was told to run (CMD, ENTRYPOINT, or the docker run/exec argument) doesn't exist inside the image's filesystem or $PATH. Common with bash on Alpine/distroless images or a malformed CMD.", "dateModified": "2026-10-30", "url": "https://errorfix-hollis.github.io/docker/docker-oci-runtime-create-failed-executable-file-not-found/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "OCI runtime create failed: exec: executable file not found in $PATH", "item": "https://errorfix-hollis.github.io/docker/docker-oci-runtime-create-failed-executable-file-not-found/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>OCI runtime create failed: exec: executable file not found in $PATH (Docker) — how to fix</h1>
+<pre class="err"><code>docker: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: exec: &quot;bash&quot;: executable file not found in $PATH: unknown.
+Error response from daemon: OCI runtime exec failed: exec failed: unable to start container process: exec: &quot;bash&quot;: executable file not found in $PATH: unknown
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Use a shell that exists in the image: <code>docker exec -it &lt;container&gt; sh</code> (Alpine has no bash). Check CMD/ENTRYPOINT use JSON array form with separate arguments: <code>CMD ["node", "server.js"]</code>, not <code>CMD ["node server.js"]</code>. Verify the binary exists: <code>docker run --rm --entrypoint sh &lt;image&gt; -c 'which myapp'</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When a container starts, runc looks up the first word of the command in the container's own <code>$PATH</code> (not your host's). If it isn't there, the container fails before your program runs. The quoted name in the message (<code>exec: "bash"</code>) is exactly what it searched for — read it carefully, it often reveals the bug.</p>
+<h2 id="cause-1-the-image-has-no-bash">Cause 1: the image has no bash</h2>
+<p>Alpine, BusyBox and many slim images ship only <code>sh</code>. Distroless and <code>scratch</code> images have no shell at all.</p>
+<pre><code class="language-bash">docker exec -it mycontainer sh          # instead of bash
+docker run --rm -it alpine sh
+</code></pre>
+<p>Need bash on Alpine? Add it in the Dockerfile:</p>
+<pre><code class="language-dockerfile">RUN apk add --no-cache bash
+</code></pre>
+<p>For distroless images, debug with a sidecar shell or use the <code>:debug</code> tag variants, which include BusyBox.</p>
+<h2 id="cause-2-cmd-entrypoint-written-as-one-string-inside-json">Cause 2: CMD / ENTRYPOINT written as one string inside JSON</h2>
+<p>In exec (JSON array) form, each argument must be a separate element. Otherwise Docker looks for a binary literally named <code>node server.js</code>:</p>
+<pre><code class="language-dockerfile"># Wrong: exec: &quot;node server.js&quot;: executable file not found
+CMD [&quot;node server.js&quot;]
+
+# Right
+CMD [&quot;node&quot;, &quot;server.js&quot;]
+
+# Also fine (shell form, runs via /bin/sh -c)
+CMD node server.js
+</code></pre>
+<p>Same for <code>docker run</code>: <code>docker run img "python app.py"</code> passes one argument; use <code>docker run img python app.py</code>.</p>
+<h2 id="cause-3-the-binary-isnt-where-you-think">Cause 3: the binary isn't where you think</h2>
+<p>Maybe the build put it elsewhere, a multi-stage <code>COPY --from</code> missed it, or it's installed in a directory not on <code>$PATH</code>. Inspect the image:</p>
+<pre><code class="language-bash">docker run --rm --entrypoint sh myimage -c 'echo $PATH; ls -l /app; which myapp'
+docker image inspect myimage --format '{{.Config.Entrypoint}} {{.Config.Cmd}} {{.Config.Env}}'
+</code></pre>
+<p>Fixes: use an absolute path (<code>CMD ["/app/myapp"]</code>), or add the directory to <code>PATH</code>:</p>
+<pre><code class="language-dockerfile">ENV PATH=&quot;/app/bin:${PATH}&quot;
+</code></pre>
+<h2 id="cause-4-pythonnode-tools-installed-for-another-user-or-venv">Cause 4: Python/Node tools installed for another user or venv</h2>
+<p><code>pip install --user</code> puts scripts in <code>~/.local/bin</code>, which may not be on <code>PATH</code> for the runtime user. In a venv, activate it via <code>ENV</code>:</p>
+<pre><code class="language-dockerfile">RUN python -m venv /opt/venv
+ENV PATH=&quot;/opt/venv/bin:$PATH&quot;
+RUN pip install gunicorn
+CMD [&quot;gunicorn&quot;, &quot;app:app&quot;]
+</code></pre>
+<h2 id="cause-5-a-script-with-a-missing-interpreter">Cause 5: a script with a missing interpreter</h2>
+<p>If the target is a script such as <code>entrypoint.sh</code> and the file exists, a different error usually appears (<code>no such file or directory</code>), caused by a shebang pointing at a missing interpreter (<code>#!/bin/bash</code> on Alpine) or Windows CRLF line endings. Fix the line endings and shebang:</p>
+<pre><code class="language-dockerfile">RUN sed -i 's/\r$//' /entrypoint.sh &amp;&amp; chmod +x /entrypoint.sh
+</code></pre>
+<p>and use <code>#!/bin/sh</code> if the image has no bash.</p>
+<h2 id="cause-6-entrypoint-overridden-by-compose">Cause 6: entrypoint overridden by compose</h2>
+<p>A <code>command:</code> or <code>entrypoint:</code> in docker-compose.yml overrides the Dockerfile. Check the effective config:</p>
+<pre><code class="language-bash">docker compose config
+</code></pre>
+<p class="upd">Last updated 2026-10-30.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-exec-format-error/">exec format error</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

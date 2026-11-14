@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: You must be logged in to the server (Unauthorized) (Kubernetes) — how to fix</title>
+<meta name="description" content="The API server rejected kubectl&#x27;s credentials as invalid (HTTP 401). The token or client certificate in your kubeconfig expired, belongs to another cluster, or your cloud CLI login lapsed.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-you-must-be-logged-in-to-the-server-unauthorized/">
+<meta property="og:title" content="error: You must be logged in to the server (Unauthorized) (Kubernetes) — how to fix"><meta property="og:description" content="The API server rejected kubectl&#x27;s credentials as invalid (HTTP 401). The token or client certificate in your kubeconfig expired, belongs to another cluster, or your cloud CLI login lapsed.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-you-must-be-logged-in-to-the-server-unauthorized/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: You must be logged in to the server (Unauthorized) (Kubernetes) \u2014 how to fix", "description": "The API server rejected kubectl's credentials as invalid (HTTP 401). The token or client certificate in your kubeconfig expired, belongs to another cluster, or your cloud CLI login lapsed.", "dateModified": "2026-11-04", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-you-must-be-logged-in-to-the-server-unauthorized/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "error: You must be logged in to the server (Unauthorized)", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-you-must-be-logged-in-to-the-server-unauthorized/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>error: You must be logged in to the server (Unauthorized) (Kubernetes) — how to fix</h1>
+<pre class="err"><code>error: You must be logged in to the server (Unauthorized)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check which context you're using (<code>kubectl config current-context</code>). Then refresh credentials: EKS <code>aws eks update-kubeconfig --name CLUSTER --region REGION</code> (and <code>aws sts get-caller-identity</code>), GKE <code>gcloud container clusters get-credentials CLUSTER</code>, AKS <code>az aks get-credentials -g RG -n CLUSTER</code> (and <code>kubelogin convert-kubeconfig -l azurecli</code>). kubeadm: renew certs with <code>kubeadm certs renew all</code> and copy the new admin.conf.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>Unauthorized</code> (401) means <strong>authentication</strong> failed: the API server doesn't accept who you claim to be. That's different from <code>Forbidden</code> (403), where it knows who you are but RBAC denies the action.</p>
+<p>Start by checking where kubectl is pointing and what credentials it uses:</p>
+<pre><code class="language-bash">kubectl config current-context
+kubectl config view --minify          # server, user, auth method
+kubectl get --raw /version -v=6       # shows the request and the 401
+</code></pre>
+<h2 id="cause-1-wrong-context">Cause 1: wrong context</h2>
+<p>You may be using credentials for cluster A against cluster B, e.g. after merging kubeconfigs.</p>
+<pre><code class="language-bash">kubectl config get-contexts
+kubectl config use-context my-cluster
+</code></pre>
+<h2 id="cause-2-eks-aws-identity-not-mapped-or-expired">Cause 2: EKS — AWS identity not mapped or expired</h2>
+<p>EKS authenticates via your AWS identity (<code>aws eks get-token</code>). Check which identity you are and refresh the kubeconfig:</p>
+<pre><code class="language-bash">aws sts get-caller-identity
+aws eks update-kubeconfig --name my-cluster --region eu-west-1
+</code></pre>
+<p>If you switched AWS profiles or SSO sessions expired, log in again (<code>aws sso login --profile X</code>) and make sure the kubeconfig uses that profile (<code>--profile X</code> on <code>update-kubeconfig</code>).</p>
+<p>If the identity is valid but not granted access to the cluster, you also get <code>Unauthorized</code>. A cluster admin must add it — either an access entry:</p>
+<pre><code class="language-bash">aws eks create-access-entry --cluster-name my-cluster \
+  --principal-arn arn:aws:iam::123456789012:role/dev
+aws eks associate-access-policy --cluster-name my-cluster \
+  --principal-arn arn:aws:iam::123456789012:role/dev \
+  --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
+  --access-scope type=cluster
+</code></pre>
+<p>or, on clusters using the older method, a mapping in the <code>aws-auth</code> ConfigMap in <code>kube-system</code>. Note: the IAM identity that created the cluster has admin access implicitly; others don't.</p>
+<h2 id="cause-3-gke-aks-token-expired">Cause 3: GKE / AKS token expired</h2>
+<pre><code class="language-bash"># GKE (needs the gke-gcloud-auth-plugin)
+gcloud auth login
+gcloud container clusters get-credentials my-cluster --region europe-west1
+
+# AKS with Entra ID
+az login
+az aks get-credentials -g my-rg -n my-cluster --overwrite-existing
+kubelogin convert-kubeconfig -l azurecli
+</code></pre>
+<h2 id="cause-4-kubeadm-client-certificate-expired">Cause 4: kubeadm client certificate expired</h2>
+<p>Certificates generated by kubeadm are valid for one year. After that, <code>admin.conf</code> stops working. On a control-plane node:</p>
+<pre><code class="language-bash">sudo kubeadm certs check-expiration
+sudo kubeadm certs renew all
+sudo systemctl restart kubelet     # then restart control-plane static pods
+mkdir -p ~/.kube
+sudo cp /etc/kubernetes/admin.conf ~/.kube/config
+sudo chown $(id -u):$(id -g) ~/.kube/config
+</code></pre>
+<p>Restart the static pods (kube-apiserver, controller-manager, scheduler, etcd) so they load the new certs, e.g. by temporarily moving their manifests out of <code>/etc/kubernetes/manifests</code> and back.</p>
+<h2 id="cause-5-deleted-or-rotated-serviceaccount-token">Cause 5: deleted or rotated ServiceAccount token</h2>
+<p>A kubeconfig built from a ServiceAccount token breaks if the token Secret was deleted or the token (from <code>kubectl create token</code>) expired — those default to one hour. Create a new one with a longer duration if appropriate:</p>
+<pre><code class="language-bash">kubectl create token ci-bot -n ci --duration=24h
+</code></pre>
+<h2 id="cause-6-k3s-minikube-kind-cluster-recreated">Cause 6: k3s / minikube / kind cluster recreated</h2>
+<p>Recreating a local cluster generates a new CA and credentials. Re-export the kubeconfig: <code>minikube update-context</code>, <code>kind export kubeconfig --name NAME</code>, or copy <code>/etc/rancher/k3s/k3s.yaml</code> again.</p>
+<p class="upd">Last updated 2026-11-04.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-error-from-server-forbidden/">Error from server (Forbidden): User cannot list resource in API group at the cluster scope</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li><li><a href="/kubernetes/k8s-error-converting-yaml-to-json-mapping-values-are-not-allowed/">error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

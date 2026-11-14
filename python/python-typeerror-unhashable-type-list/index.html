@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: unhashable type: &#x27;list&#x27; (Python) — how to fix</title>
+<meta name="description" content="You used a mutable object (list, dict or set) as a dictionary key, a set member, or in something that needs hashing, like pandas groupby or drop_duplicates. Convert it to an immutable type such as a tuple or frozenset.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-unhashable-type-list/">
+<meta property="og:title" content="TypeError: unhashable type: &#x27;list&#x27; (Python) — how to fix"><meta property="og:description" content="You used a mutable object (list, dict or set) as a dictionary key, a set member, or in something that needs hashing, like pandas groupby or drop_duplicates. Convert it to an immutable type such as a tuple or frozenset.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-unhashable-type-list/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: unhashable type: 'list' (Python) \u2014 how to fix", "description": "You used a mutable object (list, dict or set) as a dictionary key, a set member, or in something that needs hashing, like pandas groupby or drop_duplicates. Convert it to an immutable type such as a tuple or frozenset.", "dateModified": "2026-11-05", "url": "https://errorfix-hollis.github.io/python/python-typeerror-unhashable-type-list/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: unhashable type: 'list'", "item": "https://errorfix-hollis.github.io/python/python-typeerror-unhashable-type-list/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: unhashable type: &#x27;list&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 3, in &lt;module&gt;
+    seen = {[1, 2], [3, 4]}
+TypeError: unhashable type: &#x27;list&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Convert the list to a tuple before using it as a key or set member: <code>d[tuple(key)] = value</code>, <code>set(map(tuple, rows))</code>. For dicts use <code>frozenset(d.items())</code> or <code>json.dumps(d, sort_keys=True)</code>. In pandas, convert list columns first: <code>df['col'] = df['col'].apply(tuple)</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Dictionary keys and set members must be <em>hashable</em>: their hash must never change. Lists, dicts and sets are mutable, so Python refuses to hash them. The same error appears as <code>unhashable type: 'dict'</code>, <code>unhashable type: 'set'</code>, <code>unhashable type: 'numpy.ndarray'</code> or <code>unhashable type: 'Series'</code>.</p>
+<p>Typical triggers:</p>
+<pre><code class="language-python">d = {}
+d[[1, 2]] = &quot;x&quot;           # list as dict key
+s = {[1, 2]}              # list inside a set
+set([[1, 2], [1, 2]])     # deduplicating a list of lists
+[1, 2] in {&quot;a&quot;: 1}        # membership test against a dict/set
+</code></pre>
+<h2 id="cause-1-a-list-used-as-a-dict-key-or-set-member">Cause 1: a list used as a dict key or set member</h2>
+<p>Use a tuple. Tuples are hashable as long as everything inside them is hashable.</p>
+<pre><code class="language-python">d[tuple(key)] = value
+
+rows = [[1, 2], [1, 2], [3, 4]]
+unique = set(map(tuple, rows))            # {(1, 2), (3, 4)}
+unique_lists = [list(t) for t in unique]
+</code></pre>
+<p>To deduplicate while keeping order:</p>
+<pre><code class="language-python">unique = list(dict.fromkeys(map(tuple, rows)))
+</code></pre>
+<h2 id="cause-2-a-dict-used-as-a-key-or-deduplicated">Cause 2: a dict used as a key or deduplicated</h2>
+<p>For a flat dict, <code>frozenset(d.items())</code> is hashable. For nested dicts, serialize to a canonical string:</p>
+<pre><code class="language-python">import json
+records = [{&quot;a&quot;: 1}, {&quot;a&quot;: 1}, {&quot;b&quot;: 2}]
+seen, out = set(), []
+for r in records:
+    k = json.dumps(r, sort_keys=True)
+    if k not in seen:
+        seen.add(k)
+        out.append(r)
+</code></pre>
+<h2 id="cause-3-a-set-inside-a-set">Cause 3: a set inside a set</h2>
+<p>Use <code>frozenset</code>:</p>
+<pre><code class="language-python">groups = {frozenset({1, 2}), frozenset({3})}
+</code></pre>
+<h2 id="cause-4-pandas-columns-containing-lists">Cause 4: pandas columns containing lists</h2>
+<p><code>df.drop_duplicates()</code>, <code>df.groupby('col')</code>, <code>value_counts()</code> and <code>set(df['col'])</code> all hash values. If a column holds lists (common after <code>json_normalize</code> or <code>str.split</code>), convert them:</p>
+<pre><code class="language-python">df[&quot;tags&quot;] = df[&quot;tags&quot;].apply(tuple)
+df = df.drop_duplicates()
+</code></pre>
+<p>Or only deduplicate on hashable columns: <code>df.drop_duplicates(subset=["id", "name"])</code>.</p>
+<p>Passing a list where pandas expects a single label can also trigger it, e.g. <code>df.groupby(df[["a", "b"]])</code> — use <code>df.groupby(["a", "b"])</code>.</p>
+<h2 id="cause-5-lru_cache-functoolscache-with-list-arguments">Cause 5: lru_cache / functools.cache with list arguments</h2>
+<p><code>@functools.lru_cache</code> hashes the arguments. Pass a tuple instead of a list, or convert inside a wrapper:</p>
+<pre><code class="language-python">from functools import lru_cache
+
+@lru_cache
+def total(values: tuple) -&gt; int:
+    return sum(values)
+
+total(tuple(my_list))
+</code></pre>
+<h2 id="cause-6-custom-classes-with-__eq__-but-no-__hash__">Cause 6: custom classes with <code>__eq__</code> but no <code>__hash__</code></h2>
+<p>Defining <code>__eq__</code> sets <code>__hash__</code> to <code>None</code>, so instances raise <code>unhashable type: 'MyClass'</code>. Add a <code>__hash__</code> based on immutable fields, or use <code>@dataclass(frozen=True)</code>, which generates one:</p>
+<pre><code class="language-python">from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Point:
+    x: int
+    y: int
+
+{Point(1, 2)}   # works
+</code></pre>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-keyerror/">KeyError</a></li><li><a href="/python/python-runtimeerror-dictionary-changed-size-during-iteration/">RuntimeError: dictionary changed size during iteration</a></li><li><a href="/python/python-typeerror-int-object-is-not-subscriptable/">TypeError: &#x27;int&#x27; object is not subscriptable</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;cv2&#x27; (Python) — how to fix</title>
+<meta name="description" content="OpenCV is not installed in the Python interpreter that runs your script. The module is imported as cv2 but the pip package is called opencv-python.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-cv2/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;cv2&#x27; (Python) — how to fix"><meta property="og:description" content="OpenCV is not installed in the Python interpreter that runs your script. The module is imported as cv2 but the pip package is called opencv-python.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-cv2/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'cv2' (Python) \u2014 how to fix", "description": "OpenCV is not installed in the Python interpreter that runs your script. The module is imported as cv2 but the pip package is called opencv-python.", "dateModified": "2026-11-09", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-cv2/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'cv2'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-cv2/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;cv2&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 1, in &lt;module&gt;
+    import cv2
+ModuleNotFoundError: No module named &#x27;cv2&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install the package under its pip name with the same interpreter that runs your code: <code>python -m pip install opencv-python</code> (or <code>opencv-python-headless</code> on servers/Docker). Check with <code>python -c "import cv2; print(cv2.__version__)"</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Python searched every directory on <code>sys.path</code> and found no <code>cv2</code> package. Almost always that's because OpenCV is not installed <strong>for this interpreter</strong> — either it was never installed, or it was installed into a different Python (system vs. venv vs. conda vs. Jupyter kernel).</p>
+<p>The import name and the package name differ: you <code>import cv2</code>, but you install <code>opencv-python</code>. <code>pip install cv2</code> fails with "No matching distribution found".</p>
+<h2 id="fix-1-install-the-right-package">Fix 1: install the right package</h2>
+<pre><code class="language-bash">python -m pip install opencv-python
+</code></pre>
+<p>Pick one of the four official wheels (install <strong>only one</strong> — they all provide <code>cv2</code> and conflict with each other):</p>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Use when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>opencv-python</code></td>
+<td>Desktop, needs <code>cv2.imshow</code> windows</td>
+</tr>
+<tr>
+<td><code>opencv-python-headless</code></td>
+<td>Servers, Docker, CI — no GUI libraries</td>
+</tr>
+<tr>
+<td><code>opencv-contrib-python</code></td>
+<td>You need extra modules (<code>cv2.xfeatures2d</code>, <code>cv2.aruco</code>...)</td>
+</tr>
+<tr>
+<td><code>opencv-contrib-python-headless</code></td>
+<td>Contrib modules on a server</td>
+</tr>
+</tbody>
+</table>
+<p>If you have several installed, clean up first:</p>
+<pre><code class="language-bash">python -m pip uninstall -y opencv-python opencv-python-headless opencv-contrib-python opencv-contrib-python-headless
+python -m pip install opencv-python-headless
+</code></pre>
+<h2 id="fix-2-you-installed-it-into-a-different-python">Fix 2: you installed it into a different Python</h2>
+<p>Using bare <code>pip</code> can target another interpreter. Compare:</p>
+<pre><code class="language-bash">which python; python -c &quot;import sys; print(sys.executable)&quot;
+python -m pip --version     # shows which Python this pip belongs to
+</code></pre>
+<p>Always use <code>python -m pip install ...</code> with the exact <code>python</code> that runs your script. In a virtual environment, activate it first:</p>
+<pre><code class="language-bash">source .venv/bin/activate      # Windows: .venv\Scripts\activate
+python -m pip install opencv-python
+</code></pre>
+<p>In VS Code, check the interpreter shown in the status bar (Ctrl+Shift+P → "Python: Select Interpreter") matches the venv.</p>
+<h2 id="fix-3-jupyter-notebook-kernel">Fix 3: Jupyter notebook kernel</h2>
+<p>The notebook kernel may be a different Python than your terminal. Install from inside the notebook so it uses the kernel's interpreter:</p>
+<pre><code class="language-python">%pip install opencv-python
+</code></pre>
+<p>Then restart the kernel.</p>
+<h2 id="fix-4-conda-environments">Fix 4: conda environments</h2>
+<pre><code class="language-bash">conda activate myenv
+conda install -c conda-forge opencv
+</code></pre>
+<p>Don't mix the conda <code>opencv</code> package and pip <code>opencv-python</code> in the same environment.</p>
+<h2 id="fix-5-raspberry-pi-debian-system-python">Fix 5: Raspberry Pi / Debian system Python</h2>
+<p>On Debian 12+, Ubuntu 23.04+ and Raspberry Pi OS Bookworm, <code>pip install</code> into the system Python is blocked (see <a href="/python/python-externally-managed-environment/">externally-managed-environment</a>). Use the distro package:</p>
+<pre><code class="language-bash">sudo apt install python3-opencv
+</code></pre>
+<p>or create a venv and install <code>opencv-python</code> there.</p>
+<h2 id="after-installing-importerror-libglso1">After installing: ImportError: libGL.so.1</h2>
+<p>If the error changes to <code>ImportError: libGL.so.1: cannot open shared object file</code>, the module is found but GUI system libraries are missing — switch to <code>opencv-python-headless</code> or install <code>libgl1</code>. See <a href="/python/python-importerror-libgl-so-1-cannot-open-shared-object-file/">the libGL.so.1 fix</a>.</p>
+<p class="upd">Last updated 2026-11-09.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-importerror-libgl-so-1-cannot-open-shared-object-file/">ImportError: libGL.so.1: cannot open shared object file: No such file or directory</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-pip-command-not-found/">pip: command not found</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

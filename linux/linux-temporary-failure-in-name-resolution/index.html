@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Temporary failure in name resolution (Linux) — how to fix</title>
+<meta name="description" content="The system could not turn a hostname into an IP address because no DNS server answered. Usually no network, a broken /etc/resolv.conf, systemd-resolved down, or DNS blocked inside Docker/WSL.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-temporary-failure-in-name-resolution/">
+<meta property="og:title" content="Temporary failure in name resolution (Linux) — how to fix"><meta property="og:description" content="The system could not turn a hostname into an IP address because no DNS server answered. Usually no network, a broken /etc/resolv.conf, systemd-resolved down, or DNS blocked inside Docker/WSL.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-temporary-failure-in-name-resolution/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Temporary failure in name resolution (Linux) \u2014 how to fix", "description": "The system could not turn a hostname into an IP address because no DNS server answered. Usually no network, a broken /etc/resolv.conf, systemd-resolved down, or DNS blocked inside Docker/WSL.", "dateModified": "2026-11-05", "url": "https://errorfix-hollis.github.io/linux/linux-temporary-failure-in-name-resolution/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "Temporary failure in name resolution", "item": "https://errorfix-hollis.github.io/linux/linux-temporary-failure-in-name-resolution/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>Temporary failure in name resolution (Linux) — how to fix</h1>
+<pre class="err"><code>ping: google.com: Temporary failure in name resolution
+curl: (6) Could not resolve host: github.com
+socket.gaierror: [Errno -3] Temporary failure in name resolution
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check connectivity first: <code>ping -c1 1.1.1.1</code>. If IPs work but names don't, look at <code>cat /etc/resolv.conf</code> and <code>resolvectl status</code>; restart <code>sudo systemctl restart systemd-resolved</code> or set a working server (e.g. <code>DNS=1.1.1.1</code> in <code>/etc/systemd/resolved.conf</code>). In WSL fix <code>/etc/wsl.conf</code> + resolv.conf; in Docker set <code>"dns": ["1.1.1.1"]</code> in daemon.json.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A program called the resolver (<code>getaddrinfo</code>) and no DNS server gave an answer. "Temporary" (<code>EAI_AGAIN</code>, Python <code>Errno -3</code>) means the lookup failed rather than the name not existing — that would be <code>Name or service not known</code>.</p>
+<p>Narrow it down:</p>
+<pre><code class="language-bash">ping -c1 1.1.1.1                 # raw connectivity
+ping -c1 google.com              # DNS
+cat /etc/resolv.conf             # which DNS servers are used
+resolvectl status                # systemd-resolved view (Ubuntu, Fedora)
+dig @1.1.1.1 google.com +short   # bypass local config (apt install dnsutils)
+</code></pre>
+<ul>
+<li><code>1.1.1.1</code> fails too → it's networking, not DNS (no route, interface down, firewall).</li>
+<li><code>dig @1.1.1.1</code> works but plain lookups don't → your configured resolver is the problem.</li>
+</ul>
+<h2 id="cause-1-no-network-at-all">Cause 1: no network at all</h2>
+<pre><code class="language-bash">ip -br addr        # does the interface have an IP?
+ip route           # is there a default route?
+</code></pre>
+<p>Bring the interface up / renew DHCP (<code>sudo dhclient -v eth0</code>, <code>sudo netplan apply</code>, or <code>nmcli networking on</code>). On a fresh VM, check that the hypervisor network adapter is attached.</p>
+<h2 id="cause-2-systemd-resolved-stopped-or-misconfigured">Cause 2: systemd-resolved stopped or misconfigured</h2>
+<p>On Ubuntu, <code>/etc/resolv.conf</code> points to the local stub <code>nameserver 127.0.0.53</code>. If <code>systemd-resolved</code> isn't running, nothing listens there:</p>
+<pre><code class="language-bash">systemctl status systemd-resolved
+sudo systemctl restart systemd-resolved
+</code></pre>
+<p>Set upstream servers explicitly in <code>/etc/systemd/resolved.conf</code>:</p>
+<pre><code class="language-ini">[Resolve]
+DNS=1.1.1.1 8.8.8.8
+FallbackDNS=9.9.9.9
+</code></pre>
+<pre><code class="language-bash">sudo systemctl restart systemd-resolved
+resolvectl status
+</code></pre>
+<p>If <code>/etc/resolv.conf</code> was overwritten or is a broken symlink, restore it:</p>
+<pre><code class="language-bash">sudo ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+</code></pre>
+<h2 id="cause-3-empty-or-wrong-etcresolvconf-no-systemd-resolved">Cause 3: empty or wrong /etc/resolv.conf (no systemd-resolved)</h2>
+<p>Minimal systems, containers and some VPNs leave it empty. A quick manual fix:</p>
+<pre><code class="language-bash">echo &quot;nameserver 1.1.1.1&quot; | sudo tee /etc/resolv.conf
+</code></pre>
+<p>This may be overwritten by NetworkManager, DHCP or resolvconf; for a permanent fix configure DNS there (e.g. <code>nmcli con mod &lt;name&gt; ipv4.dns "1.1.1.1 8.8.8.8"</code> then <code>nmcli con up &lt;name&gt;</code>).</p>
+<h2 id="cause-4-wsl-2">Cause 4: WSL 2</h2>
+<p>WSL generates <code>/etc/resolv.conf</code> from Windows. VPNs and some firewalls break it. Disable generation and set your own:</p>
+<pre><code class="language-bash">sudo tee /etc/wsl.conf &lt;&lt;'CONF'
+[network]
+generateResolvConf = false
+CONF
+</code></pre>
+<p>Then in PowerShell run <code>wsl --shutdown</code>, reopen WSL, and:</p>
+<pre><code class="language-bash">sudo rm -f /etc/resolv.conf
+echo &quot;nameserver 1.1.1.1&quot; | sudo tee /etc/resolv.conf
+</code></pre>
+<p>On recent Windows 11 builds, <code>dnsTunneling=true</code> under <code>[wsl2]</code> in <code>%UserProfile%\.wslconfig</code> fixes most VPN cases.</p>
+<h2 id="cause-5-inside-docker-containers">Cause 5: inside Docker containers</h2>
+<p>Containers copy the host's resolv.conf, but <code>127.0.0.53</code> is unreachable from a container, so Docker substitutes public DNS — which a corporate network may block. Set DNS servers for the daemon in <code>/etc/docker/daemon.json</code>:</p>
+<pre><code class="language-json">{ &quot;dns&quot;: [&quot;10.0.0.2&quot;, &quot;1.1.1.1&quot;] }
+</code></pre>
+<pre><code class="language-bash">sudo systemctl restart docker
+</code></pre>
+<p>Or per container: <code>docker run --dns 1.1.1.1 ...</code>. During <code>docker build</code>, try <code>docker build --network=host .</code>. Also check that a host firewall (ufw/iptables rules) isn't dropping traffic from the <code>docker0</code> bridge.</p>
+<h2 id="cause-6-a-firewall-blocks-port-53">Cause 6: a firewall blocks port 53</h2>
+<p>If <code>dig @1.1.1.1</code> times out but ping works, outbound UDP/TCP 53 is blocked. Use the DNS server your network provides (from DHCP), or allow it: <code>sudo ufw allow out 53</code>.</p>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-e-unable-to-locate-package/">E: Unable to locate package</a></li><li><a href="/linux/linux-sudo-unable-to-resolve-host/">sudo: unable to resolve host</a></li><li><a href="/ssh/ssh-connection-timed-out/">ssh: connect to host port 22: Connection timed out</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERR_CONNECTION_REFUSED — how to fix</title>
+<meta name="description" content="The browser reached the machine but nothing accepted a connection on that port. Usually the server isn&#x27;t running, is on a different port, or listens only on another interface (e.g. 127.0.0.1 inside a container).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-err-connection-refused/">
+<meta property="og:title" content="ERR_CONNECTION_REFUSED — how to fix"><meta property="og:description" content="The browser reached the machine but nothing accepted a connection on that port. Usually the server isn&#x27;t running, is on a different port, or listens only on another interface (e.g. 127.0.0.1 inside a container).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-err-connection-refused/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERR_CONNECTION_REFUSED \u2014 how to fix", "description": "The browser reached the machine but nothing accepted a connection on that port. Usually the server isn't running, is on a different port, or listens only on another interface (e.g. 127.0.0.1 inside a container).", "dateModified": "2026-11-09", "url": "https://errorfix-hollis.github.io/web/web-err-connection-refused/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "ERR_CONNECTION_REFUSED", "item": "https://errorfix-hollis.github.io/web/web-err-connection-refused/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>ERR_CONNECTION_REFUSED — how to fix</h1>
+<pre class="err"><code>This site can&#x27;t be reached
+localhost refused to connect.
+ERR_CONNECTION_REFUSED
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check something listens on the port: <code>ss -ltnp | grep :3000</code> (Windows: <code>netstat -ano | findstr :3000</code>). Start the server, use the port it actually prints, and in Docker/VMs bind to <code>0.0.0.0</code> and publish the port (<code>docker run -p 3000:3000</code>). Try <code>http://</code> not <code>https://</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The TCP connection got an immediate "reset/refused" reply: the host is up, but <strong>no process is listening</strong> on that address and port (or a firewall actively rejects it). It is not a timeout — a timeout means packets are dropped (<code>ERR_CONNECTION_TIMED_OUT</code>).</p>
+<p>Check from the same machine:</p>
+<pre><code class="language-bash">curl -v http://localhost:3000
+ss -ltnp | grep 3000          # Linux
+lsof -iTCP:3000 -sTCP:LISTEN  # macOS
+netstat -ano | findstr :3000  # Windows
+</code></pre>
+<h2 id="cause-1-the-server-isnt-running-or-crashed">Cause 1: the server isn't running (or crashed)</h2>
+<p>The dev server stopped, failed to compile, or exited on an error. Look at the terminal where you started it. Restart it and wait for the "listening on" / "ready" line before refreshing.</p>
+<p>For services:</p>
+<pre><code class="language-bash">systemctl status myapp
+journalctl -u myapp -n 50
+</code></pre>
+<h2 id="cause-2-wrong-port">Cause 2: wrong port</h2>
+<p>Frameworks pick different defaults and silently switch ports when one is busy: Vite 5173, Create React App 3000, Next.js 3000, Angular 4200, Django 8000, Flask 5000, Spring Boot 8080. Use the URL the server prints. If it says "Port 3000 is in use, trying 3001", either use 3001 or free 3000 (see <a href="/linux/linux-address-already-in-use/">Address already in use</a>).</p>
+<h2 id="cause-3-https-vs-http">Cause 3: https vs http</h2>
+<p>Typing <code>https://localhost:3000</code> when the dev server only speaks HTTP usually gives <code>ERR_SSL_PROTOCOL_ERROR</code>, but browsers that auto-upgrade or an HSTS entry for <code>localhost</code> can make it look like a refusal. Use <code>http://</code> explicitly, or clear the HSTS entry at <code>chrome://net-internals/#hsts</code>.</p>
+<h2 id="cause-4-listening-on-127001-inside-docker-a-vm-or-wsl">Cause 4: listening on 127.0.0.1 inside Docker, a VM or WSL</h2>
+<p>A server bound to <code>127.0.0.1</code> only accepts connections from inside its own container/VM. Bind to all interfaces:</p>
+<pre><code class="language-bash">vite --host 0.0.0.0
+next dev -H 0.0.0.0
+flask run --host=0.0.0.0
+python manage.py runserver 0.0.0.0:8000
+</code></pre>
+<p>And publish the port in Docker:</p>
+<pre><code class="language-bash">docker run -p 3000:3000 myimage
+docker ps        # PORTS column should show 0.0.0.0:3000-&gt;3000/tcp
+</code></pre>
+<h2 id="cause-5-localhost-resolves-to-ipv6">Cause 5: localhost resolves to IPv6</h2>
+<p><code>localhost</code> may resolve to <code>::1</code> first, while the server only listens on IPv4 <code>127.0.0.1</code> (Node 17+ stopped reordering to IPv4 first). Try <code>http://127.0.0.1:3000</code>. If that works, bind the server to <code>::</code>/<code>0.0.0.0</code> or use the IP in your config.</p>
+<h2 id="cause-6-firewall-or-remote-host">Cause 6: firewall or remote host</h2>
+<p>When connecting to another machine, check its firewall allows the port:</p>
+<pre><code class="language-bash">sudo ufw status
+sudo ufw allow 8080/tcp
+</code></pre>
+<p>and that the app isn't bound to <code>127.0.0.1</code> there (Cause 4).</p>
+<h2 id="cause-7-reverse-proxy-upstream-down">Cause 7: reverse proxy upstream down</h2>
+<p>If you get a 502 from nginx instead, nginx is up but the app behind it refused the connection — see <a href="/web/web-nginx-502-bad-gateway/">nginx 502 Bad Gateway</a>.</p>
+<p class="upd">Last updated 2026-11-09.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-port-is-already-allocated/">Bind for 0.0.0.0:8080 failed: port is already allocated</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/web/web-nginx-502-bad-gateway/">502 Bad Gateway (nginx)</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

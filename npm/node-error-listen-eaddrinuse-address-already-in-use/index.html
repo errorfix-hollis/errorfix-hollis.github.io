@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error: listen EADDRINUSE: address already in use :::3000 (Node.js) — how to fix</title>
+<meta name="description" content="Another process (often an old copy of your own dev server) is already listening on that port, so Node can&#x27;t bind to it. Stop that process or use a different port.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/node-error-listen-eaddrinuse-address-already-in-use/">
+<meta property="og:title" content="Error: listen EADDRINUSE: address already in use :::3000 (Node.js) — how to fix"><meta property="og:description" content="Another process (often an old copy of your own dev server) is already listening on that port, so Node can&#x27;t bind to it. Stop that process or use a different port.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/node-error-listen-eaddrinuse-address-already-in-use/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error: listen EADDRINUSE: address already in use :::3000 (Node.js) \u2014 how to fix", "description": "Another process (often an old copy of your own dev server) is already listening on that port, so Node can't bind to it. Stop that process or use a different port.", "dateModified": "2026-11-03", "url": "https://errorfix-hollis.github.io/npm/node-error-listen-eaddrinuse-address-already-in-use/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "Error: listen EADDRINUSE: address already in use :::3000", "item": "https://errorfix-hollis.github.io/npm/node-error-listen-eaddrinuse-address-already-in-use/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>Error: listen EADDRINUSE: address already in use :::3000 (Node.js) — how to fix</h1>
+<pre class="err"><code>node:events:497
+      throw er; // Unhandled &#x27;error&#x27; event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1817:16)
+    at listenInCluster (node:net:1865:12)
+    at Server.listen (node:net:1953:7)
+Emitted &#x27;error&#x27; event on Server instance at:
+  code: &#x27;EADDRINUSE&#x27;,
+  errno: -98,
+  syscall: &#x27;listen&#x27;,
+  address: &#x27;::&#x27;,
+  port: 3000
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find the process: <code>lsof -i :3000</code> (macOS/Linux) or <code>netstat -ano | findstr :3000</code> (Windows), then kill it: <code>kill &lt;PID&gt;</code> / <code>taskkill /PID &lt;PID&gt; /F</code>. Or one-liner: <code>npx kill-port 3000</code>. Alternatively start on another port: <code>PORT=3001 npm start</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Only one socket can listen on a given address and port. <code>EADDRINUSE</code> (errno 98 on Linux, 48 on macOS) means something else got there first. <code>:::3000</code> means Node tried to listen on all IPv6 (and usually IPv4) addresses on port 3000.</p>
+<h2 id="fix-1-find-and-stop-the-process-using-the-port">Fix 1: find and stop the process using the port</h2>
+<p><strong>macOS / Linux:</strong></p>
+<pre><code class="language-bash">lsof -i :3000            # shows COMMAND and PID
+kill &lt;PID&gt;               # polite
+kill -9 &lt;PID&gt;            # if it won't die
+# or in one go:
+kill $(lsof -t -i :3000)
+</code></pre>
+<p>On Linux without <code>lsof</code>: <code>sudo ss -ltnp | grep :3000</code> or <code>sudo fuser -k 3000/tcp</code>.</p>
+<p><strong>Windows (cmd / PowerShell):</strong></p>
+<pre><code class="language-bat">netstat -ano | findstr :3000
+taskkill /PID 12345 /F
+</code></pre>
+<p>PowerShell: <code>Get-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess | Stop-Process</code>.</p>
+<p><strong>Cross-platform:</strong></p>
+<pre><code class="language-bash">npx kill-port 3000
+</code></pre>
+<h2 id="cause-1-an-old-dev-server-is-still-running">Cause 1: an old dev server is still running</h2>
+<p>Common situations:</p>
+<ul>
+<li>You closed a terminal tab but the <code>node</code> / <code>nodemon</code> process kept running.</li>
+<li>You pressed <code>Ctrl+Z</code> instead of <code>Ctrl+C</code> — that <em>suspends</em> the process, it still holds the port. Run <code>fg</code> then <code>Ctrl+C</code>, or <code>kill %1</code>.</li>
+<li>VS Code's debugger or a second terminal is running the same app.</li>
+</ul>
+<h2 id="cause-2-nodemon-restarts-too-fast">Cause 2: nodemon restarts too fast</h2>
+<p>On restart, nodemon may start the new process before the old one releases the port. Make sure the old server shuts down cleanly:</p>
+<pre><code class="language-js">const server = app.listen(PORT);
+process.once('SIGUSR2', () =&gt; server.close(() =&gt; process.kill(process.pid, 'SIGUSR2')));
+process.on('SIGINT', () =&gt; server.close(() =&gt; process.exit(0)));
+process.on('SIGTERM', () =&gt; server.close(() =&gt; process.exit(0)));
+</code></pre>
+<p>If you call <code>app.listen()</code> twice in your code (e.g. once in <code>app.js</code> and once in <code>server.js</code>, or in a test file that imports the app), the second call fails with this error. Export the <code>app</code> and call <code>listen</code> in one place only.</p>
+<h2 id="cause-3-another-program-uses-that-port">Cause 3: another program uses that port</h2>
+<p>Port 3000 (other dev servers), 5000 (macOS AirPlay Receiver since Monterey), 8080 (Tomcat, proxies) and 5432/3306 (databases) are commonly taken. On macOS, disable AirPlay Receiver in System Settings → General → AirDrop &amp; Handoff, or just pick another port.</p>
+<h2 id="fix-2-make-the-port-configurable">Fix 2: make the port configurable</h2>
+<pre><code class="language-js">const PORT = process.env.PORT || 3000;
+app.listen(PORT, () =&gt; console.log(`Listening on ${PORT}`));
+</code></pre>
+<pre><code class="language-bash">PORT=3001 npm start          # macOS/Linux
+set PORT=3001 &amp;&amp; npm start   # Windows cmd
+</code></pre>
+<h2 id="fix-3-handle-the-error-gracefully">Fix 3: handle the error gracefully</h2>
+<pre><code class="language-js">const server = app.listen(PORT);
+server.on('error', (err) =&gt; {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is in use. Stop the other process or set PORT.`);
+    process.exit(1);
+  }
+  throw err;
+});
+</code></pre>
+<h2 id="docker">Docker</h2>
+<p>If the port is published by a container (<code>docker ps</code> shows <code>0.0.0.0:3000-&gt;3000/tcp</code>), stop it with <code>docker stop &lt;container&gt;</code> or map a different host port: <code>-p 3001:3000</code>.</p>
+<p class="upd">Last updated 2026-11-03.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-port-is-already-allocated/">Bind for 0.0.0.0:8080 failed: port is already allocated</a></li><li><a href="/java/java-spring-port-8080-was-already-in-use/">Web server failed to start. Port 8080 was already in use.</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

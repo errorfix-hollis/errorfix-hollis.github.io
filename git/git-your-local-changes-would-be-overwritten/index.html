@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: Your local changes to the following files would be overwritten by merge (Git) — how to fix</title>
+<meta name="description" content="You have uncommitted edits to files the pull/merge would change. Commit them, stash them, or discard them, then pull again.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-your-local-changes-would-be-overwritten/">
+<meta property="og:title" content="error: Your local changes to the following files would be overwritten by merge (Git) — how to fix"><meta property="og:description" content="You have uncommitted edits to files the pull/merge would change. Commit them, stash them, or discard them, then pull again.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-your-local-changes-would-be-overwritten/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: Your local changes to the following files would be overwritten by merge (Git) \u2014 how to fix", "description": "You have uncommitted edits to files the pull/merge would change. Commit them, stash them, or discard them, then pull again.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/git/git-your-local-changes-would-be-overwritten/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "error: Your local changes to the following files would be overwritten by merge", "item": "https://errorfix-hollis.github.io/git/git-your-local-changes-would-be-overwritten/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>error: Your local changes to the following files would be overwritten by merge (Git) — how to fix</h1>
+<pre class="err"><code>error: Your local changes to the following files would be overwritten by merge:
+        config.php
+Please commit your changes or stash them before you merge.
+Aborting
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Keep your changes: <code>git stash</code>, <code>git pull</code>, <code>git stash pop</code>. Throw them away: <code>git restore &lt;file&gt;</code> (or <code>git checkout -- &lt;file&gt;</code>), then pull.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The incoming commits modify files that you have also modified locally but <strong>not committed</strong>. Git stops instead of silently overwriting your edits.</p>
+<h2 id="option-1-keep-your-changes-with-stash">Option 1: keep your changes with stash</h2>
+<pre><code class="language-bash">git stash
+git pull
+git stash pop
+</code></pre>
+<p>If <code>stash pop</code> causes conflicts, edit the files, <code>git add</code> them, and your stash stays in the list until you drop it with <code>git stash drop</code>.</p>
+<h2 id="option-2-commit-them-first">Option 2: commit them first</h2>
+<pre><code class="language-bash">git add -A
+git commit -m &quot;WIP&quot;
+git pull           # or: git pull --rebase
+</code></pre>
+<h2 id="option-3-discard-your-local-changes">Option 3: discard your local changes</h2>
+<p><strong>This permanently deletes your uncommitted edits</strong> to those files:</p>
+<pre><code class="language-bash">git restore config.php      # one file
+git restore .               # everything
+git pull
+</code></pre>
+<p>On Git older than 2.23 use <code>git checkout -- config.php</code>.</p>
+<p>To make the local branch exactly match the remote (also deletes local commits):</p>
+<pre><code class="language-bash">git fetch origin
+git reset --hard origin/main
+</code></pre>
+<h2 id="same-error-with-checkoutswitch">Same error with checkout/switch</h2>
+<p><code>error: Your local changes ... would be overwritten by checkout</code> has the same fixes. You can also carry your edits to the other branch with <code>git switch -c new-branch</code> if the branch doesn't exist yet.</p>
+<h2 id="machine-specific-config-files">Machine-specific config files</h2>
+<p>If a file like <code>config.php</code> or <code>.env</code> is always different on each machine, stop tracking it: add it to <code>.gitignore</code>, then <code>git rm --cached config.php</code> and commit.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li><li><a href="/git/git-could-not-resolve-host/">fatal: unable to access ... Could not resolve host: github.com</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

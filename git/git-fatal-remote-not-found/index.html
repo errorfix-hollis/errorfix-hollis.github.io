@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>remote: Repository not found. fatal: repository not found (Git) — how to fix</title>
+<meta name="description" content="The URL is wrong, or the repository is private and the credentials Git used don&#x27;t have access. GitHub deliberately reports &quot;not found&quot; instead of &quot;forbidden&quot; for private repos.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-fatal-remote-not-found/">
+<meta property="og:title" content="remote: Repository not found. fatal: repository not found (Git) — how to fix"><meta property="og:description" content="The URL is wrong, or the repository is private and the credentials Git used don&#x27;t have access. GitHub deliberately reports &quot;not found&quot; instead of &quot;forbidden&quot; for private repos.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-fatal-remote-not-found/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "remote: Repository not found. fatal: repository not found (Git) \u2014 how to fix", "description": "The URL is wrong, or the repository is private and the credentials Git used don't have access. GitHub deliberately reports \"not found\" instead of \"forbidden\" for private repos.", "dateModified": "2026-10-29", "url": "https://errorfix-hollis.github.io/git/git-fatal-remote-not-found/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "remote: Repository not found. fatal: repository not found", "item": "https://errorfix-hollis.github.io/git/git-fatal-remote-not-found/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>remote: Repository not found. fatal: repository not found (Git) — how to fix</h1>
+<pre class="err"><code>remote: Repository not found.
+fatal: repository &#x27;https://github.com/user/repo.git/&#x27; not found
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the URL with <code>git remote -v</code>. If it's private, make sure you're authenticated as an account with access: clear the cached credential (Windows Credential Manager / macOS Keychain) or switch to SSH: <code>git remote set-url origin git@github.com:user/repo.git</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The server said the repository doesn't exist <strong>for you</strong>. For private repositories, GitHub, GitLab and Bitbucket return "not found" when you lack access so they don't reveal that it exists.</p>
+<h2 id="cause-1-wrong-url">Cause 1: wrong URL</h2>
+<pre><code class="language-bash">git remote -v
+</code></pre>
+<p>Look for typos, wrong owner/organization, a renamed or transferred repo, or a missing <code>.git</code>. Fix it:</p>
+<pre><code class="language-bash">git remote set-url origin https://github.com/owner/repo.git
+</code></pre>
+<h2 id="cause-2-cached-credentials-for-a-different-account">Cause 2: cached credentials for a different account</h2>
+<p>You have two GitHub accounts (work/personal), and Git keeps sending the wrong one.</p>
+<ul>
+<li><strong>Windows</strong>: Control Panel → Credential Manager → Windows Credentials → remove entries for <code>git:https://github.com</code>.</li>
+<li><strong>macOS</strong>: Keychain Access → search <code>github.com</code> → delete the internet password. Or:</li>
+</ul>
+<p><code>bash
+  printf "protocol=https\nhost=github.com\n" | git credential-osxkeychain erase</code></p>
+<ul>
+<li><strong>Linux / any</strong>: <code>git credential reject</code> with the same input, or check <code>~/.git-credentials</code>.</li>
+</ul>
+<p>Next push will prompt again. Use a personal access token as the password.</p>
+<p>You can also pin the user in the URL: <code>https://yourname@github.com/owner/repo.git</code>.</p>
+<h2 id="cause-3-token-without-the-right-access">Cause 3: token without the right access</h2>
+<ul>
+<li>Classic tokens need the <code>repo</code> scope for private repositories.</li>
+<li>Fine-grained tokens must explicitly include the repository (and the organization must allow fine-grained tokens).</li>
+<li>Organizations with SAML SSO require you to <strong>authorize</strong> the token or SSH key for that org (Settings → Developer settings → Tokens → Configure SSO).</li>
+</ul>
+<h2 id="cause-4-you-havent-been-added-yet">Cause 4: you haven't been added yet</h2>
+<p>Ask the owner to add you as a collaborator and accept the email invitation; access doesn't start until you accept.</p>
+<h2 id="cause-5-the-repo-doesnt-exist-yet">Cause 5: the repo doesn't exist yet</h2>
+<p>Create it on GitHub first (or with <code>gh repo create</code>), then push.</p>
+<p class="upd">Last updated 2026-10-29.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li><li><a href="/git/git-password-authentication-removed/">remote: Support for password authentication was removed</a></li><li><a href="/git/git-permission-denied-publickey/">git@github.com: Permission denied (publickey).</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

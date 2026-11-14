@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: cannot lock ref (Git) — how to fix</title>
+<meta name="description" content="Git couldn&#x27;t update a branch or remote-tracking ref. Typically stale remote-tracking branches conflict with new names (feature vs feature/login), a leftover .lock file exists, or the ref changed underneath (another git process, case-insensitive filesystem).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-cannot-lock-ref/">
+<meta property="og:title" content="error: cannot lock ref (Git) — how to fix"><meta property="og:description" content="Git couldn&#x27;t update a branch or remote-tracking ref. Typically stale remote-tracking branches conflict with new names (feature vs feature/login), a leftover .lock file exists, or the ref changed underneath (another git process, case-insensitive filesystem).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-cannot-lock-ref/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: cannot lock ref (Git) \u2014 how to fix", "description": "Git couldn't update a branch or remote-tracking ref. Typically stale remote-tracking branches conflict with new names (feature vs feature/login), a leftover .lock file exists, or the ref changed underneath (another git process, case-insensitive filesystem).", "dateModified": "2026-11-02", "url": "https://errorfix-hollis.github.io/git/git-cannot-lock-ref/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "error: cannot lock ref", "item": "https://errorfix-hollis.github.io/git/git-cannot-lock-ref/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>error: cannot lock ref (Git) — how to fix</h1>
+<pre class="err"><code>error: cannot lock ref &#x27;refs/remotes/origin/feature/login&#x27;: is at 3f2a1c9 but expected 8b7d4e2
+error: cannot lock ref &#x27;refs/remotes/origin/feature&#x27;: &#x27;refs/remotes/origin/feature/login&#x27; exists; cannot create &#x27;refs/remotes/origin/feature&#x27;
+error: cannot lock ref &#x27;refs/heads/main&#x27;: Unable to create &#x27;.git/refs/heads/main.lock&#x27;: File exists.
+ ! [new branch]      feature    -&gt; origin/feature  (unable to update local ref)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>git remote prune origin</code> (or <code>git fetch --prune</code>), then fetch again. If it says <code>.lock: File exists</code>, make sure no git process is running and delete that lock file. For <code>is at X but expected Y</code>, run <code>git gc --prune=now</code> and <code>git update-ref -d refs/remotes/origin/BRANCH</code>, then <code>git fetch</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Git updates a ref (a branch, tag or remote-tracking branch such as <code>origin/main</code>) by creating <code>&lt;ref&gt;.lock</code>, writing the new commit id to it and renaming it into place. "Cannot lock ref" means that step failed. The text after the colon tells you why — pick the matching fix.</p>
+<h2 id="fix-1-refsremotesoriginab-exists-cannot-create-refsremotesorigina">Fix 1: <code>'refs/remotes/origin/a/b' exists; cannot create 'refs/remotes/origin/a'</code></h2>
+<p>Refs are stored as files, so <code>origin/feature</code> (a file) and <code>origin/feature/login</code> (a file inside a <code>feature/</code> directory) can't both exist. This happens when someone deleted <code>feature/login</code> on the remote and created <code>feature</code>, but your clone still has the old remote-tracking branch.</p>
+<p>Remove stale remote-tracking branches:</p>
+<pre><code class="language-bash">git remote prune origin
+git fetch
+</code></pre>
+<p>or in one go:</p>
+<pre><code class="language-bash">git fetch --prune
+</code></pre>
+<p>Make it the default:</p>
+<pre><code class="language-bash">git config --global fetch.prune true
+</code></pre>
+<p>If the conflicting ref is a <em>local</em> branch (<code>refs/heads/...</code>), rename or delete it yourself: <code>git branch -m feature/login feature-login</code>.</p>
+<h2 id="fix-2-unable-to-create-lock-file-exists">Fix 2: <code>Unable to create '...lock': File exists</code></h2>
+<p>Another git process is running (IDE, a background <code>git fetch</code>, a crashed command), or one died and left the lock behind.</p>
+<pre><code class="language-bash">ps aux | grep -i git
+</code></pre>
+<p>If nothing is running, delete the specific lock file from the message:</p>
+<pre><code class="language-bash">rm .git/refs/heads/main.lock
+# or for remote refs
+rm .git/refs/remotes/origin/feature.lock
+</code></pre>
+<p>A leftover <code>.git/packed-refs.lock</code> or <code>.git/HEAD.lock</code> can be removed the same way. Find all of them:</p>
+<pre><code class="language-bash">find .git -name &quot;*.lock&quot;
+</code></pre>
+<h2 id="fix-3-is-at-sha-but-expected-sha">Fix 3: <code>is at &lt;sha&gt; but expected &lt;sha&gt;</code></h2>
+<p>The ref changed between Git reading and writing it — often a concurrent fetch, or a corrupted/duplicate entry between loose refs and <code>packed-refs</code>. Clean up and retry:</p>
+<pre><code class="language-bash">git gc --prune=now
+git fetch
+</code></pre>
+<p>If one remote-tracking ref stays broken, delete it; the next fetch recreates it:</p>
+<pre><code class="language-bash">git update-ref -d refs/remotes/origin/feature/login
+git fetch
+</code></pre>
+<h2 id="fix-4-case-insensitive-filesystems-macos-windows">Fix 4: case-insensitive filesystems (macOS, Windows)</h2>
+<p>If the remote has both <code>Feature/x</code> and <code>feature/x</code>, they map to the same path on macOS/Windows and the fetch fails with a lock error. Ask the team to delete one of them on the remote. Locally, prune and pack refs so they're not stored as files:</p>
+<pre><code class="language-bash">git fetch --prune
+git pack-refs --all
+</code></pre>
+<h2 id="fix-5-push-errors-from-the-server">Fix 5: push errors from the server</h2>
+<p><code>remote: error: cannot lock ref 'refs/heads/x'</code> during <code>git push</code> comes from the <em>server</em>: someone pushed at the same time (retry), or the remote already has a branch whose name conflicts as in Fix 1 (<code>x</code> vs <code>x/y</code>). Choose a branch name that doesn't nest under or over an existing one.</p>
+<h2 id="fix-6-permissions">Fix 6: permissions</h2>
+<p><code>Permission denied</code> while locking means <code>.git</code> contains files owned by another user, usually from running git with <code>sudo</code> once:</p>
+<pre><code class="language-bash">sudo chown -R &quot;$(id -u):$(id -g)&quot; .git
+</code></pre>
+<p class="upd">Last updated 2026-11-02.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-index-lock-file-exists/">fatal: Unable to create &#x27;.git/index.lock&#x27;: File exists.</a></li><li><a href="/git/git-not-possible-to-fast-forward-aborting/">fatal: Not possible to fast-forward, aborting.</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>manifest unknown (Docker) — how to fix</title>
+<meta name="description" content="The registry exists and you can reach the repository, but the tag (or digest) you asked for doesn&#x27;t exist there. Usually a missing `latest` tag, a typo in the tag, or an image that was never pushed.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-manifest-unknown/">
+<meta property="og:title" content="manifest unknown (Docker) — how to fix"><meta property="og:description" content="The registry exists and you can reach the repository, but the tag (or digest) you asked for doesn&#x27;t exist there. Usually a missing `latest` tag, a typo in the tag, or an image that was never pushed.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-manifest-unknown/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "manifest unknown (Docker) \u2014 how to fix", "description": "The registry exists and you can reach the repository, but the tag (or digest) you asked for doesn't exist there. Usually a missing `latest` tag, a typo in the tag, or an image that was never pushed.", "dateModified": "2026-11-04", "url": "https://errorfix-hollis.github.io/docker/docker-manifest-unknown/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "manifest unknown", "item": "https://errorfix-hollis.github.io/docker/docker-manifest-unknown/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>manifest unknown (Docker) — how to fix</h1>
+<pre class="err"><code>Error response from daemon: manifest for myimage:latest not found: manifest unknown: manifest unknown
+Error response from daemon: manifest for node:22.99 not found: manifest unknown: manifest unknown
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check which tags actually exist (<code>docker search</code> won't show them; use the registry UI or <code>skopeo list-tags docker://docker.io/library/node</code>) and pull an explicit tag: <code>docker pull node:22-alpine</code>. If it's your own image, push the tag first: <code>docker push myrepo/myimage:1.0</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When you run <code>docker pull name:tag</code>, Docker asks the registry for the <em>manifest</em> of that tag. <code>manifest unknown</code> means the registry answered "this repository has no manifest with that tag or digest". Authentication and the repository name were fine (otherwise you'd get <code>pull access denied</code> or <code>unauthorized</code>); the <strong>tag</strong> is the problem.</p>
+<p>Don't confuse it with <code>no matching manifest for linux/arm64</code>, which means the tag exists but not for your CPU architecture.</p>
+<h2 id="cause-1-there-is-no-latest-tag">Cause 1: there is no <code>latest</code> tag</h2>
+<p>If you don't specify a tag, Docker uses <code>:latest</code>. Many repositories (and most private ones pushed by CI) never publish <code>latest</code>:</p>
+<pre><code class="language-bash">docker pull mycompany/api            # implicitly mycompany/api:latest -&gt; manifest unknown
+docker pull mycompany/api:1.4.2      # works
+</code></pre>
+<h2 id="fix-1-list-the-tags-that-exist">Fix 1: list the tags that exist</h2>
+<p>For Docker Hub, look at the "Tags" tab on hub.docker.com, or query the registry:</p>
+<pre><code class="language-bash"># skopeo works with any registry
+skopeo list-tags docker://docker.io/library/python
+
+# Docker Hub API
+curl -s &quot;https://hub.docker.com/v2/repositories/library/python/tags?page_size=50&quot; | jq -r '.results[].name'
+
+# GitHub Container Registry / others (needs auth for private images)
+skopeo list-tags docker://ghcr.io/OWNER/IMAGE
+</code></pre>
+<p>For AWS ECR:</p>
+<pre><code class="language-bash">aws ecr describe-images --repository-name my-repo --query 'imageDetails[].imageTags' --output text
+</code></pre>
+<h2 id="cause-2-typo-or-a-tag-that-was-removed">Cause 2: typo or a tag that was removed</h2>
+<p>Tags like <code>node:16-buster</code> or <code>python:3.7-slim-stretch</code> are eventually deleted when the base OS reaches end of life, and old <code>docker-compose.yml</code> files break. Also check for typos such as <code>alpine3.18</code> vs <code>alpine:3.18</code>.</p>
+<h2 id="fix-2-choose-a-current-tag">Fix 2: choose a current tag</h2>
+<p>Update the <code>FROM</code> line or compose file to a tag that's listed:</p>
+<pre><code class="language-dockerfile">FROM node:22-bookworm-slim
+</code></pre>
+<p>Pinning an exact version (<code>postgres:16.4</code>) is safer than floating tags, but make sure it exists.</p>
+<h2 id="cause-3-your-own-image-was-never-pushed-or-pushed-under-another-name">Cause 3: your own image was never pushed (or pushed under another name)</h2>
+<p>A build that tagged <code>myapp:dev</code> locally doesn't make it available in the registry. Check what you pushed:</p>
+<pre><code class="language-bash">docker images myrepo/myapp
+docker tag myapp:dev myrepo/myapp:dev
+docker push myrepo/myapp:dev
+</code></pre>
+<p>In CI, verify the push step ran and used the same registry host, namespace and tag variable as the deploy step (e.g. <code>$GITHUB_SHA</code> vs a short SHA).</p>
+<h2 id="cause-4-pulling-by-a-digest-that-no-longer-exists">Cause 4: pulling by a digest that no longer exists</h2>
+<p><code>image@sha256:...</code> fails with <code>manifest unknown</code> if the registry garbage-collected that digest (common with ECR lifecycle policies or GHCR untagged-version cleanup). Re-pull by tag and update the pinned digest:</p>
+<pre><code class="language-bash">docker pull myrepo/myapp:1.4.2
+docker inspect --format '{{index .RepoDigests 0}}' myrepo/myapp:1.4.2
+</code></pre>
+<h2 id="cause-5-wrong-registry-or-mirror">Cause 5: wrong registry or mirror</h2>
+<p>If a registry mirror (<code>registry-mirrors</code> in <code>/etc/docker/daemon.json</code>) or a proxy like Harbor/Nexus doesn't have the tag cached, it can return <code>manifest unknown</code>. Try the full upstream name, e.g. <code>docker pull docker.io/library/redis:7</code>, or check the mirror's configuration.</p>
+<p class="upd">Last updated 2026-11-04.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-no-matching-manifest/">no matching manifest for linux/arm64/v8 in the manifest list entries</a></li><li><a href="/docker/docker-pull-access-denied-repository-does-not-exist/">pull access denied for X, repository does not exist or may require &#x27;docker login&#x27;</a></li><li><a href="/docker/docker-unauthorized-authentication-required/">unauthorized: authentication required</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

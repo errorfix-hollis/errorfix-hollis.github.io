@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>sudo: command not found (Linux) — how to fix</title>
+<meta name="description" content="Either the sudo package isn&#x27;t installed (common in Docker images and minimal Debian installs), or sudo works but the command after it isn&#x27;t on sudo&#x27;s secure_path.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-sudo-command-not-found/">
+<meta property="og:title" content="sudo: command not found (Linux) — how to fix"><meta property="og:description" content="Either the sudo package isn&#x27;t installed (common in Docker images and minimal Debian installs), or sudo works but the command after it isn&#x27;t on sudo&#x27;s secure_path.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-sudo-command-not-found/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "sudo: command not found (Linux) \u2014 how to fix", "description": "Either the sudo package isn't installed (common in Docker images and minimal Debian installs), or sudo works but the command after it isn't on sudo's secure_path.", "dateModified": "2026-11-08", "url": "https://errorfix-hollis.github.io/linux/linux-sudo-command-not-found/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "sudo: command not found", "item": "https://errorfix-hollis.github.io/linux/linux-sudo-command-not-found/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>sudo: command not found (Linux) — how to fix</h1>
+<pre class="err"><code>bash: sudo: command not found
+/bin/sh: 1: sudo: not found
+sudo: apt-get: command not found
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> If <code>sudo</code> itself is missing: become root (<code>su -</code>, or in Docker you are usually root already) and run <code>apt-get update &amp;&amp; apt-get install -y sudo</code> (Alpine: <code>apk add sudo</code>), then <code>usermod -aG sudo &lt;user&gt;</code>. If it's <code>sudo: &lt;cmd&gt;: command not found</code>, use the full path (<code>sudo $(which cmd)</code>) or add its directory to <code>secure_path</code> with <code>visudo</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>There are two different errors that look alike:</p>
+<ol>
+<li><code>bash: sudo: command not found</code>: the <code>sudo</code> program doesn't exist on this system (or isn't on <code>PATH</code>).</li>
+<li><code>sudo: npm: command not found</code>: sudo works, but it runs commands with its own restricted <code>PATH</code> (<code>secure_path</code>) and can't find the program.</li>
+</ol>
+<h2 id="case-1-sudo-isnt-installed">Case 1: sudo isn't installed</h2>
+<h3 id="in-a-docker-container">In a Docker container</h3>
+<p>Most base images (<code>debian</code>, <code>ubuntu</code>, <code>node</code>, <code>python</code>, <code>alpine</code>) don't ship sudo, and <strong>you are already root</strong> by default. Just drop <code>sudo</code>:</p>
+<pre><code class="language-dockerfile">RUN apt-get update &amp;&amp; apt-get install -y curl
+</code></pre>
+<p>Check with <code>whoami</code> or <code>id -u</code> (0 = root). If the image switches to a non-root <code>USER</code>, do root work before that line, or switch back temporarily:</p>
+<pre><code class="language-dockerfile">USER root
+RUN apt-get update &amp;&amp; apt-get install -y curl
+USER app
+</code></pre>
+<p>To run commands as root in a running container: <code>docker exec -u 0 -it &lt;container&gt; bash</code>.</p>
+<h3 id="on-a-minimal-debian-or-other-install">On a minimal Debian (or other) install</h3>
+<p>Debian doesn't install sudo if you set a root password during installation. Become root and install it:</p>
+<pre><code class="language-bash">su -                      # enter the ROOT password
+apt-get update
+apt-get install -y sudo
+usermod -aG sudo yourname
+exit
+</code></pre>
+<p>Log out and back in (group membership is read at login), then test with <code>sudo -v</code>.</p>
+<p>Other distros:</p>
+<pre><code class="language-bash">dnf install -y sudo &amp;&amp; usermod -aG wheel yourname      # Fedora/RHEL
+apk add sudo &amp;&amp; adduser yourname wheel &amp;&amp; echo '%wheel ALL=(ALL:ALL) ALL' &gt; /etc/sudoers.d/wheel   # Alpine
+pacman -S sudo                                          # Arch (then enable %wheel in visudo)
+</code></pre>
+<p>Use <code>su -</code> rather than plain <code>su</code>: the dash gives you root's <code>PATH</code> including <code>/usr/sbin</code>, otherwise <code>usermod</code> itself may be "command not found".</p>
+<h3 id="installed-but-not-on-path">Installed, but not on PATH</h3>
+<p>If <code>/usr/bin/sudo</code> exists but the shell can't find it, your <code>PATH</code> is broken (often after editing <code>~/.bashrc</code>). Check <code>echo $PATH</code>, run <code>/usr/bin/sudo</code> directly, and fix the line that overwrites <code>PATH</code> (use <code>export PATH="$HOME/bin:$PATH"</code>, not <code>export PATH="$HOME/bin"</code>).</p>
+<h2 id="case-2-sudo-command-command-not-found">Case 2: <code>sudo: &lt;command&gt;: command not found</code></h2>
+<p>sudo resets <code>PATH</code> to <code>secure_path</code> from <code>/etc/sudoers</code> (typically <code>/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin</code>). Tools installed under your home directory, such as nvm's <code>node</code>/<code>npm</code>, pyenv, <code>~/.local/bin</code>, <code>~/go/bin</code> or <code>~/.cargo/bin</code>, aren't on it.</p>
+<p>Options, best first:</p>
+<ul>
+<li><strong>Don't use sudo</strong> for user-level tools. With nvm, <code>npm install -g</code> doesn't need sudo.</li>
+<li>Use the full path: <code>sudo "$(which npm)" install -g pm2</code>.</li>
+<li>Pass your PATH for one command: <code>sudo env "PATH=$PATH" npm install -g pm2</code>.</li>
+<li>Add the directory permanently with <code>sudo visudo</code> (edit the <code>Defaults secure_path=</code> line).</li>
+</ul>
+<p>For the general case of a missing program, see <a href="/linux/linux-command-not-found/">command not found</a>.</p>
+<p class="upd">Last updated 2026-11-08.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-command-not-found/">command not found</a></li><li><a href="/linux/linux-permission-denied-running-script/">bash: ./script.sh: Permission denied</a></li><li><a href="/linux/linux-sudo-unable-to-resolve-host/">sudo: unable to resolve host</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

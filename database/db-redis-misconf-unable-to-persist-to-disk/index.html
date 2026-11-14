@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MISCONF Redis is configured to save RDB snapshots, but it&#x27;s currently unable to persist to disk. — how to fix</title>
+<meta name="description" content="Redis&#x27;s background save (BGSAVE) failed, so it refuses writes to protect you from losing data. The cause is in the Redis log - usually a full disk, a directory Redis can&#x27;t write to, or fork failing for lack of memory.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-redis-misconf-unable-to-persist-to-disk/">
+<meta property="og:title" content="MISCONF Redis is configured to save RDB snapshots, but it&#x27;s currently unable to persist to disk. — how to fix"><meta property="og:description" content="Redis&#x27;s background save (BGSAVE) failed, so it refuses writes to protect you from losing data. The cause is in the Redis log - usually a full disk, a directory Redis can&#x27;t write to, or fork failing for lack of memory.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-redis-misconf-unable-to-persist-to-disk/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "MISCONF Redis is configured to save RDB snapshots, but it's currently unable to persist to disk. \u2014 how to fix", "description": "Redis's background save (BGSAVE) failed, so it refuses writes to protect you from losing data. The cause is in the Redis log - usually a full disk, a directory Redis can't write to, or fork failing for lack of memory.", "dateModified": "2026-11-01", "url": "https://errorfix-hollis.github.io/database/db-redis-misconf-unable-to-persist-to-disk/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "MISCONF Redis is configured to save RDB snapshots, but it's currently unable to persist to disk.", "item": "https://errorfix-hollis.github.io/database/db-redis-misconf-unable-to-persist-to-disk/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>MISCONF Redis is configured to save RDB snapshots, but it&#x27;s currently unable to persist to disk. — how to fix</h1>
+<pre class="err"><code>(error) MISCONF Redis is configured to save RDB snapshots, but it&#x27;s currently unable to persist to disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the log (<code>journalctl -u redis-server</code> or <code>docker logs &lt;container&gt;</code>) and <code>redis-cli INFO persistence</code>. Free disk space, fix ownership of the data dir (<code>CONFIG GET dir</code>; <code>sudo chown redis:redis /var/lib/redis</code>), or for fork errors set <code>vm.overcommit_memory = 1</code>. Then <code>redis-cli BGSAVE</code> to confirm. <code>CONFIG SET stop-writes-on-bgsave-error no</code> only hides the problem.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>With RDB persistence on (the default <code>save</code> rules), Redis periodically forks a child that writes the dataset to <code>dump.rdb</code>. If the last save failed and <code>stop-writes-on-bgsave-error</code> is <code>yes</code> (the default), Redis rejects every write command with <code>MISCONF</code> until a save succeeds. Reads still work.</p>
+<p>Find out why the save failed:</p>
+<pre><code class="language-bash">redis-cli INFO persistence | grep -E &quot;rdb_last_bgsave_status|rdb_changes_since_last_save&quot;
+redis-cli CONFIG GET dir
+redis-cli CONFIG GET dbfilename
+
+sudo journalctl -u redis-server -n 50     # Debian/Ubuntu service name
+sudo tail -n 50 /var/log/redis/redis-server.log
+docker logs my-redis --tail 50            # in Docker
+</code></pre>
+<p>The log line that matters looks like <code>Failed opening the temp RDB file temp-1234.rdb (in server root dir /var/lib/redis) for saving: Permission denied</code> or <code>Can't save in background: fork: Cannot allocate memory</code>.</p>
+<h2 id="cause-1-disk-full">Cause 1: disk full</h2>
+<pre><code class="language-bash">df -h &quot;$(redis-cli CONFIG GET dir | tail -1)&quot;
+</code></pre>
+<p>Free up space (old logs, Docker images, large files) or move the data directory to a bigger disk. Redis needs room for a full temporary copy of the RDB file while saving.</p>
+<h2 id="cause-2-redis-cant-write-to-its-directory-permission-denied">Cause 2: Redis can't write to its directory (Permission denied)</h2>
+<p>The data dir must be writable by the user Redis runs as:</p>
+<pre><code class="language-bash">sudo chown -R redis:redis /var/lib/redis
+sudo chmod 750 /var/lib/redis
+</code></pre>
+<p>A frequent variant: the <code>dir</code> was changed at runtime to something like <code>/etc</code> or <code>/root</code>, sometimes by an attacker on an exposed Redis (<code>CONFIG SET dir</code>, <code>CONFIG SET dbfilename</code>). If <code>CONFIG GET dir</code> shows an odd location you didn't set, treat the server as compromised: make sure Redis isn't reachable from the internet (<code>bind 127.0.0.1</code>, <code>protected-mode yes</code>, a password via <code>requirepass</code> or ACLs, a firewall) and check for unexpected <code>authorized_keys</code> or cron entries. Then set the directory back:</p>
+<pre><code class="language-bash">redis-cli CONFIG SET dir /var/lib/redis
+redis-cli CONFIG SET dbfilename dump.rdb
+</code></pre>
+<p>In Docker, make sure the mounted volume for <code>/data</code> is writable by the container's redis user.</p>
+<h2 id="cause-3-fork-fails-cannot-allocate-memory">Cause 3: fork fails (Cannot allocate memory)</h2>
+<p>Forking a large Redis process requires the kernel to allow overcommit. Redis itself warns about this at startup:</p>
+<pre><code class="language-bash">echo &quot;vm.overcommit_memory = 1&quot; | sudo tee /etc/sysctl.d/99-redis.conf
+sudo sysctl --system
+</code></pre>
+<p>Also check that the server isn't genuinely out of RAM (<code>free -m</code>), and set <code>maxmemory</code> so Redis leaves headroom for the fork.</p>
+<h2 id="confirm-the-fix">Confirm the fix</h2>
+<pre><code class="language-bash">redis-cli BGSAVE
+redis-cli INFO persistence | grep rdb_last_bgsave_status   # should be ok
+</code></pre>
+<p>Once a save succeeds, writes are accepted again.</p>
+<h2 id="if-you-dont-need-persistence">If you don't need persistence</h2>
+<p>For a pure cache, turn off RDB snapshots instead of ignoring errors:</p>
+<pre><code class="language-bash">redis-cli CONFIG SET save &quot;&quot;
+redis-cli CONFIG REWRITE      # persist to redis.conf
+</code></pre>
+<p>or <code>save ""</code> in <code>redis.conf</code>.</p>
+<p><code>CONFIG SET stop-writes-on-bgsave-error no</code> makes the error go away while saves keep failing silently; you'll lose data on restart without knowing it. Use it only as a temporary measure while you fix the real cause.</p>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-sqlite-database-is-locked/">sqlite3.OperationalError: database is locked</a></li><li><a href="/docker/docker-no-space-left-on-device/">no space left on device (Docker)</a></li><li><a href="/linux/linux-no-space-left-on-device/">No space left on device</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

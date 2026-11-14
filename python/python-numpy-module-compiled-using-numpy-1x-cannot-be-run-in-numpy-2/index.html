@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A module that was compiled using NumPy 1.x cannot be run in NumPy 2.x (Python) — how to fix</title>
+<meta name="description" content="NumPy 2.0 changed its C ABI. A package with compiled extensions (opencv, torch, pandas, scipy, matplotlib, etc.) was built against NumPy 1.x and cannot load with NumPy 2 installed.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-numpy-module-compiled-using-numpy-1x-cannot-be-run-in-numpy-2/">
+<meta property="og:title" content="A module that was compiled using NumPy 1.x cannot be run in NumPy 2.x (Python) — how to fix"><meta property="og:description" content="NumPy 2.0 changed its C ABI. A package with compiled extensions (opencv, torch, pandas, scipy, matplotlib, etc.) was built against NumPy 1.x and cannot load with NumPy 2 installed.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-numpy-module-compiled-using-numpy-1x-cannot-be-run-in-numpy-2/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "A module that was compiled using NumPy 1.x cannot be run in NumPy 2.x (Python) \u2014 how to fix", "description": "NumPy 2.0 changed its C ABI. A package with compiled extensions (opencv, torch, pandas, scipy, matplotlib, etc.) was built against NumPy 1.x and cannot load with NumPy 2 installed.", "dateModified": "2026-11-14", "url": "https://errorfix-hollis.github.io/python/python-numpy-module-compiled-using-numpy-1x-cannot-be-run-in-numpy-2/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "A module that was compiled using NumPy 1.x cannot be run in NumPy 2.x", "item": "https://errorfix-hollis.github.io/python/python-numpy-module-compiled-using-numpy-1x-cannot-be-run-in-numpy-2/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>A module that was compiled using NumPy 1.x cannot be run in NumPy 2.x (Python) — how to fix</h1>
+<pre class="err"><code>A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.0.0 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with &#x27;pybind11&gt;=2.12&#x27;.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to &#x27;numpy&lt;2&#x27; or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+...
+AttributeError: _ARRAY_API not found
+ImportError: numpy.core.multiarray failed to import
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Quick fix: <code>pip install "numpy&lt;2"</code>. Better fix: upgrade the package named in the traceback to a release built for NumPy 2 (e.g. <code>pip install -U opencv-python pandas torch</code>). Pin <code>numpy&lt;2</code> in requirements.txt if a dependency has no NumPy 2 build yet.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>NumPy 2.0 (June 2024) broke binary compatibility with extension modules compiled against NumPy 1.x. Pure-Python code is fine, but any wheel with C/C++/Cython code that uses the NumPy C API must be rebuilt against NumPy 2.</p>
+<p>When such an old wheel is imported while NumPy 2 is installed, NumPy prints this warning and the import then fails with errors such as <code>AttributeError: _ARRAY_API not found</code> or <code>ImportError: numpy.core.multiarray failed to import</code>.</p>
+<p>The traceback lists which package triggered it. Look for the first non-NumPy import in the stack (for example <code>cv2</code>, <code>torch</code>, <code>pandas._libs</code>, <code>matplotlib</code>, <code>scipy</code>, <code>pyarrow</code>).</p>
+<p>Check versions:</p>
+<pre><code class="language-bash">python -c &quot;import numpy; print(numpy.__version__)&quot;
+pip list | grep -iE &quot;numpy|pandas|opencv|torch|scipy|matplotlib|pyarrow&quot;
+</code></pre>
+<h2 id="fix-1-downgrade-numpy-fastest">Fix 1: downgrade NumPy (fastest)</h2>
+<pre><code class="language-bash">pip install &quot;numpy&lt;2&quot;
+</code></pre>
+<p>With conda:</p>
+<pre><code class="language-bash">conda install &quot;numpy&lt;2&quot;
+</code></pre>
+<p>This makes all old wheels work again. Pin it so the next install doesn't undo it:</p>
+<pre><code># requirements.txt
+numpy&lt;2
+</code></pre>
+<h2 id="fix-2-upgrade-the-package-that-was-built-for-1x">Fix 2: upgrade the package that was built for 1.x</h2>
+<p>Most popular libraries ship NumPy 2-compatible wheels now. Minimum versions that support NumPy 2:</p>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Version</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pandas</td>
+<td>2.2.2</td>
+</tr>
+<tr>
+<td>scipy</td>
+<td>1.13</td>
+</tr>
+<tr>
+<td>matplotlib</td>
+<td>3.8.4</td>
+</tr>
+<tr>
+<td>scikit-learn</td>
+<td>1.4.2</td>
+</tr>
+<tr>
+<td>opencv-python</td>
+<td>4.10.0.84</td>
+</tr>
+<tr>
+<td>torch</td>
+<td>2.3</td>
+</tr>
+<tr>
+<td>pyarrow</td>
+<td>16.0</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-bash">pip install -U pandas scipy matplotlib scikit-learn opencv-python
+</code></pre>
+<p>Then confirm imports work:</p>
+<pre><code class="language-bash">python -c &quot;import numpy, pandas, cv2; print(numpy.__version__, pandas.__version__, cv2.__version__)&quot;
+</code></pre>
+<p>If <code>pip</code> refuses to upgrade because another package pins old versions, look at <code>pip check</code> output to see which one holds things back.</p>
+<h2 id="fix-3-start-from-a-clean-virtual-environment">Fix 3: start from a clean virtual environment</h2>
+<p>Mixed upgrades often leave one stale wheel. A fresh venv avoids guessing:</p>
+<pre><code class="language-bash">python -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install -U pip
+pip install -r requirements.txt
+</code></pre>
+<p>Make sure the error isn't coming from a different interpreter than the one you fixed: <code>python -c "import sys; print(sys.executable)"</code>.</p>
+<h2 id="fix-4-you-maintain-the-extension">Fix 4: you maintain the extension</h2>
+<p>Rebuild against NumPy 2. By default, wheels built against NumPy 2 also run on older NumPy 1.x releases (controlled by <code>NPY_TARGET_VERSION</code>), so one build covers both:</p>
+<pre><code class="language-toml"># pyproject.toml
+[build-system]
+requires = [&quot;setuptools&quot;, &quot;numpy&gt;=2.0&quot;]
+</code></pre>
+<p>For pybind11 projects, use <code>pybind11&gt;=2.12</code>. Run <code>ruff check --select NPY201</code> to find Python-level APIs removed in NumPy 2 (such as <code>np.float_</code>, <code>np.NaN</code>, <code>np.Inf</code>).</p>
+<h2 id="related-npfloat_-npnan-errors">Related: <code>np.float_</code> / <code>np.NaN</code> errors</h2>
+<p>If instead you see <code>AttributeError: np.NaN was removed in the NumPy 2.0 release</code>, your code (not a compiled module) uses removed aliases. Replace them: <code>np.NaN</code> → <code>np.nan</code>, <code>np.Inf</code> → <code>np.inf</code>, <code>np.float_</code> → <code>np.float64</code>, <code>np.complex_</code> → <code>np.complex128</code>.</p>
+<p class="upd">Last updated 2026-11-14.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-importerror-dll-load-failed/">ImportError: DLL load failed while importing</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-cv2/">ModuleNotFoundError: No module named &#x27;cv2&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-numpy/">ModuleNotFoundError: No module named &#x27;numpy&#x27;</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

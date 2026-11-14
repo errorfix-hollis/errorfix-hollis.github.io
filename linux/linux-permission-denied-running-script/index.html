@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>bash: ./script.sh: Permission denied (Linux) — how to fix</title>
+<meta name="description" content="The file isn&#x27;t marked as executable, or it lives on a filesystem mounted with noexec. Add the execute bit or run it through the interpreter.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-permission-denied-running-script/">
+<meta property="og:title" content="bash: ./script.sh: Permission denied (Linux) — how to fix"><meta property="og:description" content="The file isn&#x27;t marked as executable, or it lives on a filesystem mounted with noexec. Add the execute bit or run it through the interpreter.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-permission-denied-running-script/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "bash: ./script.sh: Permission denied (Linux) \u2014 how to fix", "description": "The file isn't marked as executable, or it lives on a filesystem mounted with noexec. Add the execute bit or run it through the interpreter.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/linux/linux-permission-denied-running-script/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "bash: ./script.sh: Permission denied", "item": "https://errorfix-hollis.github.io/linux/linux-permission-denied-running-script/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>bash: ./script.sh: Permission denied (Linux) — how to fix</h1>
+<pre class="err"><code>bash: ./script.sh: Permission denied</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>chmod +x script.sh</code> and try <code>./script.sh</code> again. Or run it without the execute bit: <code>bash script.sh</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>To run <code>./script.sh</code> directly, the file needs the <strong>execute</strong> permission for your user. It doesn't have it.</p>
+<h2 id="fix">Fix</h2>
+<pre><code class="language-bash">chmod +x script.sh
+./script.sh
+</code></pre>
+<p>Or skip the permission check by passing the file to the interpreter:</p>
+<pre><code class="language-bash">bash script.sh
+python3 script.py
+</code></pre>
+<h2 id="check-the-permissions">Check the permissions</h2>
+<pre><code class="language-bash">ls -l script.sh
+# -rw-r--r--  → not executable
+# -rwxr-xr-x  → executable
+</code></pre>
+<h2 id="still-permission-denied-after-chmod-x">Still "Permission denied" after chmod +x</h2>
+<p><strong>The filesystem is mounted noexec.</strong> Common for <code>/tmp</code>, USB drives, and some shared folders:</p>
+<pre><code class="language-bash">findmnt -T script.sh -o TARGET,OPTIONS
+</code></pre>
+<p>If you see <code>noexec</code>, move the script elsewhere (e.g. your home folder) or run it with <code>bash script.sh</code>.</p>
+<p><strong>The file belongs to someone else</strong> and only they have execute rights. Check the owner in <code>ls -l</code>, and fix with <code>sudo chown "$USER" script.sh</code> if appropriate.</p>
+<p><strong>A folder in the path isn't searchable</strong> (missing <code>x</code> on a directory). Check with <code>namei -l /path/to/script.sh</code>.</p>
+<p><strong>In Git</strong>, the execute bit is tracked. Commit it so others get it too:</p>
+<pre><code class="language-bash">git update-index --chmod=+x script.sh
+git commit -m &quot;Make script executable&quot;
+</code></pre>
+<h2 id="permission-denied-for-other-commands">"Permission denied" for other commands</h2>
+<p>If the message comes from inside the script (e.g. writing a file in <code>/etc</code>), the script needs higher privileges for that step: run it with <code>sudo</code>, or change the target path.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-cannot-execute-binary-file/">cannot execute binary file: Exec format error</a></li><li><a href="/linux/linux-command-not-found/">command not found</a></li><li><a href="/linux/linux-could-not-get-lock-dpkg/">E: Could not get lock /var/lib/dpkg/lock-frontend</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

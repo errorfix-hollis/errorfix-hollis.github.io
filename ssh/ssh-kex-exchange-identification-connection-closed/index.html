@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>kex_exchange_identification: Connection closed by remote host (SSH) — how to fix</title>
+<meta name="description" content="The TCP connection opened, but the server closed it before even sending its SSH banner. Typical causes are sshd rate limiting (MaxStartups), fail2ban/firewall blocks, TCP wrappers, a broken sshd, or a proxy/VPN that isn&#x27;t really SSH on that port.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/ssh/ssh-kex-exchange-identification-connection-closed/">
+<meta property="og:title" content="kex_exchange_identification: Connection closed by remote host (SSH) — how to fix"><meta property="og:description" content="The TCP connection opened, but the server closed it before even sending its SSH banner. Typical causes are sshd rate limiting (MaxStartups), fail2ban/firewall blocks, TCP wrappers, a broken sshd, or a proxy/VPN that isn&#x27;t really SSH on that port.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/ssh/ssh-kex-exchange-identification-connection-closed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "kex_exchange_identification: Connection closed by remote host (SSH) \u2014 how to fix", "description": "The TCP connection opened, but the server closed it before even sending its SSH banner. Typical causes are sshd rate limiting (MaxStartups), fail2ban/firewall blocks, TCP wrappers, a broken sshd, or a proxy/VPN that isn't really SSH on that port.", "dateModified": "2026-11-05", "url": "https://errorfix-hollis.github.io/ssh/ssh-kex-exchange-identification-connection-closed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "SSH", "item": "https://errorfix-hollis.github.io/ssh/"}, {"@type": "ListItem", "position": 3, "name": "kex_exchange_identification: Connection closed by remote host", "item": "https://errorfix-hollis.github.io/ssh/ssh-kex-exchange-identification-connection-closed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/ssh/">SSH</a></p>
+<article><h1>kex_exchange_identification: Connection closed by remote host (SSH) — how to fix</h1>
+<pre class="err"><code>kex_exchange_identification: Connection closed by remote host
+Connection closed by 203.0.113.10 port 22
+kex_exchange_identification: read: Connection reset by peer
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>ssh -vvv user@host</code> and check on the server: <code>sudo journalctl -u ssh -n 50</code> (or <code>sshd</code>). If you're banned, unban with <code>sudo fail2ban-client set sshd unbanip &lt;your-ip&gt;</code>. Check <code>/etc/hosts.deny</code>, <code>MaxStartups</code> in <code>/etc/ssh/sshd_config</code>, and validate the config with <code>sudo sshd -t</code>. For GitHub, try <code>ssh -T -p 443 git@ssh.github.com</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The SSH handshake starts with each side sending a version banner (<code>SSH-2.0-OpenSSH_9.6</code>). Your client connected but the server closed (or reset) the connection before its banner arrived. That rules out "host down" and "port closed" (those give timeouts or <code>Connection refused</code>): something on or in front of the server is accepting and immediately dropping you.</p>
+<p>Get details:</p>
+<pre><code class="language-bash">ssh -vvv user@host
+nc -v host 22          # a healthy server prints SSH-2.0-... straight away
+</code></pre>
+<p>If <code>nc</code> shows no banner and closes, the problem is server- or network-side. On the server (via console if needed):</p>
+<pre><code class="language-bash">sudo journalctl -u ssh -u sshd -n 50 --no-pager
+sudo sshd -t           # config syntax check
+</code></pre>
+<h2 id="cause-1-fail2ban-sshguard-or-a-firewall-banned-your-ip">Cause 1: fail2ban, sshguard or a firewall banned your IP</h2>
+<p>Repeated failed logins get an IP blocked, and some setups reject rather than drop. On the server:</p>
+<pre><code class="language-bash">sudo fail2ban-client status sshd
+sudo fail2ban-client set sshd unbanip 198.51.100.7
+</code></pre>
+<p>Add your IP to <code>ignoreip</code> in <code>/etc/fail2ban/jail.local</code> if you get banned often, and fix whatever caused the failures (often a client offering many keys — see <a href="/ssh/ssh-too-many-authentication-failures/">Too many authentication failures</a>).</p>
+<h2 id="cause-2-maxstartups-too-many-unauthenticated-connections">Cause 2: MaxStartups — too many unauthenticated connections</h2>
+<p>sshd drops new connections when too many are still in the auth phase (default <code>MaxStartups 10:30:100</code>: start randomly dropping at 10). Brute-force bots or parallel automation (Ansible forks, CI jobs) trigger it. The log shows <code>drop connection #10 from ... past MaxStartups</code>.</p>
+<p>In <code>/etc/ssh/sshd_config</code>:</p>
+<pre><code>MaxStartups 30:30:100
+LoginGraceTime 30
+</code></pre>
+<pre><code class="language-bash">sudo sshd -t &amp;&amp; sudo systemctl reload ssh     # service is &quot;sshd&quot; on RHEL/Fedora/Arch
+</code></pre>
+<p>Better long-term: restrict port 22 to known IPs, or use fail2ban to cut bot traffic.</p>
+<h2 id="cause-3-tcp-wrappers-etchostsdeny">Cause 3: TCP wrappers (/etc/hosts.deny)</h2>
+<p>On systems still using libwrap, a line like <code>sshd: ALL</code> in <code>/etc/hosts.deny</code> closes connections instantly. Check <code>/etc/hosts.allow</code> and <code>/etc/hosts.deny</code>.</p>
+<h2 id="cause-4-sshd-is-broken">Cause 4: sshd is broken</h2>
+<p>If sshd can't load its host keys or config, it may accept and immediately close. Signs in the log: <code>no hostkeys available</code>, <code>Missing privilege separation directory: /run/sshd</code>, permission errors on <code>/etc/ssh/ssh_host_*_key</code>.</p>
+<pre><code class="language-bash">sudo ssh-keygen -A                     # regenerate missing host keys
+sudo mkdir -p /run/sshd
+sudo chmod 600 /etc/ssh/ssh_host_*_key
+sudo sshd -t &amp;&amp; sudo systemctl restart ssh
+</code></pre>
+<p>Full disk can cause the same — check <code>df -h</code>.</p>
+<h2 id="cause-5-something-else-is-on-that-port-or-a-proxyvpn-interferes">Cause 5: something else is on that port, or a proxy/VPN interferes</h2>
+<p>A load balancer, port forward or Docker container may be listening on port 22 but forwarding to nothing. Corporate proxies and some VPNs also reset SSH. Test from another network, and check what's listening on the server: <code>sudo ss -tlnp | grep :22</code>.</p>
+<p>For GitHub/GitLab blocked on port 22, use their SSH-over-443 endpoints in <code>~/.ssh/config</code>:</p>
+<pre><code>Host github.com
+  HostName ssh.github.com
+  Port 443
+  User git
+</code></pre>
+<p>Then <code>ssh -T git@github.com</code>. GitLab.com uses <code>altssh.gitlab.com</code> port 443.</p>
+<h2 id="cause-6-wrong-port-or-server-is-still-booting">Cause 6: wrong port or server is still booting</h2>
+<p>Right after a reboot, cloud VMs may accept TCP before sshd is ready. Wait a minute and retry. If sshd listens on a custom port, connect with <code>ssh -p 2222 user@host</code>.</p>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/ssh/ssh-connection-timed-out/">ssh: connect to host port 22: Connection timed out</a></li><li><a href="/ssh/ssh-permission-denied-publickey/">Permission denied (publickey)</a></li><li><a href="/ssh/ssh-too-many-authentication-failures/">Received disconnect: Too many authentication failures</a></li><li><a href="/ssh/ssh-connect-to-host-port-22-connection-refused/">ssh: connect to host port 22: Connection refused</a></li><li><a href="/ssh/ssh-connection-closed-by-remote-host/">Connection closed by remote host</a></li><li><a href="/ssh/ssh-host-key-verification-failed/">Host key verification failed.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

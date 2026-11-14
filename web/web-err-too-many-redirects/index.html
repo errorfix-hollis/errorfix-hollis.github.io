@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERR_TOO_MANY_REDIRECTS — how to fix</title>
+<meta name="description" content="The browser followed a redirect loop (A → B → A …). Usually an HTTP↔HTTPS loop behind Cloudflare or a load balancer, a www/non-www rule conflict, or an app that keeps redirecting to login.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-err-too-many-redirects/">
+<meta property="og:title" content="ERR_TOO_MANY_REDIRECTS — how to fix"><meta property="og:description" content="The browser followed a redirect loop (A → B → A …). Usually an HTTP↔HTTPS loop behind Cloudflare or a load balancer, a www/non-www rule conflict, or an app that keeps redirecting to login.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-err-too-many-redirects/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERR_TOO_MANY_REDIRECTS \u2014 how to fix", "description": "The browser followed a redirect loop (A \u2192 B \u2192 A \u2026). Usually an HTTP\u2194HTTPS loop behind Cloudflare or a load balancer, a www/non-www rule conflict, or an app that keeps redirecting to login.", "dateModified": "2026-10-28", "url": "https://errorfix-hollis.github.io/web/web-err-too-many-redirects/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "ERR_TOO_MANY_REDIRECTS", "item": "https://errorfix-hollis.github.io/web/web-err-too-many-redirects/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>ERR_TOO_MANY_REDIRECTS — how to fix</h1>
+<pre class="err"><code>This page isn&#x27;t working
+example.com redirected you too many times.
+ERR_TOO_MANY_REDIRECTS
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Trace the loop: <code>curl -sIL https://example.com | grep -i '^location'</code>. Behind Cloudflare, set SSL mode to Full (strict) instead of Flexible. Behind a proxy, make the app trust <code>X-Forwarded-Proto</code> so it knows the request is already HTTPS.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Browsers give up after ~20 redirects. Some rule sends the request back to a URL that redirects again.</p>
+<p>First, clear cookies for the site (a bad cookie can cause login loops) and see the chain:</p>
+<pre><code class="language-bash">curl -sIL https://example.com | grep -iE '^(HTTP|location)'
+</code></pre>
+<h2 id="cause-1-cloudflare-flexible-ssl-origin-forcing-https">Cause 1: Cloudflare "Flexible" SSL + origin forcing HTTPS</h2>
+<p>With Flexible, Cloudflare talks to your server over <strong>HTTP</strong>. Your server redirects to HTTPS, Cloudflare fetches HTTP again… forever.</p>
+<p>Fix: install a certificate on the origin (Let's Encrypt or a Cloudflare Origin Certificate) and set <strong>SSL/TLS → Full (strict)</strong>. Load balancers like AWS ALB doing TLS termination cause the same loop.</p>
+<h2 id="cause-2-the-app-doesnt-know-its-behind-https">Cause 2: the app doesn't know it's behind HTTPS</h2>
+<p>A reverse proxy terminates TLS and forwards plain HTTP. The app sees HTTP and redirects to HTTPS. Pass and trust the forwarded protocol:</p>
+<p>nginx:</p>
+<pre><code class="language-nginx">proxy_set_header X-Forwarded-Proto $scheme;
+</code></pre>
+<p>Then in the app: Django <code>SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")</code>, Express <code>app.set("trust proxy", 1)</code>, Laravel <code>TrustProxies</code> middleware, Rails <code>config.assume_ssl = true</code>.</p>
+<h2 id="cause-3-www-and-non-www-rules-fighting">Cause 3: www and non-www rules fighting</h2>
+<p>One rule redirects <code>example.com → www.example.com</code> and another (DNS provider, CDN, app setting) does the reverse. Choose one canonical host and remove the other rule.</p>
+<p>WordPress: <code>siteurl</code> and <code>home</code> (Settings → General or <code>wp_options</code>) must match your real canonical URL, including <code>https://</code> and <code>www</code>.</p>
+<h2 id="cause-4-nginx-config-loops">Cause 4: nginx config loops</h2>
+<pre><code class="language-nginx">server {
+    listen 443 ssl;
+    return 301 https://$host$request_uri;   # redirects HTTPS to itself
+}
+</code></pre>
+<p>Only put the redirect in the <code>listen 80</code> server block.</p>
+<h2 id="cause-5-auth-redirect-loops">Cause 5: auth redirect loops</h2>
+<p>A login page that itself requires login, or a session cookie that never sticks (wrong <code>domain</code>, <code>Secure</code> cookie on HTTP, <code>SameSite</code> issues) makes the app redirect to <code>/login</code> forever. Exclude the login route from the auth check and inspect the <code>Set-Cookie</code> header.</p>
+<p class="upd">Last updated 2026-10-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-nginx-502-bad-gateway/">502 Bad Gateway (nginx)</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/web/web-err-connection-refused/">ERR_CONNECTION_REFUSED</a></li><li><a href="/web/web-err-ssl-protocol-error/">ERR_SSL_PROTOCOL_ERROR</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

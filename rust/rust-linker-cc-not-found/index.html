@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: linker `cc` not found (Rust) — how to fix</title>
+<meta name="description" content="rustc compiles your code itself but uses the system C toolchain to link the final binary. No C compiler/linker (cc) is installed, so linking fails. Install build-essential (Debian/Ubuntu), gcc (Fedora/Arch/Alpine) or Xcode Command Line Tools (macOS).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/rust/rust-linker-cc-not-found/">
+<meta property="og:title" content="error: linker `cc` not found (Rust) — how to fix"><meta property="og:description" content="rustc compiles your code itself but uses the system C toolchain to link the final binary. No C compiler/linker (cc) is installed, so linking fails. Install build-essential (Debian/Ubuntu), gcc (Fedora/Arch/Alpine) or Xcode Command Line Tools (macOS).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/rust/rust-linker-cc-not-found/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: linker `cc` not found (Rust) \u2014 how to fix", "description": "rustc compiles your code itself but uses the system C toolchain to link the final binary. No C compiler/linker (cc) is installed, so linking fails. Install build-essential (Debian/Ubuntu), gcc (Fedora/Arch/Alpine) or Xcode Command Line Tools (macOS).", "dateModified": "2026-10-30", "url": "https://errorfix-hollis.github.io/rust/rust-linker-cc-not-found/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Rust", "item": "https://errorfix-hollis.github.io/rust/"}, {"@type": "ListItem", "position": 3, "name": "error: linker `cc` not found", "item": "https://errorfix-hollis.github.io/rust/rust-linker-cc-not-found/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/rust/">Rust</a></p>
+<article><h1>error: linker `cc` not found (Rust) — how to fix</h1>
+<pre class="err"><code>error: linker `cc` not found
+  |
+  = note: No such file or directory (os error 2)
+
+error: could not compile `hello` (bin &quot;hello&quot;) due to 1 previous error
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Debian/Ubuntu/WSL: <code>sudo apt update &amp;&amp; sudo apt install build-essential</code>. Fedora: <code>sudo dnf install gcc</code>. Arch: <code>sudo pacman -S base-devel</code>. Alpine: <code>apk add build-base</code>. macOS: <code>xcode-select --install</code>. Then run <code>cargo build</code> again. On Windows <code>link.exe not found</code> needs the Visual Studio C++ Build Tools.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>rustup</code> installs the Rust compiler and standard library, but not a linker. On Linux and macOS, rustc invokes <code>cc</code> (the system C compiler driver) to link object files into an executable. If <code>cc</code> isn't on your <code>PATH</code>, you get this error at the end of <code>cargo build</code> — your code compiled fine.</p>
+<p>Check:</p>
+<pre><code class="language-bash">which cc gcc clang
+</code></pre>
+<h2 id="fix-1-debian-ubuntu-wsl">Fix 1: Debian, Ubuntu, WSL</h2>
+<pre><code class="language-bash">sudo apt update
+sudo apt install build-essential
+</code></pre>
+<p><code>build-essential</code> provides <code>gcc</code>, <code>make</code>, libc headers and the <code>cc</code> symlink. Fresh WSL distributions and minimal cloud images don't include it.</p>
+<h2 id="fix-2-other-linux-distributions">Fix 2: other Linux distributions</h2>
+<pre><code class="language-bash">sudo dnf install gcc            # Fedora, RHEL, Rocky, Alma
+sudo pacman -S base-devel       # Arch, Manjaro
+sudo zypper install gcc         # openSUSE
+apk add build-base              # Alpine
+</code></pre>
+<h2 id="fix-3-macos">Fix 3: macOS</h2>
+<pre><code class="language-bash">xcode-select --install
+</code></pre>
+<p>This installs the Command Line Tools (clang, ld, and the <code>cc</code> shim). After a macOS upgrade the tools sometimes break; reinstall with the same command, or reset with <code>sudo xcode-select --reset</code>.</p>
+<h2 id="fix-4-docker-images">Fix 4: Docker images</h2>
+<p>Use the official image, which already includes gcc:</p>
+<pre><code class="language-dockerfile">FROM rust:1 AS build
+WORKDIR /app
+COPY . .
+RUN cargo build --release
+</code></pre>
+<p>On a slim or custom base, install the toolchain in the build stage:</p>
+<pre><code class="language-dockerfile">RUN apt-get update &amp;&amp; apt-get install -y --no-install-recommends build-essential \
+    &amp;&amp; rm -rf /var/lib/apt/lists/*
+</code></pre>
+<p>For <code>rust:alpine</code>, add <code>RUN apk add --no-cache musl-dev</code> (or <code>build-base</code>), otherwise you'll see linker or missing <code>crt1.o</code> errors.</p>
+<h2 id="fix-5-windows-linkexe-not-found">Fix 5: Windows (<code>link.exe</code> not found)</h2>
+<p>The MSVC target (<code>x86_64-pc-windows-msvc</code>, the default) needs Microsoft's linker. Install <strong>Visual Studio Build Tools</strong> with the <strong>Desktop development with C++</strong> workload (it includes MSVC and the Windows SDK), then open a new terminal. The alternative is the GNU target:</p>
+<pre><code class="language-powershell">rustup toolchain install stable-x86_64-pc-windows-gnu
+</code></pre>
+<p>which also needs a MinGW-w64 toolchain.</p>
+<h2 id="fix-6-cross-compiling">Fix 6: cross-compiling</h2>
+<p>When building for another target (e.g. <code>aarch64-unknown-linux-gnu</code>), the host <code>cc</code> can't link for that architecture. Install a cross linker and tell Cargo to use it in <code>.cargo/config.toml</code>:</p>
+<pre><code class="language-toml">[target.aarch64-unknown-linux-gnu]
+linker = &quot;aarch64-linux-gnu-gcc&quot;
+</code></pre>
+<pre><code class="language-bash">sudo apt install gcc-aarch64-linux-gnu
+rustup target add aarch64-unknown-linux-gnu
+cargo build --target aarch64-unknown-linux-gnu
+</code></pre>
+<p>Tools like <code>cross</code> (Docker-based) or <code>cargo zigbuild</code> avoid installing per-target toolchains.</p>
+<h2 id="if-gcc-is-installed-but-cc-isnt">If gcc is installed but <code>cc</code> isn't</h2>
+<p>Some setups have <code>gcc</code> or <code>clang</code> but no <code>cc</code> symlink. Point Cargo at the one you have, either per target in <code>.cargo/config.toml</code> (<code>linker = "gcc"</code>) or for one build:</p>
+<pre><code class="language-bash">RUSTFLAGS=&quot;-C linker=clang&quot; cargo build
+</code></pre>
+<p class="upd">Last updated 2026-10-30.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-command-not-found/">command not found</a></li><li><a href="/python/python-microsoft-visual-cpp-required/">error: Microsoft Visual C++ 14.0 or greater is required.</a></li><li><a href="/rust/rust-borrow-of-moved-value/">error[E0382]: borrow of moved value</a></li><li><a href="/rust/rust-cannot-borrow-as-mutable/">error[E0502]: cannot borrow as mutable because it is also borrowed as immutable</a></li><li><a href="/rust/rust-e0106-missing-lifetime-specifier/">error[E0106]: missing lifetime specifier</a></li><li><a href="/rust/rust-e0277-trait-bound-not-satisfied/">error[E0277]: the trait bound is not satisfied</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

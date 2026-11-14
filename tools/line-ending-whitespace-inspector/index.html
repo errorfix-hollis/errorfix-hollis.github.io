@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Line Ending &amp; Whitespace Inspector — find CRLF, tabs, BOM, invisible characters</title>
+<meta name="description" content="Check a file for CRLF vs LF line endings, tabs vs spaces, trailing whitespace, a BOM, non-breaking spaces and zero-width characters, then normalize and download it. Runs in your browser.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/line-ending-whitespace-inspector/">
+<meta property="og:title" content="Line Ending &amp; Whitespace Inspector — find CRLF, tabs, BOM, invisible characters"><meta property="og:description" content="Check a file for CRLF vs LF line endings, tabs vs spaces, trailing whitespace, a BOM, non-breaking spaces and zero-width characters, then normalize and download it. Runs in your browser.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/line-ending-whitespace-inspector/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "Line ending & whitespace inspector", "url": "https://errorfix-hollis.github.io/tools/line-ending-whitespace-inspector/", "description": "Check a file for CRLF vs LF line endings, tabs vs spaces, trailing whitespace, a BOM, non-breaking spaces and zero-width characters, then normalize and download it. Runs in your browser.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-05", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": "Line ending & whitespace inspector", "item": "https://errorfix-hollis.github.io/tools/line-ending-whitespace-inspector/"}]}</script><script src="/tools.js?v=70df2f10" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>Line ending and whitespace inspector</h1>
+<p class="lead">Open a file or paste text to see its line endings, indentation, BOM and any invisible characters, then normalize it with one click.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="whitespace"><label for="ws-in">Paste text, or open a file to check its real line endings and encoding</label>
+<textarea id="ws-in" spellcheck="false" placeholder="Paste code or config here"></textarea>
+<div class="row"><label>Open a file <input type="file" id="ws-file"></label><button id="ws-sample" class="sec">Example with problems</button></div>
+<div id="ws-msg" class="msg" hidden></div>
+<table id="ws-sum" class="kv"></table>
+<label>Visible whitespace <small>(→ tab, · trailing space, ␍␊ CRLF, ␊ LF, red = invisible or unusual character)</small></label>
+<pre id="ws-vis" class="out wsvis"></pre>
+<h3>Normalize</h3>
+<div class="row">
+<label>Line endings <select id="ws-eol" class="inline"><option value="lf">LF (Unix)</option><option value="crlf">CRLF (Windows)</option></select></label>
+<label>Tabs → spaces <select id="ws-tabs" class="inline"><option value="0">keep tabs</option><option value="2">2 spaces</option><option value="4" selected>4 spaces</option><option value="8">8 spaces</option></select></label>
+<label><input type="checkbox" id="ws-bom" checked> Remove BOM</label>
+<label><input type="checkbox" id="ws-trail" checked> Strip trailing whitespace</label>
+<label><input type="checkbox" id="ws-nbsp" checked> NBSP → space</label>
+<label><input type="checkbox" id="ws-zw" checked> Remove zero-width</label>
+<label><input type="checkbox" id="ws-smart"> Straighten smart quotes</label>
+<label><input type="checkbox" id="ws-final" checked> Single final newline</label>
+</div>
+<div class="row"><button id="ws-norm">Normalize</button><button id="ws-dl" class="sec">Download result</button><button id="ws-copy" class="sec">Copy</button></div>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<h2 id="why-invisible-characters-break-things">Why invisible characters break things</h2>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Typical error</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CRLF line endings in a shell script</td>
+<td><code>/bin/bash^M: bad interpreter</code>, <code>exec user process caused: no such file or directory</code> in Docker</td>
+<td>Convert to LF (<a href="/linux/linux-bad-interpreter-no-such-file/">bad interpreter</a>)</td>
+</tr>
+<tr>
+<td>Mixed CRLF / LF</td>
+<td>Git warning <code>LF will be replaced by CRLF</code>, noisy diffs</td>
+<td>Pick one and set <code>.gitattributes</code> (<a href="/git/git-lf-will-be-replaced-by-crlf/">LF will be replaced by CRLF</a>)</td>
+</tr>
+<tr>
+<td>Tabs and spaces mixed</td>
+<td>Python <code>TabError: inconsistent use of tabs and spaces</code>, YAML "found character that cannot start any token"</td>
+<td>Convert tabs to spaces (<a href="/python/python-taberror-inconsistent-use-of-tabs/">TabError</a>)</td>
+</tr>
+<tr>
+<td>UTF-8 BOM</td>
+<td><code>Unexpected token</code> in JSON, <code>#!</code> line ignored, PHP "headers already sent"</td>
+<td>Remove the BOM</td>
+</tr>
+<tr>
+<td>Non-breaking space (U+00A0)</td>
+<td><code>SyntaxError: invalid non-printable character</code>, "command not found" for a pasted command</td>
+<td>Replace with a normal space</td>
+</tr>
+<tr>
+<td>Zero-width space (U+200B)</td>
+<td>A variable or key that "exists" but is never found</td>
+<td>Remove it</td>
+</tr>
+<tr>
+<td>Smart quotes <code>“ ”</code></td>
+<td>Syntax errors in code copied from documents or chat</td>
+<td>Straighten them</td>
+</tr>
+</tbody>
+</table>
+<h2 id="pasting-vs-opening-a-file">Pasting vs opening a file</h2>
+<p>Browsers convert every pasted line break to LF, so the line-ending count is only reliable when you <strong>open the file</strong> with the button above. Opening a file also reports its encoding (UTF-8, UTF-8 with BOM, UTF-16, or not valid UTF-8). The file is read locally and never uploaded; <em>Download result</em> saves the normalized version with the original name.</p>
+<h2 id="doing-it-from-the-command-line">Doing it from the command line</h2>
+<pre><code class="language-bash">file script.sh                      # &quot;with CRLF line terminators&quot;
+cat -A script.sh | head             # ^M$ = CRLF, ^I = tab, M-BM-  = NBSP
+sed -i 's/\r$//' script.sh          # CRLF -&gt; LF (or: dos2unix script.sh)
+sed -i 's/[ \t]*$//' file           # strip trailing whitespace
+sed -i '1s/^\xEF\xBB\xBF//' file    # remove a UTF-8 BOM
+expand -t 4 in.py &gt; out.py          # tabs -&gt; 4 spaces
+grep -nP '[\x{00A0}\x{200B}]' file  # find NBSP and zero-width spaces
+</code></pre>
+<p>To stop the problem coming back, add <code>* text=auto eol=lf</code> to <code>.gitattributes</code> and an <code>.editorconfig</code> with <code>end_of_line = lf</code> and <code>indent_style = space</code>.</p>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-lf-will-be-replaced-by-crlf/">warning: LF will be replaced by CRLF the next time Git touches it</a></li><li><a href="/python/python-taberror-inconsistent-use-of-tabs/">TabError: inconsistent use of tabs and spaces in indentation</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/docker/docker-standard-init-linux-exec-user-process-caused-no-such-file-or-directory/">standard_init_linux.go: exec user process caused: no such file or directory</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/json-formatter/">JSON formatter &amp; validator</a></li><li><a href="/tools/cron-expression-explainer/">Cron expression explainer</a></li><li><a href="/tools/chmod-calculator/">chmod calculator</a></li><li><a href="/tools/unix-timestamp-converter/">Unix timestamp converter</a></li><li><a href="/tools/base64-encode-decode/">Base64 encode / decode</a></li><li><a href="/tools/url-encode-decode/">URL encode / decode</a></li><li><a href="/tools/jwt-decoder/">JWT decoder</a></li><li><a href="/tools/regex-tester/">Regex tester</a></li><li><a href="/tools/yaml-validator/">YAML validator &amp; YAML ↔ JSON converter</a></li><li><a href="/tools/uuid-generator/">UUID generator &amp; validator (v4, v7)</a></li><li><a href="/tools/text-diff/">Text diff checker</a></li><li><a href="/tools/http-status-codes/">HTTP status codes reference</a></li><li><a href="/tools/hash-generator/">Hash generator (MD5, SHA-256, SHA-512)</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

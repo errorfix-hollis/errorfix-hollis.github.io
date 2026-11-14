@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>go: updates to go.mod needed; to update it: go mod tidy — how to fix</title>
+<meta name="description" content="Since Go 1.16, build commands no longer edit go.mod automatically. The module&#x27;s go.mod (or vendor/modules.txt) is out of date with the imports or the requirements, so the go command refuses to build until you update it.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-updates-to-go-mod-needed/">
+<meta property="og:title" content="go: updates to go.mod needed; to update it: go mod tidy — how to fix"><meta property="og:description" content="Since Go 1.16, build commands no longer edit go.mod automatically. The module&#x27;s go.mod (or vendor/modules.txt) is out of date with the imports or the requirements, so the go command refuses to build until you update it.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-updates-to-go-mod-needed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "go: updates to go.mod needed; to update it: go mod tidy \u2014 how to fix", "description": "Since Go 1.16, build commands no longer edit go.mod automatically. The module's go.mod (or vendor/modules.txt) is out of date with the imports or the requirements, so the go command refuses to build until you update it.", "dateModified": "2026-11-08", "url": "https://errorfix-hollis.github.io/go/go-updates-to-go-mod-needed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "go: updates to go.mod needed; to update it: go mod tidy", "item": "https://errorfix-hollis.github.io/go/go-updates-to-go-mod-needed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>go: updates to go.mod needed; to update it: go mod tidy — how to fix</h1>
+<pre class="err"><code>go: updates to go.mod needed; to update it:
+	go mod tidy
+go: inconsistent vendoring in /src/app:
+	github.com/pkg/errors@v0.9.1: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>go mod tidy</code> and commit both <code>go.mod</code> and <code>go.sum</code>. If you vendor dependencies, follow it with <code>go mod vendor</code>. In CI, run <code>go mod tidy</code> locally first; don't use <code>-mod=mod</code> to hide the drift.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Go 1.16 made <code>-mod=readonly</code> the default for <code>go build</code>, <code>go test</code>, <code>go run</code> and friends. These commands check that <code>go.mod</code> already describes everything the build needs, and if the go command <em>would</em> have to add, remove or upgrade a requirement, it stops and tells you instead of silently editing the file.</p>
+<p>Typical triggers:</p>
+<ul>
+<li>You imported a new package, or removed the last import of one.</li>
+<li>You edited <code>go.mod</code> by hand (changed a version, removed a line, added a <code>replace</code>).</li>
+<li>A merge or rebase combined two different <code>go.mod</code> files.</li>
+<li>The <code>go</code> directive or toolchain changed (e.g. a dependency needs a newer <code>go</code> version, Go 1.21+).</li>
+<li><code>vendor/modules.txt</code> no longer matches <code>go.mod</code>.</li>
+</ul>
+<h2 id="fix-1-tidy-and-commit">Fix 1: tidy and commit</h2>
+<pre><code class="language-bash">go mod tidy
+git add go.mod go.sum
+git commit -m &quot;go mod tidy&quot;
+</code></pre>
+<p><code>go mod tidy</code> adds missing requirements, removes unused ones, updates <code>// indirect</code> markers and fills <code>go.sum</code>. Run it with the same Go version your CI uses, because tidy output can differ between Go releases.</p>
+<p>If tidy fails because a module can't be downloaded, see <a href="/go/go-no-required-module-provides-package/">no required module provides package</a> and check <code>GOPROXY</code>/<code>GOPRIVATE</code> for private repos:</p>
+<pre><code class="language-bash">go env GOPROXY GOPRIVATE
+go env -w GOPRIVATE=github.com/your-org/*
+</code></pre>
+<h2 id="fix-2-inconsistent-vendoring">Fix 2: inconsistent vendoring</h2>
+<p>If the project has a <code>vendor/</code> directory, Go builds with <code>-mod=vendor</code> automatically (when the <code>go</code> directive is 1.14+), and <code>vendor/modules.txt</code> must match <code>go.mod</code> exactly:</p>
+<pre><code class="language-bash">go mod tidy
+go mod vendor
+git add go.mod go.sum vendor
+</code></pre>
+<p>If you don't actually want vendoring, delete <code>vendor/</code> and the go command will use the module cache.</p>
+<h2 id="fix-3-docker-builds-and-ci">Fix 3: Docker builds and CI</h2>
+<p>A common Dockerfile mistake is copying <code>go.mod</code>/<code>go.sum</code>, running <code>go mod download</code>, then copying source that imports packages not in <code>go.mod</code>. Docker isn't the problem; the repo is out of date. Run <code>go mod tidy</code> locally and commit.</p>
+<p>Add a check to CI so drift is caught early:</p>
+<pre><code class="language-bash">go mod tidy
+git diff --exit-code go.mod go.sum
+</code></pre>
+<h2 id="fix-4-the-go-toolchain-line">Fix 4: the <code>go</code> / <code>toolchain</code> line</h2>
+<p>Since Go 1.21, <code>go.mod</code> <code>go 1.22</code> is a minimum requirement. If a dependency needs a newer Go than your <code>go</code> line, tidy will bump it. If your local Go is older, the go command may try to download a newer toolchain (<code>GOTOOLCHAIN=auto</code>). Upgrade Go, or pin dependency versions that support your Go version:</p>
+<pre><code class="language-bash">go version
+go get example.com/lib@v1.4.0   # an older version compatible with your Go
+go mod tidy
+</code></pre>
+<h2 id="about-modmod">About <code>-mod=mod</code></h2>
+<p><code>go build -mod=mod</code> lets the build edit <code>go.mod</code> like pre-1.16 Go did. It makes the error disappear but leaves an uncommitted change, so the next clean checkout fails again. Use it for experiments only, and commit the result of <code>go mod tidy</code> instead.</p>
+<p class="upd">Last updated 2026-11-08.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-cannot-find-main-module/">go: cannot find main module, but found .git/config</a></li><li><a href="/go/go-missing-go-sum-entry/">missing go.sum entry for module providing package</a></li><li><a href="/go/go-no-required-module-provides-package/">no required module provides package</a></li><li><a href="/go/go-all-goroutines-are-asleep-deadlock/">fatal error: all goroutines are asleep - deadlock!</a></li><li><a href="/go/go-cannot-use-as-value-in-assignment/">cannot use x (variable of type T) as U value in assignment</a></li><li><a href="/go/go-declared-and-not-used/">declared and not used</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

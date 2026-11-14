@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>no required module provides package (Go) — how to fix</title>
+<meta name="description" content="The import path isn&#x27;t provided by any module in your go.mod. Either the dependency hasn&#x27;t been added, the import path is misspelled, or a local package path doesn&#x27;t match your module name.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-no-required-module-provides-package/">
+<meta property="og:title" content="no required module provides package (Go) — how to fix"><meta property="og:description" content="The import path isn&#x27;t provided by any module in your go.mod. Either the dependency hasn&#x27;t been added, the import path is misspelled, or a local package path doesn&#x27;t match your module name.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-no-required-module-provides-package/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "no required module provides package (Go) \u2014 how to fix", "description": "The import path isn't provided by any module in your go.mod. Either the dependency hasn't been added, the import path is misspelled, or a local package path doesn't match your module name.", "dateModified": "2026-11-07", "url": "https://errorfix-hollis.github.io/go/go-no-required-module-provides-package/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "no required module provides package", "item": "https://errorfix-hollis.github.io/go/go-no-required-module-provides-package/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>no required module provides package (Go) — how to fix</h1>
+<pre class="err"><code>main.go:6:2: no required module provides package github.com/gorilla/mux; to add it:
+	go get github.com/gorilla/mux
+package example.com/app/internal/db is not in std (/usr/local/go/src/example.com/app/internal/db)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Add the dependency: <code>go get github.com/gorilla/mux</code> (or run <code>go mod tidy</code> to add all missing imports). For your own packages, the import must start with the <code>module</code> path from go.mod (e.g. <code>example.com/app/internal/db</code>). Make sure you run commands inside the module directory, and with <code>GO111MODULE</code> not set to <code>off</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>In module mode, every import must come from the standard library, your own module, or a module listed in <code>go.mod</code> (<code>require</code>). If no listed module contains the package, the go command stops with this error and helpfully suggests <code>go get</code>.</p>
+<p>Show the module you are in:</p>
+<pre><code class="language-bash">go env GOMOD          # path to go.mod, or /dev/null if not in a module
+head -3 go.mod        # module example.com/app
+</code></pre>
+<h2 id="cause-1-third-party-dependency-not-added-yet">Cause 1: third-party dependency not added yet</h2>
+<pre><code class="language-bash">go get github.com/gorilla/mux@latest
+# or add every missing import at once:
+go mod tidy
+</code></pre>
+<p>Commit both <code>go.mod</code> and <code>go.sum</code>. If you get <code>missing go.sum entry</code> afterwards, see <a href="/go/go-missing-go-sum-entry/">missing go.sum entry</a>.</p>
+<h2 id="cause-2-the-module-path-vs-the-package-path">Cause 2: the module path vs the package path</h2>
+<p><code>go get</code> must find a module that <em>contains</em> the package. For major versions 2+, the import path includes the version suffix:</p>
+<pre><code class="language-go">import &quot;github.com/redis/go-redis/v9&quot;      // correct for v9
+import &quot;github.com/jackc/pgx/v5/pgxpool&quot;
+</code></pre>
+<p>Importing <code>github.com/jackc/pgx/pgxpool</code> (no <code>/v5</code>) looks for a package that only exists in v1-v4. Check the module's <code>go.mod</code> on pkg.go.dev for the exact path. Moved/renamed repos (e.g. <code>github.com/go-redis/redis</code> → <code>github.com/redis/go-redis/v9</code>) also cause this.</p>
+<h2 id="cause-3-your-own-package-with-the-wrong-import-path">Cause 3: your own package with the wrong import path</h2>
+<p>Imports of local packages are relative to the <code>module</code> line, not the filesystem or GOPATH:</p>
+<pre><code>go.mod             -&gt; module example.com/app
+internal/db/db.go  -&gt; package db
+main.go            -&gt; import &quot;example.com/app/internal/db&quot;
+</code></pre>
+<p><code>import "app/internal/db"</code> or <code>import "./internal/db"</code> fails. If the error says <code>package app/internal/db is not in std</code>, the first path element doesn't match your module name. Fix the import, or change the module line (and all imports) consistently.</p>
+<h2 id="cause-4-not-inside-the-module">Cause 4: not inside the module</h2>
+<p>Running <code>go run</code> / <code>go build</code> from a parent directory, or on a single file outside the module, gives this error for every dependency. <code>cd</code> into the folder with go.mod. For several modules in one repo, use a workspace:</p>
+<pre><code class="language-bash">go work init ./api ./shared
+</code></pre>
+<p>Then imports of <code>example.com/shared</code> from <code>api</code> resolve locally. To use a local copy of a dependency without a workspace:</p>
+<pre><code class="language-bash">go mod edit -replace example.com/shared=../shared
+go mod tidy
+</code></pre>
+<h2 id="cause-5-build-tags-vendoring-goflags">Cause 5: build tags, vendoring, GOFLAGS</h2>
+<ul>
+<li>With a <code>vendor/</code> directory, Go uses <code>-mod=vendor</code> by default. After adding a dependency, run <code>go mod vendor</code>.</li>
+<li><code>GOFLAGS=-mod=mod</code> or <code>-mod=readonly</code> in CI changes whether <code>go.mod</code> can be updated; in readonly mode you must commit the updated go.mod.</li>
+<li><code>GO111MODULE=off</code> forces the old GOPATH mode: <code>go env -u GO111MODULE</code>.</li>
+</ul>
+<h2 id="cause-6-private-modules">Cause 6: private modules</h2>
+<p>For private repositories <code>go get</code> fails to download, then reports the package as missing. Tell Go to skip the public proxy and checksum DB:</p>
+<pre><code class="language-bash">go env -w GOPRIVATE=github.com/myorg/*
+git config --global url.&quot;git@github.com:&quot;.insteadOf &quot;https://github.com/&quot;
+go get github.com/myorg/lib
+</code></pre>
+<p class="upd">Last updated 2026-11-07.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-cannot-find-main-module/">go: cannot find main module, but found .git/config</a></li><li><a href="/go/go-missing-go-sum-entry/">missing go.sum entry for module providing package</a></li><li><a href="/go/go-undefined/">undefined: X</a></li><li><a href="/go/go-all-goroutines-are-asleep-deadlock/">fatal error: all goroutines are asleep - deadlock!</a></li><li><a href="/go/go-cannot-use-as-value-in-assignment/">cannot use x (variable of type T) as U value in assignment</a></li><li><a href="/go/go-declared-and-not-used/">declared and not used</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

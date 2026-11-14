@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>502 Bad Gateway (nginx) — how to fix</title>
+<meta name="description" content="nginx couldn&#x27;t get a valid response from the app behind it. The app is down, listening on a different address/port, or crashed. The nginx error log tells you which.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-nginx-502-bad-gateway/">
+<meta property="og:title" content="502 Bad Gateway (nginx) — how to fix"><meta property="og:description" content="nginx couldn&#x27;t get a valid response from the app behind it. The app is down, listening on a different address/port, or crashed. The nginx error log tells you which.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-nginx-502-bad-gateway/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "502 Bad Gateway (nginx) \u2014 how to fix", "description": "nginx couldn't get a valid response from the app behind it. The app is down, listening on a different address/port, or crashed. The nginx error log tells you which.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/web/web-nginx-502-bad-gateway/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "502 Bad Gateway (nginx)", "item": "https://errorfix-hollis.github.io/web/web-nginx-502-bad-gateway/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>502 Bad Gateway (nginx) — how to fix</h1>
+<pre class="err"><code>502 Bad Gateway
+nginx/1.24.0
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the nginx error log: <code>sudo tail -n 50 /var/log/nginx/error.log</code>. Then make sure your app is running and listening on the exact address in <code>proxy_pass</code> (e.g. <code>curl -I http://127.0.0.1:3000</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>nginx is working, but it's a reverse proxy, and the <strong>upstream</strong> server (your Node/Python/PHP app) didn't answer properly.</p>
+<h2 id="step-1-read-the-error-log">Step 1: read the error log</h2>
+<pre><code class="language-bash">sudo tail -n 50 /var/log/nginx/error.log
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Log message</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>connect() failed (111: Connection refused) while connecting to upstream</code></td>
+<td>Nothing listens on that address/port. App down or wrong port.</td>
+</tr>
+<tr>
+<td><code>connect() to unix:/run/php/php8.3-fpm.sock failed (2: No such file or directory)</code></td>
+<td>PHP-FPM isn't running or the socket path is different</td>
+</tr>
+<tr>
+<td><code>connect() to unix:... failed (13: Permission denied)</code></td>
+<td>nginx's user can't access the socket</td>
+</tr>
+<tr>
+<td><code>upstream prematurely closed connection</code></td>
+<td>The app crashed or closed the connection mid-request</td>
+</tr>
+<tr>
+<td><code>upstream sent too big header</code></td>
+<td>Response headers (often cookies) exceed nginx's buffer</td>
+</tr>
+<tr>
+<td><code>(13: Permission denied) while connecting to upstream</code> on CentOS/RHEL</td>
+<td>SELinux blocks nginx from making network connections</td>
+</tr>
+</tbody>
+</table>
+<h2 id="step-2-is-the-app-running-where-nginx-expects">Step 2: is the app running where nginx expects?</h2>
+<pre><code class="language-bash">grep -R proxy_pass /etc/nginx/sites-enabled/ /etc/nginx/conf.d/
+sudo ss -ltnp | grep 3000
+curl -I http://127.0.0.1:3000
+</code></pre>
+<p>Restart the app (<code>sudo systemctl restart myapp</code>, <code>pm2 restart all</code>, …) and check its own logs.</p>
+<p><strong>localhost vs 127.0.0.1:</strong> if the app listens only on IPv6 <code>::1</code> or only on <code>127.0.0.1</code>, <code>proxy_pass http://localhost:3000</code> may try the other one. Use the explicit IP that the app binds.</p>
+<h2 id="fixes-for-the-other-cases">Fixes for the other cases</h2>
+<p><strong>PHP-FPM socket:</strong> check the version and path, then make them match:</p>
+<pre><code class="language-bash">ls /run/php/
+sudo systemctl status php8.3-fpm
+</code></pre>
+<p>In nginx: <code>fastcgi_pass unix:/run/php/php8.3-fpm.sock;</code></p>
+<p><strong>Socket permissions:</strong> in the FPM pool config (<code>/etc/php/*/fpm/pool.d/www.conf</code>) set <code>listen.owner = www-data</code> and <code>listen.group = www-data</code>, then restart FPM.</p>
+<p><strong>Header too big:</strong></p>
+<pre><code class="language-nginx">proxy_buffer_size 16k;
+proxy_buffers 8 16k;
+</code></pre>
+<p><strong>SELinux:</strong> <code>sudo setsebool -P httpd_can_network_connect 1</code>.</p>
+<h2 id="docker">Docker</h2>
+<p>Inside a container, <code>127.0.0.1</code> is the container itself. Proxy to the service name on the shared Docker network (<code>proxy_pass http://app:3000;</code>), and make sure the app listens on <code>0.0.0.0</code>, not <code>127.0.0.1</code>.</p>
+<h2 id="504-instead-of-502">504 instead of 502?</h2>
+<p>504 Gateway Timeout means the upstream accepted the connection but took too long. Raise <code>proxy_read_timeout</code>, or make the request faster.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/web/web-err-connection-refused/">ERR_CONNECTION_REFUSED</a></li><li><a href="/web/web-err-ssl-protocol-error/">ERR_SSL_PROTOCOL_ERROR</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

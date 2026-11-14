@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory (Node.js) — how to fix</title>
+<meta name="description" content="Node&#x27;s V8 engine ran out of the heap memory it is allowed to use. Common during big webpack/Vite/Next.js/TypeScript builds. Raise the limit with --max-old-space-size or reduce memory usage.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/node-javascript-heap-out-of-memory/">
+<meta property="og:title" content="FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory (Node.js) — how to fix"><meta property="og:description" content="Node&#x27;s V8 engine ran out of the heap memory it is allowed to use. Common during big webpack/Vite/Next.js/TypeScript builds. Raise the limit with --max-old-space-size or reduce memory usage.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/node-javascript-heap-out-of-memory/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory (Node.js) \u2014 how to fix", "description": "Node's V8 engine ran out of the heap memory it is allowed to use. Common during big webpack/Vite/Next.js/TypeScript builds. Raise the limit with --max-old-space-size or reduce memory usage.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/npm/node-javascript-heap-out-of-memory/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory", "item": "https://errorfix-hollis.github.io/npm/node-javascript-heap-out-of-memory/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory (Node.js) — how to fix</h1>
+<pre class="err"><code>&lt;--- Last few GCs ---&gt;
+[12345:0x5a1b2c0]    81234 ms: Mark-Compact 4049.2 (4135.6) -&gt; 4036.8 (4137.1) MB
+
+FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory
+ 1: 0xb090e0 node::Abort() [node]
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Raise the heap limit: <code>export NODE_OPTIONS="--max-old-space-size=4096"</code> (value in MB), then rerun the build. If memory grows forever in a running app, you have a leak; take a heap snapshot.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>V8 caps how much memory JavaScript objects can use (the "old space"). The default depends on Node version and system memory, often 2–4 GB. When a process needs more, Node aborts with this error.</p>
+<h2 id="fix-for-builds-raise-the-limit">Fix for builds: raise the limit</h2>
+<p>Linux / macOS:</p>
+<pre><code class="language-bash">export NODE_OPTIONS=&quot;--max-old-space-size=4096&quot;
+npm run build
+</code></pre>
+<p>Windows PowerShell:</p>
+<pre><code class="language-powershell">$env:NODE_OPTIONS=&quot;--max-old-space-size=4096&quot;
+npm run build
+</code></pre>
+<p>Or put it in <code>package.json</code> (use <code>cross-env</code> for Windows compatibility):</p>
+<pre><code class="language-json">&quot;scripts&quot;: {
+  &quot;build&quot;: &quot;cross-env NODE_OPTIONS=--max-old-space-size=4096 next build&quot;
+}
+</code></pre>
+<p>Pick a value below your machine's free RAM. On a 2 GB CI runner or container, 4096 will just get the process killed by the OS instead (exit code 137); give the machine more memory or use a smaller value.</p>
+<h2 id="reduce-build-memory">Reduce build memory</h2>
+<ul>
+<li><strong>TypeScript</strong>: <code>fork-ts-checker-webpack-plugin</code> or <code>tsc --noEmit</code> in a separate step instead of type-checking inside the bundler.</li>
+<li><strong>Source maps</strong>: disable or use cheaper ones in production builds (<code>devtool: false</code>, <code>productionBrowserSourceMaps: false</code>).</li>
+<li><strong>Monorepos</strong>: build packages one at a time instead of in parallel (<code>--concurrency 1</code> in Turborepo/Nx/Lerna).</li>
+<li><strong>Update</strong> Node, webpack/Vite and the framework; many memory issues are fixed upstream.</li>
+</ul>
+<h2 id="fix-for-a-running-server-find-the-leak">Fix for a running server: find the leak</h2>
+<p>If memory grows steadily until the crash, raising the limit only delays it. Typical leaks: caches/maps that never evict, event listeners added per request, global arrays that collect data.</p>
+<pre><code class="language-bash">node --inspect app.js
+</code></pre>
+<p>Open <code>chrome://inspect</code>, take two heap snapshots a few minutes apart and compare which objects keep growing. <code>node --heapsnapshot-near-heap-limit=2 app.js</code> writes snapshots automatically right before the crash.</p>
+<h2 id="large-data-processing">Large data processing</h2>
+<p>Reading a huge file or query result into one array/string needs it all in memory. Stream it instead (<code>fs.createReadStream</code>, <code>readline</code>, database cursors, <code>JSON</code> stream parsers).</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/npm-elifecycle/">npm ERR! code ELIFECYCLE</a></li><li><a href="/npm/npm-err-ossl-evp-unsupported/">Error: error:0308010C:digital envelope routines::unsupported</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li><li><a href="/npm/node-err-require-esm/">Error [ERR_REQUIRE_ESM]: require() of ES Module not supported</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

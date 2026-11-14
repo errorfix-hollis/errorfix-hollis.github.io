@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>java.lang.reflect.InaccessibleObjectException: Unable to make field accessible: module java.base does not &quot;opens java.lang&quot; to unnamed module — how to fix</title>
+<meta name="description" content="Since Java 16 (JEP 396) and Java 17 (JEP 403), the JDK&#x27;s internal packages are strongly encapsulated, so reflection into private JDK members fails. An old library (Lombok, Gradle, Gson, Kryo, Mockito, Spring) or your own code is calling setAccessible on a JDK class.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-inaccessibleobjectexception-module-does-not-opens/">
+<meta property="og:title" content="java.lang.reflect.InaccessibleObjectException: Unable to make field accessible: module java.base does not &quot;opens java.lang&quot; to unnamed module — how to fix"><meta property="og:description" content="Since Java 16 (JEP 396) and Java 17 (JEP 403), the JDK&#x27;s internal packages are strongly encapsulated, so reflection into private JDK members fails. An old library (Lombok, Gradle, Gson, Kryo, Mockito, Spring) or your own code is calling setAccessible on a JDK class.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-inaccessibleobjectexception-module-does-not-opens/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "java.lang.reflect.InaccessibleObjectException: Unable to make field accessible: module java.base does not \"opens java.lang\" to unnamed module \u2014 how to fix", "description": "Since Java 16 (JEP 396) and Java 17 (JEP 403), the JDK's internal packages are strongly encapsulated, so reflection into private JDK members fails. An old library (Lombok, Gradle, Gson, Kryo, Mockito, Spring) or your own code is calling setAccessible on a JDK class.", "dateModified": "2026-11-11", "url": "https://errorfix-hollis.github.io/java/java-inaccessibleobjectexception-module-does-not-opens/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "java.lang.reflect.InaccessibleObjectException: Unable to make field accessible: module java.base does not \"opens java.lang\" to unnamed module", "item": "https://errorfix-hollis.github.io/java/java-inaccessibleobjectexception-module-does-not-opens/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>java.lang.reflect.InaccessibleObjectException: Unable to make field accessible: module java.base does not &quot;opens java.lang&quot; to unnamed module — how to fix</h1>
+<pre class="err"><code>java.lang.reflect.InaccessibleObjectException: Unable to make field private final byte[] java.lang.String.value accessible: module java.base does not &quot;opens java.lang&quot; to unnamed module @6d06d69c
+    at java.base/java.lang.reflect.AccessibleObject.checkCanSetAccessible(AccessibleObject.java:354)
+    at java.base/java.lang.reflect.Field.setAccessible(Field.java:172)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Upgrade the library that appears in the stack trace (Lombok 1.18.22+, Gradle 7.3+, Mockito 4+, Spring Boot 2.5+), which is the real fix. As a workaround, open the package named in the message: <code>java --add-opens java.base/java.lang=ALL-UNNAMED -jar app.jar</code>. In Maven Surefire/Gradle tests, add the same flag to argLine/jvmArgs.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Java 9 introduced modules. Up to Java 15, reflective access to JDK internals (e.g. the private <code>value</code> field of <code>String</code>) still worked with an "illegal reflective access" warning. Java 16 made strong encapsulation the default and Java 17 removed the <code>--illegal-access</code> escape hatch. Now <code>Field.setAccessible(true)</code> on a non-public member of a JDK package throws <code>InaccessibleObjectException</code> unless that package is explicitly <em>opened</em>.</p>
+<p>The message tells you exactly what's needed: module <code>java.base</code>, package <code>java.lang</code>, target <code>unnamed module</code> (code on the classpath).</p>
+<h2 id="fix-1-upgrade-the-library-doing-the-reflection">Fix 1: upgrade the library doing the reflection</h2>
+<p>Look at the frames below <code>setAccessible</code> in the stack trace to find who is calling it. Common culprits and versions that work on Java 17+:</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Fixed in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lombok</td>
+<td>1.18.22 (1.18.30+ for Java 21)</td>
+</tr>
+<tr>
+<td>Gradle (running the build)</td>
+<td>7.3 for Java 17, 8.5 for Java 21</td>
+</tr>
+<tr>
+<td>Mockito</td>
+<td>4.x / 5.x</td>
+</tr>
+<tr>
+<td>Spring Boot</td>
+<td>2.5+ (3.x recommended)</td>
+</tr>
+<tr>
+<td>Gson</td>
+<td>2.10+ (avoid serializing JDK types like <code>Optional</code>, <code>Thread</code> directly)</td>
+</tr>
+<tr>
+<td>Kotlin Gradle plugin, kapt</td>
+<td>1.5.30+</td>
+</tr>
+</tbody>
+</table>
+<p>Bump the version in <code>pom.xml</code> / <code>build.gradle</code> and rebuild. This is the clean fix, because the flag below will keep breaking on new JDKs.</p>
+<h2 id="fix-2-open-the-package-with-add-opens">Fix 2: open the package with --add-opens</h2>
+<p>Build the flag from the message: <code>--add-opens &lt;module&gt;/&lt;package&gt;=ALL-UNNAMED</code>.</p>
+<pre><code class="language-bash">java --add-opens java.base/java.lang=ALL-UNNAMED -jar app.jar
+</code></pre>
+<p>Several packages are often needed:</p>
+<pre><code class="language-bash">java --add-opens java.base/java.lang=ALL-UNNAMED \
+     --add-opens java.base/java.util=ALL-UNNAMED \
+     --add-opens java.base/java.lang.reflect=ALL-UNNAMED \
+     -jar app.jar
+</code></pre>
+<p>For an executable JAR you can also put it in the manifest (no <code>ALL-UNNAMED</code> there):</p>
+<pre><code>Add-Opens: java.base/java.lang java.base/java.util
+</code></pre>
+<p>If you see <code>Unrecognized option: --add-opens</code>, you're running Java 8, which doesn't have modules: either drop the flag or run with Java 9+.</p>
+<h2 id="fix-3-tests-maven-surefire-gradle">Fix 3: tests (Maven Surefire, Gradle)</h2>
+<p>Tests run in a forked JVM, so pass the flag there.</p>
+<p>Maven:</p>
+<pre><code class="language-xml">&lt;plugin&gt;
+  &lt;groupId&gt;org.apache.maven.plugins&lt;/groupId&gt;
+  &lt;artifactId&gt;maven-surefire-plugin&lt;/artifactId&gt;
+  &lt;configuration&gt;
+    &lt;argLine&gt;--add-opens java.base/java.lang=ALL-UNNAMED&lt;/argLine&gt;
+  &lt;/configuration&gt;
+&lt;/plugin&gt;
+</code></pre>
+<p>Gradle:</p>
+<pre><code class="language-groovy">tasks.withType(Test).configureEach {
+    jvmArgs '--add-opens', 'java.base/java.lang=ALL-UNNAMED'
+}
+</code></pre>
+<h2 id="fix-4-the-gradle-daemon-itself-fails">Fix 4: the Gradle daemon itself fails</h2>
+<p>If the error appears while Gradle starts (before your code runs), your Gradle version is too old for the JDK. Update the wrapper:</p>
+<pre><code class="language-bash">./gradlew wrapper --gradle-version 8.10
+</code></pre>
+<p>or set <code>org.gradle.java.home</code> in <code>gradle.properties</code> to an older JDK that your Gradle supports. Check with <code>./gradlew --version</code>.</p>
+<h2 id="fix-5-your-own-code">Fix 5: your own code</h2>
+<p>Don't reflect into JDK internals. Use public APIs instead (e.g. <code>String.getBytes()</code> instead of reading <code>String.value</code>), or <code>MethodHandles.privateLookupIn</code> for classes in your own modules. If you ship a named module that needs reflective access from a framework, add <code>opens com.example.model;</code> to <code>module-info.java</code>.</p>
+<p>Setting <code>JAVA_TOOL_OPTIONS</code> or <code>JDK_JAVA_OPTIONS="--add-opens java.base/java.lang=ALL-UNNAMED"</code> applies the flag globally when you can't change the command line (e.g. IDE runners).</p>
+<p class="upd">Last updated 2026-11-11.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-error-release-version-not-supported/">error: release version 17 not supported</a></li><li><a href="/java/java-gradle-could-not-resolve-all-dependencies/">Could not resolve all dependencies for configuration</a></li><li><a href="/java/java-unsupportedclassversionerror/">java.lang.UnsupportedClassVersionError: has been compiled by a more recent version of the Java Runtime</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-comparison-method-violates-its-general-contract/">java.lang.IllegalArgumentException: Comparison method violates its general contract!</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

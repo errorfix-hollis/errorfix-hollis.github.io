@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TS1484: &#x27;X&#x27; is a type and must be imported using a type-only import when &#x27;verbatimModuleSyntax&#x27; is enabled. (TypeScript) — how to fix</title>
+<meta name="description" content="With verbatimModuleSyntax on, TypeScript keeps every import that isn&#x27;t marked as type-only, so importing a type with a normal import would leave a runtime import of something that doesn&#x27;t exist. Vite, Angular and SvelteKit templates enable this flag by default.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-ts1484-is-a-type-and-must-be-imported-using-a-type-only-import/">
+<meta property="og:title" content="TS1484: &#x27;X&#x27; is a type and must be imported using a type-only import when &#x27;verbatimModuleSyntax&#x27; is enabled. (TypeScript) — how to fix"><meta property="og:description" content="With verbatimModuleSyntax on, TypeScript keeps every import that isn&#x27;t marked as type-only, so importing a type with a normal import would leave a runtime import of something that doesn&#x27;t exist. Vite, Angular and SvelteKit templates enable this flag by default.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-ts1484-is-a-type-and-must-be-imported-using-a-type-only-import/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TS1484: 'X' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled. (TypeScript) \u2014 how to fix", "description": "With verbatimModuleSyntax on, TypeScript keeps every import that isn't marked as type-only, so importing a type with a normal import would leave a runtime import of something that doesn't exist. Vite, Angular and SvelteKit templates enable this flag by default.", "dateModified": "2026-11-11", "url": "https://errorfix-hollis.github.io/javascript/js-ts1484-is-a-type-and-must-be-imported-using-a-type-only-import/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "TS1484: 'X' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.", "item": "https://errorfix-hollis.github.io/javascript/js-ts1484-is-a-type-and-must-be-imported-using-a-type-only-import/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>TS1484: &#x27;X&#x27; is a type and must be imported using a type-only import when &#x27;verbatimModuleSyntax&#x27; is enabled. (TypeScript) — how to fix</h1>
+<pre class="err"><code>error TS1484: &#x27;User&#x27; is a type and must be imported using a type-only import when &#x27;verbatimModuleSyntax&#x27; is enabled.
+
+1 import { User, getUser } from &#x27;./api&#x27;;
+           ~~~~
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Mark type imports with <code>type</code>: <code>import type { User } from './api'</code> or inline <code>import { type User, getUser } from './api'</code>. Auto-fix all files with ESLint's <code>@typescript-eslint/consistent-type-imports</code> rule (<code>npx eslint . --fix</code>). Only as a last resort, set <code>"verbatimModuleSyntax": false</code> in tsconfig.json.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Types (interfaces, type aliases) only exist at compile time. When TypeScript compiles</p>
+<pre><code class="language-ts">import { User, getUser } from './api';
+</code></pre>
+<p>it must decide whether to keep the import in the JavaScript output. Traditionally TypeScript silently dropped imports that were only used as types ("import elision"). Tools that compile one file at a time (esbuild in Vite, SWC, Babel) can't know whether <code>User</code> is a type, which led to runtime errors like <code>The requested module does not provide an export named 'User'</code>.</p>
+<p>The <code>verbatimModuleSyntax</code> option (TypeScript 5.0+) removes the guessing: <strong>imports without the <code>type</code> modifier are always kept, imports with it are always removed.</strong> TS1484 is the compiler telling you an import refers only to a type and therefore must be marked.</p>
+<p>Projects created with <code>npm create vite@latest</code> (React/Vue TS templates) and recent Angular/SvelteKit versions enable it in <code>tsconfig.app.json</code>, so the error often appears right after copying code from older projects.</p>
+<h2 id="fix-1-use-import-type">Fix 1: use import type</h2>
+<p>For an import that contains only types:</p>
+<pre><code class="language-ts">import type { User, Role } from './api';
+</code></pre>
+<p>For a mix of values and types, mark each type inline:</p>
+<pre><code class="language-ts">import { getUser, type User } from './api';
+</code></pre>
+<p>The same applies to re-exports, which give the sibling error TS1205:</p>
+<pre><code class="language-ts">export type { User } from './api';
+</code></pre>
+<h2 id="fix-2-fix-every-file-automatically">Fix 2: fix every file automatically</h2>
+<p>With typescript-eslint, enable the rule and run <code>--fix</code>:</p>
+<pre><code class="language-js">// eslint.config.js
+rules: {
+  '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }],
+}
+</code></pre>
+<pre><code class="language-bash">npx eslint . --fix
+</code></pre>
+<p>In VS Code, the quick fix (Ctrl+. on the error) offers "Use 'import type'" and "Fix all in file". Biome users can run <code>npx @biomejs/biome lint --write .</code> with the <code>useImportType</code> rule.</p>
+<h2 id="fix-3-enums-and-classes-are-values">Fix 3: enums and classes are values</h2>
+<p><code>enum</code> and <code>class</code> exist at runtime, so they must <strong>not</strong> use <code>import type</code> if you use them as values:</p>
+<pre><code class="language-ts">import { Status } from './types';     // enum used as Status.Active: keep a normal import
+import type { Status } from './types'; // only if used purely in type positions
+</code></pre>
+<p>If you get TS1361 (<code>cannot be used as a value because it was imported using 'import type'</code>), you went too far: remove <code>type</code> for that name.</p>
+<p><code>const enum</code> doesn't work across files with <code>isolatedModules</code>/<code>verbatimModuleSyntax</code>; replace it with a regular <code>enum</code> or an object <code>as const</code>.</p>
+<h2 id="fix-4-turn-the-option-off-not-recommended">Fix 4: turn the option off (not recommended)</h2>
+<pre><code class="language-json">{
+  &quot;compilerOptions&quot;: {
+    &quot;verbatimModuleSyntax&quot;: false
+  }
+}
+</code></pre>
+<p>If your bundler compiles files in isolation (Vite, esbuild, SWC), keep <code>"isolatedModules": true</code> so you still get warned about patterns they can't handle. Marking type imports explicitly is the better long-term fix, since it makes builds faster and output predictable.</p>
+<h2 id="commonjs-note">CommonJS note</h2>
+<p>With <code>verbatimModuleSyntax</code>, <code>import</code>/<code>export</code> syntax in a file that compiles to CommonJS is an error (TS1286/TS1287). In CJS projects either use <code>"module": "nodenext"</code> with <code>"type": "module"</code> in package.json, or write <code>import fs = require('fs')</code> style imports.</p>
+<p class="upd">Last updated 2026-11-11.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-requested-module-does-not-provide-an-export-named/">SyntaxError: The requested module does not provide an export named</a></li><li><a href="/javascript/js-ts2304-cannot-find-name/">error TS2304: Cannot find name</a></li><li><a href="/javascript/js-ts2307-cannot-find-module-or-its-corresponding-type-declarations/">TS2307: Cannot find module or its corresponding type declarations.</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

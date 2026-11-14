@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5 — how to fix</title>
+<meta name="description" content="Code accessed an array position that doesn&#x27;t exist. Valid indexes run from 0 to length - 1, so index == length (an off-by-one loop) or a negative index throws this.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-arrayindexoutofboundsexception/">
+<meta property="og:title" content="java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5 — how to fix"><meta property="og:description" content="Code accessed an array position that doesn&#x27;t exist. Valid indexes run from 0 to length - 1, so index == length (an off-by-one loop) or a negative index throws this.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-arrayindexoutofboundsexception/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5 \u2014 how to fix", "description": "Code accessed an array position that doesn't exist. Valid indexes run from 0 to length - 1, so index == length (an off-by-one loop) or a negative index throws this.", "dateModified": "2026-11-14", "url": "https://errorfix-hollis.github.io/java/java-arrayindexoutofboundsexception/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5", "item": "https://errorfix-hollis.github.io/java/java-arrayindexoutofboundsexception/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5 — how to fix</h1>
+<pre class="err"><code>Exception in thread &quot;main&quot; java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5
+	at com.example.Main.main(Main.java:8)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Use <code>i &lt; arr.length</code> (not <code>&lt;=</code>) in loops, or a for-each loop. Check <code>args.length</code> before reading <code>args[0]</code>. Validate indexes from input or <code>indexOf()</code> (which returns -1) before using them. The message tells you the bad index and the array length.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Java arrays are zero-based: an array of length 5 has indexes <code>0</code> to <code>4</code>. Accessing any other index throws <code>ArrayIndexOutOfBoundsException</code>. Since Java 11 the message says exactly what happened:</p>
+<pre><code>Index 5 out of bounds for length 5     → off by one (index == length)
+Index -1 out of bounds for length 3    → negative index, often from indexOf()
+Index 0 out of bounds for length 0     → the array is empty
+</code></pre>
+<p>The first <code>at</code> line of the stack trace that is in your code (<code>Main.java:8</code>) is where the bad access happened.</p>
+<h2 id="cause-1-instead-of-in-a-loop">Cause 1: <code>&lt;=</code> instead of <code>&lt;</code> in a loop</h2>
+<pre><code class="language-java">int[] nums = {1, 2, 3, 4, 5};
+for (int i = 0; i &lt;= nums.length; i++) {   // i reaches 5
+    System.out.println(nums[i]);
+}
+</code></pre>
+<p>Fix:</p>
+<pre><code class="language-java">for (int i = 0; i &lt; nums.length; i++) { ... }
+
+// or, if you don't need the index
+for (int n : nums) { System.out.println(n); }
+</code></pre>
+<p>The last element is <code>nums[nums.length - 1]</code>, not <code>nums[nums.length]</code>.</p>
+<h2 id="cause-2-reading-args0-with-no-command-line-arguments">Cause 2: reading <code>args[0]</code> with no command-line arguments</h2>
+<pre><code class="language-java">public static void main(String[] args) {
+    String file = args[0];   // Index 0 out of bounds for length 0
+}
+</code></pre>
+<p><code>args</code> is empty when you run <code>java Main</code> without arguments (also the default when you press Run in an IDE). Check first:</p>
+<pre><code class="language-java">if (args.length &lt; 1) {
+    System.err.println(&quot;Usage: java Main &lt;file&gt;&quot;);
+    System.exit(1);
+}
+</code></pre>
+<p>In IntelliJ set arguments in <strong>Run → Edit Configurations → Program arguments</strong>; in Eclipse under <strong>Run Configurations → Arguments</strong>.</p>
+<h2 id="cause-3-split-returned-fewer-parts-than-expected">Cause 3: <code>split()</code> returned fewer parts than expected</h2>
+<pre><code class="language-java">String line = &quot;alice&quot;;
+String[] parts = line.split(&quot;,&quot;);
+String email = parts[1];     // Index 1 out of bounds for length 1
+</code></pre>
+<p>Lines in CSV files are often shorter than expected, or blank. Also, <code>split</code> drops trailing empty strings: <code>"a,b,,".split(",")</code> has length 2. Check the length, and pass <code>-1</code> to keep trailing empties:</p>
+<pre><code class="language-java">String[] parts = line.split(&quot;,&quot;, -1);
+if (parts.length &lt; 2) { /* skip or report bad line */ }
+</code></pre>
+<h2 id="cause-4-negative-index-from-indexof-or-arithmetic">Cause 4: negative index from <code>indexOf</code> or arithmetic</h2>
+<p><code>indexOf</code> returns <code>-1</code> when the value isn't found:</p>
+<pre><code class="language-java">int i = Arrays.asList(names).indexOf(&quot;zoe&quot;);
+String next = names[i + 1];     // fine... unless i is the last index
+String prev = names[i - 1];     // -2 if not found, -1 if i == 0
+</code></pre>
+<p>Validate before using: <code>if (i &gt; 0) { ... }</code>. Watch also for <code>i - 1</code> in loops starting at <code>0</code>, and <code>hash % length</code>, which is negative for negative hashes (use <code>Math.floorMod(hash, length)</code>).</p>
+<h2 id="cause-5-array-created-with-the-wrong-size">Cause 5: array created with the wrong size</h2>
+<pre><code class="language-java">int[] counts = new int[10];
+counts[score] ++;            // fails for score == 10
+</code></pre>
+<p>If values go from 0 to 10 inclusive you need <code>new int[11]</code>. If the size isn't known up front, use an <code>ArrayList</code> instead of an array.</p>
+<h2 id="cause-6-nested-arrays-with-different-lengths">Cause 6: nested arrays with different lengths</h2>
+<pre><code class="language-java">for (int i = 0; i &lt; grid.length; i++)
+    for (int j = 0; j &lt; grid.length; j++)      // wrong: should be grid[i].length
+        sum += grid[i][j];
+</code></pre>
+<h2 id="related-exceptions">Related exceptions</h2>
+<ul>
+<li><code>IndexOutOfBoundsException: Index 3 out of bounds for length 3</code> comes from <code>List.get()</code> (e.g. <code>ArrayList</code>). Same fixes; use <code>list.size()</code>.</li>
+<li><code>StringIndexOutOfBoundsException</code> comes from <code>charAt()</code> or <code>substring()</code> with an index past <code>length()</code>.</li>
+</ul>
+<h2 id="debugging-tip">Debugging tip</h2>
+<p>Set a breakpoint on the exception: in IntelliJ <strong>Run → View Breakpoints → + → Java Exception Breakpoints → ArrayIndexOutOfBoundsException</strong>. The debugger stops at the exact access, with the index and array visible.</p>
+<p class="upd">Last updated 2026-11-14.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-concurrentmodificationexception/">java.util.ConcurrentModificationException</a></li><li><a href="/java/java-could-not-find-or-load-main-class/">Error: Could not find or load main class</a></li><li><a href="/java/java-nullpointerexception/">java.lang.NullPointerException: Cannot invoke &quot;String.length()&quot; because &quot;&lt;local1&gt;&quot; is null</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-comparison-method-violates-its-general-contract/">java.lang.IllegalArgumentException: Comparison method violates its general contract!</a></li><li><a href="/java/java-error-release-version-not-supported/">error: release version 17 not supported</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

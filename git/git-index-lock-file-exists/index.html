@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal: Unable to create &#x27;.git/index.lock&#x27;: File exists. — how to fix</title>
+<meta name="description" content="Git found a leftover lock file from another (or crashed) git process. Make sure no git process is running, then delete .git/index.lock.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-index-lock-file-exists/">
+<meta property="og:title" content="fatal: Unable to create &#x27;.git/index.lock&#x27;: File exists. — how to fix"><meta property="og:description" content="Git found a leftover lock file from another (or crashed) git process. Make sure no git process is running, then delete .git/index.lock.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-index-lock-file-exists/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal: Unable to create '.git/index.lock': File exists. \u2014 how to fix", "description": "Git found a leftover lock file from another (or crashed) git process. Make sure no git process is running, then delete .git/index.lock.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/git/git-index-lock-file-exists/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "fatal: Unable to create '.git/index.lock': File exists.", "item": "https://errorfix-hollis.github.io/git/git-index-lock-file-exists/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>fatal: Unable to create &#x27;.git/index.lock&#x27;: File exists. — how to fix</h1>
+<pre class="err"><code>fatal: Unable to create &#x27;/home/me/project/.git/index.lock&#x27;: File exists.
+
+Another git process seems to be running in this repository, e.g.
+an editor opened by &#x27;git commit&#x27;. Please make sure all processes
+are terminated then try again. If it still fails, a git process
+may have crashed in this repository earlier:
+remove the file manually to continue.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Close editors/IDEs running git, check <code>ps aux | grep git</code>, then remove the stale lock: <code>rm -f .git/index.lock</code> (Windows: <code>del .git\index.lock</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Git writes <code>.git/index.lock</code> while it modifies the index (staging area) so two processes can't corrupt it at once. When the process finishes, the lock is deleted. If git crashed, was killed, or another tool is running git in the background, the lock stays and every new command refuses to run.</p>
+<h2 id="fix">Fix</h2>
+<ol>
+<li><strong>Check nothing is still running.</strong> Common culprits: an open <code>git commit</code> editor, VS Code / JetBrains source control, GitHub Desktop, a <code>git gc</code> in the background.</li>
+</ol>
+<p><code>bash
+   ps aux | grep -i git</code></p>
+<ol start="2">
+<li><strong>Remove the stale lock:</strong></li>
+</ol>
+<p><code>bash
+   rm -f .git/index.lock</code></p>
+<p>Windows (cmd / PowerShell):</p>
+<p><code>powershell
+   del .git\index.lock
+   Remove-Item .git\index.lock</code></p>
+<ol start="3">
+<li>Run your command again.</li>
+</ol>
+<h2 id="other-lock-files">Other lock files</h2>
+<p>The same message can name a different file, e.g. <code>.git/refs/heads/main.lock</code>, <code>.git/HEAD.lock</code> or <code>.git/config.lock</code>. The fix is identical: make sure git isn't running, then delete the named <code>.lock</code> file.</p>
+<h2 id="it-keeps-coming-back">It keeps coming back</h2>
+<ul>
+<li>An IDE is polling git constantly. Disable its git auto-fetch/auto-refresh, or close it while doing big operations like rebases.</li>
+<li>The repo is inside a synced folder (Dropbox, OneDrive, iCloud). Sync clients lock or restore files mid-operation; move the repo out of the synced folder.</li>
+<li>Antivirus scanning <code>.git</code> on Windows; add an exclusion for your source folder.</li>
+</ul>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-not-a-git-repository/">fatal: not a git repository (or any of the parent directories): .git</a></li><li><a href="/git/git-your-local-changes-would-be-overwritten/">error: Your local changes to the following files would be overwritten by merge</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

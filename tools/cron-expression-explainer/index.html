@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cron Expression Explainer — crontab to plain English + next run times</title>
+<meta name="description" content="Translate any crontab expression into plain English and see the next 5 run times in your time zone. Supports */n steps, ranges, lists, MON/JAN names and @daily macros.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/cron-expression-explainer/">
+<meta property="og:title" content="Cron Expression Explainer — crontab to plain English + next run times"><meta property="og:description" content="Translate any crontab expression into plain English and see the next 5 run times in your time zone. Supports */n steps, ranges, lists, MON/JAN names and @daily macros.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/cron-expression-explainer/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "Cron expression explainer", "url": "https://errorfix-hollis.github.io/tools/cron-expression-explainer/", "description": "Translate any crontab expression into plain English and see the next 5 run times in your time zone. Supports */n steps, ranges, lists, MON/JAN names and @daily macros.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-01", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": "Cron expression explainer", "item": "https://errorfix-hollis.github.io/tools/cron-expression-explainer/"}]}</script><script src="/tools.js?v=70df2f10" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>Cron expression explainer</h1>
+<p class="lead">Type a 5-field cron expression to see what it means in plain English and exactly when it will run next.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="cron"><label for="cron-in">Cron expression <small>(minute hour day-of-month month day-of-week)</small></label>
+<input type="text" id="cron-in" value="*/15 9-17 * * MON-FRI" spellcheck="false" autocomplete="off" class="big">
+<div class="row presets">
+<button class="sec" data-cron="* * * * *">every minute</button><button class="sec" data-cron="*/5 * * * *">every 5 min</button><button class="sec" data-cron="0 * * * *">hourly</button><button class="sec" data-cron="0 0 * * *">daily</button><button class="sec" data-cron="30 2 * * 1-5">weekdays 02:30</button><button class="sec" data-cron="0 0 * * 0">weekly</button><button class="sec" data-cron="0 0 1 * *">monthly</button><button class="sec" data-cron="@reboot">@reboot</button>
+</div>
+<div id="cron-msg" class="msg" hidden></div>
+<p class="result" id="cron-desc"></p>
+<h3>Next 5 runs <small>(your time zone: <span id="cron-tz"></span>)</small></h3>
+<ol id="cron-next" class="runs"></ol>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<h2 id="cron-syntax">Cron syntax</h2>
+<pre><code>┌───────── minute (0-59)
+│ ┌─────── hour (0-23)
+│ │ ┌───── day of month (1-31)
+│ │ │ ┌─── month (1-12 or JAN-DEC)
+│ │ │ │ ┌─ day of week (0-7 or SUN-SAT; 0 and 7 are Sunday)
+* * * * *  command
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Syntax</th>
+<th>Meaning</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>*</code></td>
+<td>every value</td>
+<td><code>* * * * *</code> every minute</td>
+</tr>
+<tr>
+<td><code>a,b,c</code></td>
+<td>list</td>
+<td><code>0 8,12,18 * * *</code> at 08:00, 12:00 and 18:00</td>
+</tr>
+<tr>
+<td><code>a-b</code></td>
+<td>range (inclusive)</td>
+<td><code>0 9 * * 1-5</code> 09:00 on weekdays</td>
+</tr>
+<tr>
+<td><code>*/n</code></td>
+<td>every n-th value</td>
+<td><code>*/10 * * * *</code> every 10 minutes</td>
+</tr>
+<tr>
+<td><code>a-b/n</code></td>
+<td>every n-th value in a range</td>
+<td><code>0 8-18/2 * * *</code> every 2 hours from 08:00 to 18:00</td>
+</tr>
+<tr>
+<td><code>@hourly</code></td>
+<td><code>0 * * * *</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>@daily</code> / <code>@midnight</code></td>
+<td><code>0 0 * * *</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>@weekly</code></td>
+<td><code>0 0 * * 0</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>@monthly</code></td>
+<td><code>0 0 1 * *</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>@yearly</code> / <code>@annually</code></td>
+<td><code>0 0 1 1 *</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>@reboot</code></td>
+<td>once at startup</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-day-of-month-day-of-week-trap">The day-of-month / day-of-week trap</h2>
+<p>If <strong>both</strong> day fields are restricted, cron runs when <strong>either</strong> matches. <code>0 0 13 * 5</code> runs on every 13th <em>and</em> every Friday, not only on Friday the 13th. If one of the two fields starts with <code>*</code>, both must match. The explainer and next-run list above follow this rule.</p>
+<h2 id="why-a-cron-job-doesnt-run">Why a cron job doesn't run</h2>
+<ul>
+<li><strong>Different environment.</strong> Cron runs with a minimal <code>PATH</code> (usually <code>/usr/bin:/bin</code>), no shell profile and no virtualenv. Use absolute paths to every program, or you get <a href="/linux/linux-command-not-found/">command not found</a>.</li>
+<li><strong>Script not executable</strong> or has Windows line endings: see <a href="/linux/linux-permission-denied-running-script/">permission denied</a> and <a href="/linux/linux-bad-interpreter-no-such-file/">bad interpreter</a>.</li>
+<li><strong>Time zone.</strong> Cron uses the server's time zone (check <code>timedatectl</code>), not yours.</li>
+<li><strong><code>%</code> in the command</strong> is turned into a newline by cron; escape it as <code>\%</code>.</li>
+<li><strong>No output.</strong> Append <code>&gt;&gt; /tmp/job.log 2&gt;&amp;1</code> to capture errors, and check <code>grep CRON /var/log/syslog</code> or <code>journalctl -u cron</code>.</li>
+</ul>
+<p>Six-field expressions with seconds (Quartz, Spring <code>@Scheduled</code>) are a different dialect and are not standard crontab syntax.</p>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-command-not-found/">command not found</a></li><li><a href="/linux/linux-permission-denied-running-script/">bash: ./script.sh: Permission denied</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/linux/linux-unit-service-not-found/">Failed to start nginx.service: Unit nginx.service not found.</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/json-formatter/">JSON formatter &amp; validator</a></li><li><a href="/tools/chmod-calculator/">chmod calculator</a></li><li><a href="/tools/unix-timestamp-converter/">Unix timestamp converter</a></li><li><a href="/tools/base64-encode-decode/">Base64 encode / decode</a></li><li><a href="/tools/url-encode-decode/">URL encode / decode</a></li><li><a href="/tools/jwt-decoder/">JWT decoder</a></li><li><a href="/tools/regex-tester/">Regex tester</a></li><li><a href="/tools/yaml-validator/">YAML validator &amp; YAML ↔ JSON converter</a></li><li><a href="/tools/uuid-generator/">UUID generator &amp; validator (v4, v7)</a></li><li><a href="/tools/text-diff/">Text diff checker</a></li><li><a href="/tools/http-status-codes/">HTTP status codes reference</a></li><li><a href="/tools/hash-generator/">Hash generator (MD5, SHA-256, SHA-512)</a></li><li><a href="/tools/line-ending-whitespace-inspector/">Line ending &amp; whitespace inspector</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

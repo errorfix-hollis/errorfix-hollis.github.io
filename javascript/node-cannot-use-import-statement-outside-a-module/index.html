@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SyntaxError: Cannot use import statement outside a module (JavaScript) — how to fix</title>
+<meta name="description" content="Node (or a test runner) is treating your file as CommonJS. Set &quot;type&quot;: &quot;module&quot;, use .mjs, or switch to require().">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/node-cannot-use-import-statement-outside-a-module/">
+<meta property="og:title" content="SyntaxError: Cannot use import statement outside a module (JavaScript) — how to fix"><meta property="og:description" content="Node (or a test runner) is treating your file as CommonJS. Set &quot;type&quot;: &quot;module&quot;, use .mjs, or switch to require().">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/node-cannot-use-import-statement-outside-a-module/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "SyntaxError: Cannot use import statement outside a module (JavaScript) \u2014 how to fix", "description": "Node (or a test runner) is treating your file as CommonJS. Set \"type\": \"module\", use .mjs, or switch to require().", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/javascript/node-cannot-use-import-statement-outside-a-module/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "SyntaxError: Cannot use import statement outside a module", "item": "https://errorfix-hollis.github.io/javascript/node-cannot-use-import-statement-outside-a-module/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>SyntaxError: Cannot use import statement outside a module (JavaScript) — how to fix</h1>
+<pre class="err"><code>SyntaxError: Cannot use import statement outside a module</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Add <code>"type": "module"</code> to your <code>package.json</code> (or rename the file to <code>.mjs</code>). In the browser, use <code>&lt;script type="module"&gt;</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>import</code> only works in <strong>ES modules</strong>. Your file is being loaded as a classic script (browser) or as CommonJS (Node), where <code>import</code> is a syntax error.</p>
+<h2 id="in-nodejs">In Node.js</h2>
+<p>Pick one:</p>
+<pre><code class="language-json">// package.json
+{
+  &quot;type&quot;: &quot;module&quot;
+}
+</code></pre>
+<ul>
+<li>or rename the file from <code>.js</code> to <code>.mjs</code></li>
+<li>or keep CommonJS and use <code>const x = require('x')</code> instead of <code>import</code></li>
+</ul>
+<p>After switching to ESM, relative imports need extensions (<code>./file.js</code>) and <code>__dirname</code> is no longer defined. Use <code>import.meta.dirname</code> (Node 20.11+) instead.</p>
+<h2 id="in-the-browser">In the browser</h2>
+<pre><code class="language-html">&lt;script type=&quot;module&quot; src=&quot;main.js&quot;&gt;&lt;/script&gt;
+</code></pre>
+<p>Modules must be served over HTTP(S). Opening the HTML file directly with <code>file://</code> blocks module loading (you'll get a CORS error instead). Run a local server such as <code>npx serve</code> or <code>python3 -m http.server</code>.</p>
+<h2 id="in-jest">In Jest</h2>
+<p>Jest uses CommonJS by default. Either use Babel (<code>babel-jest</code> with <code>@babel/preset-env</code>), <code>ts-jest</code> for TypeScript, or run Jest in native ESM mode:</p>
+<pre><code class="language-bash">node --experimental-vm-modules node_modules/jest/bin/jest.js
+</code></pre>
+<p>If the error comes from a package inside <code>node_modules</code> that ships only ESM, add it to <code>transformIgnorePatterns</code> exceptions so Babel transforms it:</p>
+<pre><code class="language-js">transformIgnorePatterns: ['node_modules/(?!(some-esm-package)/)']
+</code></pre>
+<p>Alternatively, switch to Vitest, which supports ESM natively.</p>
+<h2 id="in-typescript-with-ts-node">In TypeScript with ts-node</h2>
+<p>Set <code>"module": "commonjs"</code> in <code>tsconfig.json</code>, or use <code>tsx</code> instead of <code>ts-node</code>, which handles both module types.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-require-is-not-defined/">ReferenceError: require is not defined</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li><li><a href="/javascript/js-hydration-failed-initial-ui-does-not-match/">Hydration failed because the initial UI does not match what was rendered on the server</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

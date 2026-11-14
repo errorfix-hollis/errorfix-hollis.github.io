@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error[E0515]: cannot return reference to local variable (Rust) — how to fix</title>
+<meta name="description" content="A function tries to return a reference to a value it created. That value is dropped when the function returns, so the reference would dangle. Return the owned value instead.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/rust/rust-e0515-cannot-return-reference-to-local-variable/">
+<meta property="og:title" content="error[E0515]: cannot return reference to local variable (Rust) — how to fix"><meta property="og:description" content="A function tries to return a reference to a value it created. That value is dropped when the function returns, so the reference would dangle. Return the owned value instead.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/rust/rust-e0515-cannot-return-reference-to-local-variable/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error[E0515]: cannot return reference to local variable (Rust) \u2014 how to fix", "description": "A function tries to return a reference to a value it created. That value is dropped when the function returns, so the reference would dangle. Return the owned value instead.", "dateModified": "2026-11-09", "url": "https://errorfix-hollis.github.io/rust/rust-e0515-cannot-return-reference-to-local-variable/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Rust", "item": "https://errorfix-hollis.github.io/rust/"}, {"@type": "ListItem", "position": 3, "name": "error[E0515]: cannot return reference to local variable", "item": "https://errorfix-hollis.github.io/rust/rust-e0515-cannot-return-reference-to-local-variable/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/rust/">Rust</a></p>
+<article><h1>error[E0515]: cannot return reference to local variable (Rust) — how to fix</h1>
+<pre class="err"><code>error[E0515]: cannot return reference to local variable `s`
+ --&gt; src/main.rs:3:5
+  |
+3 |     &amp;s
+  |     ^^ returns a reference to data owned by the current function
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Return the owned type instead of a reference: <code>fn f() -&gt; String { s }</code> instead of <code>-&gt; &amp;str { &amp;s }</code> (likewise <code>Vec&lt;T&gt;</code> instead of <code>&amp;[T]</code>). If the data comes from a parameter, return a reference tied to that parameter's lifetime. Use <code>Cow</code> when you sometimes borrow and sometimes allocate.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Local variables live on the function's stack frame and are dropped at the end of the function. A reference returned from the function would point at freed memory, so the borrow checker rejects it. Variants of the same error:</p>
+<ul>
+<li><code>cannot return reference to local variable `x`</code></li>
+<li><code>cannot return value referencing local variable `x`</code></li>
+<li><code>cannot return value referencing temporary value</code></li>
+<li><code>cannot return reference to function parameter `x`</code> (a parameter taken <strong>by value</strong> is also local)</li>
+</ul>
+<p>No lifetime annotation can fix this — <code>'static</code> or <code>'a</code> on the return type just produces a different error. You need to change <em>who owns</em> the data.</p>
+<h2 id="fix-1-return-the-owned-value">Fix 1: return the owned value</h2>
+<pre><code class="language-rust">// Wrong
+fn greeting(name: &amp;str) -&gt; &amp;str {
+    let s = format!(&quot;Hello, {name}&quot;);
+    &amp;s
+}
+
+// Right
+fn greeting(name: &amp;str) -&gt; String {
+    format!(&quot;Hello, {name}&quot;)
+}
+</code></pre>
+<p>The same for collections: return <code>Vec&lt;T&gt;</code> instead of <code>&amp;[T]</code>, <code>PathBuf</code> instead of <code>&amp;Path</code>, <code>HashMap</code> instead of a reference to one. Moving a <code>String</code>/<code>Vec</code> out of a function is cheap — it copies three words, not the contents.</p>
+<h2 id="fix-2-borrow-from-an-input-instead">Fix 2: borrow from an input instead</h2>
+<p>If the result is a slice of something the caller owns, take that by reference so the output can borrow from it:</p>
+<pre><code class="language-rust">fn first_word(text: &amp;str) -&gt; &amp;str {
+    text.split_whitespace().next().unwrap_or(&quot;&quot;)
+}
+</code></pre>
+<p>Lifetime elision ties the output to <code>text</code>. With multiple reference parameters you must annotate which one: <code>fn pick&lt;'a&gt;(a: &amp;'a str, b: &amp;str) -&gt; &amp;'a str</code>.</p>
+<h2 id="fix-3-methods-on-temporaries">Fix 3: methods on temporaries</h2>
+<p>A common hidden case:</p>
+<pre><code class="language-rust">fn upper_name(user: &amp;User) -&gt; &amp;str {
+    user.name.to_uppercase().as_str()   // E0515: temporary String
+}
+</code></pre>
+<p><code>to_uppercase()</code> creates a new <code>String</code> that dies at the end of the statement. Return <code>String</code>:</p>
+<pre><code class="language-rust">fn upper_name(user: &amp;User) -&gt; String {
+    user.name.to_uppercase()
+}
+</code></pre>
+<p>Same with <code>.to_string().as_str()</code>, <code>.collect::&lt;Vec&lt;_&gt;&gt;().as_slice()</code>, <code>path.to_string_lossy()</code> (returns <code>Cow</code>), and <code>lock().unwrap().field</code> returning <code>&amp;</code> through a <code>MutexGuard</code>.</p>
+<h2 id="fix-4-sometimes-borrowed-sometimes-owned-use-cow">Fix 4: sometimes borrowed, sometimes owned — use Cow</h2>
+<pre><code class="language-rust">use std::borrow::Cow;
+
+fn normalize(input: &amp;str) -&gt; Cow&lt;'_, str&gt; {
+    if input.contains(' ') {
+        Cow::Owned(input.replace(' ', &quot;_&quot;))
+    } else {
+        Cow::Borrowed(input)
+    }
+}
+</code></pre>
+<p>The caller can use it like a <code>&amp;str</code> and call <code>.into_owned()</code> if it needs a <code>String</code>.</p>
+<h2 id="fix-5-iterators-over-local-data">Fix 5: iterators over local data</h2>
+<pre><code class="language-rust">fn evens() -&gt; impl Iterator&lt;Item = &amp;u32&gt; {   // E0515
+    let v = vec![1, 2, 3, 4];
+    v.iter().filter(|x| *x % 2 == 0)
+}
+</code></pre>
+<p>Use <code>into_iter()</code> so the iterator owns the data:</p>
+<pre><code class="language-rust">fn evens() -&gt; impl Iterator&lt;Item = u32&gt; {
+    let v = vec![1, 2, 3, 4];
+    v.into_iter().filter(|x| x % 2 == 0)
+}
+</code></pre>
+<h2 id="what-not-to-do">What not to do</h2>
+<p><code>Box::leak</code> or <code>static mut</code> make the error go away by never freeing memory. That's acceptable for genuine once-per-program data (e.g. config loaded at startup) but not as a general fix. If many owners need the same data, use <code>Rc&lt;T&gt;</code>/<code>Arc&lt;T&gt;</code> and return a clone of the pointer.</p>
+<p class="upd">Last updated 2026-11-09.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/rust/rust-borrow-of-moved-value/">error[E0382]: borrow of moved value</a></li><li><a href="/rust/rust-cannot-borrow-as-mutable/">error[E0502]: cannot borrow as mutable because it is also borrowed as immutable</a></li><li><a href="/rust/rust-e0106-missing-lifetime-specifier/">error[E0106]: missing lifetime specifier</a></li><li><a href="/rust/rust-e0277-trait-bound-not-satisfied/">error[E0277]: the trait bound is not satisfied</a></li><li><a href="/rust/rust-e0308-mismatched-types/">error[E0308]: mismatched types</a></li><li><a href="/rust/rust-e0412-cannot-find-type-in-this-scope/">error[E0412]: cannot find type `X` in this scope</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

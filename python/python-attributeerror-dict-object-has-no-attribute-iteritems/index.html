@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27; (Python) — how to fix</title>
+<meta name="description" content="dict.iteritems(), iterkeys(), itervalues() and has_key() were Python 2 methods and were removed in Python 3. The code (or an old library) was written for Python 2.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">
+<meta property="og:title" content="AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27; (Python) — how to fix"><meta property="og:description" content="dict.iteritems(), iterkeys(), itervalues() and has_key() were Python 2 methods and were removed in Python 3. The code (or an old library) was written for Python 2.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-attributeerror-dict-object-has-no-attribute-iteritems/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "AttributeError: 'dict' object has no attribute 'iteritems' (Python) \u2014 how to fix", "description": "dict.iteritems(), iterkeys(), itervalues() and has_key() were Python 2 methods and were removed in Python 3. The code (or an old library) was written for Python 2.", "dateModified": "2026-11-11", "url": "https://errorfix-hollis.github.io/python/python-attributeerror-dict-object-has-no-attribute-iteritems/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "AttributeError: 'dict' object has no attribute 'iteritems'", "item": "https://errorfix-hollis.github.io/python/python-attributeerror-dict-object-has-no-attribute-iteritems/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;script.py&quot;, line 8, in &lt;module&gt;
+    for key, value in data.iteritems():
+AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Replace <code>d.iteritems()</code> with <code>d.items()</code>, <code>d.iterkeys()</code> with <code>d.keys()</code> or just <code>d</code>, <code>d.itervalues()</code> with <code>d.values()</code>, and <code>d.has_key(k)</code> with <code>k in d</code>. If the error comes from a third-party package, upgrade it (<code>pip install -U &lt;package&gt;</code>) or switch to a maintained fork.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Python 2 had two families of dict methods: <code>items()</code>/<code>keys()</code>/<code>values()</code> returned lists, and <code>iteritems()</code>/<code>iterkeys()</code>/<code>itervalues()</code> returned iterators. Python 3 dropped the <code>iter*</code> versions and made the plain methods return lightweight <em>view</em> objects, which are already lazy. <code>has_key()</code> was also removed in favour of the <code>in</code> operator.</p>
+<p>So the code isn't wrong for its era, it's Python 2 code running on Python 3.</p>
+<h2 id="fix-1-use-the-python-3-methods">Fix 1: use the Python 3 methods</h2>
+<table>
+<thead>
+<tr>
+<th>Python 2</th>
+<th>Python 3</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>d.iteritems()</code></td>
+<td><code>d.items()</code></td>
+</tr>
+<tr>
+<td><code>d.iterkeys()</code></td>
+<td><code>d.keys()</code> or iterate <code>d</code> directly</td>
+</tr>
+<tr>
+<td><code>d.itervalues()</code></td>
+<td><code>d.values()</code></td>
+</tr>
+<tr>
+<td><code>d.has_key(k)</code></td>
+<td><code>k in d</code></td>
+</tr>
+<tr>
+<td><code>d.viewitems()</code></td>
+<td><code>d.items()</code></td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-python">for key, value in data.items():
+    print(key, value)
+
+if &quot;name&quot; in data:
+    ...
+</code></pre>
+<p>Views reflect changes to the dict and don't copy it, so performance is the same as the old <code>iteritems()</code>.</p>
+<h2 id="fix-2-you-need-a-list-not-a-view">Fix 2: you need a list, not a view</h2>
+<p>In Python 2, <code>d.keys()</code> returned a list, so old code might index it or modify the dict while looping:</p>
+<pre><code class="language-python">first_key = d.keys()[0]          # TypeError: 'dict_keys' object is not subscriptable
+first_key = next(iter(d))        # Python 3
+keys = list(d.keys())            # when you need a real list
+
+for k in list(d):                # copy before deleting during the loop
+    if d[k] is None:
+        del d[k]
+</code></pre>
+<p>Deleting keys while iterating over a view raises <code>RuntimeError: dictionary changed size during iteration</code>.</p>
+<h2 id="fix-3-convert-a-whole-codebase">Fix 3: convert a whole codebase</h2>
+<p>For many files, convert automatically. <code>2to3</code> was removed in Python 3.13, so use <code>pyupgrade</code>:</p>
+<pre><code class="language-bash">pip install pyupgrade
+pyupgrade --py3-plus $(git ls-files '*.py')
+</code></pre>
+<p>On Python 3.12 or older, <code>2to3</code> still exists:</p>
+<pre><code class="language-bash">2to3 -f dict -w script.py
+</code></pre>
+<p>Review the diff: the <code>dict</code> fixer wraps calls in <code>list(...)</code> conservatively, which you can often remove.</p>
+<h2 id="fix-4-code-that-must-run-on-python-2-and-3">Fix 4: code that must run on Python 2 and 3</h2>
+<p>Rare today, but if you need it, <code>items()</code> works on both (it just returns a list on 2). Or use <code>six</code>:</p>
+<pre><code class="language-python">import six
+for k, v in six.iteritems(d):
+    ...
+</code></pre>
+<h2 id="fix-5-the-error-comes-from-a-library">Fix 5: the error comes from a library</h2>
+<p>Look at the traceback: if the failing line is inside <code>site-packages</code>, a dependency is Python 2 only or very old. Common cases:</p>
+<ul>
+<li><strong>networkx 1.x</strong> (<code>G.node[n]</code>, <code>G.edges_iter()</code>): upgrade with <code>pip install -U networkx</code>.</li>
+<li>Old Django apps, <code>pydot</code>, <code>xlrd</code>-era scripts: upgrade to a current version.</li>
+</ul>
+<pre><code class="language-bash">pip install -U package-name
+pip show package-name          # check the version and its Python support
+</code></pre>
+<p>If the project is abandoned, look for a maintained fork, or patch the line locally as a stopgap.</p>
+<h2 id="related-python-2-leftovers">Related Python 2 leftovers</h2>
+<p>Same story, different message: <code>print "x"</code> (<code>SyntaxError: Missing parentheses in call to 'print'</code>), <code>xrange</code> (<code>NameError</code>, use <code>range</code>), <code>unicode</code> (use <code>str</code>), <code>raw_input</code> (use <code>input</code>), and <code>string.letters</code> (use <code>string.ascii_letters</code>).</p>
+<p class="upd">Last updated 2026-11-11.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li><li><a href="/python/python-keyerror/">KeyError</a></li><li><a href="/python/python-runtimeerror-dictionary-changed-size-during-iteration/">RuntimeError: dictionary changed size during iteration</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li><li><a href="/python/python-attributeerror-str-object-has-no-attribute/">AttributeError: &#x27;str&#x27; object has no attribute</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

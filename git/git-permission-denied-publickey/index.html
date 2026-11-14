@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>git@github.com: Permission denied (publickey). — how to fix</title>
+<meta name="description" content="GitHub rejected your SSH key. Check that you have a key, that ssh-agent has it loaded, and that the public key is added to your GitHub account.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-permission-denied-publickey/">
+<meta property="og:title" content="git@github.com: Permission denied (publickey). — how to fix"><meta property="og:description" content="GitHub rejected your SSH key. Check that you have a key, that ssh-agent has it loaded, and that the public key is added to your GitHub account.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-permission-denied-publickey/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "git@github.com: Permission denied (publickey). \u2014 how to fix", "description": "GitHub rejected your SSH key. Check that you have a key, that ssh-agent has it loaded, and that the public key is added to your GitHub account.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/git/git-permission-denied-publickey/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "git@github.com: Permission denied (publickey).", "item": "https://errorfix-hollis.github.io/git/git-permission-denied-publickey/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>git@github.com: Permission denied (publickey). — how to fix</h1>
+<pre class="err"><code>git@github.com: Permission denied (publickey).
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>ssh -T git@github.com</code> to test. If it fails, create a key with <code>ssh-keygen -t ed25519</code>, add <code>~/.ssh/id_ed25519.pub</code> to GitHub → Settings → SSH keys, and try again.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Git connected to GitHub over SSH, but none of the keys your SSH client offered belong to a GitHub account that can access the repository.</p>
+<h2 id="step-1-test-the-connection">Step 1: test the connection</h2>
+<pre><code class="language-bash">ssh -T git@github.com
+</code></pre>
+<ul>
+<li><code>Hi username! You've successfully authenticated</code> means SSH works. The problem is access to the repo itself (wrong URL, or no permission).</li>
+<li><code>Permission denied (publickey)</code> means your key is missing or not registered. Continue below.</li>
+</ul>
+<h2 id="step-2-check-that-you-have-a-key">Step 2: check that you have a key</h2>
+<pre><code class="language-bash">ls -al ~/.ssh
+</code></pre>
+<p>Look for <code>id_ed25519</code> and <code>id_ed25519.pub</code> (or <code>id_rsa</code> / <code>id_rsa.pub</code>). If there are none, create one:</p>
+<pre><code class="language-bash">ssh-keygen -t ed25519 -C &quot;you@example.com&quot;
+</code></pre>
+<h2 id="step-3-load-the-key-into-ssh-agent">Step 3: load the key into ssh-agent</h2>
+<pre><code class="language-bash">eval &quot;$(ssh-agent -s)&quot;
+ssh-add ~/.ssh/id_ed25519
+</code></pre>
+<h2 id="step-4-add-the-public-key-to-github">Step 4: add the public key to GitHub</h2>
+<pre><code class="language-bash">cat ~/.ssh/id_ed25519.pub
+</code></pre>
+<p>Copy the whole line and paste it in <strong>GitHub → Settings → SSH and GPG keys → New SSH key</strong>. Then run <code>ssh -T git@github.com</code> again.</p>
+<h2 id="other-causes">Other causes</h2>
+<ul>
+<li><strong>Using sudo.</strong> <code>sudo git clone ...</code> uses root's keys in <code>/root/.ssh</code>, not yours. Drop the <code>sudo</code>.</li>
+<li><strong>Key has a non-default name.</strong> Tell SSH which key to use in <code>~/.ssh/config</code>:</li>
+</ul>
+<pre><code>Host github.com
+  User git
+  IdentityFile ~/.ssh/my_github_key
+  IdentitiesOnly yes
+</code></pre>
+<ul>
+<li><strong>Wrong permissions.</strong> SSH ignores private keys that others can read: <code>chmod 700 ~/.ssh &amp;&amp; chmod 600 ~/.ssh/id_ed25519</code>.</li>
+<li><strong>Port 22 blocked</strong> (corporate network). Use GitHub's SSH-over-HTTPS host: set <code>Hostname ssh.github.com</code> and <code>Port 443</code> in the config block above.</li>
+<li><strong>You don't need SSH at all.</strong> Switch the remote to HTTPS: <code>git remote set-url origin https://github.com/USER/REPO.git</code>.</li>
+</ul>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li><li><a href="/ssh/ssh-permission-denied-publickey/">Permission denied (publickey)</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-resolve-host/">fatal: unable to access ... Could not resolve host: github.com</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

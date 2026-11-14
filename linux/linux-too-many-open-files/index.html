@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Too many open files (Linux) — how to fix</title>
+<meta name="description" content="A process hit its file descriptor limit (ulimit -n), or file watchers hit the inotify limit. Raise the limit, or fix code that leaks open files/sockets.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-too-many-open-files/">
+<meta property="og:title" content="Too many open files (Linux) — how to fix"><meta property="og:description" content="A process hit its file descriptor limit (ulimit -n), or file watchers hit the inotify limit. Raise the limit, or fix code that leaks open files/sockets.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-too-many-open-files/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Too many open files (Linux) \u2014 how to fix", "description": "A process hit its file descriptor limit (ulimit -n), or file watchers hit the inotify limit. Raise the limit, or fix code that leaks open files/sockets.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/linux/linux-too-many-open-files/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "Too many open files", "item": "https://errorfix-hollis.github.io/linux/linux-too-many-open-files/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>Too many open files (Linux) — how to fix</h1>
+<pre class="err"><code>Error: EMFILE: too many open files, watch &#x27;/home/me/app/src&#x27;
+OSError: [Errno 24] Too many open files
+accept4: too many open files
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the limit with <code>ulimit -n</code>. Raise it for the session: <code>ulimit -n 65535</code>; for services set <code>LimitNOFILE=65535</code> in the systemd unit. For <code>EMFILE ... watch</code> errors from dev servers, raise <code>fs.inotify.max_user_watches</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Every open file, socket, pipe and watcher uses a <em>file descriptor</em>. Each process has a limit (often 1024 soft by default). Error code <code>EMFILE</code> / <code>Errno 24</code> means the process reached it.</p>
+<p>Check current limits and usage:</p>
+<pre><code class="language-bash">ulimit -Sn; ulimit -Hn            # soft / hard limit for this shell
+cat /proc/&lt;PID&gt;/limits | grep files
+ls /proc/&lt;PID&gt;/fd | wc -l          # how many are open now
+</code></pre>
+<h2 id="fix-1-raise-the-limit-for-your-shell">Fix 1: raise the limit for your shell</h2>
+<pre><code class="language-bash">ulimit -n 65535     # up to the hard limit
+</code></pre>
+<p>Permanent for user logins, in <code>/etc/security/limits.conf</code>:</p>
+<pre><code>*   soft  nofile  65535
+*   hard  nofile  65535
+</code></pre>
+<p>Log out and back in.</p>
+<h2 id="fix-2-services-under-systemd">Fix 2: services under systemd</h2>
+<p><code>limits.conf</code> does not apply to systemd services. Add an override:</p>
+<pre><code class="language-bash">sudo systemctl edit myapp
+</code></pre>
+<pre><code class="language-ini">[Service]
+LimitNOFILE=65535
+</code></pre>
+<pre><code class="language-bash">sudo systemctl restart myapp
+</code></pre>
+<p>For Docker containers: <code>docker run --ulimit nofile=65535:65535 ...</code>.</p>
+<h2 id="fix-3-file-watchers-emfile-watch-enospc-system-limit-for-number-of-file-watchers-reached">Fix 3: file watchers (<code>EMFILE: watch</code>, <code>ENOSPC: System limit for number of file watchers reached</code>)</h2>
+<p>Node dev servers (webpack, Vite, Jest, nodemon) and IDEs use inotify watches:</p>
+<pre><code class="language-bash">echo &quot;fs.inotify.max_user_watches=524288&quot; | sudo tee /etc/sysctl.d/99-inotify.conf
+echo &quot;fs.inotify.max_user_instances=512&quot; | sudo tee -a /etc/sysctl.d/99-inotify.conf
+sudo sysctl --system
+</code></pre>
+<p>Also exclude <code>node_modules</code> and build folders from watching.</p>
+<p>On macOS, <code>EMFILE</code> with watchers is often fixed by installing watchman (<code>brew install watchman</code>).</p>
+<h2 id="fix-4-the-code-leaks-descriptors">Fix 4: the code leaks descriptors</h2>
+<p>If the count in <code>/proc/&lt;PID&gt;/fd</code> keeps growing, something isn't being closed. Check with <code>lsof -p &lt;PID&gt;</code>. Use context managers / finally blocks:</p>
+<pre><code class="language-python">with open(path) as f:
+    data = f.read()
+</code></pre>
+<p>Reuse HTTP clients and DB connection pools instead of creating new ones per request.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-no-space-left-on-device/">No space left on device</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/linux/linux-cannot-execute-binary-file/">cannot execute binary file: Exec format error</a></li><li><a href="/linux/linux-command-not-found/">command not found</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

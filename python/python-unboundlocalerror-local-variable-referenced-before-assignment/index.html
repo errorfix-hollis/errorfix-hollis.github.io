@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UnboundLocalError: local variable referenced before assignment (Python) — how to fix</title>
+<meta name="description" content="A function assigns to a name somewhere, which makes it local for the whole function, but the code reads it before any assignment has run. Usually you meant the global variable, or a branch skipped the assignment.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-unboundlocalerror-local-variable-referenced-before-assignment/">
+<meta property="og:title" content="UnboundLocalError: local variable referenced before assignment (Python) — how to fix"><meta property="og:description" content="A function assigns to a name somewhere, which makes it local for the whole function, but the code reads it before any assignment has run. Usually you meant the global variable, or a branch skipped the assignment.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-unboundlocalerror-local-variable-referenced-before-assignment/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "UnboundLocalError: local variable referenced before assignment (Python) \u2014 how to fix", "description": "A function assigns to a name somewhere, which makes it local for the whole function, but the code reads it before any assignment has run. Usually you meant the global variable, or a branch skipped the assignment.", "dateModified": "2026-11-02", "url": "https://errorfix-hollis.github.io/python/python-unboundlocalerror-local-variable-referenced-before-assignment/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "UnboundLocalError: local variable referenced before assignment", "item": "https://errorfix-hollis.github.io/python/python-unboundlocalerror-local-variable-referenced-before-assignment/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>UnboundLocalError: local variable referenced before assignment (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 7, in &lt;module&gt;
+    increment()
+  File &quot;app.py&quot;, line 4, in increment
+    count += 1
+UnboundLocalError: local variable &#x27;count&#x27; referenced before assignment
+UnboundLocalError: cannot access local variable &#x27;count&#x27; where it is not associated with a value
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> If you meant the module-level variable, add <code>global count</code> (or <code>nonlocal count</code> in a nested function) at the top of the function — or better, pass it in and return the new value. If a branch can skip the assignment, initialise the variable first (e.g. <code>result = None</code>) before the <code>if</code>/<code>try</code>/<code>for</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Python decides whether a name is local <strong>when the function is compiled</strong>, not line by line. If a function assigns to a name anywhere in its body (<code>x = ...</code>, <code>x += ...</code>, <code>for x in</code>, <code>import x</code>, <code>except E as x</code>, <code>with ... as x</code>), that name is local throughout the entire function. Reading it before an assignment has executed raises <code>UnboundLocalError</code>.</p>
+<p>Python 3.11+ words it as <code>cannot access local variable 'x' where it is not associated with a value</code>. Same error.</p>
+<h2 id="cause-1-modifying-a-global-inside-a-function">Cause 1: modifying a global inside a function</h2>
+<pre><code class="language-python">count = 0
+
+def increment():
+    count += 1      # UnboundLocalError
+</code></pre>
+<p><code>count += 1</code> is an assignment, so <code>count</code> is local, and reading the local before it's set fails. Options:</p>
+<pre><code class="language-python"># Option A: declare it global
+def increment():
+    global count
+    count += 1
+
+# Option B (cleaner): pass and return
+def increment(count):
+    return count + 1
+
+count = increment(count)
+</code></pre>
+<p>For mutable state, a class or a dict avoids <code>global</code> entirely:</p>
+<pre><code class="language-python">state = {&quot;count&quot;: 0}
+def increment():
+    state[&quot;count&quot;] += 1   # mutating, not rebinding: no error
+</code></pre>
+<h2 id="cause-2-nested-functions-closures">Cause 2: nested functions / closures</h2>
+<pre><code class="language-python">def make_counter():
+    total = 0
+    def add():
+        total += 1     # UnboundLocalError
+        return total
+    return add
+</code></pre>
+<p>Use <code>nonlocal</code> to rebind the enclosing function's variable:</p>
+<pre><code class="language-python">    def add():
+        nonlocal total
+        total += 1
+        return total
+</code></pre>
+<h2 id="cause-3-assignment-only-in-some-branches">Cause 3: assignment only in some branches</h2>
+<pre><code class="language-python">def grade(score):
+    if score &gt;= 50:
+        result = &quot;pass&quot;
+    elif score &gt;= 0:
+        result = &quot;fail&quot;
+    return result      # error when score &lt; 0
+</code></pre>
+<p>Initialise before branching, or add an <code>else</code>:</p>
+<pre><code class="language-python">def grade(score):
+    result = None
+    if score &gt;= 50:
+        result = &quot;pass&quot;
+    elif score &gt;= 0:
+        result = &quot;fail&quot;
+    return result
+</code></pre>
+<p>Same with <code>try</code>/<code>except</code>: if the <code>try</code> fails before assignment, the variable doesn't exist afterwards.</p>
+<pre><code class="language-python">try:
+    data = load()
+except IOError:
+    log.warning(&quot;load failed&quot;)
+print(data)   # UnboundLocalError if load() raised
+</code></pre>
+<p>Set <code>data = None</code> before <code>try</code>, or <code>return</code>/<code>raise</code> in the <code>except</code>.</p>
+<p>And with loops: a <code>for</code> loop over an empty iterable never assigns the loop variable.</p>
+<h2 id="cause-4-shadowing-a-global-or-import-later-in-the-function">Cause 4: shadowing a global or import later in the function</h2>
+<pre><code class="language-python">import os
+
+def main():
+    print(os.getcwd())   # UnboundLocalError
+    import os            # this makes 'os' local for all of main()
+</code></pre>
+<p>Likewise, a later <code>len = 5</code> makes <code>len</code> local and breaks an earlier <code>len(x)</code>. Remove the late assignment or rename the variable.</p>
+<h2 id="cause-5-except-as-e-is-deleted-after-the-block">Cause 5: <code>except ... as e</code> is deleted after the block</h2>
+<pre><code class="language-python">e = None
+try:
+    1 / 0
+except ZeroDivisionError as e:
+    pass
+print(e)   # NameError/UnboundLocalError: 'e' is deleted at end of except
+</code></pre>
+<p>Python deletes <code>e</code> when the <code>except</code> block ends. Copy it: <code>except ZeroDivisionError as exc: err = exc</code>.</p>
+<p class="upd">Last updated 2026-11-02.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li><li><a href="/python/python-keyerror/">KeyError</a></li><li><a href="/python/python-nameerror-name-is-not-defined/">NameError: name &#x27;x&#x27; is not defined</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

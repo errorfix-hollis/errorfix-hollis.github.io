@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: Object of type X is not JSON serializable (Python) — how to fix</title>
+<meta name="description" content="`json.dumps` only knows dict, list, str, int, float, bool and None. Anything else (datetime, Decimal, set, numpy types, your own classes) must be converted first.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-object-of-type-is-not-json-serializable/">
+<meta property="og:title" content="TypeError: Object of type X is not JSON serializable (Python) — how to fix"><meta property="og:description" content="`json.dumps` only knows dict, list, str, int, float, bool and None. Anything else (datetime, Decimal, set, numpy types, your own classes) must be converted first.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-object-of-type-is-not-json-serializable/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: Object of type X is not JSON serializable (Python) \u2014 how to fix", "description": "`json.dumps` only knows dict, list, str, int, float, bool and None. Anything else (datetime, Decimal, set, numpy types, your own classes) must be converted first.", "dateModified": "2026-11-04", "url": "https://errorfix-hollis.github.io/python/python-object-of-type-is-not-json-serializable/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: Object of type X is not JSON serializable", "item": "https://errorfix-hollis.github.io/python/python-object-of-type-is-not-json-serializable/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: Object of type X is not JSON serializable (Python) — how to fix</h1>
+<pre class="err"><code>TypeError: Object of type datetime is not JSON serializable
+TypeError: Object of type Decimal is not JSON serializable
+TypeError: Object of type ndarray is not JSON serializable
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Convert the value before dumping, or pass a fallback: <code>json.dumps(data, default=str)</code>. For more control write a <code>default</code> function that handles <code>datetime</code> (<code>.isoformat()</code>), <code>Decimal</code> (<code>float</code>/<code>str</code>), <code>set</code> (<code>list</code>) and numpy (<code>.tolist()</code> / <code>.item()</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Python's <code>json</code> module maps a fixed set of types to JSON:</p>
+<table>
+<thead>
+<tr>
+<th>Python</th>
+<th>JSON</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>dict</td>
+<td>object</td>
+</tr>
+<tr>
+<td>list, tuple</td>
+<td>array</td>
+</tr>
+<tr>
+<td>str</td>
+<td>string</td>
+</tr>
+<tr>
+<td>int, float</td>
+<td>number</td>
+</tr>
+<tr>
+<td>True / False / None</td>
+<td>true / false / null</td>
+</tr>
+</tbody>
+</table>
+<p>Anything else raises <code>TypeError: Object of type &lt;name&gt; is not JSON serializable</code>. The type name in the message tells you exactly which value to convert.</p>
+<h2 id="fix-1-quick-fallback-with-defaultstr">Fix 1: quick fallback with <code>default=str</code></h2>
+<pre><code class="language-python">import json, datetime
+data = {&quot;created&quot;: datetime.datetime.now()}
+json.dumps(data, default=str)
+# '{&quot;created&quot;: &quot;2026-11-04 09:30:00.123456&quot;}'
+</code></pre>
+<p><code>default</code> is called for every object <code>json</code> can't handle. <code>str</code> is fine for logs and debugging, but it turns everything into strings.</p>
+<h2 id="fix-2-a-proper-default-function">Fix 2: a proper <code>default</code> function</h2>
+<pre><code class="language-python">import json, datetime, decimal, uuid, dataclasses
+
+def to_json(o):
+    if isinstance(o, (datetime.datetime, datetime.date, datetime.time)):
+        return o.isoformat()
+    if isinstance(o, decimal.Decimal):
+        return float(o)          # or str(o) to keep exact precision
+    if isinstance(o, (set, frozenset)):
+        return list(o)
+    if isinstance(o, uuid.UUID):
+        return str(o)
+    if dataclasses.is_dataclass(o):
+        return dataclasses.asdict(o)
+    raise TypeError(f&quot;Object of type {type(o).__name__} is not JSON serializable&quot;)
+
+json.dumps(data, default=to_json)
+</code></pre>
+<p>Or subclass <code>json.JSONEncoder</code> and pass <code>cls=MyEncoder</code>; both work the same way.</p>
+<h2 id="cause-numpy-and-pandas-types">Cause: NumPy and pandas types</h2>
+<p><code>numpy.int64</code>, <code>numpy.float32</code> and <code>ndarray</code> are not Python ints/floats/lists. They often sneak in from <code>df["col"].sum()</code> or <code>arr.max()</code>.</p>
+<pre><code class="language-python">import numpy as np
+json.dumps({&quot;n&quot;: np.int64(3)})            # TypeError: Object of type int64 ...
+
+json.dumps({&quot;n&quot;: np.int64(3).item()})     # convert scalar
+json.dumps({&quot;a&quot;: arr.tolist()})           # convert array
+</code></pre>
+<p>For DataFrames use pandas' own serializer, which handles timestamps and NaN:</p>
+<pre><code class="language-python">df.to_json(orient=&quot;records&quot;, date_format=&quot;iso&quot;)
+</code></pre>
+<h2 id="cause-your-own-class">Cause: your own class</h2>
+<pre><code class="language-python">class User:
+    def __init__(self, name): self.name = name
+
+json.dumps(User(&quot;ann&quot;))   # TypeError: Object of type User ...
+</code></pre>
+<p>Return a dict explicitly (<code>json.dumps(vars(user))</code>), make it a <code>@dataclass</code> and use <code>dataclasses.asdict</code>, or with Pydantic v2 use <code>user.model_dump_json()</code> / <code>user.model_dump(mode="json")</code>.</p>
+<h2 id="cause-bytes">Cause: bytes</h2>
+<p><code>bytes</code> aren't JSON. Decode text (<code>b.decode("utf-8")</code>) or base64-encode binary data:</p>
+<pre><code class="language-python">import base64
+base64.b64encode(raw).decode(&quot;ascii&quot;)
+</code></pre>
+<h2 id="in-web-frameworks">In web frameworks</h2>
+<ul>
+<li><strong>Flask</strong>: <code>jsonify</code> handles dates in recent versions; for other types set a custom provider (<code>app.json = MyJSONProvider(app)</code> with a <code>default</code> method).</li>
+<li><strong>FastAPI</strong>: return Pydantic models or use <code>fastapi.encoders.jsonable_encoder(obj)</code>.</li>
+<li><strong>Django</strong>: use <code>django.core.serializers.json.DjangoJSONEncoder</code> (handles datetime, Decimal, UUID): <code>json.dumps(data, cls=DjangoJSONEncoder)</code>.</li>
+</ul>
+<p class="upd">Last updated 2026-11-04.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-keyerror/">KeyError</a></li><li><a href="/python/python-typeerror-string-indices-must-be-integers/">TypeError: string indices must be integers</a></li><li><a href="/python/python-unicodedecodeerror-utf-8/">UnicodeDecodeError: &#x27;utf-8&#x27; codec can&#x27;t decode byte 0xff in position 0: invalid start byte</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

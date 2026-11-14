@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Load key &quot;id_rsa&quot;: invalid format (SSH) — how to fix</title>
+<meta name="description" content="OpenSSH couldn&#x27;t parse the private key file. It is usually damaged (missing newline, Windows line endings, copied with spaces from a CI variable), it is a public key or a PuTTY .ppk file, or the wrong file is passed with -i.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/ssh/ssh-load-key-invalid-format/">
+<meta property="og:title" content="Load key &quot;id_rsa&quot;: invalid format (SSH) — how to fix"><meta property="og:description" content="OpenSSH couldn&#x27;t parse the private key file. It is usually damaged (missing newline, Windows line endings, copied with spaces from a CI variable), it is a public key or a PuTTY .ppk file, or the wrong file is passed with -i.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/ssh/ssh-load-key-invalid-format/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Load key \"id_rsa\": invalid format (SSH) \u2014 how to fix", "description": "OpenSSH couldn't parse the private key file. It is usually damaged (missing newline, Windows line endings, copied with spaces from a CI variable), it is a public key or a PuTTY .ppk file, or the wrong file is passed with -i.", "dateModified": "2026-11-07", "url": "https://errorfix-hollis.github.io/ssh/ssh-load-key-invalid-format/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "SSH", "item": "https://errorfix-hollis.github.io/ssh/"}, {"@type": "ListItem", "position": 3, "name": "Load key \"id_rsa\": invalid format", "item": "https://errorfix-hollis.github.io/ssh/ssh-load-key-invalid-format/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/ssh/">SSH</a></p>
+<article><h1>Load key &quot;id_rsa&quot;: invalid format (SSH) — how to fix</h1>
+<pre class="err"><code>Load key &quot;/home/me/.ssh/id_rsa&quot;: invalid format
+git@github.com: Permission denied (publickey).
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the file starts with <code>-----BEGIN OPENSSH PRIVATE KEY-----</code> and ends with a newline after the END line. Fix line endings with <code>dos2unix ~/.ssh/id_rsa</code>, convert PuTTY keys with <code>puttygen key.ppk -O private-openssh -o id_rsa</code>, validate with <code>ssh-keygen -y -f ~/.ssh/id_rsa</code>. In CI, store the key with real newlines and <code>echo "$SSH_KEY" &gt; key</code> (quotes matter).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When ssh loads an identity it parses the private key. "invalid format" (on newer OpenSSH builds often <code>error in libcrypto</code>) means the file isn't a valid private key in a format OpenSSH understands. Authentication then continues without that key, so you usually see <code>Permission denied (publickey)</code> next.</p>
+<p>Check the file:</p>
+<pre><code class="language-bash">head -1 ~/.ssh/id_rsa; tail -1 ~/.ssh/id_rsa
+ssh-keygen -y -f ~/.ssh/id_rsa     # prints the public key if the private key is valid
+file ~/.ssh/id_rsa
+</code></pre>
+<p>Valid first lines are <code>-----BEGIN OPENSSH PRIVATE KEY-----</code>, <code>-----BEGIN RSA PRIVATE KEY-----</code>, <code>-----BEGIN EC PRIVATE KEY-----</code> or <code>-----BEGIN PRIVATE KEY-----</code>.</p>
+<h2 id="cause-1-missing-final-newline">Cause 1: missing final newline</h2>
+<p>OpenSSH requires a newline after <code>-----END ... PRIVATE KEY-----</code>. Keys pasted from a password manager or a CI variable often lose it.</p>
+<pre><code class="language-bash">echo &gt;&gt; ~/.ssh/id_rsa
+ssh-keygen -y -f ~/.ssh/id_rsa
+</code></pre>
+<h2 id="cause-2-windows-line-endings-or-stray-whitespace">Cause 2: Windows line endings or stray whitespace</h2>
+<p>A key saved with CRLF, or with spaces at the line ends, fails to parse:</p>
+<pre><code class="language-bash">sed -i 's/\r$//' ~/.ssh/id_rsa      # or: dos2unix ~/.ssh/id_rsa
+sed -i 's/[[:space:]]*$//' ~/.ssh/id_rsa
+</code></pre>
+<p>Check for invisible characters offline with <code>cat -A ~/.ssh/id_rsa | head -3</code>: <code>^M</code> at the line ends means CRLF. Never paste a real private key into a website.</p>
+<h2 id="cause-3-ci-variables-github-actions-gitlab-ci">Cause 3: CI variables (GitHub Actions, GitLab CI)</h2>
+<p>The newlines get collapsed into spaces when the variable is echoed unquoted:</p>
+<pre><code class="language-bash">echo $SSH_PRIVATE_KEY &gt; key          # wrong: newlines become spaces
+echo &quot;$SSH_PRIVATE_KEY&quot; &gt; key        # right
+chmod 600 key
+</code></pre>
+<p>Better options:</p>
+<ul>
+<li>GitLab: use a variable of type <strong>File</strong>, then <code>chmod 600 "$SSH_PRIVATE_KEY"</code> and <code>ssh -i "$SSH_PRIVATE_KEY"</code>.</li>
+<li>Load into an agent: <code>echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -</code> (after <code>eval "$(ssh-agent -s)"</code>).</li>
+<li>If newlines can't be stored, base64-encode the key and decode it in the job: <code>echo "$SSH_KEY_B64" | base64 -d &gt; key</code>.</li>
+<li>GitHub Actions: <code>webfactory/ssh-agent</code> handles this for you.</li>
+</ul>
+<h2 id="cause-4-wrong-file-public-key-ppk-certificate">Cause 4: wrong file (public key, .ppk, certificate)</h2>
+<ul>
+<li><code>-i ~/.ssh/id_rsa.pub</code> or <code>IdentityFile ...pub</code>: point to the private key (no <code>.pub</code>).</li>
+<li>A PuTTY key starts with <code>PuTTY-User-Key-File-</code>. Convert it:</li>
+</ul>
+<pre><code class="language-bash">sudo apt install putty-tools
+puttygen key.ppk -O private-openssh -o ~/.ssh/id_rsa
+chmod 600 ~/.ssh/id_rsa
+</code></pre>
+<p>On Windows, open PuTTYgen → Load → Conversions → Export OpenSSH key.</p>
+<h2 id="cause-5-new-key-format-old-client">Cause 5: new key format, old client</h2>
+<p>Keys created by OpenSSH 7.8+ use <code>BEGIN OPENSSH PRIVATE KEY</code>. Very old tools (some Java/Python libraries, old Jenkins plugins) only read PEM. Convert in place (keeps the passphrase):</p>
+<pre><code class="language-bash">cp ~/.ssh/id_rsa ~/.ssh/id_rsa.bak
+ssh-keygen -p -m PEM -f ~/.ssh/id_rsa
+</code></pre>
+<p>Ed25519 keys can't be stored as PEM <code>RSA PRIVATE KEY</code>; use an RSA/ECDSA key for such tools, or upgrade them.</p>
+<h2 id="cause-6-the-file-is-truncated-or-corrupted">Cause 6: the file is truncated or corrupted</h2>
+<p>If none of the above helps, the key is broken. Generate a new one and register its public key on the server or Git host:</p>
+<pre><code class="language-bash">ssh-keygen -t ed25519 -C &quot;me@laptop&quot;
+cat ~/.ssh/id_ed25519.pub
+</code></pre>
+<p class="upd">Last updated 2026-11-07.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-permission-denied-publickey/">git@github.com: Permission denied (publickey).</a></li><li><a href="/ssh/ssh-permission-denied-publickey/">Permission denied (publickey)</a></li><li><a href="/ssh/ssh-unprotected-private-key-file/">WARNING: UNPROTECTED PRIVATE KEY FILE!</a></li><li><a href="/ssh/ssh-connect-to-host-port-22-connection-refused/">ssh: connect to host port 22: Connection refused</a></li><li><a href="/ssh/ssh-connection-closed-by-remote-host/">Connection closed by remote host</a></li><li><a href="/ssh/ssh-connection-timed-out/">ssh: connect to host port 22: Connection timed out</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

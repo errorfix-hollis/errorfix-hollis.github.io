@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Module not found: Error: Can&#x27;t resolve (JavaScript) — how to fix</title>
+<meta name="description" content="webpack (used by Create React App, Next.js, Angular, Storybook...) couldn&#x27;t find a file or package you imported. The path or case is wrong, the package isn&#x27;t installed, an alias isn&#x27;t configured, or it&#x27;s a Node core module that webpack 5 no longer polyfills.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-module-not-found-error-cant-resolve/">
+<meta property="og:title" content="Module not found: Error: Can&#x27;t resolve (JavaScript) — how to fix"><meta property="og:description" content="webpack (used by Create React App, Next.js, Angular, Storybook...) couldn&#x27;t find a file or package you imported. The path or case is wrong, the package isn&#x27;t installed, an alias isn&#x27;t configured, or it&#x27;s a Node core module that webpack 5 no longer polyfills.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-module-not-found-error-cant-resolve/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Module not found: Error: Can't resolve (JavaScript) \u2014 how to fix", "description": "webpack (used by Create React App, Next.js, Angular, Storybook...) couldn't find a file or package you imported. The path or case is wrong, the package isn't installed, an alias isn't configured, or it's a Node core module that webpack 5 no longer polyfills.", "dateModified": "2026-10-31", "url": "https://errorfix-hollis.github.io/javascript/js-module-not-found-error-cant-resolve/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "Module not found: Error: Can't resolve", "item": "https://errorfix-hollis.github.io/javascript/js-module-not-found-error-cant-resolve/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>Module not found: Error: Can&#x27;t resolve (JavaScript) — how to fix</h1>
+<pre class="err"><code>Module not found: Error: Can&#x27;t resolve &#x27;./components/Header&#x27; in &#x27;/app/src&#x27;
+Module not found: Error: Can&#x27;t resolve &#x27;axios&#x27; in &#x27;/app/src&#x27;
+BREAKING CHANGE: webpack &lt; 5 used to include polyfills for node.js core modules by default.
+Module not found: Error: Can&#x27;t resolve &#x27;crypto&#x27; in &#x27;/app/node_modules/some-lib&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> For packages: <code>npm install &lt;name&gt;</code>. For local files: check the relative path and exact letter case (Linux/CI are case-sensitive) and the file extension. For path aliases, configure <code>resolve.alias</code> in webpack or <code>paths</code> in tsconfig. For <code>crypto</code>/<code>stream</code>/<code>buffer</code> etc. in webpack 5: add <code>resolve.fallback</code> polyfills or set them to <code>false</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>webpack follows every <code>import</code>/<code>require</code> to build the bundle. "Can't resolve X in DIR" means that starting from <code>DIR</code>, it tried the path and <code>node_modules</code> lookup for <code>X</code> and found nothing. The two parts of the message tell you what to check: <strong>what</strong> was imported, and <strong>from where</strong>.</p>
+<h2 id="cause-1-the-package-isnt-installed">Cause 1: the package isn't installed</h2>
+<p><code>Can't resolve 'axios'</code> (no <code>./</code>) means a package:</p>
+<pre><code class="language-bash">npm ls axios           # is it there?
+npm install axios
+</code></pre>
+<p>If it's in <code>package.json</code> but missing, reinstall: <code>rm -rf node_modules &amp;&amp; npm install</code>. In monorepos make sure you install in the right workspace.</p>
+<h2 id="cause-2-wrong-relative-path">Cause 2: wrong relative path</h2>
+<p>Paths are relative to the <strong>importing file</strong>, not the project root:</p>
+<pre><code class="language-js">// in src/pages/Home.jsx
+import Header from './components/Header';   // looks in src/pages/components/
+import Header from '../components/Header';  // looks in src/components/
+</code></pre>
+<h2 id="cause-3-letter-case">Cause 3: letter case</h2>
+<p>macOS and Windows filesystems are usually case-insensitive, Linux isn't. <code>import Header from './header'</code> works locally but fails in Docker/CI if the file is <code>Header.jsx</code>. Match the exact file name.</p>
+<p>If you renamed only the case, Git may not have recorded it:</p>
+<pre><code class="language-bash">git mv src/components/header.jsx src/components/Header.jsx
+</code></pre>
+<h2 id="cause-4-missing-extension">Cause 4: missing extension</h2>
+<p>webpack only tries the extensions in <code>resolve.extensions</code>. A custom config without <code>.ts</code>/<code>.tsx</code> can't find TypeScript files:</p>
+<pre><code class="language-js">// webpack.config.js
+module.exports = {
+  resolve: { extensions: ['.tsx', '.ts', '.jsx', '.js'] },
+};
+</code></pre>
+<p>ES module packages (<code>"type": "module"</code>) may require full paths with extensions: <code>import x from './util.js'</code>.</p>
+<h2 id="cause-5-path-aliases-not-configured-for-webpack">Cause 5: path aliases not configured for webpack</h2>
+<p><code>import Button from '@/components/Button'</code> needs an alias. TypeScript's <code>paths</code> in <code>tsconfig.json</code> only affects type checking; the bundler must know too:</p>
+<pre><code class="language-js">const path = require('path');
+module.exports = {
+  resolve: { alias: { '@': path.resolve(__dirname, 'src') } },
+};
+</code></pre>
+<p>Next.js and Vite read <code>tsconfig.json</code>/<code>jsconfig.json</code> <code>paths</code> (Vite needs <code>resolve.alias</code> or the <code>vite-tsconfig-paths</code> plugin). Restart the dev server after changing them.</p>
+<h2 id="cause-6-node-core-modules-in-webpack-5">Cause 6: Node core modules in webpack 5</h2>
+<p><code>Can't resolve 'crypto'</code>, <code>'stream'</code>, <code>'buffer'</code>, <code>'path'</code>, <code>'fs'</code> with the "BREAKING CHANGE: webpack &lt; 5 used to include polyfills" message means browser code imports a Node module. Best fix: use a browser-compatible library or update it. Otherwise add fallbacks:</p>
+<pre><code class="language-bash">npm install -D crypto-browserify stream-browserify buffer
+</code></pre>
+<pre><code class="language-js">module.exports = {
+  resolve: {
+    fallback: {
+      crypto: require.resolve('crypto-browserify'),
+      stream: require.resolve('stream-browserify'),
+      buffer: require.resolve('buffer/'),
+      fs: false,          // no browser equivalent
+    },
+  },
+};
+</code></pre>
+<p>In Create React App you need <code>craco</code> or <code>react-app-rewired</code> to edit the config. In Next.js, <code>fs</code> errors mean server-only code was imported into a client component — keep it in server code.</p>
+<h2 id="still-failing">Still failing?</h2>
+<p>Delete caches and restart: <code>rm -rf node_modules/.cache .next</code> and re-run the dev server.</p>
+<p class="upd">Last updated 2026-10-31.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-ts2307-cannot-find-module-or-its-corresponding-type-declarations/">TS2307: Cannot find module or its corresponding type declarations.</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/npm-eresolve-unable-to-resolve-dependency-tree/">npm ERR! code ERESOLVE unable to resolve dependency tree</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

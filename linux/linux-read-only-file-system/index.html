@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Read-only file system (Linux) — how to fix</title>
+<meta name="description" content="The filesystem is mounted read-only — either deliberately (a read-only mount, container image, snap, ISO) or because the kernel remounted it after detecting disk errors. Check dmesg before simply remounting.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-read-only-file-system/">
+<meta property="og:title" content="Read-only file system (Linux) — how to fix"><meta property="og:description" content="The filesystem is mounted read-only — either deliberately (a read-only mount, container image, snap, ISO) or because the kernel remounted it after detecting disk errors. Check dmesg before simply remounting.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-read-only-file-system/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Read-only file system (Linux) \u2014 how to fix", "description": "The filesystem is mounted read-only \u2014 either deliberately (a read-only mount, container image, snap, ISO) or because the kernel remounted it after detecting disk errors. Check dmesg before simply remounting.", "dateModified": "2026-11-03", "url": "https://errorfix-hollis.github.io/linux/linux-read-only-file-system/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "Read-only file system", "item": "https://errorfix-hollis.github.io/linux/linux-read-only-file-system/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>Read-only file system (Linux) — how to fix</h1>
+<pre class="err"><code>touch: cannot touch &#x27;test.txt&#x27;: Read-only file system
+cp: cannot create regular file &#x27;/etc/hosts&#x27;: Read-only file system
+OSError: [Errno 30] Read-only file system: &#x27;/app/data&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the mount: <code>findmnt -no OPTIONS --target /path</code>. If the kernel remounted it due to errors (<code>dmesg | grep -i 'remount\|error'</code>), back up, then run <code>fsck</code> from a rescue/unmounted state. If it's just mounted <code>ro</code>, remount: <code>sudo mount -o remount,rw /mountpoint</code>. In containers, write to a mounted volume or tmpfs instead.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The write failed with <code>EROFS</code>: the filesystem itself is read-only, regardless of file permissions — even root can't write. Find which mount the path is on and its options:</p>
+<pre><code class="language-bash">findmnt --target /path/you/tried
+mount | grep ' ro[ ,]'
+</code></pre>
+<p>The cause decides the fix. <strong>Don't</strong> just remount read-write before checking the kernel log.</p>
+<h2 id="cause-1-the-kernel-remounted-it-after-disk-errors">Cause 1: the kernel remounted it after disk errors</h2>
+<p>ext4 is usually mounted with <code>errors=remount-ro</code>: on a detected corruption or I/O error, the kernel flips it to read-only to prevent damage. Check:</p>
+<pre><code class="language-bash">sudo dmesg -T | grep -iE 'remount|EXT4-fs error|I/O error|xfs|btrfs'
+sudo journalctl -k -b | grep -i error
+</code></pre>
+<p>Messages like <code>EXT4-fs error ... Remounting filesystem read-only</code> or <code>blk_update_request: I/O error</code> mean a filesystem or hardware problem.</p>
+<p>What to do:</p>
+<ol>
+<li><strong>Back up</strong> anything important now (it's still readable).</li>
+<li>Check the disk's health: <code>sudo smartctl -a /dev/sda</code> (package <code>smartmontools</code>).</li>
+<li>Run a filesystem check while it's unmounted. For the root filesystem, reboot into recovery mode or a live USB:</li>
+</ol>
+<pre><code class="language-bash">sudo umount /dev/sdb1
+sudo fsck -f /dev/sdb1          # ext4: e2fsck; xfs: xfs_repair; never fsck a mounted fs
+</code></pre>
+<p>For root on ext4 you can also schedule a check at boot by adding <code>fsck.mode=force</code> to the kernel command line once.</p>
+<p>On VMs/cloud instances this often follows a storage hiccup (network disk timeout); a reboot plus fsck usually fixes it.</p>
+<h2 id="cause-2-mounted-read-only-on-purpose">Cause 2: mounted read-only on purpose</h2>
+<p>Check <code>/etc/fstab</code> for <code>ro</code>, or a recovery-mode boot (root is <code>ro</code> until remounted). Remount:</p>
+<pre><code class="language-bash">sudo mount -o remount,rw /
+sudo mount -o remount,rw /mnt/data
+</code></pre>
+<p>Then fix <code>/etc/fstab</code> if it's set to <code>ro</code> there.</p>
+<h2 id="cause-3-ntfs-usb-drives">Cause 3: NTFS / USB drives</h2>
+<ul>
+<li><strong>Windows Fast Startup / hibernation:</strong> Linux mounts the NTFS partition read-only because Windows left it "dirty". Fully shut down Windows (disable Fast Startup), or run <code>chkdsk /f</code> there. <code>ntfsfix /dev/sdX1</code> clears the flag as a last resort.</li>
+<li><strong>Write-protect switch</strong> on SD cards/USB adapters.</li>
+<li><strong>ISO9660 / squashfs</strong> (CD images, snaps under <code>/snap</code>) are always read-only by design.</li>
+<li><strong>exFAT/FAT errors:</strong> <code>sudo fsck.vfat -a /dev/sdX1</code> or <code>sudo fsck.exfat /dev/sdX1</code>.</li>
+</ul>
+<h2 id="cause-4-containers">Cause 4: containers</h2>
+<p>Docker with <code>--read-only</code>, Kubernetes with <code>readOnlyRootFilesystem: true</code>, and many serverless platforms (AWS Lambda — only <code>/tmp</code> is writable) make the root filesystem read-only. Write to a volume or tmpfs:</p>
+<pre><code class="language-bash">docker run --read-only --tmpfs /tmp -v appdata:/app/data myimage
+</code></pre>
+<pre><code class="language-yaml"># Kubernetes
+volumeMounts:
+  - { name: tmp, mountPath: /tmp }
+volumes:
+  - { name: tmp, emptyDir: {} }
+</code></pre>
+<p>Bind mounts with <code>:ro</code> (<code>-v ./conf:/etc/app:ro</code>) are read-only too. Inside a container, <code>/proc/sys</code> and <code>/sys</code> are read-only — set sysctls with <code>docker run --sysctl</code> instead.</p>
+<h2 id="cause-5-system-paths-protected-by-design">Cause 5: system paths protected by design</h2>
+<ul>
+<li><strong>macOS:</strong> <code>/</code> and <code>/usr</code> (except <code>/usr/local</code>) are on a sealed read-only system volume. Use <code>/usr/local</code>, <code>/opt</code> or your home directory.</li>
+<li><strong>Immutable distros</strong> (Fedora Silverblue, SteamOS, NixOS's <code>/nix/store</code>): <code>/usr</code> is read-only; install software via the distro's layering or Flatpak tools.</li>
+<li><strong>WSL:</strong> <code>/mnt/c</code> paths are fine, but a broken WSL disk can go read-only; <code>wsl --shutdown</code> and retry, and check with <code>e2fsck</code> on the VHD if it persists.</li>
+</ul>
+<p class="upd">Last updated 2026-11-03.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-no-space-left-on-device/">no space left on device (Docker)</a></li><li><a href="/linux/linux-no-space-left-on-device/">No space left on device</a></li><li><a href="/linux/linux-permission-denied-running-script/">bash: ./script.sh: Permission denied</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

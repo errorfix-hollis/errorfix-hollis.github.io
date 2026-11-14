@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>cannot use x (variable of type T) as U value in assignment (Go) — how to fix</title>
+<meta name="description" content="Go found a value of one type where a different type is required (assignment, function argument, return value or struct field). Go never converts types implicitly, so even int vs int64 or T vs *T is a compile error.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-cannot-use-as-value-in-assignment/">
+<meta property="og:title" content="cannot use x (variable of type T) as U value in assignment (Go) — how to fix"><meta property="og:description" content="Go found a value of one type where a different type is required (assignment, function argument, return value or struct field). Go never converts types implicitly, so even int vs int64 or T vs *T is a compile error.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-cannot-use-as-value-in-assignment/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "cannot use x (variable of type T) as U value in assignment (Go) \u2014 how to fix", "description": "Go found a value of one type where a different type is required (assignment, function argument, return value or struct field). Go never converts types implicitly, so even int vs int64 or T vs *T is a compile error.", "dateModified": "2026-11-11", "url": "https://errorfix-hollis.github.io/go/go-cannot-use-as-value-in-assignment/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "cannot use x (variable of type T) as U value in assignment", "item": "https://errorfix-hollis.github.io/go/go-cannot-use-as-value-in-assignment/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>cannot use x (variable of type T) as U value in assignment (Go) — how to fix</h1>
+<pre class="err"><code>./main.go:14:9: cannot use n (variable of type int) as string value in assignment
+./main.go:20:12: cannot use cfg (variable of type Config) as *Config value in argument to Load
+./main.go:25:15: cannot use s (variable of type *MyStore) as Store value in variable declaration: *MyStore does not implement Store (missing method Close)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Convert explicitly where a conversion exists (<code>int64(n)</code>, <code>float64(n)</code>, <code>strconv.Itoa(n)</code> for int to string), pass a pointer with <code>&amp;cfg</code> or dereference with <code>*p</code>, and for interfaces implement the missing method listed after <code>does not implement</code> (check pointer vs value receivers).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Go is strictly typed and has no implicit conversions. <code>cannot use X (variable of type A) as B value in &lt;context&gt;</code> means the compiler expected type <code>B</code> but got <code>A</code>. The context tells you where: <code>in assignment</code>, <code>in argument to F</code>, <code>in return statement</code>, <code>in struct literal</code>, <code>in variable declaration</code>. Older Go versions phrase it as <code>cannot use x (type A) as type B</code>.</p>
+<h2 id="cause-1-numeric-types-differ">Cause 1: numeric types differ</h2>
+<p><code>int</code>, <code>int32</code>, <code>int64</code>, <code>float64</code> and <code>uint</code> are all distinct:</p>
+<pre><code class="language-go">var total int64
+n := 5            // int
+total = n         // cannot use n (variable of type int) as int64 value
+total = int64(n)  // OK
+</code></pre>
+<p>Same for <code>time.Duration</code>, which is an <code>int64</code> type:</p>
+<pre><code class="language-go">secs := 5
+time.Sleep(secs * time.Second)                 // error: int * Duration
+time.Sleep(time.Duration(secs) * time.Second)  // OK
+</code></pre>
+<p>Untyped constants (<code>time.Sleep(5 * time.Second)</code>) work because constants adapt to the needed type.</p>
+<h2 id="cause-2-int-to-string">Cause 2: int to string</h2>
+<p><code>string(n)</code> compiles but returns the Unicode character with code <code>n</code> (<code>string(65)</code> is <code>"A"</code>), and <code>go vet</code> flags it. Use <code>strconv</code>:</p>
+<pre><code class="language-go">s := strconv.Itoa(n)           // int -&gt; string
+n, err := strconv.Atoi(s)      // string -&gt; int
+s := fmt.Sprintf(&quot;%d items&quot;, n)
+</code></pre>
+<p><code>[]byte</code> and <code>string</code> do convert directly: <code>string(b)</code>, <code>[]byte(s)</code>.</p>
+<h2 id="cause-3-value-vs-pointer">Cause 3: value vs pointer</h2>
+<pre><code class="language-go">func Load(c *Config) error { ... }
+
+cfg := Config{}
+Load(cfg)    // cannot use cfg (variable of type Config) as *Config value
+Load(&amp;cfg)   // OK
+</code></pre>
+<p>The reverse (<code>*Config</code> given, <code>Config</code> wanted): dereference with <code>*p</code>, after making sure it isn't nil.</p>
+<h2 id="cause-4-type-does-not-implement-an-interface">Cause 4: type does not implement an interface</h2>
+<p>The extended message says what's missing:</p>
+<pre><code>*MyStore does not implement Store (missing method Close)
+MyStore does not implement Store (method Close has pointer receiver)
+</code></pre>
+<p>For the first, add the method with the exact signature the interface declares. For the second, methods defined on <code>*MyStore</code> belong only to the pointer type, so pass a pointer:</p>
+<pre><code class="language-go">func (s *MyStore) Close() error { return nil }
+
+var st Store = MyStore{}   // error: method Close has pointer receiver
+var st Store = &amp;MyStore{}  // OK
+</code></pre>
+<p><code>wrong type for method X</code> means the signature differs (e.g. returns <code>error</code> vs nothing, or <code>ctx context.Context</code> parameter missing).</p>
+<h2 id="cause-5-named-types-and-slices">Cause 5: named types and slices</h2>
+<p>A named type is distinct from its underlying type when both are named, and slices don't convert element-wise:</p>
+<pre><code class="language-go">type UserID int64
+var id UserID = UserID(raw)      // conversion needed from int64 variable
+
+var ids []int
+var anys []any = ids              // error: []int is not []any
+anys := make([]any, len(ids))
+for i, v := range ids { anys[i] = v }
+</code></pre>
+<h2 id="cause-6-interface-value-used-as-a-concrete-type">Cause 6: interface value used as a concrete type</h2>
+<p>Values from <code>any</code>/<code>interface{}</code> (e.g. decoded JSON, <code>context.Value</code>) need a type assertion:</p>
+<pre><code class="language-go">v := m[&quot;count&quot;]          // any
+n := v.(float64)         // panics if wrong; JSON numbers decode as float64
+n, ok := v.(float64)     // safe form
+</code></pre>
+<h2 id="cause-7-same-name-different-package">Cause 7: same name, different package</h2>
+<p><code>cannot use x (variable of type "example.com/a/v1".User) as "example.com/a/v2".User</code> means two versions of a module are in the build. Align imports so every file uses the same module path and run <code>go mod tidy</code>.</p>
+<p class="upd">Last updated 2026-11-11.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-declared-and-not-used/">declared and not used</a></li><li><a href="/go/go-invalid-memory-address-or-nil-pointer-dereference/">panic: runtime error: invalid memory address or nil pointer dereference</a></li><li><a href="/go/go-undefined/">undefined: X</a></li><li><a href="/go/go-all-goroutines-are-asleep-deadlock/">fatal error: all goroutines are asleep - deadlock!</a></li><li><a href="/go/go-cannot-find-main-module/">go: cannot find main module, but found .git/config</a></li><li><a href="/go/go-fatal-error-concurrent-map-writes/">fatal error: concurrent map writes</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

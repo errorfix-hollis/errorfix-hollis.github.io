@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERR_SSL_PROTOCOL_ERROR — how to fix</title>
+<meta name="description" content="The browser started a TLS handshake but the server answered with something that isn&#x27;t valid TLS, or the handshake failed. Most often you&#x27;re using https:// against a port that only speaks plain HTTP.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-err-ssl-protocol-error/">
+<meta property="og:title" content="ERR_SSL_PROTOCOL_ERROR — how to fix"><meta property="og:description" content="The browser started a TLS handshake but the server answered with something that isn&#x27;t valid TLS, or the handshake failed. Most often you&#x27;re using https:// against a port that only speaks plain HTTP.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-err-ssl-protocol-error/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERR_SSL_PROTOCOL_ERROR \u2014 how to fix", "description": "The browser started a TLS handshake but the server answered with something that isn't valid TLS, or the handshake failed. Most often you're using https:// against a port that only speaks plain HTTP.", "dateModified": "2026-11-04", "url": "https://errorfix-hollis.github.io/web/web-err-ssl-protocol-error/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "ERR_SSL_PROTOCOL_ERROR", "item": "https://errorfix-hollis.github.io/web/web-err-ssl-protocol-error/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>ERR_SSL_PROTOCOL_ERROR — how to fix</h1>
+<pre class="err"><code>This site can&#x27;t provide a secure connection
+localhost sent an invalid response.
+ERR_SSL_PROTOCOL_ERROR
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> If it's localhost or a dev server, use <code>http://</code> instead of <code>https://</code> (or enable HTTPS in the dev server). Clear HSTS for the domain at <code>chrome://net-internals/#hsts</code>. On a real server, test with <code>openssl s_client -connect example.com:443 -servername example.com</code> and make sure the 443 server block has <code>listen 443 ssl;</code> and a valid certificate.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Chrome (and Edge) show <code>ERR_SSL_PROTOCOL_ERROR</code> when the TLS handshake can't complete because the server's reply doesn't follow the protocol. It is not a certificate trust problem (that's <code>NET::ERR_CERT_AUTHORITY_INVALID</code>); the connection never got far enough to check the certificate.</p>
+<p>Quick test from a terminal:</p>
+<pre><code class="language-bash">openssl s_client -connect example.com:443 -servername example.com &lt;/dev/null
+</code></pre>
+<p><code>wrong version number</code> in the output means the server is speaking plain HTTP on that port.</p>
+<h2 id="cause-1-https-to-an-http-only-port-usually-localhost">Cause 1: https:// to an HTTP-only port (usually localhost)</h2>
+<p><code>https://localhost:3000</code> against a dev server that only serves HTTP produces exactly this error, with "localhost sent an invalid response".</p>
+<h2 id="fix-1-use-http-or-enable-https-in-the-dev-server">Fix 1: use http, or enable HTTPS in the dev server</h2>
+<pre><code class="language-text">http://localhost:3000
+</code></pre>
+<p>If you need HTTPS locally, enable it explicitly, e.g. Vite with <code>@vitejs/plugin-basic-ssl</code>, <code>next dev --experimental-https</code>, or create a trusted cert with <code>mkcert</code>:</p>
+<pre><code class="language-bash">mkcert -install
+mkcert localhost 127.0.0.1
+</code></pre>
+<h2 id="cause-2-hsts-forces-https-for-the-domain">Cause 2: HSTS forces https for the domain</h2>
+<p>If you once visited the domain (or <code>localhost</code>) over HTTPS with an <code>Strict-Transport-Security</code> header, Chrome silently upgrades every request to https, even when you type <code>http://</code>. Domains like <code>.dev</code> and <code>.app</code> are HSTS-preloaded and <em>always</em> require HTTPS.</p>
+<h2 id="fix-2-delete-the-hsts-entry">Fix 2: delete the HSTS entry</h2>
+<p>Open <code>chrome://net-internals/#hsts</code>, enter the domain under "Delete domain security policies" and click Delete. For local development, use <code>localhost</code> or <code>.test</code> names instead of <code>.dev</code>.</p>
+<h2 id="cause-3-server-listens-on-443-without-ssl-enabled">Cause 3: server listens on 443 without SSL enabled</h2>
+<p>A common nginx mistake:</p>
+<pre><code class="language-nginx">server {
+    listen 443;          # wrong: plain HTTP on port 443
+    server_name example.com;
+}
+</code></pre>
+<h2 id="fix-3-configure-tls-on-the-443-listener">Fix 3: configure TLS on the 443 listener</h2>
+<pre><code class="language-nginx">server {
+    listen 443 ssl;
+    http2 on;
+    server_name example.com;
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+}
+</code></pre>
+<pre><code class="language-bash">sudo nginx -t &amp;&amp; sudo systemctl reload nginx
+</code></pre>
+<p>Apache: make sure <code>mod_ssl</code> is enabled (<code>sudo a2enmod ssl</code>) and the <code>&lt;VirtualHost *:443&gt;</code> has <code>SSLEngine on</code>.</p>
+<h2 id="cause-4-no-matching-tls-version-or-cipher">Cause 4: no matching TLS version or cipher</h2>
+<p>Old servers that only support TLS 1.0/1.1, or a config with <code>ssl_protocols TLSv1;</code>, fail in modern browsers. Check what the server supports:</p>
+<pre><code class="language-bash">openssl s_client -connect example.com:443 -tls1_2 &lt;/dev/null
+openssl s_client -connect example.com:443 -tls1_3 &lt;/dev/null
+</code></pre>
+<p>Use <code>ssl_protocols TLSv1.2 TLSv1.3;</code>.</p>
+<h2 id="cause-5-something-in-the-middle">Cause 5: something in the middle</h2>
+<p>Antivirus "HTTPS scanning", corporate proxies, captive portals on public Wi‑Fi, or a wrong system clock can break the handshake. Try another network or browser profile, disable HTTPS inspection temporarily, and check that the date and time are correct.</p>
+<p class="upd">Last updated 2026-11-04.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-err-too-many-redirects/">ERR_TOO_MANY_REDIRECTS</a></li><li><a href="/web/web-mixed-content-blocked/">Mixed Content: The page was loaded over HTTPS, but requested an insecure resource. This request has been blocked.</a></li><li><a href="/web/web-net-err-cert-authority-invalid/">NET::ERR_CERT_AUTHORITY_INVALID</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

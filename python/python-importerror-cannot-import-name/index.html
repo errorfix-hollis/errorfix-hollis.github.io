@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ImportError: cannot import name &#x27;X&#x27; from &#x27;Y&#x27; (Python) — how to fix</title>
+<meta name="description" content="The module Y was found, but it has no name X. Usually the name was removed or moved in a newer version of the library, there is a typo, a local file shadows the real package, or two modules import each other.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-importerror-cannot-import-name/">
+<meta property="og:title" content="ImportError: cannot import name &#x27;X&#x27; from &#x27;Y&#x27; (Python) — how to fix"><meta property="og:description" content="The module Y was found, but it has no name X. Usually the name was removed or moved in a newer version of the library, there is a typo, a local file shadows the real package, or two modules import each other.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-importerror-cannot-import-name/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ImportError: cannot import name 'X' from 'Y' (Python) \u2014 how to fix", "description": "The module Y was found, but it has no name X. Usually the name was removed or moved in a newer version of the library, there is a typo, a local file shadows the real package, or two modules import each other.", "dateModified": "2026-11-14", "url": "https://errorfix-hollis.github.io/python/python-importerror-cannot-import-name/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ImportError: cannot import name 'X' from 'Y'", "item": "https://errorfix-hollis.github.io/python/python-importerror-cannot-import-name/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ImportError: cannot import name &#x27;X&#x27; from &#x27;Y&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 1, in &lt;module&gt;
+    from flask import escape
+ImportError: cannot import name &#x27;escape&#x27; from &#x27;flask&#x27; (/venv/lib/python3.12/site-packages/flask/__init__.py)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the path in the error: if it points to your own file, rename it. Otherwise check the installed version with <code>pip show Y</code>; if X was removed, import it from its new location (e.g. <code>from markupsafe import escape</code>) or pin the old version (`pip install "Y</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>from Y import X</code> found and loaded module <code>Y</code>, then looked for <code>X</code> inside it and didn't find it. That is different from <code>ModuleNotFoundError</code>, where <code>Y</code> itself is missing.</p>
+<p>The path in parentheses at the end is the most useful clue: it shows <em>which file</em> Python loaded as <code>Y</code>.</p>
+<h2 id="cause-1-the-name-was-removed-or-moved-in-a-newer-release">Cause 1: the name was removed or moved in a newer release</h2>
+<p>This is the most common case after a <code>pip install --upgrade</code> or a fresh install that pulled a new major version. Well-known examples:</p>
+<table>
+<thead>
+<tr>
+<th>Error</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cannot import name 'escape' from 'flask'</code></td>
+<td><code>from markupsafe import escape</code></td>
+</tr>
+<tr>
+<td><code>cannot import name 'Markup' from 'jinja2'</code></td>
+<td><code>from markupsafe import Markup</code></td>
+</tr>
+<tr>
+<td><code>cannot import name 'url_quote' from 'werkzeug.urls'</code></td>
+<td>upgrade Flask, or <code>pip install "werkzeug&lt;3"</code></td>
+</tr>
+<tr>
+<td><code>cannot import name 'soft_unicode' from 'markupsafe'</code></td>
+<td><code>pip install "markupsafe&lt;2.1"</code> or upgrade the package using it</td>
+</tr>
+<tr>
+<td><code>cannot import name 'force_text' from 'django.utils.encoding'</code></td>
+<td><code>force_str</code> (Django 4+)</td>
+</tr>
+<tr>
+<td><code>cannot import name 'Iterable' from 'collections'</code></td>
+<td><code>from collections.abc import Iterable</code> (Python 3.10+)</td>
+</tr>
+<tr>
+<td><code>cannot import name 'triu' from 'scipy.linalg'</code></td>
+<td><code>pip install "scipy&lt;1.13"</code> or upgrade gensim</td>
+</tr>
+</tbody>
+</table>
+<p>Check what you have and read the library's changelog:</p>
+<pre><code class="language-bash">pip show flask          # Version: ...
+pip index versions flask
+</code></pre>
+<p>Then either update your import or pin the version that matches your code in <code>requirements.txt</code>:</p>
+<pre><code class="language-bash">pip install &quot;werkzeug&lt;3&quot;
+</code></pre>
+<h2 id="cause-2-your-own-file-shadows-the-package">Cause 2: your own file shadows the package</h2>
+<p>If the path in the error points into your project instead of <code>site-packages</code>, you have a file or folder with the same name as the library:</p>
+<pre><code>ImportError: cannot import name 'Celery' from 'celery' (/home/me/proj/celery.py)
+</code></pre>
+<p>Rename your file (<code>celery.py</code> → <code>tasks.py</code>), and delete stale bytecode:</p>
+<pre><code class="language-bash">find . -name &quot;__pycache__&quot; -type d -exec rm -rf {} +
+</code></pre>
+<p>Common offenders: <code>random.py</code>, <code>email.py</code>, <code>requests.py</code>, <code>openai.py</code>, <code>numpy.py</code>, <code>test.py</code>, <code>token.py</code>.</p>
+<h2 id="cause-3-circular-import">Cause 3: circular import</h2>
+<p>If the message includes <code>(most likely due to a circular import)</code> or <code>partially initialized module</code>, module A imports B while B imports A. See <a href="/python/python-cannot-import-name-partially-initialized-module/">cannot import name ... partially initialized module</a> for the fixes (move the import into a function, or move shared code into a third module).</p>
+<h2 id="cause-4-typo-wrong-case-or-wrong-submodule">Cause 4: typo, wrong case or wrong submodule</h2>
+<p>Names are case-sensitive and some live in a submodule:</p>
+<pre><code class="language-python">from sklearn import train_test_split                  # wrong
+from sklearn.model_selection import train_test_split  # right
+
+from PIL import image     # wrong
+from PIL import Image     # right
+</code></pre>
+<p>List what a module actually exports:</p>
+<pre><code class="language-python">import flask
+print([n for n in dir(flask) if not n.startswith(&quot;_&quot;)])
+print(flask.__file__, getattr(flask, &quot;__version__&quot;, &quot;?&quot;))
+</code></pre>
+<h2 id="cause-5-wrong-environment">Cause 5: wrong environment</h2>
+<p>You fixed the version in one virtualenv but run the code with another interpreter. Compare:</p>
+<pre><code class="language-bash">which python
+python -c &quot;import flask, sys; print(sys.executable, flask.__file__)&quot;
+</code></pre>
+<p>In VS Code pick the interpreter with <strong>Python: Select Interpreter</strong>; in Jupyter run <code>%pip install ...</code> so it installs into the kernel's environment.</p>
+<p class="upd">Last updated 2026-11-14.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li><li><a href="/python/python-cannot-import-name-partially-initialized-module/">ImportError: cannot import name &#x27;X&#x27; from partially initialized module &#x27;Y&#x27; (most likely due to a circular import)</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

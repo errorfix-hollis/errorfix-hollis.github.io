@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>missing go.sum entry for module providing package — how to fix</title>
+<meta name="description" content="go.mod lists (or your code imports) a module whose checksum isn&#x27;t recorded in go.sum, and since Go 1.16 the go command won&#x27;t add it automatically during build. Run go mod tidy.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-missing-go-sum-entry/">
+<meta property="og:title" content="missing go.sum entry for module providing package — how to fix"><meta property="og:description" content="go.mod lists (or your code imports) a module whose checksum isn&#x27;t recorded in go.sum, and since Go 1.16 the go command won&#x27;t add it automatically during build. Run go mod tidy.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-missing-go-sum-entry/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "missing go.sum entry for module providing package \u2014 how to fix", "description": "go.mod lists (or your code imports) a module whose checksum isn't recorded in go.sum, and since Go 1.16 the go command won't add it automatically during build. Run go mod tidy.", "dateModified": "2026-11-03", "url": "https://errorfix-hollis.github.io/go/go-missing-go-sum-entry/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "missing go.sum entry for module providing package", "item": "https://errorfix-hollis.github.io/go/go-missing-go-sum-entry/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>missing go.sum entry for module providing package — how to fix</h1>
+<pre class="err"><code>main.go:6:2: missing go.sum entry for module providing package github.com/gin-gonic/gin (imported by example.com/app); to add:
+	go get example.com/app
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>go mod tidy</code> in the module root (the folder with go.mod) to add missing requirements and go.sum lines, then commit both go.mod and go.sum. For a single package: <code>go get github.com/gin-gonic/gin</code>. In Docker, copy go.sum along with go.mod before <code>go mod download</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>go.sum</code> stores cryptographic hashes of every module version your build depends on. Since Go 1.16, commands like <code>go build</code>, <code>go run</code> and <code>go test</code> run in <code>-mod=readonly</code> mode: they refuse to modify <code>go.mod</code> or <code>go.sum</code>. If a needed hash is missing, they stop and tell you to add it.</p>
+<h2 id="fix-1-go-mod-tidy">Fix 1: go mod tidy</h2>
+<p>From the directory containing <code>go.mod</code>:</p>
+<pre><code class="language-bash">go mod tidy
+go build ./...
+</code></pre>
+<p><code>tidy</code> adds requirements for every package imported by your code (including tests), removes unused ones, and writes all needed <code>go.sum</code> lines. Commit both files:</p>
+<pre><code class="language-bash">git add go.mod go.sum
+git commit -m &quot;go mod tidy&quot;
+</code></pre>
+<h2 id="fix-2-go-get-a-specific-package">Fix 2: go get a specific package</h2>
+<p>If you just added an import:</p>
+<pre><code class="language-bash">go get github.com/gin-gonic/gin
+</code></pre>
+<p>This adds it to <code>go.mod</code> and its sums to <code>go.sum</code>. Running <code>go mod tidy</code> afterwards is still a good idea.</p>
+<h2 id="cause-gosum-not-committed-or-not-copied">Cause: go.sum not committed or not copied</h2>
+<p><strong>In git:</strong> <code>go.sum</code> is listed in <code>.gitignore</code> or was never committed. It should be committed — remove it from <code>.gitignore</code>.</p>
+<p><strong>In Docker:</strong> the classic layer-caching pattern must copy both files:</p>
+<pre><code class="language-dockerfile">FROM golang:1.23 AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -o /app ./cmd/app
+</code></pre>
+<p>If you only <code>COPY go.mod ./</code>, the build fails with this error. Also make sure <code>.dockerignore</code> doesn't exclude <code>go.sum</code>.</p>
+<h2 id="cause-wrong-directory-or-nested-modules">Cause: wrong directory or nested modules</h2>
+<p>If your repo has several <code>go.mod</code> files (e.g. <code>./go.mod</code> and <code>./tools/go.mod</code>), run <code>tidy</code> in the module that does the import. Check which module you're in:</p>
+<pre><code class="language-bash">go env GOMOD
+</code></pre>
+<p>With Go workspaces (<code>go.work</code>), run <code>go work sync</code> and then <code>go mod tidy</code> in each module.</p>
+<h2 id="cause-a-replace-directive-or-edited-gomod">Cause: a replace directive or edited go.mod</h2>
+<p>Manually editing <code>go.mod</code> (bumping a version, adding <code>replace</code>) doesn't update <code>go.sum</code>. Run <code>go mod tidy</code> after any manual edit.</p>
+<h2 id="cause-private-modules">Cause: private modules</h2>
+<p>If <code>tidy</code> fails for a private repo with <code>verifying module: ... 410 Gone</code> or <code>checksum database</code> errors, tell Go not to use the public proxy and sum database for it:</p>
+<pre><code class="language-bash">go env -w GOPRIVATE=github.com/myorg/*
+</code></pre>
+<p>and configure git authentication (e.g. <code>git config --global url."git@github.com:".insteadOf "https://github.com/"</code>).</p>
+<h2 id="dont">Don't</h2>
+<ul>
+<li>Don't delete <code>go.sum</code> to "fix" checksum errors — <code>tidy</code> will regenerate it, but you lose verification of previously recorded versions.</li>
+<li>Don't use <code>-mod=mod</code> in CI to paper over it; fix the committed files instead. A CI check like <code>go mod tidy &amp;&amp; git diff --exit-code go.mod go.sum</code> catches this early.</li>
+</ul>
+<p class="upd">Last updated 2026-11-03.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-cannot-find-main-module/">go: cannot find main module, but found .git/config</a></li><li><a href="/go/go-imported-and-not-used/">&quot;fmt&quot; imported and not used</a></li><li><a href="/go/go-undefined/">undefined: X</a></li><li><a href="/go/go-all-goroutines-are-asleep-deadlock/">fatal error: all goroutines are asleep - deadlock!</a></li><li><a href="/go/go-cannot-use-as-value-in-assignment/">cannot use x (variable of type T) as U value in assignment</a></li><li><a href="/go/go-declared-and-not-used/">declared and not used</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

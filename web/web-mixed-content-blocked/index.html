@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mixed Content: The page was loaded over HTTPS, but requested an insecure resource. This request has been blocked. — how to fix</title>
+<meta name="description" content="An HTTPS page tried to load a script, stylesheet, iframe, fetch/XHR call or other resource over plain HTTP, and the browser blocked it. Load every resource over HTTPS, usually by fixing hard-coded http:// URLs or a backend that generates them behind a TLS proxy.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-mixed-content-blocked/">
+<meta property="og:title" content="Mixed Content: The page was loaded over HTTPS, but requested an insecure resource. This request has been blocked. — how to fix"><meta property="og:description" content="An HTTPS page tried to load a script, stylesheet, iframe, fetch/XHR call or other resource over plain HTTP, and the browser blocked it. Load every resource over HTTPS, usually by fixing hard-coded http:// URLs or a backend that generates them behind a TLS proxy.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-mixed-content-blocked/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Mixed Content: The page was loaded over HTTPS, but requested an insecure resource. This request has been blocked. \u2014 how to fix", "description": "An HTTPS page tried to load a script, stylesheet, iframe, fetch/XHR call or other resource over plain HTTP, and the browser blocked it. Load every resource over HTTPS, usually by fixing hard-coded http:// URLs or a backend that generates them behind a TLS proxy.", "dateModified": "2026-10-30", "url": "https://errorfix-hollis.github.io/web/web-mixed-content-blocked/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "Mixed Content: The page was loaded over HTTPS, but requested an insecure resource. This request has been blocked.", "item": "https://errorfix-hollis.github.io/web/web-mixed-content-blocked/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>Mixed Content: The page was loaded over HTTPS, but requested an insecure resource. This request has been blocked. — how to fix</h1>
+<pre class="err"><code>Mixed Content: The page at &#x27;https://example.com/&#x27; was loaded over HTTPS, but requested an insecure XMLHttpRequest endpoint &#x27;http://api.example.com/data&#x27;. This request has been blocked; the content must be served over HTTPS.
+Mixed Content: The page at &#x27;https://example.com/&#x27; was loaded over HTTPS, but requested an insecure script &#x27;http://cdn.example.com/lib.js&#x27;. This request has been blocked; the content must be served over HTTPS.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Change the URL to <code>https://</code> (or a relative path like <code>/api/data</code>) and make sure that host actually serves HTTPS. If your app generates <code>http://</code> links behind a reverse proxy, forward <code>X-Forwarded-Proto</code> and enable proxy trust in your framework. As a stopgap, add the header <code>Content-Security-Policy: upgrade-insecure-requests</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A page served over HTTPS must not pull in content over unencrypted HTTP, because an attacker on the network could modify that content and, through it, the secure page. Browsers block "active" mixed content (scripts, stylesheets, iframes, <code>fetch</code>/XHR, WebSockets via <code>ws://</code>) outright. Modern Chrome and Firefox also auto-upgrade images, audio and video to HTTPS and block them if the upgrade fails.</p>
+<p>The console message names the exact insecure URL. Find every one: DevTools → Console (filter "Mixed Content"), or the Network tab, or search your code and built output:</p>
+<pre><code class="language-bash">grep -rn &quot;http://&quot; src/ public/ --include=*.{html,js,jsx,ts,tsx,css}
+</code></pre>
+<h2 id="fix-1-use-https-or-relative-urls">Fix 1: use https:// or relative URLs</h2>
+<pre><code class="language-html">&lt;!-- Wrong --&gt;
+&lt;script src=&quot;http://cdn.example.com/lib.js&quot;&gt;&lt;/script&gt;
+
+&lt;!-- Right --&gt;
+&lt;script src=&quot;https://cdn.example.com/lib.js&quot;&gt;&lt;/script&gt;
+&lt;!-- Same-origin: just use a path --&gt;
+&lt;link rel=&quot;stylesheet&quot; href=&quot;/css/site.css&quot;&gt;
+</code></pre>
+<p>The target host must actually support HTTPS; if it doesn't, host the file yourself or find an HTTPS alternative.</p>
+<h2 id="fix-2-api-base-url-in-environment-config">Fix 2: API base URL in environment config</h2>
+<p>Front-end builds often bake in the API URL. A <code>http://</code> value from local development ends up in production:</p>
+<pre><code class="language-bash"># .env.production
+VITE_API_URL=https://api.example.com
+# or NEXT_PUBLIC_API_URL / REACT_APP_API_URL depending on the framework
+</code></pre>
+<p>Rebuild after changing it — these values are inlined at build time. Use <code>wss://</code> instead of <code>ws://</code> for WebSockets.</p>
+<h2 id="fix-3-the-backend-generates-http-urls-behind-a-proxy">Fix 3: the backend generates http:// URLs behind a proxy</h2>
+<p>When TLS terminates at a load balancer, nginx, Cloudflare or a PaaS router, your app receives plain HTTP and builds absolute URLs (redirects, asset links, pagination <code>next</code> links, OAuth callbacks) with <code>http://</code>. Forward the original scheme and tell the framework to trust it.</p>
+<p>nginx:</p>
+<pre><code class="language-nginx">location / {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+</code></pre>
+<p>Then, in the app:</p>
+<ul>
+<li><strong>Express:</strong> <code>app.set('trust proxy', 1);</code></li>
+<li><strong>Django:</strong> <code>SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')</code></li>
+<li><strong>Flask:</strong> wrap with <code>werkzeug.middleware.proxy_fix.ProxyFix(app.wsgi_app, x_proto=1)</code></li>
+<li><strong>Laravel:</strong> configure trusted proxies (<code>TrustProxies</code> middleware), or <code>URL::forceScheme('https')</code> in production.</li>
+<li><strong>Spring Boot:</strong> <code>server.forward-headers-strategy=framework</code></li>
+</ul>
+<p>Trailing-slash redirects are a classic case: <code>/api/items</code> → <code>301 http://example.com/api/items/</code> gets blocked.</p>
+<h2 id="fix-4-cms-with-an-http-site-url-wordpress">Fix 4: CMS with an http:// site URL (WordPress)</h2>
+<p>If the site was moved to HTTPS, the stored site URL and old post content still contain <code>http://</code>. Set both <strong>WordPress Address</strong> and <strong>Site Address</strong> to <code>https://</code> in <em>Settings → General</em>, then replace old URLs in the database, e.g. with WP-CLI:</p>
+<pre><code class="language-bash">wp search-replace 'http://example.com' 'https://example.com' --skip-columns=guid --dry-run
+wp search-replace 'http://example.com' 'https://example.com' --skip-columns=guid
+</code></pre>
+<h2 id="stopgap-upgrade-insecure-requests">Stopgap: upgrade-insecure-requests</h2>
+<p>This header makes the browser rewrite <code>http://</code> subresource URLs to <code>https://</code> before requesting them:</p>
+<pre><code class="language-nginx">add_header Content-Security-Policy &quot;upgrade-insecure-requests&quot; always;
+</code></pre>
+<p>or in HTML:</p>
+<pre><code class="language-html">&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;upgrade-insecure-requests&quot;&gt;
+</code></pre>
+<p>It only works if every affected host serves the same resource over HTTPS, and it doesn't fix your code — keep fixing the source URLs.</p>
+<p class="upd">Last updated 2026-10-30.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-err-too-many-redirects/">ERR_TOO_MANY_REDIRECTS</a></li><li><a href="/web/web-net-err-cert-authority-invalid/">NET::ERR_CERT_AUTHORITY_INVALID</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/web/web-err-connection-refused/">ERR_CONNECTION_REFUSED</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

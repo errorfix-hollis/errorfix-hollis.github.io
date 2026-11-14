@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Warning: Can&#x27;t perform a React state update on an unmounted component. (JavaScript) — how to fix</title>
+<meta name="description" content="An async task (fetch, timer, subscription) finished after its component was removed and then called setState. React 18 removed this warning, but the underlying bug (wasted work, race conditions) is still worth fixing with an effect cleanup.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">
+<meta property="og:title" content="Warning: Can&#x27;t perform a React state update on an unmounted component. (JavaScript) — how to fix"><meta property="og:description" content="An async task (fetch, timer, subscription) finished after its component was removed and then called setState. React 18 removed this warning, but the underlying bug (wasted work, race conditions) is still worth fixing with an effect cleanup.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Warning: Can't perform a React state update on an unmounted component. (JavaScript) \u2014 how to fix", "description": "An async task (fetch, timer, subscription) finished after its component was removed and then called setState. React 18 removed this warning, but the underlying bug (wasted work, race conditions) is still worth fixing with an effect cleanup.", "dateModified": "2026-11-11", "url": "https://errorfix-hollis.github.io/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "Warning: Can't perform a React state update on an unmounted component.", "item": "https://errorfix-hollis.github.io/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>Warning: Can&#x27;t perform a React state update on an unmounted component. (JavaScript) — how to fix</h1>
+<pre class="err"><code>Warning: Can&#x27;t perform a React state update on an unmounted component. This is a no-op, but it indicates a memory leak in your application. To fix, cancel all subscriptions and asynchronous tasks in a useEffect cleanup function.
+    at UserProfile (UserProfile.jsx:12)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Return a cleanup function from <code>useEffect</code> that cancels the work: abort fetches with <code>AbortController</code> (<code>return () =&gt; controller.abort()</code>), <code>clearTimeout</code>/<code>clearInterval</code> timers, and unsubscribe listeners. For data fetching, a library like TanStack Query handles this for you. Upgrading to React 18+ removes the warning itself.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A component started something asynchronous, then got unmounted (the user navigated away, a conditional hid it, a list item was removed). When the async work completed it called a state setter on a component that no longer exists. React ignores the update and, in React 16/17, prints this warning.</p>
+<p><strong>React 18 removed the warning</strong>, because most cases (a single fetch resolving late) aren't real leaks. If you still see it, you're on React 17 or older. Either way, the cleanups below are the right pattern: they prevent race conditions where a slow old request overwrites newer data.</p>
+<h2 id="fix-1-abort-fetch-requests">Fix 1: abort fetch requests</h2>
+<pre><code class="language-jsx">useEffect(() =&gt; {
+  const controller = new AbortController();
+
+  fetch(`/api/users/${id}`, { signal: controller.signal })
+    .then(res =&gt; res.json())
+    .then(setUser)
+    .catch(err =&gt; {
+      if (err.name !== 'AbortError') setError(err);
+    });
+
+  return () =&gt; controller.abort();   // runs on unmount and before the next effect
+}, [id]);
+</code></pre>
+<p>Axios supports the same <code>signal</code> option (<code>axios.get(url, { signal })</code>); aborted requests reject with <code>CanceledError</code>, which you can check with <code>axios.isCancel(err)</code>.</p>
+<h2 id="fix-2-ignore-stale-results-with-a-flag">Fix 2: ignore stale results with a flag</h2>
+<p>If the async API can't be cancelled (an SDK call, a promise from a library), ignore the result after cleanup:</p>
+<pre><code class="language-jsx">useEffect(() =&gt; {
+  let ignore = false;
+
+  loadUser(id).then(data =&gt; {
+    if (!ignore) setUser(data);
+  });
+
+  return () =&gt; { ignore = true; };
+}, [id]);
+</code></pre>
+<p>This is the pattern from the React docs. It also fixes the race when <code>id</code> changes quickly: only the latest request updates state.</p>
+<h2 id="fix-3-clear-timers-and-intervals">Fix 3: clear timers and intervals</h2>
+<pre><code class="language-jsx">useEffect(() =&gt; {
+  const t = setTimeout(() =&gt; setVisible(false), 3000);
+  return () =&gt; clearTimeout(t);
+}, []);
+
+useEffect(() =&gt; {
+  const i = setInterval(() =&gt; setNow(Date.now()), 1000);
+  return () =&gt; clearInterval(i);
+}, []);
+</code></pre>
+<h2 id="fix-4-unsubscribe-from-listeners-and-sockets">Fix 4: unsubscribe from listeners and sockets</h2>
+<pre><code class="language-jsx">useEffect(() =&gt; {
+  const onResize = () =&gt; setWidth(window.innerWidth);
+  window.addEventListener('resize', onResize);
+  return () =&gt; window.removeEventListener('resize', onResize);
+}, []);
+
+useEffect(() =&gt; {
+  const ws = new WebSocket(url);
+  ws.onmessage = e =&gt; setMessages(m =&gt; [...m, e.data]);
+  return () =&gt; ws.close();
+}, [url]);
+</code></pre>
+<p>Firebase, RxJS and most stores return an unsubscribe function: <code>return onSnapshot(ref, cb);</code> is a valid cleanup.</p>
+<h2 id="fix-5-async-work-in-event-handlers">Fix 5: async work in event handlers</h2>
+<p>The warning can also come from a click handler that awaits and then sets state after the component closed (e.g. a modal that submits, then closes itself, then sets <code>loading=false</code>):</p>
+<pre><code class="language-jsx">async function handleSubmit() {
+  setLoading(true);
+  await save(form);
+  onClose();            // parent unmounts this modal
+  setLoading(false);    // too late: component is gone
+}
+</code></pre>
+<p>Reorder so the state update happens before closing, or skip it since the component disappears anyway.</p>
+<h2 id="fix-6-let-a-data-library-handle-it">Fix 6: let a data library handle it</h2>
+<p>TanStack Query, SWR, RTK Query and React Router loaders manage cancellation, caching and deduplication for you:</p>
+<pre><code class="language-jsx">const { data: user } = useQuery({
+  queryKey: ['user', id],
+  queryFn: ({ signal }) =&gt; fetch(`/api/users/${id}`, { signal }).then(r =&gt; r.json()),
+});
+</code></pre>
+<h2 id="dont-use-an-ismounted-ref-as-the-fix">Don't use an isMounted ref as the fix</h2>
+<p>Tracking <code>isMounted.current</code> silences the warning but leaves the request running and doesn't fix races between requests. In React 18 Strict Mode, effects mount, unmount and mount again in development, so a ref set only once can also be wrong. Prefer the cleanup patterns above.</p>
+<p class="upd">Last updated 2026-11-11.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-maximum-update-depth-exceeded/">Maximum update depth exceeded</a></li><li><a href="/javascript/js-react-hook-useeffect-has-a-missing-dependency/">React Hook useEffect has a missing dependency</a></li><li><a href="/javascript/js-too-many-re-renders/">Too many re-renders. React limits the number of renders to prevent an infinite loop.</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li><li><a href="/javascript/js-hydration-failed-initial-ui-does-not-match/">Hydration failed because the initial UI does not match what was rendered on the server</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

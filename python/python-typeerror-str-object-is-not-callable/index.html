@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: &#x27;str&#x27; object is not callable (Python) — how to fix</title>
+<meta name="description" content="You used parentheses on something that is a string. Almost always a built-in such as str, input or a method name was overwritten by a variable, or parentheses were used where indexing or a format operator was meant.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-str-object-is-not-callable/">
+<meta property="og:title" content="TypeError: &#x27;str&#x27; object is not callable (Python) — how to fix"><meta property="og:description" content="You used parentheses on something that is a string. Almost always a built-in such as str, input or a method name was overwritten by a variable, or parentheses were used where indexing or a format operator was meant.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-str-object-is-not-callable/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: 'str' object is not callable (Python) \u2014 how to fix", "description": "You used parentheses on something that is a string. Almost always a built-in such as str, input or a method name was overwritten by a variable, or parentheses were used where indexing or a format operator was meant.", "dateModified": "2026-11-02", "url": "https://errorfix-hollis.github.io/python/python-typeerror-str-object-is-not-callable/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: 'str' object is not callable", "item": "https://errorfix-hollis.github.io/python/python-typeerror-str-object-is-not-callable/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: &#x27;str&#x27; object is not callable (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;main.py&quot;, line 4, in &lt;module&gt;
+    print(str(42))
+TypeError: &#x27;str&#x27; object is not callable
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find where the name was reassigned (e.g. <code>str = "..."</code>, <code>input = input()</code>), rename that variable, and restart the interpreter/kernel (<code>del str</code> in a notebook). Use <code>s[0]</code> not <code>s(0)</code> for indexing, and <code>"..." % x</code> or f-strings, not <code>"..."(x)</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>x()</code> calls <code>x</code>. When <code>x</code> is a string, Python raises <code>TypeError: 'str' object is not callable</code>. Look at the line in the traceback and ask, for every <code>name(</code> on it: is <code>name</code> actually a string right now?</p>
+<pre><code class="language-python">print(type(str), type(input))   # should be &lt;class 'type'&gt; / builtin_function_or_method
+</code></pre>
+<h2 id="cause-1-a-variable-shadows-the-str-built-in">Cause 1: a variable shadows the <code>str</code> built-in</h2>
+<pre><code class="language-python">str = &quot;hello&quot;
+...
+label = str(42)      # TypeError: 'str' object is not callable
+</code></pre>
+<p>Rename the variable (<code>text</code>, <code>s</code>, <code>name</code>...). In Jupyter or an interactive shell, the bad assignment persists even after you edit the cell — undo it:</p>
+<pre><code class="language-python">del str          # restores the built-in
+</code></pre>
+<p>or restart the kernel.</p>
+<p>The same happens with other built-ins: <code>input</code>, <code>format</code>, <code>type</code>, <code>id</code>, <code>print</code> (<code>print = "x"</code>), <code>max</code>, <code>sum</code>. A classic:</p>
+<pre><code class="language-python">input = input(&quot;Name: &quot;)
+age = input(&quot;Age: &quot;)     # TypeError: 'str' object is not callable
+</code></pre>
+<h2 id="cause-2-an-attribute-or-method-name-collides">Cause 2: an attribute or method name collides</h2>
+<pre><code class="language-python">class User:
+    def __init__(self, name):
+        self.name = name
+    def name(self):            # replaced by the instance attribute
+        return self.name
+
+User(&quot;a&quot;).name()   # TypeError: 'str' object is not callable
+</code></pre>
+<p>The instance attribute <code>self.name</code> (a string) hides the method. Rename one of them (<code>get_name</code>), or use <code>@property</code> and access it without parentheses:</p>
+<pre><code class="language-python">class User:
+    def __init__(self, name):
+        self._name = name
+    @property
+    def name(self):
+        return self._name
+
+User(&quot;a&quot;).name      # no ()
+</code></pre>
+<p>Also: calling a property with <code>()</code> gives the same error, e.g. <code>response.text()</code> in <code>requests</code> — <code>.text</code> is a string property; use <code>response.text</code> (but <code>response.json()</code> <em>is</em> a method).</p>
+<h2 id="cause-3-parentheses-instead-of-brackets">Cause 3: parentheses instead of brackets</h2>
+<pre><code class="language-python">s = &quot;abcdef&quot;
+s(0)        # wrong
+s[0]        # 'a'
+</code></pre>
+<h2 id="cause-4-missing-operator-when-formatting">Cause 4: missing operator when formatting</h2>
+<pre><code class="language-python">msg = &quot;Total: %d&quot; (total)     # missing %
+msg = &quot;Hi &quot; &quot;there&quot; (name)    # missing +
+</code></pre>
+<p>Fix:</p>
+<pre><code class="language-python">msg = &quot;Total: %d&quot; % total
+msg = f&quot;Total: {total}&quot;
+msg = &quot;Hi &quot; + name
+</code></pre>
+<h2 id="cause-5-a-function-was-replaced-by-its-result">Cause 5: a function was replaced by its result</h2>
+<pre><code class="language-python">def get_title(): return &quot;Report&quot;
+get_title = get_title()   # now a string
+get_title()               # TypeError
+</code></pre>
+<p>Or a callback parameter receives a string instead of a function:</p>
+<pre><code class="language-python">def run(callback):
+    callback()
+
+run(&quot;my_func&quot;)      # wrong: pass my_func, not its name
+run(my_func)
+</code></pre>
+<p>If you need to look up a function by name, use a dict: <code>handlers = {"save": save}</code> then <code>handlers[name]()</code>.</p>
+<h2 id="finding-the-culprit-fast">Finding the culprit fast</h2>
+<p>Search for assignments to the name:</p>
+<pre><code class="language-bash">grep -nE '^\s*(str|input|format|type)\s*=' *.py
+</code></pre>
+<p>Linters catch this too: <code>pylint</code> reports <code>redefined-builtin</code> (W0622), and <code>ruff</code> has rule <code>A001</code> (builtin-variable-shadowing).</p>
+<p class="upd">Last updated 2026-11-02.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-nameerror-name-is-not-defined/">NameError: name &#x27;x&#x27; is not defined</a></li><li><a href="/python/python-typeerror-module-object-is-not-callable/">TypeError: &#x27;module&#x27; object is not callable</a></li><li><a href="/python/python-typeerror-unsupported-operand-types/">TypeError: unsupported operand type(s) for +: &#x27;int&#x27; and &#x27;str&#x27;</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

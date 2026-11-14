@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>remote: error: GH001: Large files detected. You may want to try Git Large File Storage — how to fix</title>
+<meta name="description" content="GitHub rejects pushes containing any file over 100 MB, in any commit being pushed. Deleting the file in a new commit is not enough; it has to be removed from history (or moved to Git LFS).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-gh001-large-files-detected/">
+<meta property="og:title" content="remote: error: GH001: Large files detected. You may want to try Git Large File Storage — how to fix"><meta property="og:description" content="GitHub rejects pushes containing any file over 100 MB, in any commit being pushed. Deleting the file in a new commit is not enough; it has to be removed from history (or moved to Git LFS).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-gh001-large-files-detected/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "remote: error: GH001: Large files detected. You may want to try Git Large File Storage \u2014 how to fix", "description": "GitHub rejects pushes containing any file over 100 MB, in any commit being pushed. Deleting the file in a new commit is not enough; it has to be removed from history (or moved to Git LFS).", "dateModified": "2026-11-01", "url": "https://errorfix-hollis.github.io/git/git-gh001-large-files-detected/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "remote: error: GH001: Large files detected. You may want to try Git Large File Storage", "item": "https://errorfix-hollis.github.io/git/git-gh001-large-files-detected/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>remote: error: GH001: Large files detected. You may want to try Git Large File Storage — how to fix</h1>
+<pre class="err"><code>remote: error: Trace: 8f3c2d...
+remote: error: See https://gh.io/lfs for more information.
+remote: error: File data/model.bin is 312.45 MB; this exceeds GitHub&#x27;s file size limit of 100.00 MB
+remote: error: GH001: Large files detected. You may want to try Git Large File Storage - https://git-lfs.github.com.
+To github.com:me/repo.git
+ ! [remote rejected] main -&gt; main (pre-receive hook declined)
+error: failed to push some refs to &#x27;github.com:me/repo.git&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> If the big file is only in your last commit: <code>git rm --cached path/to/file</code>, add it to <code>.gitignore</code>, <code>git commit --amend</code>, push. If it's in older unpushed commits, <code>git reset --soft origin/main</code> and recommit without it, or rewrite with <code>git filter-repo --path path/to/file --invert-paths</code>. To keep it versioned, use <code>git lfs migrate import --include="*.bin"</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>GitHub blocks any single file larger than 100 MB (and warns above 50 MB). The check runs on <strong>every commit in the push</strong>, not just the latest tree. So if you committed a 300 MB file, then deleted it in a later commit, the push still fails: the blob is still in history.</p>
+<p>First find what's too big (the error names it), and which commits haven't been pushed:</p>
+<pre><code class="language-bash">git log origin/main..HEAD --stat     # unpushed commits and the files they touch
+</code></pre>
+<h2 id="fix-1-the-file-is-only-in-the-last-commit">Fix 1: the file is only in the last commit</h2>
+<pre><code class="language-bash">git rm --cached data/model.bin        # untrack, keep the file on disk
+echo &quot;data/model.bin&quot; &gt;&gt; .gitignore
+git add .gitignore
+git commit --amend --no-edit
+git push
+</code></pre>
+<h2 id="fix-2-its-in-several-unpushed-commits">Fix 2: it's in several unpushed commits</h2>
+<p>The simplest way is to squash your unpushed work into a fresh commit without the file:</p>
+<pre><code class="language-bash">git reset --soft origin/main          # keep all changes staged, drop the commits
+git rm --cached data/model.bin
+echo &quot;data/model.bin&quot; &gt;&gt; .gitignore
+git add .gitignore
+git commit -m &quot;Add feature (without large data file)&quot;
+git push
+</code></pre>
+<p>This loses the individual commit messages. To keep them, use an interactive rebase (<code>git rebase -i origin/main</code>), mark the commit that added the file as <code>edit</code>, run <code>git rm --cached</code> + <code>git commit --amend</code>, then <code>git rebase --continue</code>.</p>
+<h2 id="fix-3-rewrite-history-with-git-filter-repo">Fix 3: rewrite history with git filter-repo</h2>
+<p>For a file buried deep in history (or a branch never pushed before), <code>git filter-repo</code> removes it from every commit. Install it (<code>pip install git-filter-repo</code> or <code>sudo apt install git-filter-repo</code>), work on a fresh clone or backup, then:</p>
+<pre><code class="language-bash">git filter-repo --path data/model.bin --invert-paths
+# or everything above a size
+git filter-repo --strip-blobs-bigger-than 100M
+</code></pre>
+<p>filter-repo removes the <code>origin</code> remote as a safety measure. Re-add it and push:</p>
+<pre><code class="language-bash">git remote add origin git@github.com:me/repo.git
+git push -u origin main --force
+</code></pre>
+<p>Force-pushing rewritten history affects anyone else who has cloned the repo; they'll need to re-clone or reset.</p>
+<h2 id="fix-4-keep-the-file-using-git-lfs">Fix 4: keep the file, using Git LFS</h2>
+<p>If the file belongs in the repo, store it in LFS (GitHub's free LFS quota is limited, check your plan):</p>
+<pre><code class="language-bash">git lfs install
+git lfs migrate import --include=&quot;*.bin&quot; --include-ref=refs/heads/main
+git push
+</code></pre>
+<p><code>migrate import</code> rewrites the existing commits so the files become LFS pointers. For new files only, <code>git lfs track "*.bin"</code> and commit <code>.gitattributes</code> before adding them.</p>
+<h2 id="prevent-it">Prevent it</h2>
+<ul>
+<li>Add data, models, build output, <code>node_modules</code>, <code>.venv</code> and archives to <code>.gitignore</code> before the first commit.</li>
+<li>Check for big files before committing: <code>find . -size +50M -not -path "./.git/*"</code>.</li>
+<li>Large datasets belong in object storage, releases (assets up to 2 GB), or a tool like DVC.</li>
+</ul>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-src-refspec-main-does-not-match-any/">error: src refspec main does not match any</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

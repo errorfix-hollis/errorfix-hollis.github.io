@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>[plugin:vite:import-analysis] Failed to resolve import (JavaScript) — how to fix</title>
+<meta name="description" content="Vite could not map an import path to a file or installed package. Usually a typo or wrong case in the path, a missing npm package, or a path alias (like @/) defined in tsconfig but not in vite.config.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-vite-failed-to-resolve-import/">
+<meta property="og:title" content="[plugin:vite:import-analysis] Failed to resolve import (JavaScript) — how to fix"><meta property="og:description" content="Vite could not map an import path to a file or installed package. Usually a typo or wrong case in the path, a missing npm package, or a path alias (like @/) defined in tsconfig but not in vite.config.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-vite-failed-to-resolve-import/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "[plugin:vite:import-analysis] Failed to resolve import (JavaScript) \u2014 how to fix", "description": "Vite could not map an import path to a file or installed package. Usually a typo or wrong case in the path, a missing npm package, or a path alias (like @/) defined in tsconfig but not in vite.config.", "dateModified": "2026-11-08", "url": "https://errorfix-hollis.github.io/javascript/js-vite-failed-to-resolve-import/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "[plugin:vite:import-analysis] Failed to resolve import", "item": "https://errorfix-hollis.github.io/javascript/js-vite-failed-to-resolve-import/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>[plugin:vite:import-analysis] Failed to resolve import (JavaScript) — how to fix</h1>
+<pre class="err"><code>[plugin:vite:import-analysis] Failed to resolve import &quot;@/components/Button&quot; from &quot;src/App.tsx&quot;. Does the file exist?
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the path and file name case. For a package, run <code>npm install &lt;pkg&gt;</code>. For <code>@/</code> aliases add <code>resolve: { alias: { '@': path.resolve(__dirname, './src') } }</code> to vite.config (or use the <code>vite-tsconfig-paths</code> plugin), then restart the dev server.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Vite's <code>import-analysis</code> plugin rewrites every import in your source. For each specifier it asks the resolver: is this a relative file, an alias, or a package in <code>node_modules</code>? If none matches, you get this overlay. It is Vite's version of webpack's <a href="/javascript/js-module-not-found-error-cant-resolve/">Module not found: Can't resolve</a>.</p>
+<h2 id="cause-1-path-alias-only-configured-in-typescript">Cause 1: path alias only configured in TypeScript</h2>
+<p><code>tsconfig.json</code> <code>paths</code> are only used by the TypeScript type checker. Vite does not read them by default, so the editor is happy but the dev server fails.</p>
+<p><strong>Fix:</strong> declare the alias in <code>vite.config.ts</code>:</p>
+<pre><code class="language-ts">import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'node:path'
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+})
+</code></pre>
+<p>Keep <code>tsconfig.json</code> in sync:</p>
+<pre><code class="language-json">{
+  &quot;compilerOptions&quot;: {
+    &quot;baseUrl&quot;: &quot;.&quot;,
+    &quot;paths&quot;: { &quot;@/*&quot;: [&quot;./src/*&quot;] }
+  }
+}
+</code></pre>
+<p>Or install <code>vite-tsconfig-paths</code> and add <code>tsconfigPaths()</code> to <code>plugins</code> so Vite reads the tsconfig paths itself. If <code>__dirname</code> is undefined (ESM config), use <code>fileURLToPath(new URL('./src', import.meta.url))</code>.</p>
+<p>Restart <code>npm run dev</code> after editing the config.</p>
+<h2 id="cause-2-the-package-isnt-installed">Cause 2: the package isn't installed</h2>
+<p>If the specifier is a bare name (<code>"axios"</code>, <code>"@tanstack/react-query"</code>), it must exist in <code>node_modules</code>:</p>
+<pre><code class="language-bash">npm ls axios        # is it installed?
+npm install axios
+</code></pre>
+<p>After switching branches or pulling, run <code>npm install</code> again. If it's installed but still fails, clear Vite's pre-bundle cache:</p>
+<pre><code class="language-bash">rm -rf node_modules/.vite
+npm run dev -- --force
+</code></pre>
+<h2 id="cause-3-typo-wrong-case-or-wrong-extension">Cause 3: typo, wrong case or wrong extension</h2>
+<ul>
+<li><code>./components/button</code> vs <code>Button.tsx</code>: macOS/Windows file systems are case-insensitive, but Vite's resolver and Linux CI are not consistent with that. Match the exact case.</li>
+<li>Relative paths are relative to the importing file, not to the project root. <code>../</code> vs <code>./</code> is a common slip.</li>
+<li>Vite resolves <code>.mjs .js .mts .ts .jsx .tsx .json</code> without an extension, but <strong>not</strong> <code>.vue</code> or <code>.svelte</code> by default. Write <code>import Foo from './Foo.vue'</code>.</li>
+<li>Importing a folder works only if it contains <code>index.ts</code>/<code>index.js</code>.</li>
+</ul>
+<h2 id="cause-4-the-packages-exports-dont-include-that-path">Cause 4: the package's exports don't include that path</h2>
+<p>Deep imports like <code>import x from 'some-lib/dist/utils'</code> fail if the package's <code>package.json</code> has an <code>exports</code> field that doesn't list that subpath. Use the documented entry point (<code>import { utils } from 'some-lib'</code>) or a listed subpath export.</p>
+<h2 id="cause-5-monorepo-linked-packages">Cause 5: monorepo / linked packages</h2>
+<p>With workspaces or <code>npm link</code>, the linked package may need to be built first (its <code>main</code>/<code>exports</code> point to <code>dist/</code>, which doesn't exist yet). Run its build, or point an alias at its source folder. Also check <code>server.fs.allow</code> if Vite refuses to serve files outside the project root.</p>
+<p class="upd">Last updated 2026-11-08.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-module-not-found-error-cant-resolve/">Module not found: Error: Can&#x27;t resolve</a></li><li><a href="/javascript/js-ts2307-cannot-find-module-or-its-corresponding-type-declarations/">TS2307: Cannot find module or its corresponding type declarations.</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

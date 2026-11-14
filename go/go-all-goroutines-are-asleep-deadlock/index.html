@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal error: all goroutines are asleep - deadlock! — how to fix</title>
+<meta name="description" content="Every goroutine in the program is blocked waiting on a channel, mutex or WaitGroup that nothing will ever release, so the Go runtime aborts. Usually an unbuffered send with no receiver, a range over a channel that is never closed, or a WaitGroup count that never reaches zero.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-all-goroutines-are-asleep-deadlock/">
+<meta property="og:title" content="fatal error: all goroutines are asleep - deadlock! — how to fix"><meta property="og:description" content="Every goroutine in the program is blocked waiting on a channel, mutex or WaitGroup that nothing will ever release, so the Go runtime aborts. Usually an unbuffered send with no receiver, a range over a channel that is never closed, or a WaitGroup count that never reaches zero.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-all-goroutines-are-asleep-deadlock/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal error: all goroutines are asleep - deadlock! \u2014 how to fix", "description": "Every goroutine in the program is blocked waiting on a channel, mutex or WaitGroup that nothing will ever release, so the Go runtime aborts. Usually an unbuffered send with no receiver, a range over a channel that is never closed, or a WaitGroup count that never reaches zero.", "dateModified": "2026-11-05", "url": "https://errorfix-hollis.github.io/go/go-all-goroutines-are-asleep-deadlock/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "fatal error: all goroutines are asleep - deadlock!", "item": "https://errorfix-hollis.github.io/go/go-all-goroutines-are-asleep-deadlock/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>fatal error: all goroutines are asleep - deadlock! — how to fix</h1>
+<pre class="err"><code>fatal error: all goroutines are asleep - deadlock!
+
+goroutine 1 [chan send]:
+main.main()
+	/home/me/app/main.go:7 +0x31
+exit status 2
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Read the goroutine dump: <code>[chan send]</code>, <code>[chan receive]</code>, <code>[semacquire]</code> (WaitGroup/Mutex) and the file:line show where each one is stuck. Make sure every send has a receiver running in another goroutine (or use a buffered channel), <code>close(ch)</code> after the last send when you <code>range</code> over it, and call <code>wg.Add</code> before starting goroutines with <code>defer wg.Done()</code> inside them.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The Go runtime noticed that no goroutine can make progress: each is blocked on a channel operation, <code>sync.WaitGroup.Wait</code>, <code>sync.Mutex.Lock</code> or <code>select {}</code>. Nothing can wake them, so it exits with status 2 and prints each goroutine's stack. The bracketed state tells you what it's waiting on:</p>
+<ul>
+<li><code>[chan send]</code> / <code>[chan receive]</code> — channel operation</li>
+<li><code>[semacquire]</code> / <code>[sync.WaitGroup.Wait]</code> / <code>[sync.Mutex.Lock]</code> — WaitGroup or mutex</li>
+<li><code>[select (no cases)]</code> — an empty <code>select {}</code></li>
+</ul>
+<p>The runtime only detects this when <strong>all</strong> goroutines are blocked. If some unrelated goroutine (an HTTP server, a timer) is still alive, a deadlock just hangs instead.</p>
+<h2 id="cause-1-unbuffered-send-with-no-receiver">Cause 1: unbuffered send with no receiver</h2>
+<pre><code class="language-go">func main() {
+    ch := make(chan int)
+    ch &lt;- 1          // blocks forever: nobody is receiving
+    fmt.Println(&lt;-ch)
+}
+</code></pre>
+<p>An unbuffered send waits for a receiver. Receive in another goroutine, or give the channel a buffer:</p>
+<pre><code class="language-go">ch := make(chan int)
+go func() { ch &lt;- 1 }()
+fmt.Println(&lt;-ch)
+
+// or
+ch := make(chan int, 1)
+ch &lt;- 1
+fmt.Println(&lt;-ch)
+</code></pre>
+<h2 id="cause-2-range-over-a-channel-thats-never-closed">Cause 2: <code>range</code> over a channel that's never closed</h2>
+<pre><code class="language-go">ch := make(chan int)
+go func() {
+    for i := 0; i &lt; 3; i++ {
+        ch &lt;- i
+    }
+    // missing close(ch)
+}()
+for v := range ch {   // after 3 values, waits forever
+    fmt.Println(v)
+}
+</code></pre>
+<p>The sender must close it when done:</p>
+<pre><code class="language-go">go func() {
+    defer close(ch)
+    for i := 0; i &lt; 3; i++ {
+        ch &lt;- i
+    }
+}()
+</code></pre>
+<p>With several senders, close after all are finished:</p>
+<pre><code class="language-go">var wg sync.WaitGroup
+for _, job := range jobs {
+    wg.Add(1)
+    go func(j Job) {
+        defer wg.Done()
+        results &lt;- process(j)
+    }(job)
+}
+go func() { wg.Wait(); close(results) }()
+for r := range results { ... }
+</code></pre>
+<h2 id="cause-3-waitgroup-that-never-reaches-zero">Cause 3: WaitGroup that never reaches zero</h2>
+<pre><code class="language-go">var wg sync.WaitGroup
+for i := 0; i &lt; 3; i++ {
+    wg.Add(1)
+    go work(i, wg)   // copies wg: Done() runs on the copy
+}
+wg.Wait()            // deadlock
+</code></pre>
+<p>Pass a pointer (<code>&amp;wg</code>) or use a closure, and make sure every <code>Add(1)</code> has exactly one <code>Done()</code> — <code>defer wg.Done()</code> at the top of the goroutine handles early returns. <code>go vet</code> flags copied WaitGroups and mutexes ("passes lock by value").</p>
+<p>Also common: calling <code>wg.Wait()</code> before reading results from an unbuffered channel the workers are blocked sending on. Read results in a separate goroutine, or close via the pattern above.</p>
+<h2 id="cause-4-locking-a-mutex-twice">Cause 4: locking a mutex twice</h2>
+<p><code>sync.Mutex</code> is not reentrant:</p>
+<pre><code class="language-go">func (s *Store) Get() int {
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    return s.compute()   // compute() also calls s.mu.Lock() -&gt; deadlock
+}
+</code></pre>
+<p>Have an internal <code>computeLocked()</code> that assumes the lock is held, and only lock in public methods. Also check for a missing <code>Unlock</code> on an early <code>return</code> — <code>defer</code> avoids that.</p>
+<h2 id="cause-5-select-or-done-with-nothing-to-signal">Cause 5: <code>select {}</code> or <code>&lt;-done</code> with nothing to signal</h2>
+<p>An empty <code>select {}</code> blocks forever; that's fine in a server where other goroutines run, but a deadlock once they exit. Use <code>signal.NotifyContext</code> to wait for Ctrl+C instead.</p>
+<h2 id="debugging-tips">Debugging tips</h2>
+<ul>
+<li>Run with <code>go run -race .</code> to catch the data races that often accompany these bugs.</li>
+<li>For hangs that aren't detected, send <code>SIGQUIT</code> (Ctrl+\) to dump all goroutine stacks, or expose <code>net/http/pprof</code> and open <code>/debug/pprof/goroutine?debug=2</code>.</li>
+</ul>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-cannot-find-main-module/">go: cannot find main module, but found .git/config</a></li><li><a href="/go/go-declared-and-not-used/">declared and not used</a></li><li><a href="/go/go-undefined/">undefined: X</a></li><li><a href="/go/go-cannot-use-as-value-in-assignment/">cannot use x (variable of type T) as U value in assignment</a></li><li><a href="/go/go-fatal-error-concurrent-map-writes/">fatal error: concurrent map writes</a></li><li><a href="/go/go-imported-and-not-used/">&quot;fmt&quot; imported and not used</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

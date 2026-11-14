@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ValueError: I/O operation on closed file (Python) — how to fix</title>
+<meta name="description" content="You read from or wrote to a file object (or StringIO, CSV writer, HTTP response) after it was closed, usually because the code is outside the `with` block that opened it.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-valueerror-io-operation-on-closed-file/">
+<meta property="og:title" content="ValueError: I/O operation on closed file (Python) — how to fix"><meta property="og:description" content="You read from or wrote to a file object (or StringIO, CSV writer, HTTP response) after it was closed, usually because the code is outside the `with` block that opened it.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-valueerror-io-operation-on-closed-file/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ValueError: I/O operation on closed file (Python) \u2014 how to fix", "description": "You read from or wrote to a file object (or StringIO, CSV writer, HTTP response) after it was closed, usually because the code is outside the `with` block that opened it.", "dateModified": "2026-11-07", "url": "https://errorfix-hollis.github.io/python/python-valueerror-io-operation-on-closed-file/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ValueError: I/O operation on closed file", "item": "https://errorfix-hollis.github.io/python/python-valueerror-io-operation-on-closed-file/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ValueError: I/O operation on closed file (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 6, in &lt;module&gt;
+    f.write(&quot;more\n&quot;)
+ValueError: I/O operation on closed file.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Move every read/write inside the <code>with open(...) as f:</code> block (check the indentation), or reopen the file. For csv writers, keep <code>writer.writerow()</code> inside the <code>with</code>. For <code>io.StringIO</code>/<code>BytesIO</code>, call <code>getvalue()</code> before closing.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A file object becomes unusable once <code>close()</code> runs. Any later <code>read()</code>, <code>write()</code>, <code>readline()</code>, iteration or <code>seek()</code> raises <code>ValueError: I/O operation on closed file.</code> A <code>with</code> block closes the file automatically when the indented block ends, so the most common cause is a line that is indented one level too little.</p>
+<p>You can check the state: <code>f.closed</code> is <code>True</code> after closing.</p>
+<h2 id="cause-1-code-outside-the-with-block">Cause 1: code outside the <code>with</code> block</h2>
+<pre><code class="language-python">with open(&quot;out.txt&quot;, &quot;w&quot;) as f:
+    f.write(&quot;first\n&quot;)
+f.write(&quot;second\n&quot;)      # ValueError: file already closed
+</code></pre>
+<p>Fix: indent the code so it runs while the file is open.</p>
+<pre><code class="language-python">with open(&quot;out.txt&quot;, &quot;w&quot;) as f:
+    f.write(&quot;first\n&quot;)
+    f.write(&quot;second\n&quot;)
+</code></pre>
+<p>If you need the data later, read it into a variable inside the block:</p>
+<pre><code class="language-python">with open(&quot;data.txt&quot;) as f:
+    lines = f.readlines()
+for line in lines:        # fine: works on the list, not the file
+    print(line)
+</code></pre>
+<h2 id="cause-2-csv-writerreader-used-after-the-file-closed">Cause 2: csv writer/reader used after the file closed</h2>
+<p><code>csv.writer</code> and <code>csv.reader</code> wrap the file object; they don't keep it open.</p>
+<pre><code class="language-python">import csv
+
+with open(&quot;rows.csv&quot;, &quot;w&quot;, newline=&quot;&quot;) as f:
+    writer = csv.writer(f)
+writer.writerow([&quot;a&quot;, &quot;b&quot;])   # ValueError
+</code></pre>
+<p>Fix: do all <code>writerow()</code> calls inside the <code>with</code>:</p>
+<pre><code class="language-python">with open(&quot;rows.csv&quot;, &quot;w&quot;, newline=&quot;&quot;) as f:
+    writer = csv.writer(f)
+    for row in rows:
+        writer.writerow(row)
+</code></pre>
+<h2 id="cause-3-returning-a-file-or-generator-from-a-function">Cause 3: returning a file or generator from a function</h2>
+<pre><code class="language-python">def read_lines(path):
+    with open(path) as f:
+        return (line.strip() for line in f)   # generator runs after close
+
+for line in read_lines(&quot;log.txt&quot;):   # ValueError
+    ...
+</code></pre>
+<p>Fix: either materialize the data before returning, or make the function itself a generator so the file stays open while you iterate:</p>
+<pre><code class="language-python">def read_lines(path):
+    with open(path) as f:
+        for line in f:
+            yield line.strip()
+</code></pre>
+<h2 id="cause-4-closing-explicitly-too-early">Cause 4: closing explicitly too early</h2>
+<p>A stray <code>f.close()</code> inside a loop closes the file after the first iteration:</p>
+<pre><code class="language-python">f = open(&quot;out.txt&quot;, &quot;w&quot;)
+for item in items:
+    f.write(item + &quot;\n&quot;)
+    f.close()            # wrong place
+</code></pre>
+<p>Move <code>close()</code> after the loop, or better, use <code>with</code>.</p>
+<h2 id="cause-5-stringio-bytesio-and-libraries-that-close-for-you">Cause 5: StringIO / BytesIO and libraries that close for you</h2>
+<p><code>io.StringIO.getvalue()</code> fails once the buffer is closed. Get the value first:</p>
+<pre><code class="language-python">import io
+buf = io.StringIO()
+buf.write(&quot;hello&quot;)
+data = buf.getvalue()
+buf.close()
+</code></pre>
+<p>Some libraries close the stream they are given. For example <code>pandas.to_csv(buf)</code> doesn't close it, but wrapping a buffer in <code>io.TextIOWrapper</code> and letting the wrapper be garbage-collected closes the underlying buffer too. Call <code>wrapper.detach()</code> before discarding the wrapper if you still need the buffer.</p>
+<p>In web frameworks (Flask, Django, FastAPI), an uploaded file is closed when the request ends. Read or save it during the request (<code>file.save(path)</code> or <code>data = await file.read()</code>), not in a background task that runs later.</p>
+<h2 id="cause-6-sysstdout-was-closed-or-replaced">Cause 6: <code>sys.stdout</code> was closed or replaced</h2>
+<p>If something called <code>sys.stdout.close()</code> (or a <code>with</code> block wrapped <code>sys.stdout</code>), every later <code>print()</code> raises this error. Don't use <code>with sys.stdout:</code>; use <code>contextlib.redirect_stdout</code> to redirect output temporarily.</p>
+<p class="upd">Last updated 2026-11-07.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-filenotfounderror-no-such-file-or-directory/">FileNotFoundError: [Errno 2] No such file or directory</a></li><li><a href="/python/python-indentationerror-unexpected-indent/">IndentationError: unexpected indent</a></li><li><a href="/python/python-unicodedecodeerror-utf-8/">UnicodeDecodeError: &#x27;utf-8&#x27; codec can&#x27;t decode byte 0xff in position 0: invalid start byte</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

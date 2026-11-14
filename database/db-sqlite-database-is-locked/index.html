@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>sqlite3.OperationalError: database is locked — how to fix</title>
+<meta name="description" content="Another connection holds a write lock on the SQLite file. Commit or close other connections, enable WAL mode and set a busy timeout.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-sqlite-database-is-locked/">
+<meta property="og:title" content="sqlite3.OperationalError: database is locked — how to fix"><meta property="og:description" content="Another connection holds a write lock on the SQLite file. Commit or close other connections, enable WAL mode and set a busy timeout.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-sqlite-database-is-locked/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "sqlite3.OperationalError: database is locked \u2014 how to fix", "description": "Another connection holds a write lock on the SQLite file. Commit or close other connections, enable WAL mode and set a busy timeout.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/database/db-sqlite-database-is-locked/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "sqlite3.OperationalError: database is locked", "item": "https://errorfix-hollis.github.io/database/db-sqlite-database-is-locked/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>sqlite3.OperationalError: database is locked — how to fix</h1>
+<pre class="err"><code>sqlite3.OperationalError: database is locked</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Make sure every connection commits and closes promptly, then enable WAL mode (<code>PRAGMA journal_mode=WAL;</code>) and a busy timeout (<code>sqlite3.connect(path, timeout=30)</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>SQLite allows many readers but only <strong>one writer at a time</strong>, and the lock covers the whole database file. Your connection wanted to write (or, in the default rollback-journal mode, read during a write) and waited longer than its timeout.</p>
+<h2 id="fix-1-dont-leave-transactions-open">Fix 1: don't leave transactions open</h2>
+<p>The most common cause is a connection that started writing and never committed, often in another part of the same program, a forgotten Python shell, or a DB browser GUI with unsaved changes.</p>
+<pre><code class="language-python">with sqlite3.connect(&quot;app.db&quot;) as conn:
+    conn.execute(&quot;INSERT INTO t VALUES (?)&quot;, (1,))
+# the with-block commits; call conn.close() when you're done with the connection
+</code></pre>
+<p>Close tools like <em>DB Browser for SQLite</em> (or click <em>Write Changes</em>) while your app runs.</p>
+<h2 id="fix-2-wal-mode">Fix 2: WAL mode</h2>
+<p>Write-Ahead Logging lets readers keep reading while one writer writes:</p>
+<pre><code class="language-python">conn.execute(&quot;PRAGMA journal_mode=WAL;&quot;)
+</code></pre>
+<p>The setting is stored in the database file, so you only need to run it once.</p>
+<h2 id="fix-3-wait-longer">Fix 3: wait longer</h2>
+<pre><code class="language-python">conn = sqlite3.connect(&quot;app.db&quot;, timeout=30)   # seconds; Python's default is 5
+</code></pre>
+<p>Django:</p>
+<pre><code class="language-python">DATABASES = {&quot;default&quot;: {&quot;ENGINE&quot;: &quot;django.db.backends.sqlite3&quot;, &quot;NAME&quot;: BASE_DIR / &quot;db.sqlite3&quot;,
+                         &quot;OPTIONS&quot;: {&quot;timeout&quot;: 20}}}
+</code></pre>
+<h2 id="fix-4-the-file-is-on-a-network-share">Fix 4: the file is on a network share</h2>
+<p>SQLite's locking doesn't work reliably on NFS, SMB or some Docker volume drivers (e.g. on macOS/Windows hosts). Keep the database on a local disk.</p>
+<h2 id="when-to-move-on-from-sqlite">When to move on from SQLite</h2>
+<p>If many processes write at the same time (multiple web workers, background jobs), consider PostgreSQL. For many apps, WAL mode plus short transactions is enough.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-keyerror/">KeyError</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li><li><a href="/database/db-mysql-error-1130-host-is-not-allowed-to-connect/">ERROR 1130 (HY000): Host is not allowed to connect to this MySQL server</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

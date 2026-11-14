@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error response from daemon: network not found (Docker) — how to fix</title>
+<meta name="description" content="A container or Compose project refers to a Docker network that no longer exists, usually because it was removed (`docker network prune`, `compose down`) or recreated with a new ID while the container still points to the old one.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-network-not-found/">
+<meta property="og:title" content="Error response from daemon: network not found (Docker) — how to fix"><meta property="og:description" content="A container or Compose project refers to a Docker network that no longer exists, usually because it was removed (`docker network prune`, `compose down`) or recreated with a new ID while the container still points to the old one.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-network-not-found/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error response from daemon: network not found (Docker) \u2014 how to fix", "description": "A container or Compose project refers to a Docker network that no longer exists, usually because it was removed (`docker network prune`, `compose down`) or recreated with a new ID while the container still points to the old one.", "dateModified": "2026-11-07", "url": "https://errorfix-hollis.github.io/docker/docker-network-not-found/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "Error response from daemon: network not found", "item": "https://errorfix-hollis.github.io/docker/docker-network-not-found/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>Error response from daemon: network not found (Docker) — how to fix</h1>
+<pre class="err"><code>Error response from daemon: network 3f2a9c1d7b8e... not found
+Error response from daemon: failed to set up container networking: network myapp_default not found
+network mynet declared as external, but could not be found
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> For a stopped container stuck on an old network ID, recreate it: <code>docker compose up -d --force-recreate</code> (or <code>docker rm</code> + <code>docker run</code>). For <code>declared as external, but could not be found</code>, create it first: <code>docker network create mynet</code>. List networks with <code>docker network ls</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Containers store the <strong>ID</strong> of each network they are attached to, not just its name. If that network is deleted and maybe recreated under the same name, the new one has a different ID, and starting the old container fails with <code>network &lt;id&gt; not found</code>. Compose has its own variant when a network marked <code>external: true</code> doesn't exist.</p>
+<p>See what exists and what the container expects:</p>
+<pre><code class="language-bash">docker network ls
+docker inspect -f '{{json .NetworkSettings.Networks}}' mycontainer
+</code></pre>
+<h2 id="cause-1-the-network-was-pruned-or-removed">Cause 1: the network was pruned or removed</h2>
+<p><code>docker network prune</code>, <code>docker system prune</code>, or <code>docker compose down</code> in another terminal removed it while a container still referenced it. Typical when you <code>docker start</code> an old container.</p>
+<p>Fix with Compose: recreate the containers so they attach to the current networks:</p>
+<pre><code class="language-bash">docker compose down
+docker compose up -d --force-recreate
+</code></pre>
+<p>Fix for a plain container: remove and run it again (data in named volumes is kept):</p>
+<pre><code class="language-bash">docker rm mycontainer
+docker run -d --name mycontainer --network mynet myimage
+</code></pre>
+<p>Or reattach without recreating:</p>
+<pre><code class="language-bash">docker network create mynet                 # if it doesn't exist
+docker network disconnect -f mynet mycontainer 2&gt;/dev/null
+docker network connect mynet mycontainer
+docker start mycontainer
+</code></pre>
+<h2 id="cause-2-compose-external-network-doesnt-exist">Cause 2: Compose external network doesn't exist</h2>
+<pre><code class="language-yaml">networks:
+  shared:
+    external: true
+    name: mynet
+</code></pre>
+<p>Compose won't create external networks; it expects you to:</p>
+<pre><code class="language-bash">docker network create mynet
+docker compose up -d
+</code></pre>
+<p>If several projects share a network, create it once (e.g. in a setup script) and mark it external everywhere. Alternatively, drop <code>external: true</code> so Compose creates <code>&lt;project&gt;_shared</code> itself.</p>
+<h2 id="cause-3-project-name-changed">Cause 3: project name changed</h2>
+<p>Compose names networks <code>&lt;project&gt;_default</code>. The project name defaults to the folder name, so renaming or moving the folder, or using <code>-p</code>, makes Compose look for a different network while old containers still reference the old one. Use a stable name:</p>
+<pre><code class="language-yaml">name: myapp          # top-level in compose.yaml
+</code></pre>
+<p>or <code>COMPOSE_PROJECT_NAME=myapp</code> in <code>.env</code>, then <code>docker compose up -d --force-recreate</code>. Clean up leftovers from the old project with <code>docker compose -p oldname down</code>.</p>
+<h2 id="cause-4-docker-swarm-overlay-networks">Cause 4: Docker Swarm overlay networks</h2>
+<p><code>docker run --network myoverlay</code> fails with <code>network myoverlay not found</code> if the overlay wasn't created with <code>--attachable</code>, or the node isn't a Swarm manager/worker:</p>
+<pre><code class="language-bash">docker network create -d overlay --attachable myoverlay
+</code></pre>
+<p>For <code>docker stack deploy</code>, external networks must be overlays created on a manager.</p>
+<h2 id="cause-5-daemon-restarted-with-a-corrupted-network-database">Cause 5: daemon restarted with a corrupted network database</h2>
+<p>Rarely, after a crash or upgrade, the daemon's network state (<code>/var/lib/docker/network/files/local-kv.db</code>) no longer matches containers. Restarting Docker usually fixes it:</p>
+<pre><code class="language-bash">sudo systemctl restart docker
+</code></pre>
+<p>As a last resort, stop Docker, move <code>local-kv.db</code> away and start Docker again; it is rebuilt, but user-defined networks must be recreated and containers reattached.</p>
+<h2 id="prevent-it">Prevent it</h2>
+<p>Avoid <code>docker system prune</code> while stopped containers you care about exist (it removes networks not used by <em>running</em> containers). Prefer <code>docker compose up</code> over <code>docker start</code> for Compose-managed containers, because Compose checks and recreates networks.</p>
+<p class="upd">Last updated 2026-11-07.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-container-name-already-in-use/">Conflict. The container name is already in use by container</a></li><li><a href="/docker/docker-port-is-already-allocated/">Bind for 0.0.0.0:8080 failed: port is already allocated</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>URL Encode / Decode Online — encodeURIComponent and query string parser</title>
+<meta name="description" content="Percent-encode or decode URLs and query parameters (encodeURIComponent vs encodeURI), and split any URL&#x27;s query string into a readable table of decoded parameters.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/url-encode-decode/">
+<meta property="og:title" content="URL Encode / Decode Online — encodeURIComponent and query string parser"><meta property="og:description" content="Percent-encode or decode URLs and query parameters (encodeURIComponent vs encodeURI), and split any URL&#x27;s query string into a readable table of decoded parameters.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/url-encode-decode/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "URL encode / decode", "url": "https://errorfix-hollis.github.io/tools/url-encode-decode/", "description": "Percent-encode or decode URLs and query parameters (encodeURIComponent vs encodeURI), and split any URL's query string into a readable table of decoded parameters.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-01", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": "URL encode / decode", "item": "https://errorfix-hollis.github.io/tools/url-encode-decode/"}]}</script><script src="/tools.js?v=70df2f10" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>URL encoder, decoder and query string parser</h1>
+<p class="lead">Percent-encode or decode text for URLs, and paste any URL to see its query parameters decoded in a table.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="url"><label for="url-in">Input</label>
+<textarea id="url-in" spellcheck="false" class="short" placeholder="Text or URL to encode, or %-encoded text to decode"></textarea>
+<div class="row">
+<button id="url-encc">encodeURIComponent</button><button id="url-enc" class="sec">encodeURI</button><button id="url-dec">Decode</button>
+<label><input type="checkbox" id="url-plus" checked> Decode + as space</label>
+<button id="url-swap" class="sec">↕ Swap</button>
+</div>
+<div id="url-msg" class="msg" hidden></div>
+<label for="url-out">Output</label>
+<textarea id="url-out" spellcheck="false" class="short" readonly></textarea>
+<div class="row"><button id="url-copy" class="sec">Copy output</button></div>
+<h3>Query string parser</h3>
+<label for="qs-in">Paste a full URL or a query string</label>
+<input type="text" id="qs-in" class="big" spellcheck="false" autocomplete="off" value="https://example.com/search?q=hello+world&amp;lang=en&amp;tag=a%26b&amp;tag=c#results">
+<table id="qs-out" class="kv"></table>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<h2 id="encodeuricomponent-vs-encodeuri">encodeURIComponent vs. encodeURI</h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Leaves unencoded</th>
+<th>Use it for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>encodeURIComponent</code></td>
+<td><code>A-Z a-z 0-9 - _ . ! ~ * ' ( )</code></td>
+<td>a single query value or path segment</td>
+</tr>
+<tr>
+<td><code>encodeURI</code></td>
+<td>the above plus <code>; , / ? : @ &amp; = + $ #</code></td>
+<td>a whole URL that is already structured</td>
+</tr>
+</tbody>
+</table>
+<p>Use <code>encodeURIComponent</code> for values: <code>?q=</code> + <code>encodeURIComponent("a&amp;b=c")</code> gives <code>?q=a%26b%3Dc</code>. With <code>encodeURI</code> the <code>&amp;</code> and <code>=</code> would stay and split your value into a second parameter. In most languages the safer equivalent is a query builder: <code>URLSearchParams</code> (JS), <code>urllib.parse.urlencode</code> (Python), <code>url.Values</code> (Go).</p>
+<h2 id="common-percent-encodings">Common percent-encodings</h2>
+<table>
+<thead>
+<tr>
+<th>Character</th>
+<th>Encoded</th>
+<th>Character</th>
+<th>Encoded</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>space</td>
+<td><code>%20</code> (or <code>+</code> in forms)</td>
+<td><code>&amp;</code></td>
+<td><code>%26</code></td>
+</tr>
+<tr>
+<td><code>/</code></td>
+<td><code>%2F</code></td>
+<td><code>=</code></td>
+<td><code>%3D</code></td>
+</tr>
+<tr>
+<td><code>?</code></td>
+<td><code>%3F</code></td>
+<td><code>#</code></td>
+<td><code>%23</code></td>
+</tr>
+<tr>
+<td><code>%</code></td>
+<td><code>%25</code></td>
+<td><code>+</code></td>
+<td><code>%2B</code></td>
+</tr>
+<tr>
+<td><code>@</code></td>
+<td><code>%40</code></td>
+<td><code>é</code></td>
+<td><code>%C3%A9</code> (UTF-8 bytes)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="or-20"><code>+</code> or <code>%20</code>?</h2>
+<p>In HTML form data (<code>application/x-www-form-urlencoded</code>) and in query strings parsed by most servers, <code>+</code> means space. In a URL path, <code>+</code> is a literal plus. That is why a <code>+</code> in a value must be sent as <code>%2B</code>, and why the decoder has a "+ as space" option. Decoding fails with <code>URIError: malformed URI sequence</code> when a <code>%</code> is not followed by two hex digits; this tool points at the bad <code>%</code>.</p>
+<p>Encoding bugs show up as broken redirects and callback URLs: a <code>redirect_uri</code> or <code>next=</code> parameter that is not encoded can loop (<a href="/web/web-err-too-many-redirects/">ERR_TOO_MANY_REDIRECTS</a>) or point at the wrong origin (<a href="/web/web-cors-no-access-control-allow-origin/">CORS errors</a>).</p>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-err-too-many-redirects/">ERR_TOO_MANY_REDIRECTS</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-mixed-content-blocked/">Mixed Content: The page was loaded over HTTPS, but requested an insecure resource. This request has been blocked.</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/json-formatter/">JSON formatter &amp; validator</a></li><li><a href="/tools/cron-expression-explainer/">Cron expression explainer</a></li><li><a href="/tools/chmod-calculator/">chmod calculator</a></li><li><a href="/tools/unix-timestamp-converter/">Unix timestamp converter</a></li><li><a href="/tools/base64-encode-decode/">Base64 encode / decode</a></li><li><a href="/tools/jwt-decoder/">JWT decoder</a></li><li><a href="/tools/regex-tester/">Regex tester</a></li><li><a href="/tools/yaml-validator/">YAML validator &amp; YAML ↔ JSON converter</a></li><li><a href="/tools/uuid-generator/">UUID generator &amp; validator (v4, v7)</a></li><li><a href="/tools/text-diff/">Text diff checker</a></li><li><a href="/tools/http-status-codes/">HTTP status codes reference</a></li><li><a href="/tools/hash-generator/">Hash generator (MD5, SHA-256, SHA-512)</a></li><li><a href="/tools/line-ending-whitespace-inspector/">Line ending &amp; whitespace inspector</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

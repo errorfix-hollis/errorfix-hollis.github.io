@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The operation couldn&#x27;t be completed. Unable to locate a Java Runtime. — how to fix</title>
+<meta name="description" content="On macOS, `/usr/bin/java` is only a stub that looks for a JDK in /Library/Java/JavaVirtualMachines. This message means none is registered there, e.g. Java is not installed or was installed by Homebrew without the symlink.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-unable-to-locate-a-java-runtime/">
+<meta property="og:title" content="The operation couldn&#x27;t be completed. Unable to locate a Java Runtime. — how to fix"><meta property="og:description" content="On macOS, `/usr/bin/java` is only a stub that looks for a JDK in /Library/Java/JavaVirtualMachines. This message means none is registered there, e.g. Java is not installed or was installed by Homebrew without the symlink.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-unable-to-locate-a-java-runtime/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The operation couldn't be completed. Unable to locate a Java Runtime. \u2014 how to fix", "description": "On macOS, `/usr/bin/java` is only a stub that looks for a JDK in /Library/Java/JavaVirtualMachines. This message means none is registered there, e.g. Java is not installed or was installed by Homebrew without the symlink.", "dateModified": "2026-11-07", "url": "https://errorfix-hollis.github.io/java/java-unable-to-locate-a-java-runtime/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "The operation couldn't be completed. Unable to locate a Java Runtime.", "item": "https://errorfix-hollis.github.io/java/java-unable-to-locate-a-java-runtime/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>The operation couldn&#x27;t be completed. Unable to locate a Java Runtime. — how to fix</h1>
+<pre class="err"><code>The operation couldn&#x27;t be completed. Unable to locate a Java Runtime.
+Please visit http://www.java.com for information on installing Java.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install a JDK: <code>brew install openjdk@21</code> and then link it for the system wrapper: <code>sudo ln -sfn $(brew --prefix)/opt/openjdk@21/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-21.jdk</code>. Or install a .pkg (Temurin, Oracle, Zulu). Verify with <code>/usr/libexec/java_home -V</code> and <code>java -version</code>, then set <code>export JAVA_HOME=$(/usr/libexec/java_home -v 21)</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>macOS ships <code>/usr/bin/java</code>, <code>javac</code>, <code>jar</code> etc. as wrappers. They ask <code>/usr/libexec/java_home</code> for an installed JDK, which only searches <code>/Library/Java/JavaVirtualMachines/</code> (and <code>~/Library/Java/JavaVirtualMachines/</code>). If nothing is there, you get this message, even if a JDK exists elsewhere on disk.</p>
+<p>Check what's registered:</p>
+<pre><code class="language-bash">/usr/libexec/java_home -V
+which -a java
+</code></pre>
+<h2 id="fix-1-install-a-jdk-package">Fix 1: install a JDK package</h2>
+<p>The simplest route is an installer that registers itself, e.g. Eclipse Temurin (adoptium.net), Oracle JDK or Azul Zulu. Pick the <code>.pkg</code> for your CPU (aarch64 for Apple Silicon M1–M4, x64 for Intel). Or with Homebrew casks:</p>
+<pre><code class="language-bash">brew install --cask temurin@21
+java -version
+</code></pre>
+<h2 id="fix-2-homebrew-openjdk-formula-needs-a-symlink">Fix 2: Homebrew <code>openjdk</code> formula needs a symlink</h2>
+<p><code>brew install openjdk</code> installs into Homebrew's prefix and is <em>keg-only</em>: the system wrapper can't see it. Brew prints the fix in its caveats; for version 21:</p>
+<pre><code class="language-bash">brew install openjdk@21
+sudo ln -sfn &quot;$(brew --prefix)/opt/openjdk@21/libexec/openjdk.jdk&quot; \
+  /Library/Java/JavaVirtualMachines/openjdk-21.jdk
+java -version
+</code></pre>
+<p>(<code>brew --prefix</code> is <code>/opt/homebrew</code> on Apple Silicon, <code>/usr/local</code> on Intel.) Alternatively skip the wrapper and put brew's java first on your PATH in <code>~/.zshrc</code>:</p>
+<pre><code class="language-bash">export PATH=&quot;$(brew --prefix)/opt/openjdk@21/bin:$PATH&quot;
+</code></pre>
+<h2 id="fix-3-set-java_home">Fix 3: set JAVA_HOME</h2>
+<p>Build tools (Gradle, Maven, Android Studio command line, Flutter) use <code>JAVA_HOME</code>. In <code>~/.zshrc</code>:</p>
+<pre><code class="language-bash">export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+</code></pre>
+<p>Open a new terminal and check <code>echo $JAVA_HOME</code>. See also <a href="/java/java-home-is-not-set/">JAVA_HOME is not set</a>.</p>
+<h2 id="fix-4-version-managers-sdkman-jenv-asdf">Fix 4: version managers (SDKMAN, jenv, asdf)</h2>
+<p>SDKMAN installs JDKs under <code>~/.sdkman/candidates/java</code> and puts them on PATH, so it works without the wrapper, but only in shells where SDKMAN is initialized. If you see this error from a GUI app, an IDE or <code>/usr/bin/java</code> explicitly, those don't use your shell PATH; set the JDK in the IDE settings or use Fix 1/2.</p>
+<pre><code class="language-bash">curl -s &quot;https://get.sdkman.io&quot; | bash
+sdk install java 21.0.5-tem
+</code></pre>
+<h2 id="fix-5-specific-apps">Fix 5: specific apps</h2>
+<ul>
+<li><strong>Android Studio / Flutter</strong>: use the bundled JBR: <code>flutter config --jdk-dir "/Applications/Android Studio.app/Contents/jbr/Contents/Home"</code>, or <code>export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"</code>.</li>
+<li><strong>VS Code Java</strong>: set <code>java.jdt.ls.java.home</code> or <code>java.configuration.runtimes</code>.</li>
+<li><strong>Scripts run from cron/launchd</strong>: they don't read <code>~/.zshrc</code>; use absolute paths or set <code>JAVA_HOME</code> in the script.</li>
+</ul>
+<h2 id="wrong-architecture">Wrong architecture</h2>
+<p>On Apple Silicon, an x64 JDK runs through Rosetta, and an arm64 JDK on Intel won't load at all. <code>file "$(/usr/libexec/java_home)/bin/java"</code> shows the architecture; install the matching build.</p>
+<p class="upd">Last updated 2026-11-07.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-could-not-find-or-load-main-class/">Error: Could not find or load main class</a></li><li><a href="/java/java-home-is-not-set/">ERROR: JAVA_HOME is not set and no &#x27;java&#x27; command could be found in your PATH.</a></li><li><a href="/java/java-unsupportedclassversionerror/">java.lang.UnsupportedClassVersionError: has been compiled by a more recent version of the Java Runtime</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-comparison-method-violates-its-general-contract/">java.lang.IllegalArgumentException: Comparison method violates its general contract!</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

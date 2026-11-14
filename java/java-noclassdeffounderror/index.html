@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>java.lang.NoClassDefFoundError — how to fix</title>
+<meta name="description" content="A class that was present when your code was compiled can&#x27;t be loaded at runtime. Either the JAR containing it is missing from the runtime classpath, or the class exists but its static initializer failed earlier.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-noclassdeffounderror/">
+<meta property="og:title" content="java.lang.NoClassDefFoundError — how to fix"><meta property="og:description" content="A class that was present when your code was compiled can&#x27;t be loaded at runtime. Either the JAR containing it is missing from the runtime classpath, or the class exists but its static initializer failed earlier.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-noclassdeffounderror/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "java.lang.NoClassDefFoundError \u2014 how to fix", "description": "A class that was present when your code was compiled can't be loaded at runtime. Either the JAR containing it is missing from the runtime classpath, or the class exists but its static initializer failed earlier.", "dateModified": "2026-11-02", "url": "https://errorfix-hollis.github.io/java/java-noclassdeffounderror/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "java.lang.NoClassDefFoundError", "item": "https://errorfix-hollis.github.io/java/java-noclassdeffounderror/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>java.lang.NoClassDefFoundError — how to fix</h1>
+<pre class="err"><code>Exception in thread &quot;main&quot; java.lang.NoClassDefFoundError: org/apache/commons/lang3/StringUtils
+    at com.example.App.main(App.java:9)
+Caused by: java.lang.ClassNotFoundException: org.apache.commons.lang3.StringUtils
+java.lang.NoClassDefFoundError: Could not initialize class com.example.Config
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> If there's a <code>Caused by: ClassNotFoundException</code>, put the dependency on the runtime classpath: build a fat jar (Maven Shade / Gradle Shadow or Spring Boot plugin), or run with <code>java -cp app.jar:lib/* com.example.App</code>. For <code>Could not initialize class X</code>, scroll up to the first <code>ExceptionInInitializerError</code> and fix the exception thrown in X's static block.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>NoClassDefFoundError</code> is thrown when the JVM needs a class definition (because your code references it) and can't get one. It is an <code>Error</code>, not an exception: the compiler saw the class, so the code compiled; the problem is the runtime environment.</p>
+<p>There are two very different variants:</p>
+<ol>
+<li><code>NoClassDefFoundError: org/foo/Bar</code> with <code>Caused by: ClassNotFoundException</code> → the class isn't on the runtime classpath.</li>
+<li><code>NoClassDefFoundError: Could not initialize class org.foo.Bar</code> → the class was found, but its static initialization already failed once.</li>
+</ol>
+<h2 id="fix-1-dependency-missing-at-runtime">Fix 1: dependency missing at runtime</h2>
+<p>Running a plain jar with <code>java -jar app.jar</code> uses <strong>only</strong> that jar plus whatever its manifest <code>Class-Path</code> lists. Dependencies from Maven/Gradle are not included automatically.</p>
+<p>Build a self-contained ("fat"/"uber") jar.</p>
+<p>Maven, with the Shade plugin:</p>
+<pre><code class="language-xml">&lt;plugin&gt;
+  &lt;groupId&gt;org.apache.maven.plugins&lt;/groupId&gt;
+  &lt;artifactId&gt;maven-shade-plugin&lt;/artifactId&gt;
+  &lt;version&gt;3.5.1&lt;/version&gt;
+  &lt;executions&gt;
+    &lt;execution&gt;
+      &lt;phase&gt;package&lt;/phase&gt;
+      &lt;goals&gt;&lt;goal&gt;shade&lt;/goal&gt;&lt;/goals&gt;
+      &lt;configuration&gt;
+        &lt;transformers&gt;
+          &lt;transformer implementation=&quot;org.apache.maven.plugins.shade.resource.ManifestResourceTransformer&quot;&gt;
+            &lt;mainClass&gt;com.example.App&lt;/mainClass&gt;
+          &lt;/transformer&gt;
+        &lt;/transformers&gt;
+      &lt;/configuration&gt;
+    &lt;/execution&gt;
+  &lt;/executions&gt;
+&lt;/plugin&gt;
+</code></pre>
+<p>Gradle, with the Shadow plugin (<code>./gradlew shadowJar</code>), or use the <code>application</code> plugin and run <code>./gradlew installDist</code>, which creates a start script with the full classpath.</p>
+<p>Or pass the classpath yourself (<code>:</code> on Linux/macOS, <code>;</code> on Windows):</p>
+<pre><code class="language-bash">java -cp &quot;app.jar:lib/*&quot; com.example.App
+</code></pre>
+<p>Note <code>-cp</code> is ignored when you use <code>-jar</code>.</p>
+<h2 id="fix-2-wrong-dependency-scope">Fix 2: wrong dependency scope</h2>
+<p>In Maven, <code>&lt;scope&gt;provided&lt;/scope&gt;</code> or <code>test</code> means "not on the runtime classpath". In Gradle, <code>compileOnly</code> does the same. Use <code>compile</code>/default scope in Maven or <code>implementation</code>/<code>runtimeOnly</code> in Gradle for anything needed at runtime — unless your container (Tomcat, Spark) really provides it.</p>
+<p>Check what's actually included:</p>
+<pre><code class="language-bash">mvn dependency:tree
+./gradlew dependencies --configuration runtimeClasspath
+jar tf target/app.jar | grep StringUtils
+</code></pre>
+<h2 id="fix-3-version-conflicts">Fix 3: version conflicts</h2>
+<p>If the missing class belongs to a library you <em>do</em> have, another dependency may pull in an older version without that class (or a newer one that removed it). Look for duplicate artifacts in the dependency tree and pin one version with <code>&lt;dependencyManagement&gt;</code> (Maven) or a constraint (Gradle). Common examples: <code>javax.*</code> vs <code>jakarta.*</code> packages after Spring Boot 3 / Jakarta EE 9 migrations, and mixed Jackson or Netty versions.</p>
+<h2 id="fix-4-could-not-initialize-class-x">Fix 4: <code>Could not initialize class X</code></h2>
+<p>The JVM tried to run class <code>X</code>'s static initializer (static fields, <code>static {}</code> blocks), it threw, and the class is now permanently unusable in that JVM. Every later use throws this <code>NoClassDefFoundError</code>.</p>
+<p>The real cause is earlier in the log — search for the <strong>first</strong> <code>java.lang.ExceptionInInitializerError</code> and its <code>Caused by</code>. Typical culprits:</p>
+<ul>
+<li>A static field reading a config file or env var that doesn't exist.</li>
+<li>A native library failing to load (<code>UnsatisfiedLinkError</code>).</li>
+<li>A static logger or connection created with a bad setting.</li>
+</ul>
+<p>Fix that exception; restarting the JVM is required.</p>
+<h2 id="fix-5-ide-vs-command-line-stale-builds">Fix 5: IDE vs command line, stale builds</h2>
+<p>If it works in the IDE but not from the terminal (or vice versa), the classpaths differ. Rebuild cleanly:</p>
+<pre><code class="language-bash">mvn clean package
+./gradlew clean build
+</code></pre>
+<p>In app servers, make sure the JAR is in <code>WEB-INF/lib</code> and not duplicated in the server's shared <code>lib</code> folder, which causes class-loader conflicts.</p>
+<p class="upd">Last updated 2026-11-02.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-could-not-find-or-load-main-class/">Error: Could not find or load main class</a></li><li><a href="/java/java-unsupportedclassversionerror/">java.lang.UnsupportedClassVersionError: has been compiled by a more recent version of the Java Runtime</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-comparison-method-violates-its-general-contract/">java.lang.IllegalArgumentException: Comparison method violates its general contract!</a></li><li><a href="/java/java-concurrentmodificationexception/">java.util.ConcurrentModificationException</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

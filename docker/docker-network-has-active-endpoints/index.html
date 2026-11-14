@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error response from daemon: error while removing network: network has active endpoints (Docker) — how to fix</title>
+<meta name="description" content="Docker refuses to delete a network while containers are still attached to it. Usually a container from another Compose project, a manually started container, or a stale endpoint left after a daemon crash.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-network-has-active-endpoints/">
+<meta property="og:title" content="Error response from daemon: error while removing network: network has active endpoints (Docker) — how to fix"><meta property="og:description" content="Docker refuses to delete a network while containers are still attached to it. Usually a container from another Compose project, a manually started container, or a stale endpoint left after a daemon crash.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-network-has-active-endpoints/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error response from daemon: error while removing network: network has active endpoints (Docker) \u2014 how to fix", "description": "Docker refuses to delete a network while containers are still attached to it. Usually a container from another Compose project, a manually started container, or a stale endpoint left after a daemon crash.", "dateModified": "2026-11-11", "url": "https://errorfix-hollis.github.io/docker/docker-network-has-active-endpoints/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "Error response from daemon: error while removing network: network has active endpoints", "item": "https://errorfix-hollis.github.io/docker/docker-network-has-active-endpoints/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>Error response from daemon: error while removing network: network has active endpoints (Docker) — how to fix</h1>
+<pre class="err"><code>Error response from daemon: error while removing network: network myapp_default id 3f2a9c1b7e44 has active endpoints
+failed to remove network myapp_default: Error response from daemon: error while removing network: network myapp_default has active endpoints
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> See what's attached: <code>docker network inspect myapp_default --format '{{range .Containers}}{{.Name}} {{end}}'</code>. Stop or disconnect those containers (<code>docker network disconnect -f myapp_default &lt;container&gt;</code>), then <code>docker network rm myapp_default</code>. For Compose, <code>docker compose down --remove-orphans</code>. If nothing is listed, restart the daemon: <code>sudo systemctl restart docker</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Each container connected to a network has an <em>endpoint</em> on it. <code>docker network rm</code> (and <code>docker compose down</code>, which removes the project's network at the end) fails if any endpoint still exists. The containers attached may be running <em>or stopped</em>.</p>
+<p>Find out which ones:</p>
+<pre><code class="language-bash">docker network inspect myapp_default --format '{{range .Containers}}{{.Name}} {{end}}'
+docker ps -a --filter network=myapp_default
+</code></pre>
+<h2 id="cause-1-orphan-containers-from-the-same-compose-project">Cause 1: orphan containers from the same Compose project</h2>
+<p>If you renamed or removed a service in <code>docker-compose.yml</code>, its old container still belongs to the project and still uses the network. Compose warns <code>Found orphan containers</code> on <code>up</code>.</p>
+<pre><code class="language-bash">docker compose down --remove-orphans
+</code></pre>
+<h2 id="cause-2-another-project-or-manual-container-uses-the-network">Cause 2: another project or manual container uses the network</h2>
+<p>A second Compose project that declares the network as <code>external</code>, or a container started with <code>docker run --network myapp_default</code>, keeps it busy. Stop the other stack first, or disconnect the container:</p>
+<pre><code class="language-bash">docker network disconnect myapp_default some_container
+docker network rm myapp_default
+</code></pre>
+<p>If you want a network shared between projects, create it once yourself (<code>docker network create shared</code>) and mark it <code>external: true</code> in every Compose file, so no project tries to delete it on <code>down</code>:</p>
+<pre><code class="language-yaml">networks:
+  shared:
+    external: true
+</code></pre>
+<h2 id="cause-3-stale-endpoint-no-container-listed">Cause 3: stale endpoint, no container listed</h2>
+<p>After a crash or forced container removal, Docker's network database can keep an endpoint for a container that no longer exists. <code>inspect</code> then shows an entry with a name like <code>ep-...</code> or a container ID that <code>docker ps -a</code> doesn't know.</p>
+<p>Force-disconnect it by name or ID:</p>
+<pre><code class="language-bash">docker network disconnect -f myapp_default &lt;endpoint-name-or-container-id&gt;
+docker network rm myapp_default
+</code></pre>
+<p>If that fails, restart the daemon, which rebuilds the network state:</p>
+<pre><code class="language-bash">sudo systemctl restart docker
+docker network rm myapp_default
+</code></pre>
+<p>On Docker Desktop, use "Restart" from the whale menu.</p>
+<h2 id="cause-4-swarm-overlay-networks">Cause 4: Swarm overlay networks</h2>
+<p>For overlay networks, endpoints belong to services on any node. Remove the services first:</p>
+<pre><code class="language-bash">docker service ls
+docker stack rm mystack        # wait until its tasks are gone
+docker network rm my_overlay
+</code></pre>
+<h2 id="cleaning-up-everything">Cleaning up everything</h2>
+<p>To remove all networks not used by any container (keeps the default <code>bridge</code>, <code>host</code>, <code>none</code>):</p>
+<pre><code class="language-bash">docker network prune
+</code></pre>
+<p>This won't touch networks with active endpoints, so it's safe to run, but it also won't fix this error on its own; disconnect or remove the containers first.</p>
+<p class="upd">Last updated 2026-11-11.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-container-name-already-in-use/">Conflict. The container name is already in use by container</a></li><li><a href="/docker/docker-network-not-found/">Error response from daemon: network not found</a></li><li><a href="/docker/docker-port-is-already-allocated/">Bind for 0.0.0.0:8080 failed: port is already allocated</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

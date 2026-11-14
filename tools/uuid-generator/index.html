@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UUID Generator (v4 &amp; v7) and UUID Validator — bulk, offline</title>
+<meta name="description" content="Generate random UUID v4 or time-ordered UUID v7 in bulk (up to 1000), uppercase or without hyphens. Validate any UUID and see its version, variant and embedded timestamp. Runs in your browser.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/uuid-generator/">
+<meta property="og:title" content="UUID Generator (v4 &amp; v7) and UUID Validator — bulk, offline"><meta property="og:description" content="Generate random UUID v4 or time-ordered UUID v7 in bulk (up to 1000), uppercase or without hyphens. Validate any UUID and see its version, variant and embedded timestamp. Runs in your browser.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/uuid-generator/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "UUID generator & validator (v4, v7)", "url": "https://errorfix-hollis.github.io/tools/uuid-generator/", "description": "Generate random UUID v4 or time-ordered UUID v7 in bulk (up to 1000), uppercase or without hyphens. Validate any UUID and see its version, variant and embedded timestamp. Runs in your browser.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-05", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": "UUID generator & validator (v4, v7)", "item": "https://errorfix-hollis.github.io/tools/uuid-generator/"}]}</script><script src="/tools.js?v=70df2f10" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>UUID generator (v4, v7) and validator</h1>
+<p class="lead">Generate up to 1000 UUIDs at once (random v4 or time-ordered v7), or paste a UUID to check that it is valid and see its version, variant and timestamp.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="uuid"><h3>Generate UUIDs</h3>
+<div class="row">
+<label>Version <select id="uuid-ver" class="inline"><option value="4">v4 (random)</option><option value="7">v7 (time-ordered)</option></select></label>
+<label>How many <input type="number" id="uuid-n" class="num" min="1" max="1000" value="5"></label>
+<label><input type="checkbox" id="uuid-upper"> Uppercase</label>
+<label><input type="checkbox" id="uuid-nohy"> No hyphens</label>
+<label><input type="checkbox" id="uuid-braces"> {Braces}</label>
+<button id="uuid-gen">Generate</button>
+</div>
+<div id="uuid-msg" class="msg" hidden></div>
+<textarea id="uuid-out" spellcheck="false" readonly aria-label="Generated UUIDs"></textarea>
+<div class="row"><button id="uuid-copy" class="sec">Copy all</button><button id="uuid-use" class="sec">Inspect the first one</button></div>
+<h3>Validate and inspect a UUID</h3>
+<div class="row"><input type="text" id="uuid-in" class="big grow" spellcheck="false" autocomplete="off" placeholder="e.g. 017f22e2-79b0-7cc3-98c4-dc0c0c07398f" aria-label="UUID to inspect"></div>
+<div id="uuid-imsg" class="msg" hidden></div>
+<table id="uuid-info" class="kv"></table>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<h2 id="v4-or-v7">v4 or v7?</h2>
+<p><strong>UUID v4</strong> is 122 random bits. It is the default almost everywhere (<code>crypto.randomUUID()</code>, Python <code>uuid.uuid4()</code>, Postgres <code>gen_random_uuid()</code>). Use it when the ID must reveal nothing.</p>
+<p><strong>UUID v7</strong> (RFC 9562, 2024) starts with a 48-bit Unix timestamp in milliseconds, followed by random bits. New IDs sort after old ones, so they behave much better as database primary keys: inserts go to the end of a B-tree index instead of random pages, which keeps indexes smaller and inserts faster in Postgres and MySQL. The trade-off: anyone can read the creation time from the ID. This tool's v7 generator adds a counter so that even IDs created in the same millisecond are strictly increasing.</p>
+<p>The generator uses your browser's cryptographically secure random source (<code>crypto.getRandomValues</code> / <code>crypto.randomUUID</code>), never <code>Math.random</code>.</p>
+<h2 id="anatomy-of-a-uuid">Anatomy of a UUID</h2>
+<p><code>xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx</code>: 32 hex digits in groups of 8-4-4-4-12. <strong>M</strong> is the version (1-8). <strong>N</strong> is the variant: <code>8</code>, <code>9</code>, <code>a</code> or <code>b</code> means a standard RFC 9562 UUID; <code>c</code>/<code>d</code> is a legacy Microsoft GUID. The nil UUID (all zeros) and max UUID (all <code>f</code>) are special values.</p>
+<table>
+<thead>
+<tr>
+<th>Version</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>100-ns timestamp since 1582 + MAC address</td>
+</tr>
+<tr>
+<td>3 / 5</td>
+<td>MD5 / SHA-1 hash of a namespace and a name</td>
+</tr>
+<tr>
+<td>4</td>
+<td>random</td>
+</tr>
+<tr>
+<td>6</td>
+<td>v1 timestamp reordered to sort correctly</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Unix millisecond timestamp + random</td>
+</tr>
+</tbody>
+</table>
+<h2 id="common-problems">Common problems</h2>
+<ul>
+<li><strong>"not a valid UUID"</strong>: usually braces, a <code>urn:uuid:</code> prefix, whitespace or a truncated copy. The validator accepts and strips braces and prefixes, and points to the first invalid character.</li>
+<li><strong>Case</strong>: UUIDs are case-insensitive, but string comparison in code is not. Normalize to lowercase before comparing or storing as text.</li>
+<li><strong>JSON</strong>: Python's <code>json.dumps</code> cannot serialize <code>uuid.UUID</code> objects; convert with <code>str(u)</code>.</li>
+<li><strong>Storage</strong>: store UUIDs in a native <code>uuid</code> column (Postgres) or <code>BINARY(16)</code> (MySQL), not <code>VARCHAR(36)</code>.</li>
+</ul>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-postgres-duplicate-key-value-violates-unique-constraint/">ERROR: duplicate key value violates unique constraint</a></li><li><a href="/python/python-object-of-type-is-not-json-serializable/">TypeError: Object of type X is not JSON serializable</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/json-formatter/">JSON formatter &amp; validator</a></li><li><a href="/tools/cron-expression-explainer/">Cron expression explainer</a></li><li><a href="/tools/chmod-calculator/">chmod calculator</a></li><li><a href="/tools/unix-timestamp-converter/">Unix timestamp converter</a></li><li><a href="/tools/base64-encode-decode/">Base64 encode / decode</a></li><li><a href="/tools/url-encode-decode/">URL encode / decode</a></li><li><a href="/tools/jwt-decoder/">JWT decoder</a></li><li><a href="/tools/regex-tester/">Regex tester</a></li><li><a href="/tools/yaml-validator/">YAML validator &amp; YAML ↔ JSON converter</a></li><li><a href="/tools/text-diff/">Text diff checker</a></li><li><a href="/tools/http-status-codes/">HTTP status codes reference</a></li><li><a href="/tools/hash-generator/">Hash generator (MD5, SHA-256, SHA-512)</a></li><li><a href="/tools/line-ending-whitespace-inspector/">Line ending &amp; whitespace inspector</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

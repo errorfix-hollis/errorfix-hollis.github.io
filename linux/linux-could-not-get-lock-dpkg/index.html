@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>E: Could not get lock /var/lib/dpkg/lock-frontend (Linux) — how to fix</title>
+<meta name="description" content="Another apt or dpkg process is running — usually automatic updates right after boot. Wait for it to finish rather than deleting lock files.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-could-not-get-lock-dpkg/">
+<meta property="og:title" content="E: Could not get lock /var/lib/dpkg/lock-frontend (Linux) — how to fix"><meta property="og:description" content="Another apt or dpkg process is running — usually automatic updates right after boot. Wait for it to finish rather than deleting lock files.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-could-not-get-lock-dpkg/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "E: Could not get lock /var/lib/dpkg/lock-frontend (Linux) \u2014 how to fix", "description": "Another apt or dpkg process is running \u2014 usually automatic updates right after boot. Wait for it to finish rather than deleting lock files.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/linux/linux-could-not-get-lock-dpkg/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "E: Could not get lock /var/lib/dpkg/lock-frontend", "item": "https://errorfix-hollis.github.io/linux/linux-could-not-get-lock-dpkg/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>E: Could not get lock /var/lib/dpkg/lock-frontend (Linux) — how to fix</h1>
+<pre class="err"><code>E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2481 (unattended-upgr)
+N: Be aware that removing the lock file is not a solution and may break your system.
+E: Unable to acquire the dpkg frontend lock (/var/lib/dpkg/lock-frontend), is another process using it?
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Wait a few minutes: it's usually <code>unattended-upgrades</code> or another apt window. Check with <code>ps aux | grep -E 'apt|dpkg'</code>. If no apt process is running at all, run <code>sudo dpkg --configure -a</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Only one package manager can change the system at a time. The lock is held by another process, named in the message (<code>unattended-upgr</code> = automatic security updates, <code>apt</code>, <code>apt-get</code>, <code>packagekitd</code> = Software Center).</p>
+<h2 id="fix-1-wait">Fix 1: wait</h2>
+<p>On a freshly booted machine, automatic updates often run for a few minutes. Wait and watch:</p>
+<pre><code class="language-bash">ps aux | grep -E '[a]pt|[d]pkg'
+# or wait until the lock is free:
+while sudo fuser /var/lib/dpkg/lock-frontend &gt;/dev/null 2&gt;&amp;1; do sleep 5; done
+</code></pre>
+<p>Close other terminals running apt and the Software Updater GUI.</p>
+<h2 id="fix-2-the-other-process-is-stuck">Fix 2: the other process is stuck</h2>
+<p>If the process has been running for a long time with no CPU or disk activity, stop it gracefully:</p>
+<pre><code class="language-bash">sudo kill &lt;PID&gt;          # PID from the message
+</code></pre>
+<p>Then repair any interrupted installation:</p>
+<pre><code class="language-bash">sudo dpkg --configure -a
+sudo apt -f install
+</code></pre>
+<h2 id="dont-delete-the-lock-files-first">Don't delete the lock files first</h2>
+<p>Removing <code>/var/lib/dpkg/lock*</code> while another process is really writing can corrupt the package database. Only if <strong>no</strong> apt/dpkg process exists (<code>ps</code> shows nothing) and the error remains after a reboot, remove the stale locks and repair:</p>
+<pre><code class="language-bash">sudo rm /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/cache/apt/archives/lock
+sudo dpkg --configure -a
+</code></pre>
+<h2 id="in-scripts-and-cloud-init">In scripts and cloud-init</h2>
+<p>Wait for the lock instead of failing. apt has a built-in option:</p>
+<pre><code class="language-bash">sudo apt-get -o DPkg::Lock::Timeout=300 install -y nginx
+</code></pre>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-no-space-left-on-device/">No space left on device</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/linux/linux-cannot-execute-binary-file/">cannot execute binary file: Exec format error</a></li><li><a href="/linux/linux-command-not-found/">command not found</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

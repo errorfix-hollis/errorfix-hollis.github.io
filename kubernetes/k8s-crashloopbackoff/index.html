@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CrashLoopBackOff (Kubernetes) — how to fix</title>
+<meta name="description" content="The container starts, exits, and Kubernetes keeps restarting it with growing delays. The reason is in the previous container&#x27;s logs and in kubectl describe.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-crashloopbackoff/">
+<meta property="og:title" content="CrashLoopBackOff (Kubernetes) — how to fix"><meta property="og:description" content="The container starts, exits, and Kubernetes keeps restarting it with growing delays. The reason is in the previous container&#x27;s logs and in kubectl describe.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-crashloopbackoff/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "CrashLoopBackOff (Kubernetes) \u2014 how to fix", "description": "The container starts, exits, and Kubernetes keeps restarting it with growing delays. The reason is in the previous container's logs and in kubectl describe.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-crashloopbackoff/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "CrashLoopBackOff", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-crashloopbackoff/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>CrashLoopBackOff (Kubernetes) — how to fix</h1>
+<pre class="err"><code>NAME                     READY   STATUS             RESTARTS      AGE
+web-7d9c6b8f5d-x2k4q     0/1     CrashLoopBackOff   5 (32s ago)   4m
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>kubectl logs &lt;pod&gt; --previous</code> to see why the last run died, and <code>kubectl describe pod &lt;pod&gt;</code> for the exit code and events. Exit code 137 = killed (often OOM), 1 = app error, 127 = command not found.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>CrashLoopBackOff isn't a cause, it's a state: the container keeps <strong>exiting</strong>, and the kubelet waits longer between restarts each time (10s, 20s, 40s… up to 5 minutes).</p>
+<h2 id="step-1-logs-from-the-crashed-run">Step 1: logs from the crashed run</h2>
+<pre><code class="language-bash">kubectl logs &lt;pod&gt; --previous
+kubectl logs &lt;pod&gt; -c &lt;container&gt; --previous   # multi-container pods
+</code></pre>
+<p>Without <code>--previous</code> you may see the logs of the new, not-yet-crashed container (often empty).</p>
+<h2 id="step-2-exit-code-and-events">Step 2: exit code and events</h2>
+<pre><code class="language-bash">kubectl describe pod &lt;pod&gt;
+</code></pre>
+<p>Look at <strong>Last State: Terminated</strong>, <strong>Reason</strong> and <strong>Exit Code</strong>, and the <strong>Events</strong> at the bottom.</p>
+<table>
+<thead>
+<tr>
+<th>Exit code / reason</th>
+<th>Usual cause</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>1</code> / <code>Error</code></td>
+<td>The app crashed. Read the logs: missing env var, bad config, can't reach the database…</td>
+</tr>
+<tr>
+<td><code>137</code> / <code>OOMKilled</code></td>
+<td>Out of memory. Raise <code>resources.limits.memory</code> or fix the leak</td>
+</tr>
+<tr>
+<td><code>137</code> without OOMKilled</td>
+<td>Killed by a failing liveness probe or by SIGKILL after shutdown timeout</td>
+</tr>
+<tr>
+<td><code>127</code></td>
+<td>Command in <code>command:</code>/<code>args:</code> or the entrypoint doesn't exist in the image</td>
+</tr>
+<tr>
+<td><code>126</code></td>
+<td>Command not executable (permissions)</td>
+</tr>
+<tr>
+<td><code>0</code> / <code>Completed</code></td>
+<td>The process finished. A Deployment expects a long-running process; use a Job for one-off tasks</td>
+</tr>
+<tr>
+<td><code>139</code></td>
+<td>Segfault in native code</td>
+</tr>
+</tbody>
+</table>
+<h2 id="common-fixes">Common fixes</h2>
+<p><strong>Missing configuration.</strong> Check that referenced ConfigMaps/Secrets exist and env vars are set:</p>
+<pre><code class="language-bash">kubectl get pod &lt;pod&gt; -o yaml | grep -A20 env:
+</code></pre>
+<p><strong>Liveness probe too aggressive.</strong> If the app needs 60 s to start but the probe fails after 10 s, it gets killed forever. Add a <code>startupProbe</code>, or raise <code>initialDelaySeconds</code> / <code>failureThreshold</code>.</p>
+<p><strong>The container exits immediately because there's nothing to run.</strong> Images like <code>ubuntu</code> or <code>alpine</code> exit at once. For debugging, keep it alive: <code>command: ["sleep", "infinity"]</code>.</p>
+<p><strong>Architecture mismatch.</strong> <code>exec format error</code> in the logs means an arm64 image on amd64 nodes, or the reverse. See <a href="/docker/docker-exec-format-error/">exec format error</a>.</p>
+<h2 id="debug-inside-the-container">Debug inside the container</h2>
+<p>Override the command so it stays up, then look around:</p>
+<pre><code class="language-bash">kubectl debug &lt;pod&gt; -it --copy-to=debug-pod --container=&lt;container&gt; -- sh
+</code></pre>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-imagepullbackoff/">ImagePullBackOff / ErrImagePull</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li><li><a href="/kubernetes/k8s-error-converting-yaml-to-json-mapping-values-are-not-allowed/">error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context</a></li><li><a href="/kubernetes/k8s-error-from-server-forbidden/">Error from server (Forbidden): User cannot list resource in API group at the cluster scope</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

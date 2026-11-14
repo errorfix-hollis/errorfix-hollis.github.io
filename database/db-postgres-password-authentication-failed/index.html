@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FATAL: password authentication failed for user &quot;postgres&quot; (PostgreSQL) — how to fix</title>
+<meta name="description" content="PostgreSQL rejected the password for that user, or the user has no password set. Set one via sudo -u postgres psql and check pg_hba.conf.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-password-authentication-failed/">
+<meta property="og:title" content="FATAL: password authentication failed for user &quot;postgres&quot; (PostgreSQL) — how to fix"><meta property="og:description" content="PostgreSQL rejected the password for that user, or the user has no password set. Set one via sudo -u postgres psql and check pg_hba.conf.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-password-authentication-failed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "FATAL: password authentication failed for user \"postgres\" (PostgreSQL) \u2014 how to fix", "description": "PostgreSQL rejected the password for that user, or the user has no password set. Set one via sudo -u postgres psql and check pg_hba.conf.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/database/db-postgres-password-authentication-failed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "FATAL: password authentication failed for user \"postgres\"", "item": "https://errorfix-hollis.github.io/database/db-postgres-password-authentication-failed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>FATAL: password authentication failed for user &quot;postgres&quot; (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: FATAL:  password authentication failed for user &quot;postgres&quot;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Log in as the OS postgres user: <code>sudo -u postgres psql</code>, then set a password: <code>ALTER USER postgres PASSWORD 'new-password';</code>. Connect again with <code>psql -h localhost -U postgres</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The server found a rule in <code>pg_hba.conf</code> that requires a password (<code>scram-sha-256</code> or <code>md5</code>) for this connection, and the password didn't match. A freshly installed <code>postgres</code> user often has <strong>no password at all</strong>, so any password fails.</p>
+<h2 id="fix-set-the-password">Fix: set the password</h2>
+<p>On Linux, the <code>postgres</code> database user can log in without a password through the local socket ("peer" authentication):</p>
+<pre><code class="language-bash">sudo -u postgres psql
+</code></pre>
+<pre><code class="language-sql">ALTER USER postgres PASSWORD 'a-strong-password';
+</code></pre>
+<p>Better for apps: create your own user and database:</p>
+<pre><code class="language-sql">CREATE USER app WITH PASSWORD 'a-strong-password';
+CREATE DATABASE appdb OWNER app;
+</code></pre>
+<h2 id="check-pg_hbaconf">Check pg_hba.conf</h2>
+<p>Find it with <code>sudo -u postgres psql -c 'SHOW hba_file;'</code>. Rules are checked top to bottom; the first match wins:</p>
+<pre><code class="language-text"># TYPE  DATABASE  USER  ADDRESS        METHOD
+local   all       all                  peer
+host    all       all   127.0.0.1/32   scram-sha-256
+host    all       all   ::1/128        scram-sha-256
+</code></pre>
+<p>After editing, reload: <code>sudo systemctl reload postgresql</code>.</p>
+<h2 id="password-encryption-mismatch">Password encryption mismatch</h2>
+<p>If you upgraded from an old version, passwords stored as <code>md5</code> don't work with <code>scram-sha-256</code> rules. Set the password again after making sure <code>password_encryption = scram-sha-256</code> in <code>postgresql.conf</code>. Old client libraries that don't support SCRAM need upgrading.</p>
+<h2 id="docker">Docker</h2>
+<p><code>POSTGRES_PASSWORD</code> only applies when the data volume is <strong>empty</strong> on first start. If you changed the variable afterwards, the old password still applies. Either use the old one, change it with <code>ALTER USER</code>, or remove the volume (this deletes your data):</p>
+<pre><code class="language-bash">docker compose down -v
+</code></pre>
+<h2 id="special-characters-in-connection-urls">Special characters in connection URLs</h2>
+<p>In <code>postgresql://user:p@ss@host/db</code>, characters like <code>@</code>, <code>:</code>, <code>/</code>, <code>#</code> must be URL-encoded (<code>@</code> → <code>%40</code>), or the password is parsed wrong.</p>
+<h2 id="peer-authentication-failed-instead">"Peer authentication failed" instead?</h2>
+<p>That's <code>FATAL: Peer authentication failed for user "x"</code>: you used the socket with a database user whose name doesn't match your Linux user. Connect over TCP with <code>-h localhost</code> to use password auth, or run as the matching OS user.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-postgres-connection-refused/">psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li><li><a href="/database/db-mysql-error-1130-host-is-not-allowed-to-connect/">ERROR 1130 (HY000): Host is not allowed to connect to this MySQL server</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

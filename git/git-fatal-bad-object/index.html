@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal: bad object (Git) — how to fix</title>
+<meta name="description" content="Git was asked for an object (commit, tree or blob) that isn&#x27;t in the local object database. Usually the commit just hasn&#x27;t been fetched; sometimes a ref or object file is corrupted.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-fatal-bad-object/">
+<meta property="og:title" content="fatal: bad object (Git) — how to fix"><meta property="og:description" content="Git was asked for an object (commit, tree or blob) that isn&#x27;t in the local object database. Usually the commit just hasn&#x27;t been fetched; sometimes a ref or object file is corrupted.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-fatal-bad-object/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal: bad object (Git) \u2014 how to fix", "description": "Git was asked for an object (commit, tree or blob) that isn't in the local object database. Usually the commit just hasn't been fetched; sometimes a ref or object file is corrupted.", "dateModified": "2026-11-10", "url": "https://errorfix-hollis.github.io/git/git-fatal-bad-object/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "fatal: bad object", "item": "https://errorfix-hollis.github.io/git/git-fatal-bad-object/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>fatal: bad object (Git) — how to fix</h1>
+<pre class="err"><code>fatal: bad object 3f2a9c1d8e7b6a5f4e3d2c1b0a9f8e7d6c5b4a39
+fatal: bad object HEAD
+error: refs/remotes/origin/main does not point to a valid object!
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> If it's a commit from someone else or another branch, run <code>git fetch --all</code> (or <code>git fetch origin &lt;sha&gt;</code>) and retry. If it says <code>bad object HEAD</code> or refs point to invalid objects, run <code>git fsck --full</code>, delete the broken ref (e.g. <code>git update-ref -d refs/remotes/origin/main</code>) and fetch again; worst case, re-clone and copy your work over.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Every commit, tree and file in Git is an object identified by its hash, stored in <code>.git/objects</code> (loose or in packfiles). <code>bad object &lt;name&gt;</code> means Git looked up that name and the object isn't there, or is unreadable.</p>
+<p>Two very different situations produce it.</p>
+<h2 id="cause-1-the-commit-hasnt-been-fetched-yet-most-common">Cause 1: the commit hasn't been fetched yet (most common)</h2>
+<p>You copied a SHA from GitHub, a colleague or CI and ran:</p>
+<pre><code class="language-bash">git cherry-pick 3f2a9c1d
+git show 3f2a9c1d
+git diff 3f2a9c1d
+</code></pre>
+<p>Your clone simply doesn't have that commit. Fetch it:</p>
+<pre><code class="language-bash">git fetch --all --prune
+git fetch origin 3f2a9c1d8e7b6a5f4e3d2c1b0a9f8e7d6c5b4a39   # a single commit (GitHub/GitLab allow this)
+</code></pre>
+<p>For a commit from a pull request or a fork:</p>
+<pre><code class="language-bash">git fetch origin pull/123/head          # GitHub PR
+git fetch https://github.com/other/repo.git branch-name
+</code></pre>
+<h2 id="cause-2-shallow-or-partial-clone">Cause 2: shallow or partial clone</h2>
+<p>CI systems often clone with <code>--depth=1</code>, so older commits aren't present (<code>git merge-base</code>, <code>git describe</code> and diffs against older SHAs fail):</p>
+<pre><code class="language-bash">git rev-parse --is-shallow-repository   # true?
+git fetch --unshallow
+</code></pre>
+<p>In GitHub Actions use <code>actions/checkout</code> with <code>fetch-depth: 0</code>.</p>
+<h2 id="cause-3-bad-object-head-corrupted-repository">Cause 3: <code>bad object HEAD</code> / corrupted repository</h2>
+<p>This one is real corruption: the ref or object files are damaged. Typical triggers are a crash or power loss during a commit, a full disk, or keeping the repo in Dropbox/OneDrive/iCloud, which can sync half-written files.</p>
+<p><strong>Back up first:</strong> <code>cp -r myrepo myrepo-backup</code>.</p>
+<p>Then diagnose:</p>
+<pre><code class="language-bash">git fsck --full
+</code></pre>
+<h3 id="broken-ref">Broken ref</h3>
+<p>If fsck or <code>git fetch</code> reports <code>refs/... does not point to a valid object</code>, delete the ref and re-fetch it:</p>
+<pre><code class="language-bash">git update-ref -d refs/remotes/origin/main
+git fetch origin
+</code></pre>
+<p>For a broken local branch, check the reflog for the last good commit:</p>
+<pre><code class="language-bash">cat .git/HEAD
+git reflog show main | head          # or: tail .git/logs/refs/heads/main
+git update-ref refs/heads/main &lt;good-sha&gt;
+</code></pre>
+<h3 id="empty-or-corrupt-object-files">Empty or corrupt object files</h3>
+<p><code>error: object file .git/objects/ab/cdef... is empty</code> — remove the empty files and restore them from the remote:</p>
+<pre><code class="language-bash">find .git/objects -type f -empty -delete
+git fetch -p
+git fsck --full
+</code></pre>
+<p>Objects that were already pushed come back with fetch. Objects that existed only locally (unpushed commits) may be lost; check <code>git fsck --lost-found</code> for dangling commits you can recover.</p>
+<h2 id="cause-4-re-clone-as-the-reliable-last-resort">Cause 4: re-clone as the reliable last resort</h2>
+<p>If fsck keeps reporting missing objects:</p>
+<pre><code class="language-bash">git clone https://github.com/you/repo.git repo-fresh
+# copy uncommitted work files from the old working tree (not .git)
+</code></pre>
+<p>Then move the repo out of any cloud-synced folder to avoid a repeat.</p>
+<h2 id="related-messages">Related messages</h2>
+<ul>
+<li><code>fatal: bad revision 'xyz'</code> — the name doesn't resolve at all (typo, or branch not fetched).</li>
+<li><code>fatal: ambiguous argument 'xyz': unknown revision or path</code> — same idea; use <code>git branch -a</code> to check names.</li>
+<li><code>fatal: bad object refs/stash</code> — a broken stash ref: <code>git update-ref -d refs/stash</code> (you lose that stash).</li>
+</ul>
+<p class="upd">Last updated 2026-11-10.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-not-a-git-repository/">fatal: not a git repository (or any of the parent directories): .git</a></li><li><a href="/git/git-rpc-failed-curl-92-early-eof/">error: RPC failed; curl 92 HTTP/2 stream 0 was not closed cleanly</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

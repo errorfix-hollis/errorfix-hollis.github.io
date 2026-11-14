@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error: error:0308010C:digital envelope routines::unsupported (Node.js) — how to fix</title>
+<meta name="description" content="An old webpack (often via react-scripts 4 or Vue CLI 4) uses the MD4 hash, which OpenSSL 3 in Node 17+ disables. Upgrade webpack/react-scripts, or use the legacy OpenSSL provider.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-err-ossl-evp-unsupported/">
+<meta property="og:title" content="Error: error:0308010C:digital envelope routines::unsupported (Node.js) — how to fix"><meta property="og:description" content="An old webpack (often via react-scripts 4 or Vue CLI 4) uses the MD4 hash, which OpenSSL 3 in Node 17+ disables. Upgrade webpack/react-scripts, or use the legacy OpenSSL provider.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-err-ossl-evp-unsupported/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error: error:0308010C:digital envelope routines::unsupported (Node.js) \u2014 how to fix", "description": "An old webpack (often via react-scripts 4 or Vue CLI 4) uses the MD4 hash, which OpenSSL 3 in Node 17+ disables. Upgrade webpack/react-scripts, or use the legacy OpenSSL provider.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/npm/npm-err-ossl-evp-unsupported/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "Error: error:0308010C:digital envelope routines::unsupported", "item": "https://errorfix-hollis.github.io/npm/npm-err-ossl-evp-unsupported/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>Error: error:0308010C:digital envelope routines::unsupported (Node.js) — how to fix</h1>
+<pre class="err"><code>Error: error:0308010C:digital envelope routines::unsupported
+    at new Hash (node:internal/crypto/hash:69:19)
+    at Object.createHash (node:crypto:133:10)
+    at module.exports (/app/node_modules/webpack/lib/util/createHash.js:135:53)
+{
+  opensslErrorStack: [ &#x27;error:03000086:digital envelope routines::initialization error&#x27; ],
+  library: &#x27;digital envelope routines&#x27;,
+  reason: &#x27;unsupported&#x27;,
+  code: &#x27;ERR_OSSL_EVP_UNSUPPORTED&#x27;
+}
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Best: upgrade the build tool (<code>npm install react-scripts@latest</code> or webpack 5.61+). Quick workaround: <code>export NODE_OPTIONS=--openssl-legacy-provider</code> before <code>npm start</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Node.js 17 and later ship with <strong>OpenSSL 3</strong>, which disables old hash algorithms such as MD4 by default. Webpack 4 (and early webpack 5) uses MD4 to hash files, so the build crashes.</p>
+<p>Typical setups that hit this: Create React App with <code>react-scripts</code> 4, Vue CLI 4, Angular 11 or older, Gatsby 2/3, Storybook 6 on webpack 4.</p>
+<h2 id="fix-1-upgrade-the-tooling-best">Fix 1: upgrade the tooling (best)</h2>
+<pre><code class="language-bash">npm install react-scripts@latest      # Create React App
+npm install webpack@latest            # plain webpack (5.61+ has its own MD4)
+</code></pre>
+<p>For Vue CLI, Angular or Next.js, upgrade to a version that supports Node 18+.</p>
+<h2 id="fix-2-enable-the-legacy-openssl-provider">Fix 2: enable the legacy OpenSSL provider</h2>
+<p>Linux/macOS:</p>
+<pre><code class="language-bash">export NODE_OPTIONS=--openssl-legacy-provider
+npm start
+</code></pre>
+<p>Windows PowerShell:</p>
+<pre><code class="language-powershell">$env:NODE_OPTIONS=&quot;--openssl-legacy-provider&quot;
+npm start
+</code></pre>
+<p>Or put it in <code>package.json</code> scripts (works for Linux/macOS shells):</p>
+<pre><code class="language-json">&quot;scripts&quot;: {
+  &quot;start&quot;: &quot;NODE_OPTIONS=--openssl-legacy-provider react-scripts start&quot;,
+  &quot;build&quot;: &quot;NODE_OPTIONS=--openssl-legacy-provider react-scripts build&quot;
+}
+</code></pre>
+<p>For cross-platform scripts use <code>cross-env</code>: <code>"start": "cross-env NODE_OPTIONS=--openssl-legacy-provider react-scripts start"</code>.</p>
+<p>If you get <code>node: --openssl-legacy-provider is not allowed in NODE_OPTIONS</code>, your Node is older than 17 and doesn't need the flag. Remove it.</p>
+<h2 id="fix-3-use-node-16">Fix 3: use Node 16</h2>
+<p>Running an old project with nvm: <code>nvm install 16 &amp;&amp; nvm use 16</code>. Node 16 is end-of-life and no longer gets security fixes, so treat this as temporary.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/npm-eresolve-unable-to-resolve-dependency-tree/">npm ERR! code ERESOLVE unable to resolve dependency tree</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li><li><a href="/npm/node-err-require-esm/">Error [ERR_REQUIRE_ESM]: require() of ES Module not supported</a></li><li><a href="/npm/node-error-listen-eaddrinuse-address-already-in-use/">Error: listen EADDRINUSE: address already in use :::3000</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

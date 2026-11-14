@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: the server doesn&#x27;t have a resource type (Kubernetes) — how to fix</title>
+<meta name="description" content="kubectl asked the API server for a resource name that isn&#x27;t in its discovery list. Either the name is misspelled, the CRD that defines it isn&#x27;t installed, kubectl&#x27;s discovery cache is stale, or you&#x27;re talking to the wrong cluster.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-the-server-doesnt-have-a-resource-type/">
+<meta property="og:title" content="error: the server doesn&#x27;t have a resource type (Kubernetes) — how to fix"><meta property="og:description" content="kubectl asked the API server for a resource name that isn&#x27;t in its discovery list. Either the name is misspelled, the CRD that defines it isn&#x27;t installed, kubectl&#x27;s discovery cache is stale, or you&#x27;re talking to the wrong cluster.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-the-server-doesnt-have-a-resource-type/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: the server doesn't have a resource type (Kubernetes) \u2014 how to fix", "description": "kubectl asked the API server for a resource name that isn't in its discovery list. Either the name is misspelled, the CRD that defines it isn't installed, kubectl's discovery cache is stale, or you're talking to the wrong cluster.", "dateModified": "2026-11-11", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-the-server-doesnt-have-a-resource-type/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "error: the server doesn't have a resource type", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-the-server-doesnt-have-a-resource-type/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>error: the server doesn&#x27;t have a resource type (Kubernetes) — how to fix</h1>
+<pre class="err"><code>error: the server doesn&#x27;t have a resource type &quot;ingressroutes&quot;
+error: the server doesn&#x27;t have a resource type &quot;pod&quot;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> List what the cluster serves: <code>kubectl api-resources | grep -i &lt;name&gt;</code>. Fix the spelling or install the CRD (e.g. the operator/Helm chart that provides it). If the CRD was just installed, clear the cache: <code>rm -rf ~/.kube/cache</code>. Check you're on the right cluster with <code>kubectl config current-context</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When you run <code>kubectl get foo</code>, kubectl first maps <code>foo</code> to a REST resource using the API server's <em>discovery</em> data (which kubectl caches under <code>~/.kube/cache</code>). If no API group serves a resource called <code>foo</code> (by plural, singular, short name or kind), you get this error before any request is made.</p>
+<p>The applying-manifests version of the same problem is <code>no matches for kind "X" in version "Y"</code>.</p>
+<h2 id="cause-1-typo-or-wrong-name">Cause 1: typo or wrong name</h2>
+<p>Check the names the cluster accepts:</p>
+<pre><code class="language-bash">kubectl api-resources                       # NAME, SHORTNAMES, APIVERSION, KIND
+kubectl api-resources | grep -i ingress
+</code></pre>
+<p>Resource names are case-insensitive and accept the plural (<code>deployments</code>), singular (<code>deployment</code>), and short name (<code>deploy</code>). Things that look valid but aren't:</p>
+<ul>
+<li><code>kubectl get container</code> (containers aren't API resources; use <code>kubectl get pods</code> and <code>kubectl describe pod</code>)</li>
+<li><code>kubectl get helm</code> / <code>kubectl get chart</code> (Helm releases aren't resources; use <code>helm list -A</code>)</li>
+</ul>
+<h2 id="cause-2-the-crd-isnt-installed">Cause 2: the CRD isn't installed</h2>
+<p>Custom resources such as <code>certificates</code> (cert-manager), <code>ingressroutes</code> (Traefik), <code>servicemonitors</code> (Prometheus Operator), <code>virtualservices</code> (Istio) or <code>applications</code> (Argo CD) only exist once their CustomResourceDefinition is installed.</p>
+<pre><code class="language-bash">kubectl get crd | grep -i servicemonitor
+</code></pre>
+<p>If it's missing, install the operator or its CRDs. Examples:</p>
+<pre><code class="language-bash"># cert-manager
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.16.1/cert-manager.yaml
+
+# Prometheus Operator CRDs via Helm
+helm install prometheus-operator-crds prometheus-community/prometheus-operator-crds
+</code></pre>
+<p>Use the version that matches your setup; Helm charts sometimes skip CRDs on upgrade (<code>helm upgrade</code> never updates the <code>crds/</code> folder), so you may need to apply them manually.</p>
+<h2 id="cause-3-stale-discovery-cache">Cause 3: stale discovery cache</h2>
+<p>If you installed a CRD seconds ago, or the cluster was upgraded, kubectl may still use cached discovery data. Clear it:</p>
+<pre><code class="language-bash">rm -rf ~/.kube/cache/discovery ~/.kube/cache/http
+kubectl api-resources | grep -i &lt;name&gt;
+</code></pre>
+<p>Also make sure the CRD finished registering:</p>
+<pre><code class="language-bash">kubectl wait --for condition=established crd/ingressroutes.traefik.io --timeout=60s
+</code></pre>
+<h2 id="cause-4-wrong-cluster-or-context">Cause 4: wrong cluster or context</h2>
+<p>The resource exists, just not in the cluster you're talking to:</p>
+<pre><code class="language-bash">kubectl config current-context
+kubectl config get-contexts
+kubectl config use-context prod-cluster
+</code></pre>
+<p>The same message appears for <strong>built-in</strong> types (<code>pods</code>, <code>nodes</code>) when discovery fails entirely, e.g. the kubeconfig points at something that isn't a Kubernetes API, or RBAC forbids discovery. Run with verbose output to see the underlying errors:</p>
+<pre><code class="language-bash">kubectl get pods -v=6
+</code></pre>
+<p>If you see <code>401</code>/<code>403</code> on <code>/api</code> or <code>/apis</code>, fix authentication first (<code>You must be logged in to the server</code>, <code>Forbidden</code>).</p>
+<h2 id="cause-5-removed-api-in-a-newer-kubernetes-version">Cause 5: removed API in a newer Kubernetes version</h2>
+<p>Resources that were removed (e.g. <code>podsecuritypolicies</code> in 1.25) no longer appear in discovery. Use the replacement (Pod Security Admission labels on namespaces) and check the Kubernetes deprecation guide for your version.</p>
+<h2 id="cause-6-aggregated-api-not-available">Cause 6: aggregated API not available</h2>
+<p>For resources served by an aggregated API server (e.g. <code>kubectl top</code> and <code>metrics.k8s.io</code> from metrics-server), check its APIService:</p>
+<pre><code class="language-bash">kubectl get apiservices | grep -v True
+</code></pre>
+<p>An entry with <code>False (MissingEndpoints)</code> means its backing pod is down; fix that deployment.</p>
+<p class="upd">Last updated 2026-11-11.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-error-from-server-forbidden/">Error from server (Forbidden): User cannot list resource in API group at the cluster scope</a></li><li><a href="/kubernetes/k8s-no-matches-for-kind/">error: resource mapping not found ... no matches for kind &quot;Deployment&quot; in version &quot;extensions/v1beta1&quot;</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

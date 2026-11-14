@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver — how to fix</title>
+<meta name="description" content="The MySQL JDBC driver (Connector/J) isn&#x27;t on the runtime classpath. It&#x27;s missing from your build file, has the wrong scope, isn&#x27;t packaged in the JAR/WAR, or isn&#x27;t in the app server&#x27;s lib folder.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">
+<meta property="og:title" content="java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver — how to fix"><meta property="og:description" content="The MySQL JDBC driver (Connector/J) isn&#x27;t on the runtime classpath. It&#x27;s missing from your build file, has the wrong scope, isn&#x27;t packaged in the JAR/WAR, or isn&#x27;t in the app server&#x27;s lib folder.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver \u2014 how to fix", "description": "The MySQL JDBC driver (Connector/J) isn't on the runtime classpath. It's missing from your build file, has the wrong scope, isn't packaged in the JAR/WAR, or isn't in the app server's lib folder.", "dateModified": "2026-11-01", "url": "https://errorfix-hollis.github.io/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver", "item": "https://errorfix-hollis.github.io/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver — how to fix</h1>
+<pre class="err"><code>java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver
+	at java.base/jdk.internal.loader.BuiltinClassLoader.loadClass(BuiltinClassLoader.java:641)
+	at java.base/java.lang.Class.forName0(Native Method)
+	at java.base/java.lang.Class.forName(Class.java:375)
+java.sql.SQLException: No suitable driver found for jdbc:mysql://localhost:3306/mydb
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Add Connector/J: Maven <code>com.mysql:mysql-connector-j</code> (runtime scope), Gradle <code>runtimeOnly 'com.mysql:mysql-connector-j:&lt;version&gt;'</code>. Without a build tool: <code>java -cp .:mysql-connector-j-&lt;version&gt;.jar Main</code> (<code>;</code> on Windows). For Tomcat copy the JAR into <code>$CATALINA_HOME/lib</code> or <code>WEB-INF/lib</code>. Use <code>com.mysql.cj.jdbc.Driver</code>, not the old <code>com.mysql.jdbc.Driver</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>Class.forName("com.mysql.cj.jdbc.Driver")</code> (or a framework doing the same) asked the class loader for the driver class, and no JAR on the classpath contains it. Without <code>Class.forName</code>, the same root cause shows up as <code>SQLException: No suitable driver found for jdbc:mysql://...</code>, because <code>DriverManager</code> found no registered driver for that URL.</p>
+<p>The driver is a separate library, MySQL Connector/J. It is not part of the JDK.</p>
+<h2 id="fix-1-maven">Fix 1: Maven</h2>
+<p>Use the current artifact coordinates (<code>com.mysql:mysql-connector-j</code>; the old <code>mysql:mysql-connector-java</code> was relocated after 8.0.31):</p>
+<pre><code class="language-xml">&lt;dependency&gt;
+  &lt;groupId&gt;com.mysql&lt;/groupId&gt;
+  &lt;artifactId&gt;mysql-connector-j&lt;/artifactId&gt;
+  &lt;version&gt;8.4.0&lt;/version&gt;
+  &lt;scope&gt;runtime&lt;/scope&gt;
+&lt;/dependency&gt;
+</code></pre>
+<p>Spring Boot manages the version, so you can omit <code>&lt;version&gt;</code>. Then reload the project in your IDE (IntelliJ: Maven tool window -&gt; Reload) and rebuild.</p>
+<p>Don't use <code>&lt;scope&gt;provided&lt;/scope&gt;</code> or <code>test</code> unless the server really supplies it; those scopes leave the JAR out of the packaged app.</p>
+<h2 id="fix-2-gradle">Fix 2: Gradle</h2>
+<pre><code class="language-groovy">dependencies {
+    runtimeOnly 'com.mysql:mysql-connector-j:8.4.0'
+}
+</code></pre>
+<p>Kotlin DSL: <code>runtimeOnly("com.mysql:mysql-connector-j:8.4.0")</code>. If you call driver classes directly in code, use <code>implementation</code> instead.</p>
+<h2 id="fix-3-plain-java-no-build-tool">Fix 3: plain <code>java</code> / no build tool</h2>
+<p>Download the platform-independent JAR from dev.mysql.com (Connector/J) and put it on the classpath at run time, not just compile time:</p>
+<pre><code class="language-bash">javac Main.java
+java -cp .:lib/mysql-connector-j-8.4.0.jar Main        # Linux/macOS
+java -cp &quot;.;lib\mysql-connector-j-8.4.0.jar&quot; Main      # Windows
+</code></pre>
+<p>Note <code>java -jar app.jar</code> <strong>ignores</strong> <code>-cp</code>. Either build a fat JAR that includes the driver (Maven Shade/Assembly plugin, Spring Boot's plugin, Gradle Shadow), or add a <code>Class-Path:</code> entry to the manifest.</p>
+<p>In an IDE without Maven/Gradle, add the JAR as a library (IntelliJ: File -&gt; Project Structure -&gt; Modules -&gt; Dependencies -&gt; + JARs; Eclipse: Build Path -&gt; Add External Archives).</p>
+<h2 id="fix-4-tomcat-and-other-servlet-containers">Fix 4: Tomcat and other servlet containers</h2>
+<p>If a Tomcat-managed DataSource (a <code>&lt;Resource&gt;</code> in <code>context.xml</code>) uses the driver, the JAR must be in <code>$CATALINA_HOME/lib</code>, because Tomcat creates the pool outside your web app. If only your app code uses it, <code>WEB-INF/lib</code> inside the WAR is enough. Restart Tomcat after copying.</p>
+<h2 id="fix-5-wrong-or-outdated-class-name">Fix 5: wrong or outdated class name</h2>
+<ul>
+<li>Connector/J 8+: <code>com.mysql.cj.jdbc.Driver</code></li>
+<li>Connector/J 5.x (very old): <code>com.mysql.jdbc.Driver</code></li>
+</ul>
+<p>With an 8.x JAR, the old name still works but logs a deprecation warning. With a 5.x JAR, <code>com.mysql.cj.jdbc.Driver</code> doesn't exist. Since JDBC 4, <code>Class.forName(...)</code> isn't needed at all; the driver registers itself when the JAR is on the classpath:</p>
+<pre><code class="language-java">try (Connection c = DriverManager.getConnection(
+        &quot;jdbc:mysql://localhost:3306/mydb&quot;, &quot;app&quot;, &quot;secret&quot;)) {
+    ...
+}
+</code></pre>
+<p>In Spring Boot, <code>spring.datasource.driver-class-name</code> can usually be removed; it's inferred from the URL.</p>
+<h2 id="check-whats-on-the-classpath">Check what's on the classpath</h2>
+<pre><code class="language-bash">mvn dependency:tree | grep -i mysql
+./gradlew dependencies --configuration runtimeClasspath | grep -i mysql
+unzip -l target/app.jar | grep -i mysql-connector
+</code></pre>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/java/java-could-not-find-or-load-main-class/">Error: Could not find or load main class</a></li><li><a href="/java/java-unsupportedclassversionerror/">java.lang.UnsupportedClassVersionError: has been compiled by a more recent version of the Java Runtime</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-comparison-method-violates-its-general-contract/">java.lang.IllegalArgumentException: Comparison method violates its general contract!</a></li><li><a href="/java/java-concurrentmodificationexception/">java.util.ConcurrentModificationException</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

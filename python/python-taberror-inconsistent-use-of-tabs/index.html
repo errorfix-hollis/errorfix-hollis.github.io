@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TabError: inconsistent use of tabs and spaces in indentation (Python) — how to fix</title>
+<meta name="description" content="Your file mixes tab characters and spaces for indentation. Convert everything to spaces.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-taberror-inconsistent-use-of-tabs/">
+<meta property="og:title" content="TabError: inconsistent use of tabs and spaces in indentation (Python) — how to fix"><meta property="og:description" content="Your file mixes tab characters and spaces for indentation. Convert everything to spaces.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-taberror-inconsistent-use-of-tabs/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TabError: inconsistent use of tabs and spaces in indentation (Python) \u2014 how to fix", "description": "Your file mixes tab characters and spaces for indentation. Convert everything to spaces.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/python/python-taberror-inconsistent-use-of-tabs/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TabError: inconsistent use of tabs and spaces in indentation", "item": "https://errorfix-hollis.github.io/python/python-taberror-inconsistent-use-of-tabs/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TabError: inconsistent use of tabs and spaces in indentation (Python) — how to fix</h1>
+<pre class="err"><code>TabError: inconsistent use of tabs and spaces in indentation</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Convert all tabs to 4 spaces: in VS Code use Ctrl+Shift+P → Convert Indentation to Spaces; on the command line <code>expand -t 4 file.py &gt; tmp &amp;&amp; mv tmp file.py</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Python 3 refuses to guess how wide a tab is. If one block mixes tabs and spaces, it raises <code>TabError</code> instead of running code that might mean something different from what it looks like.</p>
+<h2 id="fix">Fix</h2>
+<p>Use spaces only (PEP 8 recommends 4 per level).</p>
+<p><strong>VS Code:</strong> Ctrl+Shift+P → <em>Convert Indentation to Spaces</em>, and set <code>"editor.insertSpaces": true</code>.</p>
+<p><strong>PyCharm:</strong> Edit → Convert Indents → To Spaces.</p>
+<p><strong>Vim:</strong> <code>:set expandtab</code> then <code>:retab</code>.</p>
+<p><strong>Command line:</strong></p>
+<pre><code class="language-bash">expand -t 4 script.py &gt; script_fixed.py &amp;&amp; mv script_fixed.py script.py
+</code></pre>
+<h2 id="find-the-tabs">Find the tabs</h2>
+<pre><code class="language-bash">grep -nP '\t' script.py
+</code></pre>
+<h2 id="prevent-it">Prevent it</h2>
+<p>Add an <code>.editorconfig</code> file to your project:</p>
+<pre><code class="language-ini">[*.py]
+indent_style = space
+indent_size = 4
+</code></pre>
+<p>Formatters like <code>black</code> or <code>ruff format</code> also normalise indentation every time you save.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-indentationerror-unexpected-indent/">IndentationError: unexpected indent</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li><li><a href="/python/python-attributeerror-str-object-has-no-attribute/">AttributeError: &#x27;str&#x27; object has no attribute</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

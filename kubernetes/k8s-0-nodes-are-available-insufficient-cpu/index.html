@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>0/3 nodes are available: Insufficient cpu (Kubernetes) — how to fix</title>
+<meta name="description" content="The scheduler cannot place the pod on any node because no node has enough unreserved CPU (or memory) to satisfy the pod&#x27;s resource requests. Requests count, not actual usage.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">
+<meta property="og:title" content="0/3 nodes are available: Insufficient cpu (Kubernetes) — how to fix"><meta property="og:description" content="The scheduler cannot place the pod on any node because no node has enough unreserved CPU (or memory) to satisfy the pod&#x27;s resource requests. Requests count, not actual usage.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "0/3 nodes are available: Insufficient cpu (Kubernetes) \u2014 how to fix", "description": "The scheduler cannot place the pod on any node because no node has enough unreserved CPU (or memory) to satisfy the pod's resource requests. Requests count, not actual usage.", "dateModified": "2026-11-02", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "0/3 nodes are available: Insufficient cpu", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>0/3 nodes are available: Insufficient cpu (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Warning  FailedScheduling  default-scheduler  0/3 nodes are available: 3 Insufficient cpu. preemption: 0/3 nodes are available: 3 No preemption victims found for incoming pod.
+0/3 nodes are available: 1 node(s) had untolerated taint {node-role.kubernetes.io/control-plane: }, 2 Insufficient memory.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>kubectl describe pod POD</code> and <code>kubectl describe nodes | grep -A8 "Allocated resources"</code>. Lower <code>resources.requests.cpu</code> (e.g. <code>100m</code> instead of <code>2</code>), reduce replicas, remove stuck/unused pods, or add nodes / enable the cluster autoscaler.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The pod stays <code>Pending</code>. For each node, the scheduler checks whether <strong>allocatable CPU minus the sum of CPU requests of pods already on that node</strong> is at least this pod's CPU request. No node passed, so it reports <code>N Insufficient cpu</code>. A node can be at 5% real CPU usage and still be "full" if its pods <em>request</em> a lot.</p>
+<p>The message lists a reason for every node, so read it all: <code>1 node(s) had untolerated taint</code>, <code>2 Insufficient memory</code>, <code>didn't match Pod's node affinity/selector</code> are separate problems.</p>
+<h2 id="diagnose">Diagnose</h2>
+<pre><code class="language-bash">kubectl describe pod my-pod             # Events: FailedScheduling
+kubectl get pod my-pod -o jsonpath='{.spec.containers[*].resources}'
+kubectl describe nodes | grep -A 8 &quot;Allocated resources&quot;
+kubectl top nodes                        # real usage (needs metrics-server)
+</code></pre>
+<p><code>Allocated resources</code> shows, per node, e.g. <code>cpu 3800m (95%)</code> requests out of allocatable. If that's near 100%, the node is full for scheduling.</p>
+<h2 id="fix-1-lower-the-requests">Fix 1: lower the requests</h2>
+<p>CPU is measured in cores: <code>1</code> = one vCPU, <code>500m</code> = half, <code>100m</code> = a tenth. A request of <code>2</code> on 2-vCPU nodes can never fit, because system components reserve part of each node.</p>
+<pre><code class="language-yaml">resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    memory: 512Mi
+</code></pre>
+<p>Set requests near the pod's typical usage (check <code>kubectl top pod</code>). Helm charts often default to large requests — override them in values.</p>
+<p>Watch out for a <code>LimitRange</code> in the namespace that injects default requests:</p>
+<pre><code class="language-bash">kubectl get limitrange -n my-namespace -o yaml
+</code></pre>
+<h2 id="fix-2-free-capacity">Fix 2: free capacity</h2>
+<pre><code class="language-bash">kubectl get pods -A --field-selector=status.phase!=Running
+kubectl get pods -A -o wide | grep NODE_NAME
+</code></pre>
+<ul>
+<li>Scale down unused deployments: <code>kubectl scale deploy old-app --replicas=0</code>.</li>
+<li>Delete completed Jobs and evicted pods.</li>
+<li>During rolling updates, <code>maxSurge</code> creates extra pods temporarily; with tight capacity use <code>maxSurge: 0</code> and <code>maxUnavailable: 1</code>.</li>
+</ul>
+<h2 id="fix-3-add-capacity">Fix 3: add capacity</h2>
+<ul>
+<li>Managed clusters: increase the node pool size, or enable the cluster autoscaler (EKS, GKE, AKS) so a Pending pod triggers a new node.</li>
+<li>If the pod's request is bigger than any single node, adding nodes of the same size won't help — use a larger instance type.</li>
+<li>minikube: <code>minikube start --cpus=4 --memory=8g</code> (recreate with <code>minikube delete</code> first). kind/Docker Desktop: raise Docker's CPU allocation.</li>
+</ul>
+<h2 id="fix-4-the-control-plane-taint-single-node-small-clusters">Fix 4: the control-plane taint (single-node / small clusters)</h2>
+<p><code>had untolerated taint {node-role.kubernetes.io/control-plane: }</code> means the scheduler won't use the control-plane node. On a lab cluster (kubeadm) you can allow workloads there:</p>
+<pre><code class="language-bash">kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+</code></pre>
+<p>Don't do that in production.</p>
+<h2 id="fix-5-selectors-and-affinity-narrow-the-choice">Fix 5: selectors and affinity narrow the choice</h2>
+<p>If the pod has a <code>nodeSelector</code>, node affinity or a toleration-only node pool, only those nodes are considered, and they may be the full ones. Check:</p>
+<pre><code class="language-bash">kubectl get pod my-pod -o yaml | grep -A5 -E &quot;nodeSelector|affinity&quot;
+kubectl get nodes --show-labels
+</code></pre>
+<h2 id="fix-6-priority-and-preemption">Fix 6: priority and preemption</h2>
+<p><code>No preemption victims found</code> means no lower-priority pods could be evicted to make room. For critical workloads, give them a higher <code>PriorityClass</code> so the scheduler can preempt less important pods.</p>
+<p class="upd">Last updated 2026-11-02.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-oomkilled/">OOMKilled (exit code 137)</a></li><li><a href="/kubernetes/k8s-pod-has-unbound-immediate-persistentvolumeclaims/">pod has unbound immediate PersistentVolumeClaims</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li><li><a href="/kubernetes/k8s-error-converting-yaml-to-json-mapping-values-are-not-allowed/">error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>x509: certificate signed by unknown authority — how to fix</title>
+<meta name="description" content="A Go program (docker, kubectl, terraform, helm, gh, your own service) couldn&#x27;t verify the server&#x27;s TLS certificate because the CA that issued it isn&#x27;t in its trust store. Typical with corporate proxies, self-signed certs, private registries and minimal containers.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-x509-certificate-signed-by-unknown-authority/">
+<meta property="og:title" content="x509: certificate signed by unknown authority — how to fix"><meta property="og:description" content="A Go program (docker, kubectl, terraform, helm, gh, your own service) couldn&#x27;t verify the server&#x27;s TLS certificate because the CA that issued it isn&#x27;t in its trust store. Typical with corporate proxies, self-signed certs, private registries and minimal containers.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-x509-certificate-signed-by-unknown-authority/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "x509: certificate signed by unknown authority \u2014 how to fix", "description": "A Go program (docker, kubectl, terraform, helm, gh, your own service) couldn't verify the server's TLS certificate because the CA that issued it isn't in its trust store. Typical with corporate proxies, self-signed certs, private registries and minimal containers.", "dateModified": "2026-11-01", "url": "https://errorfix-hollis.github.io/web/web-x509-certificate-signed-by-unknown-authority/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "x509: certificate signed by unknown authority", "item": "https://errorfix-hollis.github.io/web/web-x509-certificate-signed-by-unknown-authority/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>x509: certificate signed by unknown authority — how to fix</h1>
+<pre class="err"><code>Get &quot;https://registry.example.com/v2/&quot;: x509: certificate signed by unknown authority
+tls: failed to verify certificate: x509: certificate signed by unknown authority
+Error response from daemon: Get &quot;https://myregistry:5000/v2/&quot;: x509: certificate signed by unknown authority
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Add the CA certificate to the system trust store: <code>sudo cp myca.crt /usr/local/share/ca-certificates/ &amp;&amp; sudo update-ca-certificates</code> (Debian/Ubuntu). In containers install <code>ca-certificates</code>. For a private Docker registry put the CA at <code>/etc/docker/certs.d/&lt;host:port&gt;/ca.crt</code>. Don't disable verification except for throwaway testing.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>This is Go's TLS error message (used by Docker, Kubernetes tools, Terraform, Helm, Hugo, etc.). The server presented a certificate chain, and none of it led to a root CA the client trusts. Either the certificate is self-signed/private, something in between (proxy, antivirus) is re-signing traffic, or the client has no CA bundle at all.</p>
+<p>Look at who issued the certificate:</p>
+<pre><code class="language-bash">openssl s_client -connect registry.example.com:443 -servername registry.example.com &lt;/dev/null 2&gt;/dev/null \
+  | openssl x509 -noout -subject -issuer
+</code></pre>
+<p>If the issuer is your company's name or a security product (Zscaler, Netskope, Fortinet...), it's a TLS-inspecting proxy.</p>
+<h2 id="fix-1-trust-the-ca-system-wide-linux">Fix 1: trust the CA system-wide (Linux)</h2>
+<p>Get the CA certificate in PEM format (from IT, or the last certificate printed by <code>openssl s_client -showcerts</code>).</p>
+<p>Debian / Ubuntu:</p>
+<pre><code class="language-bash">sudo cp corp-ca.crt /usr/local/share/ca-certificates/corp-ca.crt   # must end in .crt
+sudo update-ca-certificates
+</code></pre>
+<p>RHEL / Fedora:</p>
+<pre><code class="language-bash">sudo cp corp-ca.crt /etc/pki/ca-trust/source/anchors/
+sudo update-ca-trust
+</code></pre>
+<p>Go reads the system store on Linux, so most tools work after this. Restart long-running daemons (e.g. <code>sudo systemctl restart docker</code>).</p>
+<p>On macOS, add it to the System keychain: <code>sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain corp-ca.crt</code>.</p>
+<h2 id="fix-2-docker-private-registry">Fix 2: Docker private registry</h2>
+<p>For <code>docker pull</code>/<code>push</code> to a registry with a private CA, Docker reads per-registry CAs without a restart:</p>
+<pre><code class="language-bash">sudo mkdir -p /etc/docker/certs.d/myregistry:5000
+sudo cp ca.crt /etc/docker/certs.d/myregistry:5000/ca.crt
+</code></pre>
+<p>The directory name must match the host and port exactly as used in the image name. For a test registry you can instead list it in <code>/etc/docker/daemon.json</code> as <code>"insecure-registries": ["myregistry:5000"]</code> and restart Docker, but that disables verification.</p>
+<h2 id="fix-3-minimal-containers-have-no-ca-bundle">Fix 3: minimal containers have no CA bundle</h2>
+<p><code>scratch</code>, <code>distroless/static</code> or slim images without <code>ca-certificates</code> fail on every HTTPS call:</p>
+<pre><code class="language-dockerfile"># Debian-based
+RUN apt-get update &amp;&amp; apt-get install -y ca-certificates &amp;&amp; rm -rf /var/lib/apt/lists/*
+# Alpine
+RUN apk add --no-cache ca-certificates
+# scratch: copy from a builder stage
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+</code></pre>
+<p>To add a corporate CA in an image, copy it to <code>/usr/local/share/ca-certificates/</code> and run <code>update-ca-certificates</code> in the Dockerfile.</p>
+<h2 id="fix-4-point-one-tool-at-a-ca-file">Fix 4: point one tool at a CA file</h2>
+<p>Go honours <code>SSL_CERT_FILE</code> and <code>SSL_CERT_DIR</code> on Linux:</p>
+<pre><code class="language-bash">SSL_CERT_FILE=/path/to/bundle.pem terraform init
+</code></pre>
+<p>kubectl uses the CA in your kubeconfig (<code>certificate-authority-data</code>); if the cluster's certificate changed, get a fresh kubeconfig instead of trusting a random CA.</p>
+<h2 id="fix-5-the-server-sends-an-incomplete-chain">Fix 5: the server sends an incomplete chain</h2>
+<p>If browsers work but Go clients fail, the server may be missing the intermediate certificate (browsers often fetch it themselves). Fix it on the server: serve the full chain (e.g. <code>fullchain.pem</code> with Let's Encrypt, not <code>cert.pem</code>).</p>
+<h2 id="avoid">Avoid</h2>
+<p><code>InsecureSkipVerify: true</code>, <code>--insecure-skip-tls-verify</code> and <code>insecure-registries</code> turn off verification entirely, which allows man-in-the-middle attacks. Use them only for short local tests.</p>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-ssl-certificate-verify-failed/">ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/web/web-net-err-cert-authority-invalid/">NET::ERR_CERT_AUTHORITY_INVALID</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-err-connection-refused/">ERR_CONNECTION_REFUSED</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

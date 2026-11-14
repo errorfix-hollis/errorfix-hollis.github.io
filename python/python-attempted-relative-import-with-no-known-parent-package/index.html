@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ImportError: attempted relative import with no known parent package (Python) — how to fix</title>
+<meta name="description" content="You ran a file that uses relative imports (`from .x import y`) as a top-level script, so Python doesn&#x27;t know which package it belongs to. Run it as a module with `python -m` from the project root.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-attempted-relative-import-with-no-known-parent-package/">
+<meta property="og:title" content="ImportError: attempted relative import with no known parent package (Python) — how to fix"><meta property="og:description" content="You ran a file that uses relative imports (`from .x import y`) as a top-level script, so Python doesn&#x27;t know which package it belongs to. Run it as a module with `python -m` from the project root.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-attempted-relative-import-with-no-known-parent-package/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ImportError: attempted relative import with no known parent package (Python) \u2014 how to fix", "description": "You ran a file that uses relative imports (`from .x import y`) as a top-level script, so Python doesn't know which package it belongs to. Run it as a module with `python -m` from the project root.", "dateModified": "2026-10-30", "url": "https://errorfix-hollis.github.io/python/python-attempted-relative-import-with-no-known-parent-package/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ImportError: attempted relative import with no known parent package", "item": "https://errorfix-hollis.github.io/python/python-attempted-relative-import-with-no-known-parent-package/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ImportError: attempted relative import with no known parent package (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;/home/me/project/mypkg/main.py&quot;, line 1, in &lt;module&gt;
+    from .utils import helper
+ImportError: attempted relative import with no known parent package
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> From the directory that contains the package, run <code>python -m mypkg.main</code> instead of <code>python mypkg/main.py</code>. Or switch to absolute imports (<code>from mypkg.utils import helper</code>) and install the project with <code>pip install -e .</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A relative import like <code>from .utils import helper</code> means "import <code>utils</code> from the same package as this module". Python determines "this package" from the module's <code>__package__</code>. When you run a file directly (<code>python mypkg/main.py</code>), it is loaded as <code>__main__</code> with no parent package, so the leading dot has nothing to be relative to.</p>
+<p>Example layout used below:</p>
+<pre><code>project/
+├── mypkg/
+│   ├── __init__.py
+│   ├── main.py        # from .utils import helper
+│   └── utils.py
+└── tests/
+</code></pre>
+<h2 id="fix-1-run-it-as-a-module-with-m">Fix 1: run it as a module with <code>-m</code></h2>
+<p>From <code>project/</code> (the directory <em>containing</em> <code>mypkg</code>):</p>
+<pre><code class="language-bash">cd project
+python -m mypkg.main
+</code></pre>
+<p>Note: dots instead of slashes, and no <code>.py</code>. Python now imports <code>mypkg</code> as a package and <code>main</code> as <code>mypkg.main</code>, so relative imports work.</p>
+<p>In VS Code, use a launch configuration with <code>"module": "mypkg.main"</code> instead of <code>"program"</code>.</p>
+<h2 id="fix-2-use-absolute-imports">Fix 2: use absolute imports</h2>
+<pre><code class="language-python"># mypkg/main.py
+from mypkg.utils import helper
+</code></pre>
+<p>This works with <code>python -m mypkg.main</code> from the project root. Running <code>python mypkg/main.py</code> will instead raise <code>ModuleNotFoundError: No module named 'mypkg'</code>, because the script's own directory (<code>mypkg/</code>) is put on <code>sys.path</code>, not <code>project/</code>.</p>
+<h2 id="fix-3-make-the-project-installable">Fix 3: make the project installable</h2>
+<p>For anything beyond a quick script, add a <code>pyproject.toml</code> to <code>project/</code>:</p>
+<pre><code class="language-toml">[build-system]
+requires = [&quot;setuptools&gt;=61&quot;]
+build-backend = &quot;setuptools.build_meta&quot;
+
+[project]
+name = &quot;mypkg&quot;
+version = &quot;0.1.0&quot;
+</code></pre>
+<p>Then install it in editable mode inside your virtualenv:</p>
+<pre><code class="language-bash">pip install -e .
+</code></pre>
+<p>Now <code>import mypkg</code> works from anywhere (tests, notebooks, other scripts), and both relative and absolute imports inside the package resolve correctly.</p>
+<h2 id="fix-4-add-an-entry-point-outside-the-package">Fix 4: add an entry point outside the package</h2>
+<p>Keep a tiny runner script next to the package:</p>
+<pre><code class="language-python"># project/run.py
+from mypkg.main import main
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<pre><code class="language-bash">python run.py
+</code></pre>
+<h2 id="check-__init__py">Check <code>__init__.py</code></h2>
+<p>Relative imports also need the parent to be a package. Namespace packages (no <code>__init__.py</code>) work in Python 3.3+, but adding an empty <code>mypkg/__init__.py</code> avoids surprises with tools like pytest and mypy.</p>
+<h2 id="avoid-syspath-hacks">Avoid sys.path hacks</h2>
+<pre><code class="language-python">import sys, os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+</code></pre>
+<p>This "works" but breaks depending on where you run from and hides the real structure problem. Prefer <code>python -m</code> or <code>pip install -e .</code>.</p>
+<h2 id="related-attempted-relative-import-beyond-top-level-package">Related: "attempted relative import beyond top-level package"</h2>
+<p>That variant means you used <code>..</code> to go above the top package that Python knows about. Run from a higher directory (<code>python -m project.mypkg.main</code> if <code>project</code> is itself a package) or use absolute imports.</p>
+<p class="upd">Last updated 2026-10-30.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-filenotfounderror-no-such-file-or-directory/">FileNotFoundError: [Errno 2] No such file or directory</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li><li><a href="/python/python-attributeerror-str-object-has-no-attribute/">AttributeError: &#x27;str&#x27; object has no attribute</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

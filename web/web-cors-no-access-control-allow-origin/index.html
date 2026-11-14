@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource — how to fix</title>
+<meta name="description" content="The browser blocked a cross-origin request because the server didn&#x27;t allow your origin. Fix it on the server (add CORS headers) or proxy the request through your own backend.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-cors-no-access-control-allow-origin/">
+<meta property="og:title" content="has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource — how to fix"><meta property="og:description" content="The browser blocked a cross-origin request because the server didn&#x27;t allow your origin. Fix it on the server (add CORS headers) or proxy the request through your own backend.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-cors-no-access-control-allow-origin/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource \u2014 how to fix", "description": "The browser blocked a cross-origin request because the server didn't allow your origin. Fix it on the server (add CORS headers) or proxy the request through your own backend.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/web/web-cors-no-access-control-allow-origin/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource", "item": "https://errorfix-hollis.github.io/web/web-cors-no-access-control-allow-origin/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource — how to fix</h1>
+<pre class="err"><code>Access to fetch at &#x27;https://api.example.com/data&#x27; from origin &#x27;http://localhost:3000&#x27; has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource. If an opaque response serves your needs, set the request&#x27;s mode to &#x27;no-cors&#x27; to fetch the resource with CORS disabled.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> The <strong>server</strong> must send <code>Access-Control-Allow-Origin: http://localhost:3000</code> (your origin). If you don't control the server, call it from your backend or a dev-server proxy instead of the browser. <code>mode: 'no-cors'</code> will not give you the data.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Browsers block JavaScript from reading responses from a <strong>different origin</strong> (scheme + host + port) unless that server explicitly allows it with CORS headers. <code>localhost:3000</code> → <code>localhost:8000</code> counts as a different origin too.</p>
+<p>The request often <em>did</em> reach the server; the browser just refuses to hand the response to your code. That's why it works in Postman or curl but not in the browser.</p>
+<h2 id="fix-on-the-server">Fix on the server</h2>
+<p>The response must include your origin:</p>
+<pre><code class="language-http">Access-Control-Allow-Origin: http://localhost:3000
+</code></pre>
+<p><strong>Express:</strong></p>
+<pre><code class="language-js">import cors from 'cors';
+app.use(cors({ origin: ['http://localhost:3000', 'https://myapp.com'] }));
+</code></pre>
+<p><strong>Flask:</strong> <code>pip install flask-cors</code>, then <code>CORS(app, origins=["http://localhost:3000"])</code>.</p>
+<p><strong>FastAPI:</strong></p>
+<pre><code class="language-python">from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(CORSMiddleware, allow_origins=[&quot;http://localhost:3000&quot;], allow_methods=[&quot;*&quot;], allow_headers=[&quot;*&quot;])
+</code></pre>
+<p><strong>Django:</strong> <code>django-cors-headers</code> with <code>CORS_ALLOWED_ORIGINS = ["http://localhost:3000"]</code>.</p>
+<p><strong>nginx:</strong> <code>add_header Access-Control-Allow-Origin "https://myapp.com" always;</code></p>
+<h2 id="preflight-requests">Preflight requests</h2>
+<p>Requests with JSON bodies, custom headers (like <code>Authorization</code>) or methods like PUT/DELETE trigger an <code>OPTIONS</code> preflight first. The server must answer it with 2xx and:</p>
+<pre><code class="language-http">Access-Control-Allow-Methods: GET, POST, PUT, DELETE
+Access-Control-Allow-Headers: Content-Type, Authorization
+</code></pre>
+<p>If your error mentions "Response to preflight request doesn't pass access control check", the <code>OPTIONS</code> route is missing or returns an error/redirect.</p>
+<h2 id="cookies-and-credentials">Cookies and credentials</h2>
+<p>With <code>fetch(url, { credentials: 'include' })</code>, the server must send <code>Access-Control-Allow-Credentials: true</code>, and <code>Access-Control-Allow-Origin</code> must be the exact origin, <strong>not <code>*</code></strong>.</p>
+<h2 id="you-dont-control-the-server">You don't control the server</h2>
+<p>Call the API from your own backend, or use a dev-server proxy so the browser only talks to your origin:</p>
+<pre><code class="language-js">// vite.config.js
+export default { server: { proxy: { '/api': { target: 'https://api.example.com', changeOrigin: true } } } };
+</code></pre>
+<p>Then <code>fetch('/api/data')</code>.</p>
+<h2 id="why-mode-no-cors-doesnt-help">Why <code>mode: 'no-cors'</code> doesn't help</h2>
+<p>It returns an <strong>opaque</strong> response: status 0, empty body. Your code still can't read the data.</p>
+<h2 id="misleading-cors-errors">Misleading CORS errors</h2>
+<p>If the server crashes (500) or the URL is wrong (404), error responses often lack CORS headers, so the browser reports CORS instead of the real problem. Check the server logs and the Network tab's status code.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-unexpected-token-in-json/">SyntaxError: Unexpected token &#x27;&lt;&#x27;, &quot;&lt;!DOCTYPE &quot;... is not valid JSON</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/web/web-err-connection-refused/">ERR_CONNECTION_REFUSED</a></li><li><a href="/web/web-err-ssl-protocol-error/">ERR_SSL_PROTOCOL_ERROR</a></li><li><a href="/web/web-err-too-many-redirects/">ERR_TOO_MANY_REDIRECTS</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: failed to push some refs to (Git) — how to fix</title>
+<meta name="description" content="The remote branch has commits you don&#x27;t have. Pull (or rebase) first, then push again. Don&#x27;t force-push unless you mean to overwrite others&#x27; work.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-failed-to-push-some-refs/">
+<meta property="og:title" content="error: failed to push some refs to (Git) — how to fix"><meta property="og:description" content="The remote branch has commits you don&#x27;t have. Pull (or rebase) first, then push again. Don&#x27;t force-push unless you mean to overwrite others&#x27; work.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-failed-to-push-some-refs/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: failed to push some refs to (Git) \u2014 how to fix", "description": "The remote branch has commits you don't have. Pull (or rebase) first, then push again. Don't force-push unless you mean to overwrite others' work.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/git/git-failed-to-push-some-refs/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "error: failed to push some refs to", "item": "https://errorfix-hollis.github.io/git/git-failed-to-push-some-refs/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>error: failed to push some refs to (Git) — how to fix</h1>
+<pre class="err"><code>! [rejected]        main -&gt; main (fetch first)
+error: failed to push some refs to &#x27;github.com:user/repo.git&#x27;
+hint: Updates were rejected because the remote contains work that you do
+hint: not have locally.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>git pull --rebase origin main</code>, fix any conflicts, then <code>git push origin main</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Your push would <strong>overwrite commits on the remote</strong> that aren't in your local branch, so Git rejects it. This is called a non-fast-forward push.</p>
+<h2 id="fix-integrate-the-remote-changes-first">Fix: integrate the remote changes first</h2>
+<pre><code class="language-bash">git pull --rebase origin main
+# if there are conflicts: edit files, then
+git add &lt;file&gt;
+git rebase --continue
+git push origin main
+</code></pre>
+<p>Prefer a merge commit instead of a rebase? Use <code>git pull origin main</code> (without <code>--rebase</code>).</p>
+<h2 id="other-versions-of-this-error">Other versions of this error</h2>
+<table>
+<thead>
+<tr>
+<th>Message after <code>failed to push some refs</code></th>
+<th>Cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>src refspec main does not match any</code></td>
+<td>The branch doesn't exist locally, usually because there are no commits yet</td>
+<td>Make a commit first, or check the branch name with <code>git branch</code></td>
+</tr>
+<tr>
+<td><code>(non-fast-forward)</code></td>
+<td>Same as above: remote is ahead</td>
+<td><code>git pull --rebase</code> then push</td>
+</tr>
+<tr>
+<td><code>pre-receive hook declined</code></td>
+<td>Server-side rule (protected branch, file too large, failed check)</td>
+<td>Push to a new branch and open a pull request, or read the message above the error</td>
+</tr>
+<tr>
+<td><code>refusing to allow ... without workflow scope</code></td>
+<td>Personal access token lacks the <code>workflow</code> scope and you changed <code>.github/workflows</code></td>
+<td>Create a token with the <code>workflow</code> scope</td>
+</tr>
+</tbody>
+</table>
+<h2 id="when-force-pushing-is-ok">When force-pushing is OK</h2>
+<p>Only if you are sure the remote commits should be thrown away (for example, after rebasing your own feature branch):</p>
+<pre><code class="language-bash">git push --force-with-lease origin my-branch
+</code></pre>
+<p><code>--force-with-lease</code> refuses to overwrite if someone else pushed in the meantime, which makes it safer than <code>--force</code>.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-refusing-to-merge-unrelated-histories/">fatal: refusing to merge unrelated histories</a></li><li><a href="/git/git-src-refspec-main-does-not-match-any/">error: src refspec main does not match any</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

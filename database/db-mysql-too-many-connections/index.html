@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR 1040 (HY000): Too many connections (MySQL) — how to fix</title>
+<meta name="description" content="MySQL reached max_connections (default 151). Either the limit is too low for your workload, or the application leaks connections or opens too many (no pooling, too many workers, sleeping connections).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-mysql-too-many-connections/">
+<meta property="og:title" content="ERROR 1040 (HY000): Too many connections (MySQL) — how to fix"><meta property="og:description" content="MySQL reached max_connections (default 151). Either the limit is too low for your workload, or the application leaks connections or opens too many (no pooling, too many workers, sleeping connections).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-mysql-too-many-connections/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR 1040 (HY000): Too many connections (MySQL) \u2014 how to fix", "description": "MySQL reached max_connections (default 151). Either the limit is too low for your workload, or the application leaks connections or opens too many (no pooling, too many workers, sleeping connections).", "dateModified": "2026-11-04", "url": "https://errorfix-hollis.github.io/database/db-mysql-too-many-connections/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR 1040 (HY000): Too many connections", "item": "https://errorfix-hollis.github.io/database/db-mysql-too-many-connections/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR 1040 (HY000): Too many connections (MySQL) — how to fix</h1>
+<pre class="err"><code>ERROR 1040 (HY000): Too many connections
+SQLSTATE[HY000] [1040] Too many connections
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check usage: <code>SHOW STATUS LIKE 'Threads_connected'; SHOW VARIABLES LIKE 'max_connections';</code> and <code>SHOW PROCESSLIST</code> for many <code>Sleep</code> connections. Short term: <code>SET GLOBAL max_connections = 500;</code> (and persist in my.cnf). Long term: use a connection pool with a sane size, close connections, and lower <code>wait_timeout</code> to reap idle ones.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Each client connection uses one slot. When <code>Threads_connected</code> reaches <code>max_connections</code>, new connections are refused with error 1040. MySQL keeps one extra slot for an account with <code>CONNECTION_ADMIN</code> / <code>SUPER</code> privilege, so an admin can usually still log in to investigate:</p>
+<pre><code class="language-bash">mysql -u root -p
+</code></pre>
+<p>MySQL 8.0.14+ can also expose a separate admin port (<code>admin_address</code>, <code>admin_port</code> = 33062) for exactly this situation.</p>
+<h2 id="step-1-look-at-whats-connected">Step 1: look at what's connected</h2>
+<pre><code class="language-sql">SHOW VARIABLES LIKE 'max_connections';
+SHOW STATUS LIKE 'Threads_connected';
+SHOW STATUS LIKE 'Max_used_connections';
+
+SELECT user, host, db, command, COUNT(*) AS n
+FROM information_schema.processlist
+GROUP BY user, SUBSTRING_INDEX(host, ':', 1), db, command
+ORDER BY n DESC;
+</code></pre>
+<ul>
+<li>Hundreds of <code>Sleep</code> connections → the app opens connections and doesn't close or reuse them.</li>
+<li>Many active <code>Query</code> connections → slow queries pile up and each request holds a connection longer.</li>
+</ul>
+<h2 id="fix-1-raise-max_connections-short-term">Fix 1: raise max_connections (short term)</h2>
+<pre><code class="language-sql">SET GLOBAL max_connections = 500;
+</code></pre>
+<p>That's lost on restart. Persist it:</p>
+<pre><code class="language-ini"># /etc/mysql/mysql.conf.d/mysqld.cnf  (or /etc/my.cnf)
+[mysqld]
+max_connections = 500
+</code></pre>
+<p>or in MySQL 8: <code>SET PERSIST max_connections = 500;</code>. Each connection costs memory (per-thread buffers), so don't set it to 10000 on a small server. On managed services (RDS, Cloud SQL) the default is derived from instance memory and changed via the parameter group / flags.</p>
+<h2 id="fix-2-close-idle-connections-automatically">Fix 2: close idle connections automatically</h2>
+<p><code>wait_timeout</code> (default 28800s = 8 hours) is how long a sleeping non-interactive connection stays open. Lower it:</p>
+<pre><code class="language-sql">SET GLOBAL wait_timeout = 300;
+</code></pre>
+<p>and persist it in the config file. Make sure your pool validates connections, since it will see more closed-by-server connections.</p>
+<p>To clear the current pile-up, kill sleeping connections from one user:</p>
+<pre><code class="language-sql">SELECT CONCAT('KILL ', id, ';') FROM information_schema.processlist
+WHERE command = 'Sleep' AND user = 'app' AND time &gt; 60;
+</code></pre>
+<h2 id="fix-3-pool-and-size-connections-correctly">Fix 3: pool and size connections correctly</h2>
+<p>The total is <em>(app instances) × (workers per instance) × (pool size per worker)</em>. Ten containers × 8 gunicorn workers × pool of 10 = 800 connections. Size pools so the total stays below <code>max_connections</code>:</p>
+<ul>
+<li><strong>SQLAlchemy</strong>: <code>create_engine(url, pool_size=5, max_overflow=5, pool_recycle=280, pool_pre_ping=True)</code></li>
+<li><strong>HikariCP (Spring)</strong>: <code>spring.datasource.hikari.maximum-pool-size=10</code></li>
+<li><strong>Node mysql2</strong>: <code>mysql.createPool({ connectionLimit: 10, ... })</code></li>
+<li><strong>PHP</strong>: each FPM worker opens its own connection; <code>pm.max_children</code> caps it. Avoid persistent connections (<code>PDO::ATTR_PERSISTENT</code>) unless sized carefully.</li>
+</ul>
+<p>For many app servers, add a proxy such as ProxySQL or RDS Proxy.</p>
+<h2 id="fix-4-fix-connection-leaks">Fix 4: fix connection leaks</h2>
+<p>Make sure every code path closes or returns the connection:</p>
+<pre><code class="language-python">conn = pool.get_connection()
+try:
+    ...
+finally:
+    conn.close()      # returns it to the pool
+</code></pre>
+<p>In Node, call <code>connection.release()</code> after <code>pool.getConnection()</code>; or use <code>pool.query()</code> which does it for you. Serverless functions that create a new connection per invocation without reuse are a classic cause; create the pool outside the handler.</p>
+<h2 id="fix-5-slow-queries-holding-connections">Fix 5: slow queries holding connections</h2>
+<p>If most connections are in <code>Query</code> state, enable the slow query log and fix the worst queries and indexes. Faster queries return connections to the pool sooner.</p>
+<p class="upd">Last updated 2026-11-04.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1205-lock-wait-timeout-exceeded/">ERROR 1205 (HY000): Lock wait timeout exceeded; try restarting transaction</a></li><li><a href="/database/db-postgres-sorry-too-many-clients-already/">FATAL: sorry, too many clients already</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

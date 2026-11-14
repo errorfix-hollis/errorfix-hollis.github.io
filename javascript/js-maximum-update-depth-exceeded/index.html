@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maximum update depth exceeded (JavaScript) — how to fix</title>
+<meta name="description" content="A React effect or lifecycle method updates state, which re-renders, which runs the effect again, forever. Usually a useEffect without a dependency array, or a dependency that is a new object/array/function on every render.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-maximum-update-depth-exceeded/">
+<meta property="og:title" content="Maximum update depth exceeded (JavaScript) — how to fix"><meta property="og:description" content="A React effect or lifecycle method updates state, which re-renders, which runs the effect again, forever. Usually a useEffect without a dependency array, or a dependency that is a new object/array/function on every render.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-maximum-update-depth-exceeded/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Maximum update depth exceeded (JavaScript) \u2014 how to fix", "description": "A React effect or lifecycle method updates state, which re-renders, which runs the effect again, forever. Usually a useEffect without a dependency array, or a dependency that is a new object/array/function on every render.", "dateModified": "2026-10-31", "url": "https://errorfix-hollis.github.io/javascript/js-maximum-update-depth-exceeded/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "Maximum update depth exceeded", "item": "https://errorfix-hollis.github.io/javascript/js-maximum-update-depth-exceeded/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>Maximum update depth exceeded (JavaScript) — how to fix</h1>
+<pre class="err"><code>Error: Maximum update depth exceeded. This can happen when a component repeatedly calls setState inside componentWillUpdate or componentDidUpdate. React limits the number of nested updates to prevent infinite loops.
+Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn&#x27;t have a dependency array, or one of the dependencies changes on every render.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Give <code>useEffect</code> a correct dependency array, don't list values that you set inside the effect, and stabilise object/function dependencies with <code>useMemo</code>/<code>useCallback</code> (or depend on primitive fields like <code>user.id</code>). Only call <code>setState</code> when the value actually changed.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>React counts nested updates triggered from commits (effects, <code>componentDidUpdate</code>). When the chain goes past its limit (~50), it stops with this error. It is related to "Too many re-renders", which is triggered by setState <em>during render</em>; this one is triggered <em>after</em> render.</p>
+<h2 id="cause-1-useeffect-with-no-dependency-array">Cause 1: useEffect with no dependency array</h2>
+<pre><code class="language-jsx">// Wrong: runs after every render, and sets state every time
+useEffect(() =&gt; {
+  setItems(data.filter(d =&gt; d.active));
+});
+</code></pre>
+<p>Add dependencies — or better, don't store derived data in state at all:</p>
+<pre><code class="language-jsx">const items = useMemo(() =&gt; data.filter(d =&gt; d.active), [data]);
+</code></pre>
+<h2 id="cause-2-a-dependency-that-changes-every-render">Cause 2: a dependency that changes every render</h2>
+<p>Objects, arrays and functions created in the component body are new on every render, so the effect always "sees a change":</p>
+<pre><code class="language-jsx">// Wrong: options is a new object each render
+const options = { page, size: 20 };
+useEffect(() =&gt; { fetchRows(options).then(setRows); }, [options]);
+</code></pre>
+<p>Depend on primitives, or memoise:</p>
+<pre><code class="language-jsx">useEffect(() =&gt; { fetchRows({ page, size: 20 }).then(setRows); }, [page]);
+
+// or
+const options = useMemo(() =&gt; ({ page, size: 20 }), [page]);
+</code></pre>
+<p>For functions, use <code>useCallback</code>, or define the function inside the effect.</p>
+<h2 id="cause-3-the-effect-depends-on-the-state-it-sets">Cause 3: the effect depends on the state it sets</h2>
+<pre><code class="language-jsx">// Wrong: count changes -&gt; effect -&gt; count changes -&gt; ...
+useEffect(() =&gt; { setCount(count + 1); }, [count]);
+</code></pre>
+<p>Use a functional update and remove the dependency, or add a condition that stops the loop:</p>
+<pre><code class="language-jsx">useEffect(() =&gt; {
+  if (value !== normalized) setValue(normalized);
+}, [value, normalized]);
+</code></pre>
+<h2 id="cause-4-callback-props-that-set-parent-state">Cause 4: callback props that set parent state</h2>
+<p>A child calls <code>onChange(...)</code> in an effect, the parent sets state, re-renders, and passes a <em>new</em> <code>onChange</code> function, re-triggering the child's effect. Wrap the parent's handler in <code>useCallback</code>:</p>
+<pre><code class="language-jsx">const handleChange = useCallback(v =&gt; setFilter(v), []);
+&lt;Filter onChange={handleChange} /&gt;
+</code></pre>
+<h2 id="cause-5-class-components">Cause 5: class components</h2>
+<pre><code class="language-jsx">componentDidUpdate(prevProps) {
+  // Wrong: unconditional
+  // this.setState({ user: this.props.user });
+
+  if (prevProps.userId !== this.props.userId) {
+    this.setState({ user: null });
+  }
+}
+</code></pre>
+<p>Always compare with <code>prevProps</code>/<code>prevState</code> before calling <code>setState</code> in <code>componentDidUpdate</code>.</p>
+<h2 id="cause-6-ref-callbacks-or-event-handlers-called-during-render">Cause 6: ref callbacks or event handlers called during render</h2>
+<p><code>onClick={setOpen(true)}</code> or <code>ref={node =&gt; setNode(node)}</code> with an inline function can loop too. Pass <code>() =&gt; setOpen(true)</code>, and use <code>useRef</code> instead of state for DOM nodes when you don't need a re-render.</p>
+<h2 id="finding-it">Finding it</h2>
+<p>The warning in the console includes a component stack. Install the React DevTools and enable "Highlight updates when components render" to see which component is re-rendering constantly, then inspect its effects' dependency arrays. The <code>react-hooks/exhaustive-deps</code> ESLint rule catches most of these.</p>
+<p class="upd">Last updated 2026-10-31.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-objects-are-not-valid-as-a-react-child/">Objects are not valid as a React child</a></li><li><a href="/javascript/js-too-many-re-renders/">Too many re-renders. React limits the number of renders to prevent an infinite loop.</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li><li><a href="/javascript/js-hydration-failed-initial-ui-does-not-match/">Hydration failed because the initial UI does not match what was rendered on the server</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

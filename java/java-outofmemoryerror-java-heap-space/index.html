@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>java.lang.OutOfMemoryError: Java heap space — how to fix</title>
+<meta name="description" content="The JVM couldn&#x27;t allocate an object because the heap is full even after garbage collection. Either the max heap (-Xmx) is too small for the workload, or the program holds on to too much data (a leak or loading everything into memory).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-outofmemoryerror-java-heap-space/">
+<meta property="og:title" content="java.lang.OutOfMemoryError: Java heap space — how to fix"><meta property="og:description" content="The JVM couldn&#x27;t allocate an object because the heap is full even after garbage collection. Either the max heap (-Xmx) is too small for the workload, or the program holds on to too much data (a leak or loading everything into memory).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-outofmemoryerror-java-heap-space/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "java.lang.OutOfMemoryError: Java heap space \u2014 how to fix", "description": "The JVM couldn't allocate an object because the heap is full even after garbage collection. Either the max heap (-Xmx) is too small for the workload, or the program holds on to too much data (a leak or loading everything into memory).", "dateModified": "2026-10-30", "url": "https://errorfix-hollis.github.io/java/java-outofmemoryerror-java-heap-space/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "java.lang.OutOfMemoryError: Java heap space", "item": "https://errorfix-hollis.github.io/java/java-outofmemoryerror-java-heap-space/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>java.lang.OutOfMemoryError: Java heap space — how to fix</h1>
+<pre class="err"><code>Exception in thread &quot;main&quot; java.lang.OutOfMemoryError: Java heap space
+	at java.base/java.util.Arrays.copyOf(Arrays.java:3512)
+	at java.base/java.util.ArrayList.grow(ArrayList.java:237)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Raise the heap: <code>java -Xmx2g -jar app.jar</code> (or <code>-XX:MaxRAMPercentage=75</code> in containers). For Maven/Gradle builds set <code>MAVEN_OPTS=-Xmx2g</code> or <code>org.gradle.jvmargs=-Xmx2g</code> in gradle.properties. If memory keeps growing, capture a heap dump with <code>-XX:+HeapDumpOnOutOfMemoryError</code> and look for what retains objects.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>All Java objects live on the heap, whose maximum size is fixed at startup (<code>-Xmx</code>). If not set, it defaults to 1/4 of physical RAM (or of the container limit on container-aware JVMs). When an allocation fails even after a full GC, the JVM throws this error. The stack trace shows <em>where</em> the last allocation happened, which isn't necessarily what's using the memory.</p>
+<p>Check the effective max heap:</p>
+<pre><code class="language-bash">java -XX:+PrintFlagsFinal -version | grep -i maxheapsize
+</code></pre>
+<h2 id="fix-1-give-the-jvm-more-heap">Fix 1: give the JVM more heap</h2>
+<pre><code class="language-bash">java -Xms512m -Xmx2g -jar app.jar
+</code></pre>
+<p>Or without editing the command line (picked up by most launchers):</p>
+<pre><code class="language-bash">export JAVA_TOOL_OPTIONS=&quot;-Xmx2g&quot;
+</code></pre>
+<p>Don't set <code>-Xmx</code> larger than the RAM actually available, or the OS/container will kill the process instead.</p>
+<h2 id="fix-2-containers-size-relative-to-the-limit">Fix 2: containers — size relative to the limit</h2>
+<p>Hard-coding <code>-Xmx</code> in images is fragile. Use a percentage of the container memory limit and leave headroom for metaspace, thread stacks and native memory:</p>
+<pre><code class="language-bash">java -XX:MaxRAMPercentage=75.0 -jar app.jar
+</code></pre>
+<p>If the container itself gets killed with exit code 137, the heap plus non-heap exceeded the container limit — that's a different problem (see OOMKilled).</p>
+<h2 id="fix-3-build-tools-maven-gradle-ide">Fix 3: build tools (Maven, Gradle, IDE)</h2>
+<p>The error during a build is about the build JVM, not your app.</p>
+<p><strong>Gradle</strong> — in <code>gradle.properties</code>:</p>
+<pre><code class="language-properties">org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m
+</code></pre>
+<p>Then <code>./gradlew --stop</code> so the daemon restarts with the new setting.</p>
+<p><strong>Maven:</strong></p>
+<pre><code class="language-bash">export MAVEN_OPTS=&quot;-Xmx2g&quot;
+</code></pre>
+<p>For tests run by Surefire in a forked JVM, set <code>&lt;argLine&gt;-Xmx2g&lt;/argLine&gt;</code> in the Surefire plugin configuration.</p>
+<p><strong>Android Studio / IntelliJ</strong> — <em>Help → Change Memory Settings</em> for the IDE itself.</p>
+<h2 id="fix-4-stop-loading-everything-into-memory">Fix 4: stop loading everything into memory</h2>
+<p>Typical culprits:</p>
+<ul>
+<li>Reading a whole file: <code>Files.readAllBytes</code> / <code>readAllLines</code> on a huge file. Stream it instead:</li>
+</ul>
+<p><code>java
+  try (Stream&lt;String&gt; lines = Files.lines(path)) {
+      lines.forEach(this::process);
+  }</code></p>
+<ul>
+<li>Fetching an entire table with JDBC/JPA. Page the query, or set a fetch size and stream results.</li>
+<li>Building huge <code>String</code>s or <code>List</code>s in a loop; collecting a stream of millions of items with <code>.collect(toList())</code>.</li>
+</ul>
+<h2 id="fix-5-find-a-leak-with-a-heap-dump">Fix 5: find a leak with a heap dump</h2>
+<p>If memory grows over hours until it dies, something keeps references alive (static maps used as caches, listeners never removed, ThreadLocals in thread pools, unbounded queues).</p>
+<pre><code class="language-bash">java -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp/heap.hprof -jar app.jar
+</code></pre>
+<p>Or take one from a running process:</p>
+<pre><code class="language-bash">jcmd &lt;PID&gt; GC.heap_dump /tmp/heap.hprof
+jcmd &lt;PID&gt; GC.class_histogram | head -30   # quick look at the biggest classes
+</code></pre>
+<p>Open the <code>.hprof</code> in Eclipse MAT or VisualVM and check the "dominator tree" / "leak suspects" for what retains the most memory. Replace unbounded caches with bounded ones (e.g. Caffeine with <code>maximumSize</code>).</p>
+<h2 id="related-messages">Related messages</h2>
+<ul>
+<li><code>GC overhead limit exceeded</code> — the JVM spends &gt;98% of time in GC recovering &lt;2% of heap; same fixes.</li>
+<li><code>Metaspace</code> — too many classes loaded; raise <code>-XX:MaxMetaspaceSize</code> or fix classloader leaks.</li>
+<li><code>unable to create native thread</code> — not heap; too many threads or OS limits.</li>
+</ul>
+<p class="upd">Last updated 2026-10-30.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-could-not-find-or-load-main-class/">Error: Could not find or load main class</a></li><li><a href="/java/java-unsupportedclassversionerror/">java.lang.UnsupportedClassVersionError: has been compiled by a more recent version of the Java Runtime</a></li><li><a href="/kubernetes/k8s-oomkilled/">OOMKilled (exit code 137)</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-comparison-method-violates-its-general-contract/">java.lang.IllegalArgumentException: Comparison method violates its general contract!</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

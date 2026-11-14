@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: RPC failed; curl 92 HTTP/2 stream 0 was not closed cleanly (Git) — how to fix</title>
+<meta name="description" content="The HTTPS connection to the Git server dropped in the middle of a clone, fetch or push — usually a large repo over a flaky network, an HTTP/2 issue, or a proxy/timeout cutting the transfer.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-rpc-failed-curl-92-early-eof/">
+<meta property="og:title" content="error: RPC failed; curl 92 HTTP/2 stream 0 was not closed cleanly (Git) — how to fix"><meta property="og:description" content="The HTTPS connection to the Git server dropped in the middle of a clone, fetch or push — usually a large repo over a flaky network, an HTTP/2 issue, or a proxy/timeout cutting the transfer.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-rpc-failed-curl-92-early-eof/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: RPC failed; curl 92 HTTP/2 stream 0 was not closed cleanly (Git) \u2014 how to fix", "description": "The HTTPS connection to the Git server dropped in the middle of a clone, fetch or push \u2014 usually a large repo over a flaky network, an HTTP/2 issue, or a proxy/timeout cutting the transfer.", "dateModified": "2026-11-03", "url": "https://errorfix-hollis.github.io/git/git-rpc-failed-curl-92-early-eof/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "error: RPC failed; curl 92 HTTP/2 stream 0 was not closed cleanly", "item": "https://errorfix-hollis.github.io/git/git-rpc-failed-curl-92-early-eof/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>error: RPC failed; curl 92 HTTP/2 stream 0 was not closed cleanly (Git) — how to fix</h1>
+<pre class="err"><code>error: RPC failed; curl 92 HTTP/2 stream 5 was not closed cleanly: CANCEL (err 8)
+error: 6745 bytes of body are still expected
+fetch-pack: unexpected disconnect while reading sideband packet
+fatal: early EOF
+fatal: fetch-pack: invalid index-pack output
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Retry with HTTP/1.1: <code>git config --global http.version HTTP/1.1</code>. For huge repos clone shallow first: <code>git clone --depth 1 &lt;url&gt;</code> then <code>git fetch --unshallow</code>. For pushes of big files, <code>git config http.postBuffer 524288000</code> can help; or switch the remote to SSH.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Git over HTTPS uses libcurl. <code>RPC failed</code> means the HTTP request carrying the pack data failed; the curl code says how:</p>
+<ul>
+<li><code>curl 92 HTTP/2 stream ... was not closed cleanly</code> — HTTP/2 stream reset mid-transfer</li>
+<li><code>curl 18 transfer closed with outstanding read data remaining</code> — connection closed early</li>
+<li><code>curl 56 ... Connection reset by peer</code> / <code>GnuTLS recv error</code> — network or TLS layer dropped</li>
+<li><code>early EOF</code> / <code>invalid index-pack output</code> — the pack Git was receiving was cut short</li>
+</ul>
+<p>It's a transport problem, not a problem with your repository. Retrying sometimes works; the fixes below make it reliable.</p>
+<h2 id="fix-1-force-http11">Fix 1: force HTTP/1.1</h2>
+<p>HTTP/2 stream resets from proxies, VPNs and some corporate firewalls are the most common cause of <code>curl 92</code>.</p>
+<pre><code class="language-bash">git config --global http.version HTTP/1.1
+git clone https://github.com/org/big-repo.git
+</code></pre>
+<p>You can revert later with <code>git config --global --unset http.version</code>.</p>
+<h2 id="fix-2-shallow-clone-then-deepen">Fix 2: shallow clone, then deepen</h2>
+<p>Downloading less in one go avoids long-running transfers that get cut:</p>
+<pre><code class="language-bash">git clone --depth 1 https://github.com/org/big-repo.git
+cd big-repo
+git fetch --unshallow          # or deepen gradually: git fetch --deepen=1000
+</code></pre>
+<p>If you only need the files, <code>--depth 1</code> alone is enough. Partial clone also helps for repos with big blobs:</p>
+<pre><code class="language-bash">git clone --filter=blob:none https://github.com/org/big-repo.git
+</code></pre>
+<h2 id="fix-3-pushing-large-commits-postbuffer">Fix 3: pushing large commits — postBuffer</h2>
+<p>When <em>pushing</em>, Git buffers the request body up to <code>http.postBuffer</code> (default 1 MiB); larger pushes use chunked transfer encoding, which some servers/proxies mishandle.</p>
+<pre><code class="language-bash">git config http.postBuffer 524288000    # 500 MB
+git push
+</code></pre>
+<p>This doesn't help clones/fetches, and it's not a fix for files that exceed the host's size limit (GitHub rejects files over 100 MB — use Git LFS). Splitting a giant push into several smaller pushes also works:</p>
+<pre><code class="language-bash">git push origin HEAD~200:refs/heads/main   # push older commits first
+git push origin main
+</code></pre>
+<h2 id="fix-4-use-ssh-instead-of-https">Fix 4: use SSH instead of HTTPS</h2>
+<p>SSH transport doesn't go through curl and is often more robust behind proxies:</p>
+<pre><code class="language-bash">git remote set-url origin git@github.com:org/big-repo.git
+git fetch
+</code></pre>
+<p>(Requires an SSH key added to your account.)</p>
+<h2 id="fix-5-slow-or-unstable-network">Fix 5: slow or unstable network</h2>
+<p>Tell curl not to abort slow transfers:</p>
+<pre><code class="language-bash">git config --global http.lowSpeedLimit 0
+git config --global http.lowSpeedTime 999999
+</code></pre>
+<p>Also try another network, disable the VPN, or check whether a corporate proxy needs <code>http.proxy</code> configured.</p>
+<h2 id="fix-6-server-side-limits">Fix 6: server-side limits</h2>
+<p>If it fails at the same point every time on a self-hosted GitLab/Gitea behind nginx, the reverse proxy may be timing out or limiting body size. Raise <code>client_max_body_size</code>, <code>proxy_read_timeout</code> and <code>proxy_send_timeout</code> on the server.</p>
+<h2 id="debugging">Debugging</h2>
+<pre><code class="language-bash">GIT_TRACE=1 GIT_CURL_VERBOSE=1 git clone &lt;url&gt; 2&gt; trace.log
+</code></pre>
+<p>The log shows the HTTP version, proxy and where the connection broke.</p>
+<p class="upd">Last updated 2026-11-03.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-gh001-large-files-detected/">remote: error: GH001: Large files detected. You may want to try Git Large File Storage</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

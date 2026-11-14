@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>remote: Support for password authentication was removed (Git) — how to fix</title>
+<meta name="description" content="GitHub no longer accepts your account password for Git over HTTPS. Use a personal access token, the GitHub CLI, or SSH.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-password-authentication-removed/">
+<meta property="og:title" content="remote: Support for password authentication was removed (Git) — how to fix"><meta property="og:description" content="GitHub no longer accepts your account password for Git over HTTPS. Use a personal access token, the GitHub CLI, or SSH.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-password-authentication-removed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "remote: Support for password authentication was removed (Git) \u2014 how to fix", "description": "GitHub no longer accepts your account password for Git over HTTPS. Use a personal access token, the GitHub CLI, or SSH.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/git/git-password-authentication-removed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "remote: Support for password authentication was removed", "item": "https://errorfix-hollis.github.io/git/git-password-authentication-removed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>remote: Support for password authentication was removed (Git) — how to fix</h1>
+<pre class="err"><code>remote: Support for password authentication was removed on August 13, 2021.
+remote: Please see https://docs.github.com/get-started/getting-started-with-git/about-remote-repositories#cloning-with-https-urls for information on currently recommended modes of authentication.
+fatal: Authentication failed for &#x27;https://github.com/user/repo.git/&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Easiest: install the GitHub CLI and run <code>gh auth login</code>. Or create a personal access token (GitHub → Settings → Developer settings → Tokens) and paste it when Git asks for a password.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When Git asks for "Password" over HTTPS, GitHub only accepts a <strong>token</strong>, not the password you use on the website.</p>
+<h2 id="fix-1-github-cli-simplest">Fix 1: GitHub CLI (simplest)</h2>
+<pre><code class="language-bash">gh auth login        # choose GitHub.com → HTTPS → authenticate in the browser
+gh auth setup-git    # makes git use gh's credentials
+</code></pre>
+<h2 id="fix-2-personal-access-token">Fix 2: personal access token</h2>
+<ol>
+<li>GitHub → <strong>Settings → Developer settings → Personal access tokens</strong>.</li>
+<li>Create a <strong>fine-grained</strong> token limited to the repositories you need, with <em>Contents: Read and write</em> (add <em>Workflows</em> if you edit <code>.github/workflows</code>). A classic token needs the <code>repo</code> scope.</li>
+<li>Run your <code>git push</code> again. Username: your GitHub username. Password: <strong>paste the token</strong>.</li>
+</ol>
+<p>Save it so you're not asked every time:</p>
+<pre><code class="language-bash">git config --global credential.helper store      # plain text in ~/.git-credentials
+# better on macOS: osxkeychain; on Windows: Git Credential Manager (installed with Git for Windows)
+</code></pre>
+<h2 id="fix-3-switch-to-ssh">Fix 3: switch to SSH</h2>
+<pre><code class="language-bash">git remote set-url origin git@github.com:USER/REPO.git
+</code></pre>
+<p>You'll need an SSH key added to your account. See <a href="/git/git-permission-denied-publickey/">Permission denied (publickey)</a>.</p>
+<h2 id="an-old-password-is-cached">An old password is cached</h2>
+<p>If Git doesn't ask and just fails, an old password is stored in your credential manager.</p>
+<ul>
+<li><strong>macOS:</strong> open Keychain Access, search <code>github.com</code>, delete the entry.</li>
+<li><strong>Windows:</strong> Control Panel → Credential Manager → Windows Credentials → remove <code>git:https://github.com</code>.</li>
+<li><strong>Linux (store helper):</strong> edit or delete <code>~/.git-credentials</code>.</li>
+</ul>
+<p>Then push again and enter the token.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li><li><a href="/git/git-permission-denied-publickey/">git@github.com: Permission denied (publickey).</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-resolve-host/">fatal: unable to access ... Could not resolve host: github.com</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

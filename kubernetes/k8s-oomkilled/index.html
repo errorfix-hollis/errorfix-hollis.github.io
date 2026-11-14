@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OOMKilled (exit code 137) (Kubernetes) — how to fix</title>
+<meta name="description" content="The container used more memory than its memory limit, so the kernel&#x27;s OOM killer terminated it. Raise the limit, or reduce the app&#x27;s memory use and make the runtime respect the container limit.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-oomkilled/">
+<meta property="og:title" content="OOMKilled (exit code 137) (Kubernetes) — how to fix"><meta property="og:description" content="The container used more memory than its memory limit, so the kernel&#x27;s OOM killer terminated it. Raise the limit, or reduce the app&#x27;s memory use and make the runtime respect the container limit.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-oomkilled/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "OOMKilled (exit code 137) (Kubernetes) \u2014 how to fix", "description": "The container used more memory than its memory limit, so the kernel's OOM killer terminated it. Raise the limit, or reduce the app's memory use and make the runtime respect the container limit.", "dateModified": "2026-10-30", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-oomkilled/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "OOMKilled (exit code 137)", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-oomkilled/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>OOMKilled (exit code 137) (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Last State:     Terminated
+  Reason:       OOMKilled
+  Exit Code:    137
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Confirm with <code>kubectl describe pod &lt;pod&gt;</code> (Reason: OOMKilled). Check real usage with <code>kubectl top pod &lt;pod&gt; --containers</code>. Raise <code>resources.limits.memory</code> (and requests) in the Deployment, e.g. <code>kubectl set resources deployment/myapp --limits=memory=1Gi --requests=memory=512Mi</code>, and cap runtime heaps (JVM <code>-XX:MaxRAMPercentage=75</code>, Node <code>--max-old-space-size</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Every container with <code>resources.limits.memory</code> runs in a cgroup with that hard cap. When the processes in it try to use more, the Linux OOM killer sends SIGKILL. Exit code 137 = 128 + 9 (SIGKILL). The pod then restarts and, if it keeps happening, goes into <code>CrashLoopBackOff</code>.</p>
+<p>Confirm it:</p>
+<pre><code class="language-bash">kubectl describe pod mypod | grep -A5 &quot;Last State&quot;
+kubectl get pod mypod -o jsonpath='{.status.containerStatuses[*].lastState.terminated.reason}'
+</code></pre>
+<p>A pod <em>evicted</em> due to node memory pressure shows <code>Reason: Evicted</code> instead — that's a node-level problem, not your container limit.</p>
+<h2 id="fix-1-measure-actual-usage">Fix 1: measure actual usage</h2>
+<pre><code class="language-bash">kubectl top pod mypod --containers      # needs metrics-server
+</code></pre>
+<p>Compare with the configured limit:</p>
+<pre><code class="language-bash">kubectl get pod mypod -o jsonpath='{.spec.containers[*].resources}'
+</code></pre>
+<p>If usage under normal load sits close to the limit, the limit is simply too low.</p>
+<h2 id="fix-2-raise-the-memory-limit">Fix 2: raise the memory limit</h2>
+<p>In the Deployment manifest:</p>
+<pre><code class="language-yaml">spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          resources:
+            requests:
+              memory: &quot;512Mi&quot;
+            limits:
+              memory: &quot;1Gi&quot;
+</code></pre>
+<p>Or imperatively:</p>
+<pre><code class="language-bash">kubectl set resources deployment/myapp -c app --requests=memory=512Mi --limits=memory=1Gi
+</code></pre>
+<p>Use <code>Mi</code>/<code>Gi</code> (binary units). <code>1G</code> and <code>1Gi</code> are different, and a lowercase <code>m</code> means milli — <code>memory: 512m</code> is half a byte, a classic mistake.</p>
+<p>Also check for a <code>LimitRange</code> in the namespace that applies a small default limit when you don't set one:</p>
+<pre><code class="language-bash">kubectl get limitrange -n mynamespace -o yaml
+</code></pre>
+<h2 id="fix-3-make-the-runtime-respect-the-limit">Fix 3: make the runtime respect the limit</h2>
+<p>Many runtimes size their heap from total memory and can exceed the cgroup limit.</p>
+<p><strong>JVM</strong> (Java 10+ / 8u191+ are container-aware). Size the heap as a fraction of the limit and leave room for metaspace, threads and native memory:</p>
+<pre><code class="language-yaml">env:
+  - name: JAVA_TOOL_OPTIONS
+    value: &quot;-XX:MaxRAMPercentage=75.0&quot;
+</code></pre>
+<p><strong>Node.js</strong> — the V8 heap limit is set independently:</p>
+<pre><code class="language-yaml">command: [&quot;node&quot;, &quot;--max-old-space-size=768&quot;, &quot;server.js&quot;]   # MiB, below a 1Gi limit
+</code></pre>
+<p><strong>Python / Go</strong> — no heap flag to tune for Python; for Go 1.19+ set a soft limit: <code>GOMEMLIMIT=900MiB</code>.</p>
+<h2 id="fix-4-find-leaks-or-spikes">Fix 4: find leaks or spikes</h2>
+<p>If memory grows steadily until the kill, it's a leak; if it jumps, it's a large request, batch, or file loaded into memory. Options:</p>
+<ul>
+<li>Watch over time: <code>kubectl top pod mypod --containers</code> repeatedly, or your Prometheus metric <code>container_memory_working_set_bytes</code> (the value the kubelet compares against the limit).</li>
+<li>Take heap dumps / profiles (JVM <code>-XX:+HeapDumpOnOutOfMemoryError</code>, Node <code>--heapsnapshot-near-heap-limit</code>, Go pprof).</li>
+<li>Reduce concurrency (worker count, thread pools) — each worker multiplies memory use. Gunicorn with 8 workers uses roughly 8× one worker.</li>
+</ul>
+<h2 id="fix-5-init-containers-and-sidecars">Fix 5: init containers and sidecars</h2>
+<p>The reason may be on another container in the pod. <code>kubectl describe pod</code> lists each container's state; check init containers and sidecars (e.g. a log shipper) too, each with its own limit.</p>
+<p class="upd">Last updated 2026-10-30.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-no-space-left-on-device/">no space left on device (Docker)</a></li><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/npm/node-javascript-heap-out-of-memory/">FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

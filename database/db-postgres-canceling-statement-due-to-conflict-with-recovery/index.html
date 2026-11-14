@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR: canceling statement due to conflict with recovery (PostgreSQL) — how to fix</title>
+<meta name="description" content="A long query on a PostgreSQL hot standby (read replica) was cancelled because WAL replay from the primary needed to remove row versions or take locks the query was still using.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-canceling-statement-due-to-conflict-with-recovery/">
+<meta property="og:title" content="ERROR: canceling statement due to conflict with recovery (PostgreSQL) — how to fix"><meta property="og:description" content="A long query on a PostgreSQL hot standby (read replica) was cancelled because WAL replay from the primary needed to remove row versions or take locks the query was still using.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-canceling-statement-due-to-conflict-with-recovery/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR: canceling statement due to conflict with recovery (PostgreSQL) \u2014 how to fix", "description": "A long query on a PostgreSQL hot standby (read replica) was cancelled because WAL replay from the primary needed to remove row versions or take locks the query was still using.", "dateModified": "2026-11-12", "url": "https://errorfix-hollis.github.io/database/db-postgres-canceling-statement-due-to-conflict-with-recovery/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR: canceling statement due to conflict with recovery", "item": "https://errorfix-hollis.github.io/database/db-postgres-canceling-statement-due-to-conflict-with-recovery/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR: canceling statement due to conflict with recovery (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>ERROR:  canceling statement due to conflict with recovery
+DETAIL:  User query might have needed to see row versions that must be removed.
+HINT:  In a moment you should be able to reconnect to the database and repeat your command.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> On the replica, either let queries delay replay longer (<code>max_standby_streaming_delay = 5min</code> in postgresql.conf, then <code>SELECT pg_reload_conf();</code>) or tell the primary to keep the rows the replica needs (<code>hot_standby_feedback = on</code> on the replica). Also shorten long reports or run them on a dedicated replica. On AWS RDS/Aurora set these in the parameter group.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A <strong>hot standby</strong> replays the primary's WAL while also serving read queries. Sometimes replay needs to do something that conflicts with a running query, most often applying a <code>VACUUM</code> cleanup on the primary that removes old row versions your query's snapshot can still see. The standby then waits up to <code>max_standby_streaming_delay</code> (default <strong>30s</strong>) and, if the query is still running, cancels it with this error (SQLSTATE <code>40001</code>).</p>
+<p>The <code>DETAIL</code> line tells you the kind of conflict:</p>
+<table>
+<thead>
+<tr>
+<th>DETAIL</th>
+<th>Cause</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>User query might have needed to see row versions that must be removed</em></td>
+<td>VACUUM / HOT pruning on the primary (most common)</td>
+</tr>
+<tr>
+<td><em>User was holding a relation lock for too long</em></td>
+<td><code>ACCESS EXCLUSIVE</code> lock on primary (ALTER TABLE, TRUNCATE, DROP, VACUUM truncation)</td>
+</tr>
+<tr>
+<td><em>User was holding shared buffer pin for too long</em></td>
+<td>buffer pin conflict</td>
+</tr>
+<tr>
+<td><em>User was or might have been using tablespace that must be dropped</em> / <em>connected to a database that must be dropped</em></td>
+<td><code>DROP TABLESPACE</code> / <code>DROP DATABASE</code> on primary</td>
+</tr>
+<tr>
+<td><em>User transaction caused buffer deadlock with recovery</em></td>
+<td>rare buffer deadlock</td>
+</tr>
+</tbody>
+</table>
+<p>Check how often it happens per database on the standby:</p>
+<pre><code class="language-sql">SELECT datname, confl_snapshot, confl_lock, confl_bufferpin, confl_deadlock
+FROM pg_stat_database_conflicts;
+</code></pre>
+<h2 id="fix-1-allow-longer-replay-delay-on-the-standby">Fix 1: allow longer replay delay on the standby</h2>
+<p>On the <strong>standby</strong>, in <code>postgresql.conf</code>:</p>
+<pre><code class="language-ini">max_standby_streaming_delay = 5min      # default 30s; -1 = wait forever
+max_standby_archive_delay   = 5min      # same, when replaying from archive
+</code></pre>
+<pre><code class="language-sql">SELECT pg_reload_conf();
+</code></pre>
+<p>Trade-off: while a query blocks replay, the replica falls behind (replication lag). Fine for a reporting replica, bad for one used for failover or read-your-writes traffic.</p>
+<h2 id="fix-2-hot_standby_feedback">Fix 2: <code>hot_standby_feedback</code></h2>
+<p>On the <strong>standby</strong>:</p>
+<pre><code class="language-ini">hot_standby_feedback = on
+</code></pre>
+<p>The standby then tells the primary the oldest transaction it still needs, so VACUUM on the primary won't remove those rows. This removes most <code>confl_snapshot</code> cancellations.</p>
+<p>Trade-off: long queries on the replica now cause <strong>table bloat on the primary</strong>, because dead rows can't be cleaned up until they finish. Combine with a query timeout on the replica, e.g.:</p>
+<pre><code class="language-sql">ALTER ROLE reporting SET statement_timeout = '15min';
+</code></pre>
+<p>It doesn't prevent lock conflicts (<code>confl_lock</code>) from DDL on the primary.</p>
+<h2 id="fix-3-managed-databases-rds-aurora-cloud-sql-azure">Fix 3: managed databases (RDS, Aurora, Cloud SQL, Azure)</h2>
+<p>You can't edit <code>postgresql.conf</code>; change the parameters in the replica's <strong>parameter group</strong> / flags:</p>
+<ul>
+<li>AWS RDS PostgreSQL: <code>max_standby_streaming_delay</code>, <code>max_standby_archive_delay</code>, <code>hot_standby_feedback</code> (replica's parameter group).</li>
+<li>Aurora PostgreSQL: replicas share storage, so conflicts are different but still possible; tune <code>max_standby_streaming_delay</code> (capped at 30 seconds on Aurora) and keep queries shorter.</li>
+<li>Google Cloud SQL: set the database flags on the read replica.</li>
+</ul>
+<h2 id="fix-4-make-the-queries-shorter-or-move-them">Fix 4: make the queries shorter or move them</h2>
+<ul>
+<li>Add indexes / rewrite the report so it finishes well under the delay.</li>
+<li>Split huge exports into batches by key range.</li>
+<li>Run heavy analytics on a dedicated replica with a large <code>max_standby_streaming_delay</code>, and keep the failover replica strict.</li>
+<li>Avoid <code>ALTER TABLE</code>, <code>TRUNCATE</code> or <code>LOCK</code> on the primary during report windows (they cause <code>confl_lock</code>).</li>
+</ul>
+<h2 id="fix-5-retry-in-the-application">Fix 5: retry in the application</h2>
+<p>The cancellation is safe to retry; the HINT says so. Treat SQLSTATE <code>40001</code> on replica reads as retryable, with backoff. Don't retry indefinitely for reports that always exceed the delay; fix those with Fix 1–4.</p>
+<p class="upd">Last updated 2026-11-12.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-postgres-canceling-statement-due-to-statement-timeout/">ERROR: canceling statement due to statement timeout</a></li><li><a href="/database/db-postgres-could-not-serialize-access/">ERROR: could not serialize access due to concurrent update</a></li><li><a href="/database/db-postgres-deadlock-detected/">ERROR: deadlock detected</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

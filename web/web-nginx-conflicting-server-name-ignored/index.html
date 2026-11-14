@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>nginx: [warn] conflicting server name &quot;example.com&quot; on 0.0.0.0:80, ignored — how to fix</title>
+<meta name="description" content="Two server blocks listen on the same address:port with the same server_name. nginx uses the first one it loads and ignores the duplicate, so your changes in the second block silently have no effect.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-nginx-conflicting-server-name-ignored/">
+<meta property="og:title" content="nginx: [warn] conflicting server name &quot;example.com&quot; on 0.0.0.0:80, ignored — how to fix"><meta property="og:description" content="Two server blocks listen on the same address:port with the same server_name. nginx uses the first one it loads and ignores the duplicate, so your changes in the second block silently have no effect.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-nginx-conflicting-server-name-ignored/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "nginx: [warn] conflicting server name \"example.com\" on 0.0.0.0:80, ignored \u2014 how to fix", "description": "Two server blocks listen on the same address:port with the same server_name. nginx uses the first one it loads and ignores the duplicate, so your changes in the second block silently have no effect.", "dateModified": "2026-11-12", "url": "https://errorfix-hollis.github.io/web/web-nginx-conflicting-server-name-ignored/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "nginx: [warn] conflicting server name \"example.com\" on 0.0.0.0:80, ignored", "item": "https://errorfix-hollis.github.io/web/web-nginx-conflicting-server-name-ignored/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>nginx: [warn] conflicting server name &quot;example.com&quot; on 0.0.0.0:80, ignored — how to fix</h1>
+<pre class="err"><code>nginx: [warn] conflicting server name &quot;example.com&quot; on 0.0.0.0:80, ignored
+nginx: [warn] conflicting server name &quot;www.example.com&quot; on [::]:443, ignored
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find the duplicates: <code>sudo nginx -T 2&gt;/dev/null | grep -nE 'server_name|listen|# configuration file'</code>. Remove or merge one of them; usually a leftover copy in sites-enabled (e.g. <code>default</code> plus <code>example.com</code>, or a <code>.bak</code> file that is still included, or a Certbot-added block). Then <code>sudo nginx -t &amp;&amp; sudo systemctl reload nginx</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>For every <code>listen</code> address:port, nginx builds a table of server names. If two <code>server { }</code> blocks listening on the same address:port both claim <code>example.com</code>, the <strong>first one loaded wins</strong> and nginx logs this warning for the second. It's only a <code>[warn]</code>: <code>nginx -t</code> still succeeds and nginx starts, which is why it often goes unnoticed, while edits to the ignored block (new <code>location</code>, SSL settings, redirects) seem to do nothing.</p>
+<p>Find every block that claims the name, with the file it comes from:</p>
+<pre><code class="language-bash">sudo nginx -T 2&gt;/dev/null | grep -nE '# configuration file|server_name|listen'
+</code></pre>
+<p><code>nginx -T</code> dumps the full effective config including all <code>include</code>d files, in load order.</p>
+<h2 id="cause-1-the-same-site-is-enabled-twice">Cause 1: the same site is enabled twice</h2>
+<p>On Debian/Ubuntu layouts, everything in <code>/etc/nginx/sites-enabled/</code> is loaded (<code>include /etc/nginx/sites-enabled/*;</code>). Typical duplicates:</p>
+<ul>
+<li><code>example.com</code> and <code>example.com.bak</code>, <code>example.com.old</code>, <code>example.com~</code> (editor backup)</li>
+<li>a symlink <strong>and</strong> a copy of the same file</li>
+<li>a file in both <code>sites-enabled/</code> and <code>conf.d/</code></li>
+</ul>
+<pre><code class="language-bash">ls -l /etc/nginx/sites-enabled/ /etc/nginx/conf.d/
+</code></pre>
+<p>Remove the extra one (keep backups outside the include path):</p>
+<pre><code class="language-bash">sudo rm /etc/nginx/sites-enabled/example.com.bak
+sudo nginx -t &amp;&amp; sudo systemctl reload nginx
+</code></pre>
+<p>On RHEL-style layouts only <code>conf.d/*.conf</code> is included, so <code>example.conf.bak</code> is ignored there, but <code>example.conf</code> and <code>example2.conf</code> with the same names still conflict.</p>
+<h2 id="cause-2-certbot-added-a-block">Cause 2: Certbot added a block</h2>
+<p><code>certbot --nginx</code> may add a new <code>server { listen 80; server_name example.com; return 301 https://...; }</code> block at the end of your file. If you already had your own port-80 block for the same name, you now have two. Keep one port-80 block that redirects, and one <code>listen 443 ssl</code> block that serves:</p>
+<pre><code class="language-nginx">server {
+    listen 80;
+    listen [::]:80;
+    server_name example.com www.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name example.com www.example.com;
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+    # ...
+}
+</code></pre>
+<h2 id="cause-3-the-name-appears-in-two-different-sites">Cause 3: the name appears in two different sites</h2>
+<p>E.g. <code>www.example.com</code> in both <code>example.com.conf</code> and a separate <code>www-redirect.conf</code>, or <code>localhost</code>/<code>_</code> used in several blocks. Each name may appear once per address:port. Decide which block owns it and remove it from the other's <code>server_name</code> line.</p>
+<p><code>server_name _;</code> is not special; it's just an invalid name used by convention. Two blocks with <code>server_name _</code> on the same port conflict too. To choose the catch-all, use <code>default_server</code> on the <code>listen</code> line instead (only one per address:port):</p>
+<pre><code class="language-nginx">listen 80 default_server;
+</code></pre>
+<h2 id="cause-4-different-listen-forms-still-overlap">Cause 4: different <code>listen</code> forms still overlap</h2>
+<p><code>listen 80;</code> and <code>listen 0.0.0.0:80;</code> are the same socket. However <code>listen 80;</code> and <code>listen 192.0.2.10:80;</code> are different, so no warning appears; but requests to that IP are handled only by the specific-IP block. If a change "doesn't apply", check for this too.</p>
+<h2 id="verify">Verify</h2>
+<pre><code class="language-bash">sudo nginx -t 2&gt;&amp;1 | grep -i conflicting || echo &quot;no conflicts&quot;
+sudo systemctl reload nginx
+curl -sI -H 'Host: example.com' http://127.0.0.1/ | head -5
+</code></pre>
+<p>If you also see <code>could not build server_names_hash</code>, that's a different limit; see <a href="/web/web-nginx-could-not-build-server-names-hash/">server_names_hash error</a>.</p>
+<p class="upd">Last updated 2026-11-12.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-err-too-many-redirects/">ERR_TOO_MANY_REDIRECTS</a></li><li><a href="/web/web-nginx-bind-address-already-in-use/">nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use)</a></li><li><a href="/web/web-nginx-could-not-build-server-names-hash/">nginx: [emerg] could not build server_names_hash, you should increase server_names_hash_bucket_size</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR 1064 (42000): You have an error in your SQL syntax (MySQL) — how to fix</title>
+<meta name="description" content="MySQL&#x27;s parser could not understand the statement. The text after &#x27;near&#x27; is where parsing failed, usually a reserved word, a typo, bad quoting, or syntax from another database or MySQL version.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">
+<meta property="og:title" content="ERROR 1064 (42000): You have an error in your SQL syntax (MySQL) — how to fix"><meta property="og:description" content="MySQL&#x27;s parser could not understand the statement. The text after &#x27;near&#x27; is where parsing failed, usually a reserved word, a typo, bad quoting, or syntax from another database or MySQL version.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR 1064 (42000): You have an error in your SQL syntax (MySQL) \u2014 how to fix", "description": "MySQL's parser could not understand the statement. The text after 'near' is where parsing failed, usually a reserved word, a typo, bad quoting, or syntax from another database or MySQL version.", "dateModified": "2026-11-10", "url": "https://errorfix-hollis.github.io/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR 1064 (42000): You have an error in your SQL syntax", "item": "https://errorfix-hollis.github.io/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR 1064 (42000): You have an error in your SQL syntax (MySQL) — how to fix</h1>
+<pre class="err"><code>ERROR 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near &#x27;order (id INT, total DECIMAL(10,2))&#x27; at line 1
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Look at the first word in the <code>near '...'</code> snippet: the error is right there or just before it. Backtick-quote reserved words used as names (<code>`order`</code>, <code>`group`</code>), use single quotes for strings, fix missing commas, and don't use syntax your server version doesn't support.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>MySQL tokenizes your statement and stops at the first token that doesn't fit the grammar. The quoted text after <code>near</code> starts <strong>at that token</strong>. The mistake is usually that token itself or what comes just before it.</p>
+<p>If the snippet is empty (<code>near '' at line 1</code>), the statement ended unexpectedly: a missing closing parenthesis, quote or value.</p>
+<h2 id="cause-1-a-reserved-word-used-as-a-name">Cause 1: a reserved word used as a name</h2>
+<pre><code class="language-sql">CREATE TABLE order (id INT);           -- 1064 near 'order (id INT)'
+SELECT key, value FROM settings;        -- 1064 near 'key, value'
+</code></pre>
+<p><code>ORDER</code>, <code>GROUP</code>, <code>KEY</code>, <code>RANK</code>, <code>ROWS</code>, <code>SYSTEM</code>, <code>LEAD</code>, <code>INTERVAL</code>, <code>DESC</code>... are reserved. MySQL 8.0 added several (<code>RANK</code>, <code>ROWS</code>, <code>GROUPS</code>, <code>LEAD</code>, <code>LAG</code>, <code>SYSTEM</code>), so queries that worked on 5.7 can break after an upgrade. Quote identifiers with backticks:</p>
+<pre><code class="language-sql">CREATE TABLE `order` (id INT);
+SELECT `key`, `value` FROM settings;
+</code></pre>
+<p>Or rename the column. Most ORMs have an option to always quote identifiers.</p>
+<h2 id="cause-2-wrong-quotes">Cause 2: wrong quotes</h2>
+<ul>
+<li>Strings use single quotes: <code>WHERE name = 'Bob'</code>.</li>
+<li>Identifiers use backticks: <code>`first name`</code>.</li>
+<li>Double quotes are strings in MySQL by default, unless <code>ANSI_QUOTES</code> is enabled.</li>
+<li>Typographic quotes (<code>’ “</code>) pasted from docs or chat are not quotes at all.</li>
+</ul>
+<p>An unescaped apostrophe also breaks the statement: <code>'O'Brien'</code>. Use parameterized queries instead of building SQL by string concatenation — that fixes quoting and prevents SQL injection:</p>
+<pre><code class="language-python">cur.execute(&quot;INSERT INTO users (name) VALUES (%s)&quot;, (name,))
+</code></pre>
+<h2 id="cause-3-typos-and-missing-punctuation">Cause 3: typos and missing punctuation</h2>
+<ul>
+<li>Missing comma between columns: <code>SELECT id name FROM users</code> is valid (alias), but <code>CREATE TABLE t (id INT name VARCHAR(20))</code> is not.</li>
+<li>Trailing comma before <code>)</code> or before <code>FROM</code>.</li>
+<li>Clauses in the wrong order: must be <code>SELECT ... FROM ... WHERE ... GROUP BY ... HAVING ... ORDER BY ... LIMIT</code>.</li>
+<li><code>UPDATE t SET a=1 AND b=2</code> is valid but wrong; use <code>SET a=1, b=2</code>.</li>
+</ul>
+<h2 id="cause-4-syntax-from-another-database">Cause 4: syntax from another database</h2>
+<table>
+<thead>
+<tr>
+<th>Not MySQL</th>
+<th>MySQL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SELECT TOP 10 *</code> (SQL Server)</td>
+<td><code>SELECT * ... LIMIT 10</code></td>
+</tr>
+<tr>
+<td><code>"column"</code> identifiers (Postgres)</td>
+<td><code>`column`</code></td>
+</tr>
+<tr>
+<td><code>RETURNING id</code> (Postgres)</td>
+<td>not supported in MySQL (MariaDB 10.5+ supports it for INSERT/DELETE)</td>
+</tr>
+<tr>
+<td><code>id INT GENERATED ALWAYS AS IDENTITY</code></td>
+<td><code>id INT AUTO_INCREMENT PRIMARY KEY</code></td>
+</tr>
+<tr>
+<td><code>ALTER COLUMN x TYPE int</code></td>
+<td><code>MODIFY COLUMN x INT</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="cause-5-features-your-server-version-doesnt-have">Cause 5: features your server version doesn't have</h2>
+<p><code>WITH</code> (CTEs) and window functions need MySQL 8.0+. Check with <code>SELECT VERSION();</code>. Old syntax such as <code>TYPE=InnoDB</code> was removed; use <code>ENGINE=InnoDB</code>. Also, <code>IDENTIFIED BY</code> inside <code>GRANT</code> was removed in 8.0 — create the user first:</p>
+<pre><code class="language-sql">CREATE USER 'app'@'%' IDENTIFIED BY 'secret';
+GRANT ALL ON appdb.* TO 'app'@'%';
+</code></pre>
+<h2 id="cause-6-delimiters-in-stored-procedures">Cause 6: delimiters in stored procedures</h2>
+<p>In the <code>mysql</code> client, the <code>;</code> inside a procedure body ends the statement early. Change the delimiter:</p>
+<pre><code class="language-sql">DELIMITER //
+CREATE PROCEDURE p() BEGIN SELECT 1; END //
+DELIMITER ;
+</code></pre>
+<h2 id="cause-7-importing-a-dump">Cause 7: importing a dump</h2>
+<p>When importing a dump from a newer server (or MariaDB ↔ MySQL), unsupported options cause 1064. Check the reported line number with <code>sed -n '123p' dump.sql</code>.</p>
+<p class="upd">Last updated 2026-11-10.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li><li><a href="/database/db-mysql-error-1366-incorrect-string-value/">ERROR 1366 (HY000): Incorrect string value</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1130-host-is-not-allowed-to-connect/">ERROR 1130 (HY000): Host is not allowed to connect to this MySQL server</a></li><li><a href="/database/db-mysql-error-1205-lock-wait-timeout-exceeded/">ERROR 1205 (HY000): Lock wait timeout exceeded; try restarting transaction</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR 1366 (HY000): Incorrect string value (MySQL) — how to fix</title>
+<meta name="description" content="MySQL received bytes that can&#x27;t be stored in the column&#x27;s character set — almost always a 4-byte UTF-8 character like an emoji going into a utf8/utf8mb3 column. Switch the column, table and connection to utf8mb4.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-mysql-error-1366-incorrect-string-value/">
+<meta property="og:title" content="ERROR 1366 (HY000): Incorrect string value (MySQL) — how to fix"><meta property="og:description" content="MySQL received bytes that can&#x27;t be stored in the column&#x27;s character set — almost always a 4-byte UTF-8 character like an emoji going into a utf8/utf8mb3 column. Switch the column, table and connection to utf8mb4.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-mysql-error-1366-incorrect-string-value/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR 1366 (HY000): Incorrect string value (MySQL) \u2014 how to fix", "description": "MySQL received bytes that can't be stored in the column's character set \u2014 almost always a 4-byte UTF-8 character like an emoji going into a utf8/utf8mb3 column. Switch the column, table and connection to utf8mb4.", "dateModified": "2026-11-06", "url": "https://errorfix-hollis.github.io/database/db-mysql-error-1366-incorrect-string-value/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR 1366 (HY000): Incorrect string value", "item": "https://errorfix-hollis.github.io/database/db-mysql-error-1366-incorrect-string-value/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR 1366 (HY000): Incorrect string value (MySQL) — how to fix</h1>
+<pre class="err"><code>ERROR 1366 (HY000): Incorrect string value: &#x27;\xF0\x9F\x98\x80&#x27; for column &#x27;body&#x27; at row 1
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Convert the table: <code>ALTER TABLE posts CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;</code> (and the database default with <code>ALTER DATABASE ... CHARACTER SET utf8mb4</code>). Make the client connect with utf8mb4 too (<code>charset=utf8mb4</code> in the DSN, <code>SET NAMES utf8mb4</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>MySQL's old <code>utf8</code> charset (now called <code>utf8mb3</code>) stores at most <strong>3 bytes</strong> per character. That covers most text but not characters outside the Basic Multilingual Plane: emoji, many CJK extension characters, musical and math symbols. Those need 4 bytes in UTF-8, and they start with <code>\xF0</code>–<code>\xF4</code>.</p>
+<p>So a message like <code>Incorrect string value: '\xF0\x9F\x98\x80'</code> (that's 😀) means: a 4-byte character went into a column that's <code>utf8mb3</code>. In strict SQL mode (the default since 5.7) MySQL rejects the row; without strict mode it silently stores <code>?</code>.</p>
+<p>If the bytes start with something else (e.g. <code>'\xE9t\xE9'</code>), the client is sending Latin-1 bytes while claiming UTF-8 — see Cause 3.</p>
+<h2 id="check-what-you-have">Check what you have</h2>
+<pre><code class="language-sql">SHOW CREATE TABLE posts\G
+SELECT column_name, character_set_name, collation_name
+FROM information_schema.COLUMNS
+WHERE table_schema = 'mydb' AND table_name = 'posts';
+
+SHOW VARIABLES LIKE 'character_set_%';
+</code></pre>
+<p>Any <code>utf8</code> / <code>utf8mb3</code> / <code>latin1</code> on the target column, or on <code>character_set_client</code>/<code>character_set_connection</code>, is a suspect.</p>
+<h2 id="fix-1-convert-the-table-to-utf8mb4">Fix 1: convert the table to utf8mb4</h2>
+<p>Back up first, then:</p>
+<pre><code class="language-sql">ALTER DATABASE mydb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+ALTER TABLE posts CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+</code></pre>
+<p><code>CONVERT TO</code> changes every text column in the table and re-encodes existing data. To change a single column:</p>
+<pre><code class="language-sql">ALTER TABLE posts MODIFY body TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+</code></pre>
+<p>On MySQL 8.0 <code>utf8mb4_0900_ai_ci</code> is the default and a good choice. <code>ALTER DATABASE</code> only changes the default for <em>new</em> tables, so you still need to convert the existing ones.</p>
+<p>Large tables are rebuilt by this ALTER; on production use <code>pt-online-schema-change</code> or <code>gh-ost</code>.</p>
+<h3 id="index-length-gotcha">Index length gotcha</h3>
+<p>On old MySQL 5.6 / InnoDB with <code>COMPACT</code> row format, an index on <code>VARCHAR(255)</code> utf8mb4 (255 × 4 = 1020 bytes) exceeds the 767-byte limit: <code>Specified key was too long; max key length is 767 bytes</code>. Use <code>ROW_FORMAT=DYNAMIC</code> (default from 5.7), or shorten it to <code>VARCHAR(191)</code>.</p>
+<h2 id="fix-2-make-the-connection-use-utf8mb4">Fix 2: make the connection use utf8mb4</h2>
+<p>The column can be utf8mb4 and the insert still fails if the client connection is <code>utf8</code>. Set the charset in the client:</p>
+<pre><code class="language-sql">SET NAMES utf8mb4;
+</code></pre>
+<pre><code class="language-python"># PyMySQL / mysqlclient
+pymysql.connect(host=..., charset=&quot;utf8mb4&quot;)
+# SQLAlchemy
+create_engine(&quot;mysql+pymysql://user:pw@host/db?charset=utf8mb4&quot;)
+</code></pre>
+<pre><code class="language-php">new PDO(&quot;mysql:host=localhost;dbname=mydb;charset=utf8mb4&quot;, $user, $pw);
+</code></pre>
+<pre><code class="language-text"># JDBC (Connector/J 8 maps this to utf8mb4)
+jdbc:mysql://host/db?characterEncoding=UTF-8
+</code></pre>
+<p>Django: <code>'OPTIONS': {'charset': 'utf8mb4'}</code>. Laravel: <code>'charset' =&gt; 'utf8mb4'</code> in <code>config/database.php</code> (the default).</p>
+<p>And set server defaults in <code>my.cnf</code> so new tables are right:</p>
+<pre><code class="language-ini">[mysqld]
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
+</code></pre>
+<h2 id="cause-3-the-data-isnt-valid-utf-8">Cause 3: the data isn't valid UTF-8</h2>
+<p>If the error bytes aren't a 4-byte sequence, your application is sending text in another encoding (often Latin-1/Windows-1252 from a CSV or legacy system). Decode the input properly before inserting, e.g. in Python <code>raw.decode("cp1252")</code>, or for <code>LOAD DATA</code> specify the file's encoding:</p>
+<pre><code class="language-sql">LOAD DATA INFILE '/tmp/data.csv' INTO TABLE posts CHARACTER SET latin1 ...;
+</code></pre>
+<h2 id="dont-strip-the-characters">Don't strip the characters</h2>
+<p>Turning off strict mode or removing emoji from the input "fixes" the error by losing data. utf8mb4 is the correct charset for any user-facing text in MySQL.</p>
+<p class="upd">Last updated 2026-11-06.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li><li><a href="/python/python-unicodedecodeerror-utf-8/">UnicodeDecodeError: &#x27;utf-8&#x27; codec can&#x27;t decode byte 0xff in position 0: invalid start byte</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li><li><a href="/database/db-mysql-error-1130-host-is-not-allowed-to-connect/">ERROR 1130 (HY000): Host is not allowed to connect to this MySQL server</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>npm ERR! code ERR_SOCKET_TIMEOUT — how to fix</title>
+<meta name="description" content="npm opened a connection to the registry but no data arrived within the timeout. Causes: slow or flaky network, a proxy or VPN, IPv6 problems, too many parallel downloads, or a slow mirror.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-err-code-err-socket-timeout/">
+<meta property="og:title" content="npm ERR! code ERR_SOCKET_TIMEOUT — how to fix"><meta property="og:description" content="npm opened a connection to the registry but no data arrived within the timeout. Causes: slow or flaky network, a proxy or VPN, IPv6 problems, too many parallel downloads, or a slow mirror.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-err-code-err-socket-timeout/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "npm ERR! code ERR_SOCKET_TIMEOUT \u2014 how to fix", "description": "npm opened a connection to the registry but no data arrived within the timeout. Causes: slow or flaky network, a proxy or VPN, IPv6 problems, too many parallel downloads, or a slow mirror.", "dateModified": "2026-11-14", "url": "https://errorfix-hollis.github.io/npm/npm-err-code-err-socket-timeout/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "npm ERR! code ERR_SOCKET_TIMEOUT", "item": "https://errorfix-hollis.github.io/npm/npm-err-code-err-socket-timeout/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>npm ERR! code ERR_SOCKET_TIMEOUT — how to fix</h1>
+<pre class="err"><code>npm ERR! code ERR_SOCKET_TIMEOUT
+npm ERR! network Socket timeout
+npm ERR! network This is a problem related to network connectivity.
+npm ERR! network In most cases you are behind a proxy or have bad network settings.
+npm ERR! network
+npm ERR! network If you are behind a proxy, please make sure that the
+npm ERR! network &#x27;proxy&#x27; config is set properly.  See: &#x27;npm help config&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Retry with longer timeouts and fewer parallel sockets: <code>npm config set fetch-timeout 600000</code>, <code>npm config set fetch-retries 5</code>, <code>npm config set maxsockets 5</code>. Check the registry with <code>npm config get registry</code> and <code>npm ping</code>. Set or remove proxy settings (<code>npm config delete proxy</code>, <code>npm config delete https-proxy</code>). On Node 17+ IPv6 issues, try <code>NODE_OPTIONS=--dns-result-order=ipv4first npm install</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>npm connected to the registry (or a proxy/mirror), but the socket sat idle longer than allowed and npm gave up. It differs from <code>ETIMEDOUT</code>, where the <em>connection itself</em> couldn't be established (<a href="/npm/npm-err-code-etimedout/">ETIMEDOUT page</a>). Both are network problems, not problems with your <code>package.json</code>.</p>
+<p>Run with more logging to see which URL timed out:</p>
+<pre><code class="language-bash">npm install --loglevel=http
+</code></pre>
+<p>Check basics:</p>
+<pre><code class="language-bash">npm config get registry      # normally https://registry.npmjs.org/
+npm ping
+curl -I https://registry.npmjs.org/react
+</code></pre>
+<h2 id="fix-1-longer-timeouts-more-retries-fewer-sockets">Fix 1: longer timeouts, more retries, fewer sockets</h2>
+<p>A big install downloads many packages in parallel (<code>maxsockets</code> defaults to 15). On slow or lossy links some of those sockets starve and hit the timeout.</p>
+<pre><code class="language-bash">npm config set fetch-timeout 600000          # 10 min (default 300000)
+npm config set fetch-retries 5               # default 2
+npm config set fetch-retry-mintimeout 20000
+npm config set fetch-retry-maxtimeout 120000
+npm config set maxsockets 5
+npm install
+</code></pre>
+<p>These go into <code>~/.npmrc</code>. For a single run: <code>npm install --fetch-timeout=600000 --maxsockets=5</code>.</p>
+<h2 id="fix-2-proxy-settings">Fix 2: proxy settings</h2>
+<p>Behind a corporate proxy, npm needs it explicitly:</p>
+<pre><code class="language-bash">npm config set proxy http://proxy.example.com:8080
+npm config set https-proxy http://proxy.example.com:8080
+</code></pre>
+<p>If you are <strong>not</strong> behind a proxy any more (laptop at home, VPN off), stale settings cause exactly this timeout. Remove them:</p>
+<pre><code class="language-bash">npm config list            # look for proxy / https-proxy
+npm config delete proxy
+npm config delete https-proxy
+unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy
+</code></pre>
+<p>Also check the project's <code>.npmrc</code>, which overrides your user config.</p>
+<h2 id="fix-3-ipv6-dns-problems">Fix 3: IPv6 / DNS problems</h2>
+<p>On Node 17+, DNS results are no longer sorted IPv4-first. If your network advertises IPv6 but doesn't route it, connections hang. Force IPv4 for the run:</p>
+<pre><code class="language-bash">NODE_OPTIONS=--dns-result-order=ipv4first npm install
+</code></pre>
+<p>On Windows PowerShell: <code>$env:NODE_OPTIONS="--dns-result-order=ipv4first"; npm install</code>. Updating to a current Node (20+) also helps, since it tries IPv4 and IPv6 in parallel.</p>
+<h2 id="fix-4-a-slow-or-broken-registry-mirror">Fix 4: a slow or broken registry mirror</h2>
+<p>If <code>registry</code> points at a company Artifactory/Nexus or a regional mirror, it may be slow or down. Test against the public registry:</p>
+<pre><code class="language-bash">npm install --registry=https://registry.npmjs.org/
+</code></pre>
+<p>Lockfiles store full <code>resolved</code> URLs. If <code>package-lock.json</code> was created against an unreachable mirror, npm still fetches from there; regenerate it or rewrite those URLs.</p>
+<h2 id="fix-5-clean-cache-and-retry">Fix 5: clean cache and retry</h2>
+<p>A half-written cache can cause repeated failures:</p>
+<pre><code class="language-bash">npm cache verify
+npm cache clean --force   # if verify reports problems
+rm -rf node_modules
+npm install
+</code></pre>
+<h2 id="fix-6-ci-and-docker-builds">Fix 6: CI and Docker builds</h2>
+<ul>
+<li>Docker Desktop / WSL2 on VPN: set DNS in Docker's <code>daemon.json</code>, or build with <code>--network host</code>.</li>
+<li>In CI, cache <code>~/.npm</code> between runs and use <code>npm ci</code>, which downloads less when the cache is warm.</li>
+<li>Add <code>--prefer-offline</code> to use cached packages without checking freshness.</li>
+</ul>
+<h2 id="yarn-and-pnpm-equivalents">Yarn and pnpm equivalents</h2>
+<ul>
+<li>Yarn 1: <code>yarn install --network-timeout 600000</code></li>
+<li>Yarn Berry: <code>yarn config set httpTimeout 600000</code></li>
+<li>pnpm: <code>pnpm install --network-concurrency 4 --fetch-timeout 600000</code></li>
+</ul>
+<p class="upd">Last updated 2026-11-14.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/npm-err-code-eintegrity/">npm ERR! code EINTEGRITY</a></li><li><a href="/npm/npm-err-code-etimedout/">npm ERR! code ETIMEDOUT</a></li><li><a href="/npm/npm-self-signed-cert-in-chain/">npm ERR! code SELF_SIGNED_CERT_IN_CHAIN</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

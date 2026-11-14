@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>standard_init_linux.go: exec user process caused: no such file or directory (Docker) — how to fix</title>
+<meta name="description" content="The container&#x27;s entrypoint exists, but the kernel can&#x27;t run it because its interpreter (from the shebang line) or dynamic loader is missing. Usually Windows CRLF line endings, a bash script on an image without bash, or a glibc binary on Alpine.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-standard-init-linux-exec-user-process-caused-no-such-file-or-directory/">
+<meta property="og:title" content="standard_init_linux.go: exec user process caused: no such file or directory (Docker) — how to fix"><meta property="og:description" content="The container&#x27;s entrypoint exists, but the kernel can&#x27;t run it because its interpreter (from the shebang line) or dynamic loader is missing. Usually Windows CRLF line endings, a bash script on an image without bash, or a glibc binary on Alpine.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-standard-init-linux-exec-user-process-caused-no-such-file-or-directory/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "standard_init_linux.go: exec user process caused: no such file or directory (Docker) \u2014 how to fix", "description": "The container's entrypoint exists, but the kernel can't run it because its interpreter (from the shebang line) or dynamic loader is missing. Usually Windows CRLF line endings, a bash script on an image without bash, or a glibc binary on Alpine.", "dateModified": "2026-10-31", "url": "https://errorfix-hollis.github.io/docker/docker-standard-init-linux-exec-user-process-caused-no-such-file-or-directory/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "standard_init_linux.go: exec user process caused: no such file or directory", "item": "https://errorfix-hollis.github.io/docker/docker-standard-init-linux-exec-user-process-caused-no-such-file-or-directory/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>standard_init_linux.go: exec user process caused: no such file or directory (Docker) — how to fix</h1>
+<pre class="err"><code>standard_init_linux.go:228: exec user process caused: no such file or directory
+exec /usr/local/bin/docker-entrypoint.sh: no such file or directory
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Convert the script to LF line endings (<code>sed -i 's/\r$//' entrypoint.sh</code> or <code>dos2unix</code>), make sure the shebang's interpreter exists in the image (<code>#!/bin/sh</code> on Alpine), and don't copy glibc-linked binaries into Alpine — build with <code>CGO_ENABLED=0</code> or use a Debian-based image.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The confusing part: the file named in <code>ENTRYPOINT</code>/<code>CMD</code> usually <strong>does</strong> exist. "No such file or directory" refers to what the kernel needs to <em>run</em> it:</p>
+<ul>
+<li>for a script, the interpreter in the <code>#!</code> line;</li>
+<li>for a dynamically linked binary, its loader (e.g. <code>/lib64/ld-linux-x86-64.so.2</code>).</li>
+</ul>
+<p>Newer Docker versions print <code>exec /path/to/file: no such file or directory</code> for the same problem.</p>
+<h2 id="cause-1-windows-line-endings-crlf">Cause 1: Windows line endings (CRLF)</h2>
+<p>If the script was saved on Windows, the shebang is really <code>#!/bin/sh\r</code>, and <code>/bin/sh\r</code> doesn't exist. Check:</p>
+<pre><code class="language-bash">file entrypoint.sh          # &quot;... with CRLF line terminators&quot;
+</code></pre>
+<p>Fix the file, then rebuild:</p>
+<pre><code class="language-bash">sed -i 's/\r$//' entrypoint.sh     # or: dos2unix entrypoint.sh
+</code></pre>
+<p>Or fix it inside the Dockerfile so it can't come back:</p>
+<pre><code class="language-dockerfile">COPY entrypoint.sh /usr/local/bin/
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh &amp;&amp; chmod +x /usr/local/bin/entrypoint.sh
+</code></pre>
+<p>To stop Git converting it on Windows checkouts, add to <code>.gitattributes</code>:</p>
+<pre><code>*.sh text eol=lf
+</code></pre>
+<h2 id="cause-2-the-interpreter-isnt-in-the-image">Cause 2: the interpreter isn't in the image</h2>
+<p>Alpine and distroless images have no <code>bash</code>. A script starting with <code>#!/bin/bash</code> fails with this error.</p>
+<pre><code class="language-dockerfile"># Option A: use sh
+#!/bin/sh
+# Option B: install bash on Alpine
+RUN apk add --no-cache bash
+</code></pre>
+<p>Same for <code>#!/usr/bin/env python3</code> in an image without Python.</p>
+<h2 id="cause-3-glibc-binary-on-alpine-musl">Cause 3: glibc binary on Alpine (musl)</h2>
+<p>A binary compiled on Ubuntu/Debian and copied into <code>alpine</code> or <code>scratch</code> needs glibc's loader, which isn't there. Check on the host:</p>
+<pre><code class="language-bash">file ./myapp     # &quot;dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2&quot;
+</code></pre>
+<p>Fixes:</p>
+<pre><code class="language-bash"># Go: build a static binary
+CGO_ENABLED=0 GOOS=linux go build -o myapp .
+</code></pre>
+<p>Or build in the same base image you run in (multi-stage with <code>golang:alpine</code> → <code>alpine</code>), or run on <code>debian:bookworm-slim</code> / <code>gcr.io/distroless/base</code> instead.</p>
+<h2 id="cause-4-the-path-really-is-wrong">Cause 4: the path really is wrong</h2>
+<p>Check what's actually in the image:</p>
+<pre><code class="language-bash">docker run --rm --entrypoint sh myimage -c 'ls -l /usr/local/bin/'
+</code></pre>
+<p>Watch out for a volume mount (<code>-v .:/app</code>) hiding files that the image put at the same path.</p>
+<h2 id="cause-5-wrong-cpu-architecture">Cause 5: wrong CPU architecture</h2>
+<p>An <code>amd64</code> image run on an ARM machine (or vice versa) without emulation usually gives <code>exec format error</code>, but some setups report this message. Check with <code>docker image inspect myimage --format '{{.Architecture}}'</code> and rebuild with <code>docker buildx build --platform linux/arm64,linux/amd64</code>.</p>
+<p class="upd">Last updated 2026-10-31.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-exec-format-error/">exec format error</a></li><li><a href="/docker/docker-oci-runtime-create-failed-executable-file-not-found/">OCI runtime create failed: exec: executable file not found in $PATH</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

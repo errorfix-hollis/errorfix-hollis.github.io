@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Objects are not valid as a React child (JavaScript) — how to fix</title>
+<meta name="description" content="You tried to render a plain object, Date, or Promise directly inside JSX. React can only render strings, numbers, elements, arrays of those, null and booleans.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-objects-are-not-valid-as-a-react-child/">
+<meta property="og:title" content="Objects are not valid as a React child (JavaScript) — how to fix"><meta property="og:description" content="You tried to render a plain object, Date, or Promise directly inside JSX. React can only render strings, numbers, elements, arrays of those, null and booleans.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-objects-are-not-valid-as-a-react-child/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Objects are not valid as a React child (JavaScript) \u2014 how to fix", "description": "You tried to render a plain object, Date, or Promise directly inside JSX. React can only render strings, numbers, elements, arrays of those, null and booleans.", "dateModified": "2026-10-30", "url": "https://errorfix-hollis.github.io/javascript/js-objects-are-not-valid-as-a-react-child/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "Objects are not valid as a React child", "item": "https://errorfix-hollis.github.io/javascript/js-objects-are-not-valid-as-a-react-child/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>Objects are not valid as a React child (JavaScript) — how to fix</h1>
+<pre class="err"><code>Error: Objects are not valid as a React child (found: object with keys {id, name}). If you meant to render a collection of children, use an array instead.
+Uncaught Error: Objects are not valid as a React child (found: [object Promise]).
+Error: Objects are not valid as a React child (found: [object Date]).
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Render a property instead of the whole object (<code>{user.name}</code> not <code>{user}</code>), map arrays to elements (<code>{items.map(i =&gt; &lt;li key={i.id}&gt;{i.name}&lt;/li&gt;)}</code>), convert dates with <code>{date.toLocaleDateString()}</code>, and never make a component <code>async</code> in client React — fetch in <code>useEffect</code> and store the result in state.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Inside <code>{ }</code> in JSX, React accepts strings, numbers, React elements, arrays/iterables of those, and <code>null</code>/<code>undefined</code>/booleans (which render nothing). Any other object — a plain <code>{...}</code>, a <code>Date</code>, a <code>Promise</code>, a <code>Map</code> — throws this error. The message tells you what it found: <code>object with keys {id, name}</code>, <code>[object Promise]</code>, <code>[object Date]</code>.</p>
+<h2 id="cause-1-rendering-a-whole-object">Cause 1: rendering a whole object</h2>
+<pre><code class="language-jsx">// Wrong
+&lt;p&gt;{user}&lt;/p&gt;
+
+// Right
+&lt;p&gt;{user.name}&lt;/p&gt;
+</code></pre>
+<p>For debugging, render it as text:</p>
+<pre><code class="language-jsx">&lt;pre&gt;{JSON.stringify(user, null, 2)}&lt;/pre&gt;
+</code></pre>
+<h2 id="cause-2-rendering-an-array-of-objects-without-mapping">Cause 2: rendering an array of objects without mapping</h2>
+<p>An array is fine only if its items are renderable. An array of objects is not:</p>
+<pre><code class="language-jsx">// Wrong
+&lt;ul&gt;{todos}&lt;/ul&gt;
+
+// Right
+&lt;ul&gt;
+  {todos.map(todo =&gt; (
+    &lt;li key={todo.id}&gt;{todo.title}&lt;/li&gt;
+  ))}
+&lt;/ul&gt;
+</code></pre>
+<h2 id="cause-3-api-response-is-wrapped">Cause 3: API response is wrapped</h2>
+<p>APIs often return <code>{ data: [...] }</code> or <code>{ results: [...] }</code>. If you stored the whole response in state, you're rendering an object. Log it and store the right part:</p>
+<pre><code class="language-js">const res = await fetch('/api/todos');
+const json = await res.json();
+console.log(json);           // check the shape
+setTodos(json.data);         // not setTodos(json)
+</code></pre>
+<h2 id="cause-4-a-date-object">Cause 4: a Date object</h2>
+<pre><code class="language-jsx">// Wrong
+&lt;span&gt;{post.createdAt}&lt;/span&gt;        // if createdAt is a Date
+
+// Right
+&lt;span&gt;{post.createdAt.toLocaleDateString()}&lt;/span&gt;
+&lt;span&gt;{post.createdAt.toISOString()}&lt;/span&gt;
+</code></pre>
+<h2 id="cause-5-an-async-component-or-a-promise-found-object-promise">Cause 5: an async component or a Promise (<code>found: [object Promise]</code>)</h2>
+<p>In client-side React, a component marked <code>async</code> returns a Promise, which React can't render. (Async Server Components are only supported in frameworks like Next.js App Router.) Fetch in an effect instead:</p>
+<pre><code class="language-jsx">function Profile({ id }) {
+  const [user, setUser] = useState(null);
+
+  useEffect(() =&gt; {
+    fetch(`/api/users/${id}`)
+      .then(r =&gt; r.json())
+      .then(setUser);
+  }, [id]);
+
+  if (!user) return &lt;p&gt;Loading…&lt;/p&gt;;
+  return &lt;p&gt;{user.name}&lt;/p&gt;;
+}
+</code></pre>
+<p>The same error appears if you call an async function directly in JSX: <code>{getName()}</code> where <code>getName</code> is <code>async</code>.</p>
+<h2 id="cause-6-wrong-props-destructuring">Cause 6: wrong props destructuring</h2>
+<p>Forgetting the braces in a component's parameter gives you the whole props object:</p>
+<pre><code class="language-jsx">// Wrong: title is the entire props object
+function Header(title) { return &lt;h1&gt;{title}&lt;/h1&gt;; }
+
+// Right
+function Header({ title }) { return &lt;h1&gt;{title}&lt;/h1&gt;; }
+</code></pre>
+<h2 id="cause-7-double-braces">Cause 7: double braces</h2>
+<p><code>{{name}}</code> is not template syntax in JSX — it creates an object literal <code>{ name: name }</code>. Use a single pair: <code>{name}</code>.</p>
+<h2 id="finding-the-culprit">Finding the culprit</h2>
+<p>The stack trace's component stack (in the browser console) names the component that rendered the object. Add <code>console.log(typeof value, value)</code> right before the JSX that renders it.</p>
+<p class="upd">Last updated 2026-10-30.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-is-not-a-function/">TypeError: x is not a function</a></li><li><a href="/javascript/js-unexpected-token-in-json/">SyntaxError: Unexpected token &#x27;&lt;&#x27;, &quot;&lt;!DOCTYPE &quot;... is not valid JSON</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li><li><a href="/javascript/js-hydration-failed-initial-ui-does-not-match/">Hydration failed because the initial UI does not match what was rendered on the server</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

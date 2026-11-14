@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27; (Python) — how to fix</title>
+<meta name="description" content="The module Python imported doesn&#x27;t define that name. Usually a local file shadows the real package, the attribute was removed or renamed in the installed version, or a submodule wasn&#x27;t imported.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-attributeerror-module-has-no-attribute/">
+<meta property="og:title" content="AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27; (Python) — how to fix"><meta property="og:description" content="The module Python imported doesn&#x27;t define that name. Usually a local file shadows the real package, the attribute was removed or renamed in the installed version, or a submodule wasn&#x27;t imported.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-attributeerror-module-has-no-attribute/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "AttributeError: module 'X' has no attribute 'Y' (Python) \u2014 how to fix", "description": "The module Python imported doesn't define that name. Usually a local file shadows the real package, the attribute was removed or renamed in the installed version, or a submodule wasn't imported.", "dateModified": "2026-11-13", "url": "https://errorfix-hollis.github.io/python/python-attributeerror-module-has-no-attribute/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "AttributeError: module 'X' has no attribute 'Y'", "item": "https://errorfix-hollis.github.io/python/python-attributeerror-module-has-no-attribute/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;main.py&quot;, line 3, in &lt;module&gt;
+    r = requests.get(url)
+AttributeError: module &#x27;requests&#x27; has no attribute &#x27;get&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>python -c "import X; print(X.__file__)"</code>. If it points at your own <code>X.py</code>, rename that file and delete <code>__pycache__</code>. Otherwise check the installed version (<code>pip show X</code>) — the attribute may be renamed/removed (e.g. <code>np.float</code> → <code>float</code>) — or import the submodule explicitly (<code>import os.path</code>, <code>import scipy.stats</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>import X</code> succeeded, so Python found <em>something</em> called <code>X</code>. But <code>X.Y</code> doesn't exist on that module object. The key question is which file was actually imported:</p>
+<pre><code class="language-python">import requests
+print(requests.__file__)
+print(dir(requests))
+</code></pre>
+<h2 id="cause-1-your-file-has-the-same-name-as-the-module">Cause 1: your file has the same name as the module</h2>
+<p>The #1 cause. A script named <code>random.py</code>, <code>requests.py</code>, <code>json.py</code>, <code>email.py</code>, <code>csv.py</code>, <code>numpy.py</code>, <code>openai.py</code> etc. sits in the current directory, and Python imports <em>it</em> instead of the real package (the script's folder comes first on <code>sys.path</code>).</p>
+<pre><code class="language-text">project/
+  requests.py      # &lt;- your script
+</code></pre>
+<pre><code class="language-python">import requests
+requests.get(...)   # AttributeError: module 'requests' has no attribute 'get'
+</code></pre>
+<p>Fix:</p>
+<pre><code class="language-bash">mv requests.py fetch_data.py
+rm -rf __pycache__ requests.pyc
+</code></pre>
+<p>Also check for a <em>folder</em> with that name (e.g. <code>openai/</code>, <code>test/</code>).</p>
+<h2 id="cause-2-circular-import">Cause 2: circular import</h2>
+<p>If <code>a.py</code> imports <code>b</code> and <code>b.py</code> imports <code>a</code>, one of them sees a half-initialized module, so attributes defined lower in the file don't exist yet. The message often says <code>partially initialized module</code>. Move the shared code into a third module, or import inside the function that needs it. See <a href="/python/python-cannot-import-name-partially-initialized-module/">partially initialized module</a>.</p>
+<h2 id="cause-3-the-attribute-was-removed-or-renamed-in-your-version">Cause 3: the attribute was removed or renamed in your version</h2>
+<p>Libraries drop old names. Frequent examples:</p>
+<table>
+<thead>
+<tr>
+<th>Error</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>module 'numpy' has no attribute 'float'</code> / <code>'int'</code> / <code>'bool'</code></td>
+<td>use built-ins <code>float</code>, <code>int</code>, <code>bool</code> (removed in NumPy 1.24)</td>
+</tr>
+<tr>
+<td><code>module 'numpy' has no attribute 'NaN'</code></td>
+<td><code>np.nan</code> (NumPy 2.0)</td>
+</tr>
+<tr>
+<td><code>module 'collections' has no attribute 'Mapping'</code></td>
+<td><code>from collections.abc import Mapping</code> (Python 3.10)</td>
+</tr>
+<tr>
+<td><code>module 'openai' has no attribute 'ChatCompletion'</code></td>
+<td>openai&gt;=1.0: <code>client = OpenAI(); client.chat.completions.create(...)</code></td>
+</tr>
+<tr>
+<td><code>module 'tensorflow' has no attribute 'Session'</code></td>
+<td>TF2: eager mode, or <code>tf.compat.v1.Session</code></td>
+</tr>
+</tbody>
+</table>
+<p>Check your version and the changelog:</p>
+<pre><code class="language-bash">python -m pip show numpy
+</code></pre>
+<p>Either update your code, or pin the old version (<code>pip install "numpy&lt;1.24"</code>) as a temporary fix.</p>
+<h2 id="cause-4-submodule-not-imported">Cause 4: submodule not imported</h2>
+<p>Some packages don't import their submodules automatically:</p>
+<pre><code class="language-python">import scipy
+scipy.stats.norm      # may fail on older SciPy
+
+import scipy.stats    # explicit import
+import xml.etree.ElementTree as ET
+import importlib.util
+</code></pre>
+<h2 id="cause-5-wrong-package-installed">Cause 5: wrong package installed</h2>
+<p>Some PyPI names differ from the import name. Installing <code>jwt</code> instead of <code>PyJWT</code>, or <code>serial</code> instead of <code>pyserial</code>, gives a module with completely different contents:</p>
+<pre><code class="language-bash">pip uninstall jwt &amp;&amp; pip install PyJWT
+pip uninstall serial &amp;&amp; pip install pyserial
+</code></pre>
+<h2 id="cause-6-typo-or-wrong-case">Cause 6: typo or wrong case</h2>
+<p><code>math.Sqrt</code> vs <code>math.sqrt</code>, <code>datetime.now()</code> on the module instead of <code>datetime.datetime.now()</code>. Use <code>dir(module)</code> to see what's available.</p>
+<p class="upd">Last updated 2026-11-13.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-cannot-import-name-partially-initialized-module/">ImportError: cannot import name &#x27;X&#x27; from partially initialized module &#x27;Y&#x27; (most likely due to a circular import)</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-typeerror-module-object-is-not-callable/">TypeError: &#x27;module&#x27; object is not callable</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

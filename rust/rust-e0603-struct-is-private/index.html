@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error[E0603]: struct is private (Rust) — how to fix</title>
+<meta name="description" content="You&#x27;re referring to an item (struct, function, module, enum, constant) from outside the module that defines it, but it isn&#x27;t marked pub. Rust items are private to their module by default.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/rust/rust-e0603-struct-is-private/">
+<meta property="og:title" content="error[E0603]: struct is private (Rust) — how to fix"><meta property="og:description" content="You&#x27;re referring to an item (struct, function, module, enum, constant) from outside the module that defines it, but it isn&#x27;t marked pub. Rust items are private to their module by default.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/rust/rust-e0603-struct-is-private/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error[E0603]: struct is private (Rust) \u2014 how to fix", "description": "You're referring to an item (struct, function, module, enum, constant) from outside the module that defines it, but it isn't marked pub. Rust items are private to their module by default.", "dateModified": "2026-11-12", "url": "https://errorfix-hollis.github.io/rust/rust-e0603-struct-is-private/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Rust", "item": "https://errorfix-hollis.github.io/rust/"}, {"@type": "ListItem", "position": 3, "name": "error[E0603]: struct is private", "item": "https://errorfix-hollis.github.io/rust/rust-e0603-struct-is-private/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/rust/">Rust</a></p>
+<article><h1>error[E0603]: struct is private (Rust) — how to fix</h1>
+<pre class="err"><code>error[E0603]: struct `Config` is private
+ --&gt; src/main.rs:3:18
+  |
+3 | use crate::config::Config;
+  |                    ^^^^^^ private struct
+  |
+note: the struct `Config` is defined here
+ --&gt; src/config.rs:1:1
+  |
+1 | struct Config {
+  | ^^^^^^^^^^^^^
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Add <code>pub</code> to the item: <code>pub struct Config { ... }</code> (and to every module on the path: <code>pub mod config;</code>). Use <code>pub(crate)</code> if only your own crate needs it. Fields need their own <code>pub</code> too, otherwise you get E0451/E0616. For a dependency's private item, use the public re-export the crate documents instead.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Everything in Rust is <strong>private to its parent module</strong> unless marked <code>pub</code>. Private items are visible inside the module where they're defined and its children, nowhere else. E0603 means the path you wrote resolves to a real item, but you're not allowed to see it from where you are.</p>
+<p>The same code covers <code>function ... is private</code>, <code>module ... is private</code>, <code>enum ... is private</code>, <code>constant ... is private</code>, <code>trait ... is private</code>, etc.</p>
+<h2 id="fix-1-make-the-item-public">Fix 1: make the item public</h2>
+<pre><code class="language-rust">// src/config.rs
+pub struct Config {
+    pub port: u16,
+    pub host: String,
+}
+
+pub fn load() -&gt; Config { /* ... */ }
+</code></pre>
+<p>Then from <code>main.rs</code>:</p>
+<pre><code class="language-rust">mod config;
+use config::Config;
+</code></pre>
+<h2 id="fix-2-a-module-on-the-path-is-private">Fix 2: a module on the path is private</h2>
+<p>Every segment must be visible. With <code>crate::net::http::Client</code>, <code>net</code>, <code>http</code> <em>and</em> <code>Client</code> all need to be reachable:</p>
+<pre><code class="language-rust">// src/lib.rs
+pub mod net;          // was: mod net;
+
+// src/net/mod.rs (or src/net.rs)
+pub mod http;
+</code></pre>
+<p>If the error says <strong>"module <code>http</code> is private"</strong>, this is the fix. Modules declared side by side in <code>main.rs</code>/<code>lib.rs</code> can use each other's <code>pub</code> items even if the <code>mod</code> lines aren't <code>pub</code>, because private items are visible to the parent module and all its descendants.</p>
+<h2 id="fix-3-restrict-visibility-instead-of-full-pub">Fix 3: restrict visibility instead of full <code>pub</code></h2>
+<p>If the item shouldn't be part of your public API:</p>
+<pre><code class="language-rust">pub(crate) struct Config { ... }   // visible anywhere in this crate
+pub(super) fn helper() {}         // visible to the parent module
+pub(in crate::net) fn raw() {}    // visible inside crate::net
+</code></pre>
+<p>The opt-in <code>unreachable_pub</code> lint flags <code>pub</code> items that can't actually be reached from outside the crate.</p>
+<h2 id="fix-4-fields-and-methods-are-private-separately">Fix 4: fields and methods are private separately</h2>
+<p>Making the struct <code>pub</code> doesn't make its fields or methods public:</p>
+<pre><code class="language-rust">pub struct Config { port: u16 }    // field still private
+</code></pre>
+<p>Using it from another module gives different errors:</p>
+<ul>
+<li><strong>E0616</strong> (field <code>port</code> of struct <code>Config</code> is private): reading <code>c.port</code></li>
+<li><strong>E0451</strong> (field <code>port</code> of struct <code>Config</code> is private): building <code>Config { port: 80 }</code></li>
+<li><strong>E0624</strong> (method <code>x</code> is private): calling a non-<code>pub</code> method from an <code>impl</code></li>
+</ul>
+<p>Mark fields <code>pub</code>, or keep them private and provide a constructor:</p>
+<pre><code class="language-rust">impl Config {
+    pub fn new(port: u16) -&gt; Self { Self { port } }
+    pub fn port(&amp;self) -&gt; u16 { self.port }
+}
+</code></pre>
+<h2 id="fix-5-the-item-belongs-to-a-dependency">Fix 5: the item belongs to a dependency</h2>
+<p>You can't change a crate's visibility. The compiler often suggests the public path, e.g.:</p>
+<pre><code>help: consider importing this struct through its public re-export
+  |
+1 | use reqwest::Client;
+</code></pre>
+<p>Use that re-export. Paths like <code>serde::de::private::...</code> or modules named <code>internal</code>/<code>__private</code> are deliberately hidden; find the supported API in the crate's docs on docs.rs (only public items are listed there). If the item is only public behind a feature flag, enable it in <code>Cargo.toml</code>:</p>
+<pre><code class="language-toml">tokio = { version = &quot;1&quot;, features = [&quot;full&quot;] }
+</code></pre>
+<h2 id="re-exporting-for-a-cleaner-api">Re-exporting for a cleaner API</h2>
+<p>Keep the module private and re-export the item:</p>
+<pre><code class="language-rust">// src/lib.rs
+mod config;
+pub use config::Config;   // users write mycrate::Config
+</code></pre>
+<p class="upd">Last updated 2026-11-12.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/rust/rust-e0412-cannot-find-type-in-this-scope/">error[E0412]: cannot find type `X` in this scope</a></li><li><a href="/rust/rust-e0425-cannot-find-value-in-this-scope/">error[E0425]: cannot find value `x` in this scope</a></li><li><a href="/rust/rust-e0433-failed-to-resolve/">error[E0433]: failed to resolve: use of undeclared crate or module</a></li><li><a href="/rust/rust-borrow-of-moved-value/">error[E0382]: borrow of moved value</a></li><li><a href="/rust/rust-cannot-borrow-as-mutable/">error[E0502]: cannot borrow as mutable because it is also borrowed as immutable</a></li><li><a href="/rust/rust-e0106-missing-lifetime-specifier/">error[E0106]: missing lifetime specifier</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

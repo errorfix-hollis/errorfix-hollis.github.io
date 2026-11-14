@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named (Python) — how to fix</title>
+<meta name="description" content="The Python running your code can&#x27;t find the package. It&#x27;s usually installed for a different Python or virtual environment.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named/">
+<meta property="og:title" content="ModuleNotFoundError: No module named (Python) — how to fix"><meta property="og:description" content="The Python running your code can&#x27;t find the package. It&#x27;s usually installed for a different Python or virtual environment.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named (Python) \u2014 how to fix", "description": "The Python running your code can't find the package. It's usually installed for a different Python or virtual environment.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 1, in &lt;module&gt;
+    import requests
+ModuleNotFoundError: No module named &#x27;requests&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install it with the same Python that runs your script: <code>python -m pip install requests</code> (use <code>python3</code> if that's what you run). In a virtual environment, activate it first.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Python searched every folder on <code>sys.path</code> for the module and didn't find it. Nine times out of ten the package <strong>is installed, just for another Python</strong>.</p>
+<h2 id="step-1-find-out-which-python-runs-your-code">Step 1: find out which Python runs your code</h2>
+<pre><code class="language-bash">python -c &quot;import sys; print(sys.executable)&quot;
+</code></pre>
+<p>Then install into exactly that interpreter:</p>
+<pre><code class="language-bash">python -m pip install requests
+</code></pre>
+<p>Using <code>python -m pip</code> instead of bare <code>pip</code> guarantees the package goes to the same Python.</p>
+<h2 id="step-2-virtual-environments">Step 2: virtual environments</h2>
+<p>If your project has a <code>.venv</code> or <code>venv</code> folder, activate it before running or installing:</p>
+<pre><code class="language-bash">source .venv/bin/activate    # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+</code></pre>
+<h2 id="in-vs-code">In VS Code</h2>
+<p>The status bar shows the selected interpreter. Use <strong>Ctrl+Shift+P → Python: Select Interpreter</strong> and choose your project's <code>.venv</code>. The integrated terminal and the Run button can use different interpreters if this is wrong.</p>
+<h2 id="in-jupyter">In Jupyter</h2>
+<p>The notebook kernel may be a different Python. Install from inside the notebook:</p>
+<pre><code class="language-python">%pip install requests
+</code></pre>
+<h2 id="the-package-name-differs-from-the-import-name">The package name differs from the import name</h2>
+<table>
+<thead>
+<tr>
+<th><code>import</code> name</th>
+<th><code>pip install</code> name</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cv2</code></td>
+<td><code>opencv-python</code></td>
+</tr>
+<tr>
+<td><code>PIL</code></td>
+<td><code>pillow</code></td>
+</tr>
+<tr>
+<td><code>sklearn</code></td>
+<td><code>scikit-learn</code></td>
+</tr>
+<tr>
+<td><code>yaml</code></td>
+<td><code>pyyaml</code></td>
+</tr>
+<tr>
+<td><code>bs4</code></td>
+<td><code>beautifulsoup4</code></td>
+</tr>
+<tr>
+<td><code>dotenv</code></td>
+<td><code>python-dotenv</code></td>
+</tr>
+<tr>
+<td><code>Crypto</code></td>
+<td><code>pycryptodome</code></td>
+</tr>
+<tr>
+<td><code>jwt</code></td>
+<td><code>PyJWT</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="your-own-module-isnt-found">Your own module isn't found</h2>
+<ul>
+<li>Run from the project root: <code>python -m package.module</code> instead of <code>python package/module.py</code>.</li>
+<li>A folder you import from needs to be on the path; with packages, make sure you're not running a file from inside the package.</li>
+<li>Don't name your own file after a library (<code>requests.py</code>, <code>random.py</code>). It shadows the real one.</li>
+</ul>
+<h2 id="under-sudo">Under sudo</h2>
+<p><code>sudo python script.py</code> uses root's environment, which doesn't see packages installed with <code>--user</code> or in your venv. Use the venv's Python path explicitly: <code>sudo .venv/bin/python script.py</code>.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-externally-managed-environment/">error: externally-managed-environment</a></li><li><a href="/python/python-pip-command-not-found/">pip: command not found</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error [ERR_MODULE_NOT_FOUND]: Cannot find module (Node.js) — how to fix</title>
+<meta name="description" content="In ES modules, Node needs the full file path including the .js extension. Add the extension to your import or install the missing package.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/node-err-module-not-found/">
+<meta property="og:title" content="Error [ERR_MODULE_NOT_FOUND]: Cannot find module (Node.js) — how to fix"><meta property="og:description" content="In ES modules, Node needs the full file path including the .js extension. Add the extension to your import or install the missing package.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/node-err-module-not-found/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module (Node.js) \u2014 how to fix", "description": "In ES modules, Node needs the full file path including the .js extension. Add the extension to your import or install the missing package.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/npm/node-err-module-not-found/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module", "item": "https://errorfix-hollis.github.io/npm/node-err-module-not-found/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>Error [ERR_MODULE_NOT_FOUND]: Cannot find module (Node.js) — how to fix</h1>
+<pre class="err"><code>node:internal/errors:496
+    ErrorCaptureStackTrace(err);
+    ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module &#x27;/home/user/app/src/utils&#x27; imported from /home/user/app/src/index.js
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Add the file extension to relative imports: <code>import x from './utils.js'</code>, not <code>'./utils'</code>. For package names, run <code>npm install &lt;package&gt;</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>You're using <strong>ES modules</strong> (<code>import</code>/<code>export</code>, with <code>"type": "module"</code> in <code>package.json</code> or a <code>.mjs</code> file). The ESM loader doesn't guess extensions or look for <code>index.js</code> in folders like <code>require()</code> does.</p>
+<h2 id="fix-1-add-the-extension">Fix 1: add the extension</h2>
+<pre><code class="language-js">// fails
+import { helper } from './utils';
+import config from './config';
+
+// works
+import { helper } from './utils.js';
+import config from './config/index.js';
+</code></pre>
+<p><strong>TypeScript:</strong> write <code>.js</code> in your imports even though the source file is <code>.ts</code>. TypeScript rewrites nothing; with <code>"module": "NodeNext"</code> it understands that <code>./utils.js</code> refers to <code>./utils.ts</code>.</p>
+<h2 id="fix-2-install-the-package">Fix 2: install the package</h2>
+<p>If the message names a package (<code>Cannot find package 'lodash'</code>):</p>
+<pre><code class="language-bash">npm install lodash
+</code></pre>
+<h2 id="fix-3-run-typescript-directly">Fix 3: run TypeScript directly</h2>
+<p>If the missing file is <code>.ts</code>, plain <code>node</code> can't load it on older versions. Use <code>npx tsx src/index.ts</code>, build first with <code>tsc</code>, or on Node 22.6+ try <code>node --experimental-strip-types</code> (on by default since Node 23.6).</p>
+<h2 id="fix-4-you-didnt-mean-to-use-esm">Fix 4: you didn't mean to use ESM</h2>
+<p>Remove <code>"type": "module"</code> from <code>package.json</code> and use <code>require()</code>, or rename files to <code>.cjs</code>.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/javascript/node-cannot-use-import-statement-outside-a-module/">SyntaxError: Cannot use import statement outside a module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-require-esm/">Error [ERR_REQUIRE_ESM]: require() of ES Module not supported</a></li><li><a href="/npm/node-error-listen-eaddrinuse-address-already-in-use/">Error: listen EADDRINUSE: address already in use :::3000</a></li><li><a href="/npm/node-javascript-heap-out-of-memory/">FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

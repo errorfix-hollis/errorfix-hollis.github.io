@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error: Could not find or load main class (Java) — how to fix</title>
+<meta name="description" content="The JVM couldn&#x27;t find the class you asked it to run on the classpath. Usually you ran it from the wrong directory, used the file name instead of the fully qualified class name, or forgot the package folder.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-could-not-find-or-load-main-class/">
+<meta property="og:title" content="Error: Could not find or load main class (Java) — how to fix"><meta property="og:description" content="The JVM couldn&#x27;t find the class you asked it to run on the classpath. Usually you ran it from the wrong directory, used the file name instead of the fully qualified class name, or forgot the package folder.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-could-not-find-or-load-main-class/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error: Could not find or load main class (Java) \u2014 how to fix", "description": "The JVM couldn't find the class you asked it to run on the classpath. Usually you ran it from the wrong directory, used the file name instead of the fully qualified class name, or forgot the package folder.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/java/java-could-not-find-or-load-main-class/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "Error: Could not find or load main class", "item": "https://errorfix-hollis.github.io/java/java-could-not-find-or-load-main-class/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>Error: Could not find or load main class (Java) — how to fix</h1>
+<pre class="err"><code>Error: Could not find or load main class Main
+Caused by: java.lang.ClassNotFoundException: Main
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run from the classpath root with the fully qualified name, without .class: <code>javac -d out src/com/example/Main.java &amp;&amp; java -cp out com.example.Main</code>. For a single file on Java 11+: <code>java Main.java</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>java X</code> searches the classpath (by default the current directory) for <code>X.class</code>, respecting packages as folders. If it can't find it, you get this error.</p>
+<h2 id="cause-1-you-included-class-or-java">Cause 1: you included <code>.class</code> or <code>.java</code></h2>
+<pre><code class="language-bash">java Main.class      # wrong
+java Main            # right
+</code></pre>
+<p>(On Java 11+, <code>java Main.java</code> is valid: it compiles and runs a single source file.)</p>
+<h2 id="cause-2-the-class-is-in-a-package">Cause 2: the class is in a package</h2>
+<pre><code class="language-java">package com.example;
+public class Main { ... }
+</code></pre>
+<p>The compiled file must live at <code>com/example/Main.class</code> and you must use the full name from the root folder:</p>
+<pre><code class="language-bash">javac -d out src/com/example/Main.java
+java -cp out com.example.Main
+</code></pre>
+<p>Running <code>java Main</code> inside <code>com/example/</code> fails because the JVM expects <code>com.example.Main</code>.</p>
+<h2 id="cause-3-wrong-classpath">Cause 3: wrong classpath</h2>
+<p>If you set <code>-cp</code> or the <code>CLASSPATH</code> environment variable, the current directory is no longer included automatically:</p>
+<pre><code class="language-bash">java -cp lib/gson.jar Main          # can't find Main
+java -cp lib/gson.jar:. Main        # Linux/macOS
+java -cp &quot;lib/gson.jar;.&quot; Main      # Windows
+</code></pre>
+<p>Check for a stray global <code>CLASSPATH</code>: <code>echo $CLASSPATH</code>.</p>
+<h2 id="cause-4-running-a-jar">Cause 4: running a jar</h2>
+<pre><code class="language-bash">java -jar app.jar
+</code></pre>
+<p>needs <code>Main-Class: com.example.Main</code> in <code>META-INF/MANIFEST.MF</code>. With Maven, configure <code>maven-jar-plugin</code> (or Spring Boot's plugin); with Gradle, set <code>application { mainClass = 'com.example.Main' }</code> and use <code>./gradlew run</code> or build a fat jar.</p>
+<h2 id="cause-5-ide-out-of-sync">Cause 5: IDE out of sync</h2>
+<p>IntelliJ: <em>Build → Rebuild Project</em>, check the Run Configuration's main class and module, or <em>File → Invalidate Caches</em>. Eclipse: <em>Project → Clean</em>.</p>
+<h2 id="cause-6-special-characters-in-the-path">Cause 6: special characters in the path</h2>
+<p>Paths with non-ASCII characters or <code>%</code> / <code>!</code> can break class loading on some systems. Move the project to a simple path.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-home-is-not-set/">ERROR: JAVA_HOME is not set and no &#x27;java&#x27; command could be found in your PATH.</a></li><li><a href="/java/java-unsupportedclassversionerror/">java.lang.UnsupportedClassVersionError: has been compiled by a more recent version of the Java Runtime</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-comparison-method-violates-its-general-contract/">java.lang.IllegalArgumentException: Comparison method violates its general contract!</a></li><li><a href="/java/java-concurrentmodificationexception/">java.util.ConcurrentModificationException</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Base64 Encode and Decode — UTF-8 safe, URL-safe option</title>
+<meta name="description" content="Encode text to Base64 or decode Base64 to text, with full UTF-8 support (emoji, accents) and a URL-safe Base64URL option. Runs entirely in your browser.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/base64-encode-decode/">
+<meta property="og:title" content="Base64 Encode and Decode — UTF-8 safe, URL-safe option"><meta property="og:description" content="Encode text to Base64 or decode Base64 to text, with full UTF-8 support (emoji, accents) and a URL-safe Base64URL option. Runs entirely in your browser.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/base64-encode-decode/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "Base64 encode / decode", "url": "https://errorfix-hollis.github.io/tools/base64-encode-decode/", "description": "Encode text to Base64 or decode Base64 to text, with full UTF-8 support (emoji, accents) and a URL-safe Base64URL option. Runs entirely in your browser.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-01", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": "Base64 encode / decode", "item": "https://errorfix-hollis.github.io/tools/base64-encode-decode/"}]}</script><script src="/tools.js?v=70df2f10" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>Base64 encoder and decoder</h1>
+<p class="lead">Encode any text to Base64 or decode Base64 back to readable text, with correct UTF-8 handling and an optional URL-safe alphabet.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="base64"><label for="b64-in">Input</label>
+<textarea id="b64-in" spellcheck="false" placeholder="Text to encode, or Base64 to decode"></textarea>
+<div class="row">
+<button id="b64-enc">Encode</button><button id="b64-dec">Decode</button>
+<label><input type="checkbox" id="b64-url"> URL-safe (Base64URL, no padding)</label>
+<button id="b64-swap" class="sec">↕ Swap</button>
+</div>
+<div id="b64-msg" class="msg" hidden></div>
+<label for="b64-out">Output</label>
+<textarea id="b64-out" spellcheck="false" readonly></textarea>
+<div class="row"><button id="b64-copy" class="sec">Copy output</button></div>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<h2 id="how-base64-works">How Base64 works</h2>
+<p>Base64 turns arbitrary bytes into 64 safe ASCII characters (<code>A-Z a-z 0-9 + /</code>). Every 3 bytes become 4 characters, so the output is about 33% larger. If the input length is not a multiple of 3, the output is padded with one or two <code>=</code>. Base64 is an <strong>encoding, not encryption</strong>: anyone can decode it, so never treat a Base64 string as hidden.</p>
+<table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Characters 62/63</th>
+<th>Padding</th>
+<th>Used in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Standard (RFC 4648 §4)</td>
+<td><code>+</code> <code>/</code></td>
+<td><code>=</code></td>
+<td>email (MIME), data URIs, HTTP Basic auth, Kubernetes Secrets</td>
+</tr>
+<tr>
+<td>URL-safe (Base64URL, §5)</td>
+<td><code>-</code> <code>_</code></td>
+<td>usually none</td>
+<td>JWTs, URLs, filenames</td>
+</tr>
+</tbody>
+</table>
+<p>The decoder accepts both variants, ignores whitespace and line breaks, adds missing padding, and strips a <code>data:...;base64,</code> prefix.</p>
+<h2 id="text-vs-bytes-utf-8">Text vs. bytes (UTF-8)</h2>
+<p>Base64 encodes <em>bytes</em>, so text has to be turned into bytes first. This tool uses UTF-8, which is what nearly every API expects. The browser's built-in <code>btoa("é")</code> works only for Latin-1 and throws on characters like <code>✓</code> or emoji, which is why naïve online encoders break. If decoded bytes are not valid UTF-8 the tool tells you and shows them as hex: the data is probably binary (an image, gzip, a key) or in another encoding such as Latin-1, the same situation that causes Python's <a href="/python/python-unicodedecodeerror-utf-8/">UnicodeDecodeError</a>.</p>
+<h2 id="command-line-equivalents">Command-line equivalents</h2>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>Linux</th>
+<th>macOS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Encode</td>
+<td><code>echo -n 'text' | base64 -w0</code></td>
+<td><code>echo -n 'text' | base64</code></td>
+</tr>
+<tr>
+<td>Decode</td>
+<td><code>echo 'dGV4dA==' | base64 -d</code></td>
+<td><code>echo 'dGV4dA==' | base64 -D</code></td>
+</tr>
+</tbody>
+</table>
+<p>Use <code>echo -n</code>: without it the trailing newline gets encoded too, a common reason a Kubernetes Secret value "doesn't match" (<a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a> is a related symptom). An HTTP Basic auth header is just <code>base64(user:password)</code>, which is why Git hosts switched to tokens (<a href="/git/git-password-authentication-removed/">password authentication removed</a>).</p>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-unicodedecodeerror-utf-8/">UnicodeDecodeError: &#x27;utf-8&#x27; codec can&#x27;t decode byte 0xff in position 0: invalid start byte</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li><li><a href="/git/git-password-authentication-removed/">remote: Support for password authentication was removed</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/json-formatter/">JSON formatter &amp; validator</a></li><li><a href="/tools/cron-expression-explainer/">Cron expression explainer</a></li><li><a href="/tools/chmod-calculator/">chmod calculator</a></li><li><a href="/tools/unix-timestamp-converter/">Unix timestamp converter</a></li><li><a href="/tools/url-encode-decode/">URL encode / decode</a></li><li><a href="/tools/jwt-decoder/">JWT decoder</a></li><li><a href="/tools/regex-tester/">Regex tester</a></li><li><a href="/tools/yaml-validator/">YAML validator &amp; YAML ↔ JSON converter</a></li><li><a href="/tools/uuid-generator/">UUID generator &amp; validator (v4, v7)</a></li><li><a href="/tools/text-diff/">Text diff checker</a></li><li><a href="/tools/http-status-codes/">HTTP status codes reference</a></li><li><a href="/tools/hash-generator/">Hash generator (MD5, SHA-256, SHA-512)</a></li><li><a href="/tools/line-ending-whitespace-inspector/">Line ending &amp; whitespace inspector</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails (MySQL) — how to fix</title>
+<meta name="description" content="You inserted or updated a row whose foreign key value has no matching row in the parent table. Insert the parent first, fix the value, or clean up orphan rows before adding the constraint.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-mysql-error-1452-cannot-add-or-update-a-child-row/">
+<meta property="og:title" content="ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails (MySQL) — how to fix"><meta property="og:description" content="You inserted or updated a row whose foreign key value has no matching row in the parent table. Insert the parent first, fix the value, or clean up orphan rows before adding the constraint.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-mysql-error-1452-cannot-add-or-update-a-child-row/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails (MySQL) \u2014 how to fix", "description": "You inserted or updated a row whose foreign key value has no matching row in the parent table. Insert the parent first, fix the value, or clean up orphan rows before adding the constraint.", "dateModified": "2026-11-05", "url": "https://errorfix-hollis.github.io/database/db-mysql-error-1452-cannot-add-or-update-a-child-row/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails", "item": "https://errorfix-hollis.github.io/database/db-mysql-error-1452-cannot-add-or-update-a-child-row/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails (MySQL) — how to fix</h1>
+<pre class="err"><code>ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails (`shop`.`orders`, CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`))
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the parent exists: <code>SELECT id FROM customers WHERE id = &lt;value&gt;;</code>. Insert parent rows before child rows (or wrap a dump import in <code>SET FOREIGN_KEY_CHECKS=0; ... SET FOREIGN_KEY_CHECKS=1;</code>). When adding a constraint to existing data, find orphans with a <code>LEFT JOIN ... WHERE parent.id IS NULL</code> and fix or delete them first.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A foreign key says "every <code>orders.customer_id</code> must exist in <code>customers.id</code>". MySQL rejected a row that would break that rule. The error tells you the child table (<code>shop.orders</code>), the constraint name, the column and the parent table/column.</p>
+<p>Check the value you're inserting against the parent:</p>
+<pre><code class="language-sql">SELECT id FROM customers WHERE id = 42;
+SHOW CREATE TABLE orders\G
+</code></pre>
+<h2 id="cause-1-the-parent-row-doesnt-exist-yet">Cause 1: the parent row doesn't exist (yet)</h2>
+<p>Insert in dependency order: parents first, then children.</p>
+<pre><code class="language-sql">START TRANSACTION;
+INSERT INTO customers (id, name) VALUES (42, 'Alice');
+INSERT INTO orders (customer_id, total) VALUES (42, 9.99);
+COMMIT;
+</code></pre>
+<p>In application code, use the id the database actually generated for the parent (<code>LAST_INSERT_ID()</code>, <code>cursor.lastrowid</code>, ORM relationship) instead of a guessed or hard-coded one.</p>
+<h2 id="cause-2-wrong-value-0-empty-string-or-wrong-column">Cause 2: wrong value — 0, empty string, or wrong column</h2>
+<p>A form sending <code>0</code> or <code>''</code> instead of <code>NULL</code>, or an off-by-one mapping, produces ids that don't exist. If the relation is optional, make the column nullable and send <code>NULL</code> — foreign keys don't check <code>NULL</code> values:</p>
+<pre><code class="language-sql">ALTER TABLE orders MODIFY customer_id INT NULL;
+INSERT INTO orders (customer_id, total) VALUES (NULL, 9.99);
+</code></pre>
+<h2 id="cause-3-importing-a-dump-or-csv-in-the-wrong-order">Cause 3: importing a dump or CSV in the wrong order</h2>
+<p>Dumps from <code>mysqldump</code> already disable checks at the top. For your own scripts or <code>LOAD DATA</code>, disable them for the session:</p>
+<pre><code class="language-sql">SET FOREIGN_KEY_CHECKS = 0;
+SOURCE data.sql;
+SET FOREIGN_KEY_CHECKS = 1;
+</code></pre>
+<p>MySQL does <strong>not</strong> re-validate existing rows when you turn checks back on, so verify afterwards (Cause 4 query). Only do this for trusted bulk loads.</p>
+<h2 id="cause-4-adding-a-foreign-key-to-a-table-that-has-orphans">Cause 4: adding a foreign key to a table that has orphans</h2>
+<p><code>ALTER TABLE orders ADD CONSTRAINT ... FOREIGN KEY (customer_id) REFERENCES customers(id)</code> fails with 1452 if any existing rows point to missing parents. Find them:</p>
+<pre><code class="language-sql">SELECT o.id, o.customer_id
+FROM orders o
+LEFT JOIN customers c ON c.id = o.customer_id
+WHERE o.customer_id IS NOT NULL AND c.id IS NULL;
+</code></pre>
+<p>Then fix them — set to <code>NULL</code>, point to a real parent, or delete:</p>
+<pre><code class="language-sql">UPDATE orders o LEFT JOIN customers c ON c.id = o.customer_id
+SET o.customer_id = NULL
+WHERE c.id IS NULL;
+</code></pre>
+<h2 id="cause-5-mismatched-types-or-collations">Cause 5: mismatched types or collations</h2>
+<p>Both columns must have compatible types: <code>INT</code> vs <code>INT UNSIGNED</code> or <code>VARCHAR</code> with different charsets/collations usually fail when creating the constraint (error 3780 or 150), but string keys with different collations or trailing spaces can also make lookups miss. Align the definitions:</p>
+<pre><code class="language-sql">ALTER TABLE orders MODIFY customer_id INT UNSIGNED NOT NULL;
+</code></pre>
+<h2 id="cause-6-parent-and-child-on-different-databases-or-engines">Cause 6: parent and child on different databases or engines</h2>
+<p>Foreign keys require InnoDB on both tables (<code>SHOW TABLE STATUS</code> → <code>Engine</code>), and the parent must be in the database named in the constraint. A test database seeded from a different schema often lacks the parent rows.</p>
+<h2 id="related-error-1451">Related: error 1451</h2>
+<p>The opposite direction — deleting or updating a <strong>parent</strong> that still has children — gives <code>ERROR 1451: Cannot delete or update a parent row</code>. Delete children first, or define the constraint with <code>ON DELETE CASCADE</code> / <code>ON DELETE SET NULL</code>.</p>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li><li><a href="/database/db-mysql-error-1205-lock-wait-timeout-exceeded/">ERROR 1205 (HY000): Lock wait timeout exceeded; try restarting transaction</a></li><li><a href="/database/db-postgres-relation-does-not-exist/">ERROR: relation does not exist</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

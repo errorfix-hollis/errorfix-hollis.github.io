@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Could not resolve all dependencies for configuration (Java) — how to fix</title>
+<meta name="description" content="Gradle could not download or locate one or more dependencies for a configuration. The artifact or version does not exist in the declared repositories, the repository is missing, or the network/proxy/auth blocks access.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-gradle-could-not-resolve-all-dependencies/">
+<meta property="og:title" content="Could not resolve all dependencies for configuration (Java) — how to fix"><meta property="og:description" content="Gradle could not download or locate one or more dependencies for a configuration. The artifact or version does not exist in the declared repositories, the repository is missing, or the network/proxy/auth blocks access.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-gradle-could-not-resolve-all-dependencies/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Could not resolve all dependencies for configuration (Java) \u2014 how to fix", "description": "Gradle could not download or locate one or more dependencies for a configuration. The artifact or version does not exist in the declared repositories, the repository is missing, or the network/proxy/auth blocks access.", "dateModified": "2026-11-02", "url": "https://errorfix-hollis.github.io/java/java-gradle-could-not-resolve-all-dependencies/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "Could not resolve all dependencies for configuration", "item": "https://errorfix-hollis.github.io/java/java-gradle-could-not-resolve-all-dependencies/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>Could not resolve all dependencies for configuration (Java) — how to fix</h1>
+<pre class="err"><code>FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task &#x27;:app:compileJava&#x27;.
+&gt; Could not resolve all dependencies for configuration &#x27;:app:compileClasspath&#x27;.
+   &gt; Could not find com.example:library:1.2.3.
+     Required by:
+         project :app
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Read the nested <code>Could not find</code>/<code>Could not GET</code> line. Check the coordinates and version exist, add the right repository (<code>mavenCentral()</code>, <code>google()</code>) in <code>settings.gradle</code> / <code>build.gradle</code>, then run <code>./gradlew build --refresh-dependencies</code>. Behind a proxy set <code>systemProp.https.proxyHost</code>/<code>proxyPort</code> in <code>gradle.properties</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Before compiling, Gradle resolves every dependency in a configuration (<code>compileClasspath</code>, <code>runtimeClasspath</code>, <code>debugRuntimeClasspath</code>…). If any one fails, the whole configuration fails with this message. The real reason is in the indented lines below it — look for one of:</p>
+<ul>
+<li><code>Could not find group:name:version</code> — no repository has that artifact.</li>
+<li><code>Could not GET 'https://...'</code> / <code>Connection refused</code> / <code>PKIX path building failed</code> — network, proxy or TLS problem.</li>
+<li><code>Received status code 401/403</code> — authentication to a private repository.</li>
+<li><code>No matching variant</code> — artifact exists but is incompatible (Java version, Android vs JVM).</li>
+</ul>
+<p>Get more detail with:</p>
+<pre><code class="language-bash">./gradlew build --stacktrace --info
+./gradlew :app:dependencies --configuration compileClasspath
+</code></pre>
+<h2 id="fix-1-wrong-coordinates-or-version">Fix 1: wrong coordinates or version</h2>
+<p>Check the artifact really exists on <a href="https://search.maven.org">search.maven.org</a> or the vendor's repository. Typos in the group, artifact name or version are common, as are versions that were never published.</p>
+<pre><code class="language-groovy">dependencies {
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+}
+</code></pre>
+<h2 id="fix-2-missing-repository">Fix 2: missing repository</h2>
+<p>Gradle only looks in repositories you declare. Android libraries live in <code>google()</code>; most others in <code>mavenCentral()</code>. JCenter is shut down — remove <code>jcenter()</code> and find the library elsewhere.</p>
+<p>In modern projects repositories are in <code>settings.gradle(.kts)</code>:</p>
+<pre><code class="language-kotlin">dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri(&quot;https://jitpack.io&quot;) } // only if needed
+    }
+}
+</code></pre>
+<p>If <code>repositoriesMode</code> is <code>FAIL_ON_PROJECT_REPOS</code>, repositories declared in a module's <code>build.gradle</code> are ignored/rejected — add them here instead.</p>
+<h2 id="fix-3-stale-or-corrupt-cache">Fix 3: stale or corrupt cache</h2>
+<p>A failed download can be cached. Force Gradle to re-check:</p>
+<pre><code class="language-bash">./gradlew build --refresh-dependencies
+</code></pre>
+<p>If that does not help, stop daemons and remove the cached module:</p>
+<pre><code class="language-bash">./gradlew --stop
+rm -rf ~/.gradle/caches/modules-2/files-2.1/com.example
+</code></pre>
+<p>Also make sure you are not in offline mode (<code>--offline</code>, or the Offline toggle in Android Studio / IntelliJ's Gradle panel).</p>
+<h2 id="fix-4-proxy-firewall-or-tls">Fix 4: proxy, firewall or TLS</h2>
+<p>Corporate networks often need a proxy. Add to <code>~/.gradle/gradle.properties</code>:</p>
+<pre><code class="language-properties">systemProp.http.proxyHost=proxy.example.com
+systemProp.http.proxyPort=8080
+systemProp.https.proxyHost=proxy.example.com
+systemProp.https.proxyPort=8080
+systemProp.http.nonProxyHosts=localhost|*.internal
+</code></pre>
+<p><code>PKIX path building failed</code> means a TLS-inspecting proxy's certificate isn't trusted by the JDK running Gradle. Import it into that JDK's truststore:</p>
+<pre><code class="language-bash">keytool -importcert -alias corp -file corp.crt -cacerts -storepass changeit
+</code></pre>
+<h2 id="fix-5-private-repository-credentials-401403">Fix 5: private repository credentials (401/403)</h2>
+<pre><code class="language-kotlin">maven {
+    url = uri(&quot;https://maven.pkg.github.com/OWNER/REPO&quot;)
+    credentials {
+        username = providers.gradleProperty(&quot;gpr.user&quot;).get()
+        password = providers.gradleProperty(&quot;gpr.key&quot;).get()
+    }
+}
+</code></pre>
+<p>Put <code>gpr.user</code> and <code>gpr.key</code> in <code>~/.gradle/gradle.properties</code>, not in the repo. GitHub Packages requires a token even for public packages.</p>
+<h2 id="fix-6-variant-java-version-mismatch">Fix 6: variant / Java version mismatch</h2>
+<p><code>No matching variant ... compatible with Java 8</code> means the library needs a newer JVM. Raise the toolchain:</p>
+<pre><code class="language-kotlin">java { toolchain { languageVersion = JavaLanguageVersion.of(17) } }
+</code></pre>
+<p>Or choose an older library version that supports your Java version.</p>
+<p class="upd">Last updated 2026-11-02.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-home-is-not-set/">ERROR: JAVA_HOME is not set and no &#x27;java&#x27; command could be found in your PATH.</a></li><li><a href="/java/java-unsupportedclassversionerror/">java.lang.UnsupportedClassVersionError: has been compiled by a more recent version of the Java Runtime</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-comparison-method-violates-its-general-contract/">java.lang.IllegalArgumentException: Comparison method violates its general contract!</a></li><li><a href="/java/java-concurrentmodificationexception/">java.util.ConcurrentModificationException</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

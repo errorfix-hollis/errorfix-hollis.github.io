@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>! [remote rejected] main -&gt; main (pre-receive hook declined) (Git) — how to fix</title>
+<meta name="description" content="The server ran a pre-receive hook on your push and it exited non-zero, so nothing was accepted. The real reason is in the remote: lines above, e.g. a protected branch, a file size or secret scan, commit email/signature rules, or a server-side policy script.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-pre-receive-hook-declined/">
+<meta property="og:title" content="! [remote rejected] main -&gt; main (pre-receive hook declined) (Git) — how to fix"><meta property="og:description" content="The server ran a pre-receive hook on your push and it exited non-zero, so nothing was accepted. The real reason is in the remote: lines above, e.g. a protected branch, a file size or secret scan, commit email/signature rules, or a server-side policy script.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-pre-receive-hook-declined/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "! [remote rejected] main -> main (pre-receive hook declined) (Git) \u2014 how to fix", "description": "The server ran a pre-receive hook on your push and it exited non-zero, so nothing was accepted. The real reason is in the remote: lines above, e.g. a protected branch, a file size or secret scan, commit email/signature rules, or a server-side policy script.", "dateModified": "2026-11-12", "url": "https://errorfix-hollis.github.io/git/git-pre-receive-hook-declined/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "! [remote rejected] main -> main (pre-receive hook declined)", "item": "https://errorfix-hollis.github.io/git/git-pre-receive-hook-declined/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>! [remote rejected] main -&gt; main (pre-receive hook declined) (Git) — how to fix</h1>
+<pre class="err"><code>remote: error: ...
+To github.com:org/repo.git
+ ! [remote rejected] main -&gt; main (pre-receive hook declined)
+error: failed to push some refs to &#x27;github.com:org/repo.git&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Scroll up and read the <code>remote:</code> lines; they say which rule failed. Common fixes: push to a feature branch and open a PR (protected branch), remove a large file or secret from history (<code>git rm --cached</code> + <code>git commit --amend</code> or <code>git filter-repo</code>), fix your commit email (<code>git config user.email</code> + <code>git commit --amend --reset-author</code>), or sign commits. Self-hosted: check the hook script in the repo's <code>hooks/</code> dir on the server.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Before a Git server updates any branch, it runs a <strong>pre-receive hook</strong> with the list of refs you're pushing. If the hook exits non-zero, the whole push is rejected. Git itself only prints the generic <code>(pre-receive hook declined)</code>; the hook's explanation is in the <code>remote:</code> lines <strong>above</strong> it. Always read those first:</p>
+<pre><code class="language-bash">git push -v origin main 2&gt;&amp;1 | grep '^remote:'
+</code></pre>
+<p>GitHub, GitLab, Bitbucket, Gitea and Azure DevOps all implement their rules as pre-receive hooks, so the same message covers many policies.</p>
+<h2 id="cause-1-protected-branch">Cause 1: protected branch</h2>
+<pre><code>remote: GitLab: You are not allowed to push code to protected branches on this project.
+</code></pre>
+<p>The branch only accepts merges via merge/pull requests, or your role can't push. Push a branch and open a PR:</p>
+<pre><code class="language-bash">git switch -c fix/login
+git push -u origin fix/login
+</code></pre>
+<p>See <a href="/git/git-remote-rejected-protected-branch/">protected branch hook declined</a> for force-push and role settings. On a brand-new GitLab project, the default branch is protected as soon as it exists, so an initial <code>git push --force</code> of a rewritten history is refused too.</p>
+<h2 id="cause-2-file-too-large-or-a-blocked-file-type">Cause 2: file too large or a blocked file type</h2>
+<pre><code>remote: error: GH001: Large files detected.
+remote: GitLab: File &quot;data.zip&quot; is larger than the allowed size of 100 MiB
+</code></pre>
+<p>Remove the file from <strong>all</strong> commits you're pushing, not just the latest; see <a href="/git/git-gh001-large-files-detected/">GH001 large files detected</a>. If only the last commit added it:</p>
+<pre><code class="language-bash">git rm --cached data.zip
+echo data.zip &gt;&gt; .gitignore
+git commit --amend --no-edit
+git push
+</code></pre>
+<p>Use Git LFS for big binaries.</p>
+<h2 id="cause-3-secret-detected-push-protection">Cause 3: secret detected (push protection)</h2>
+<pre><code>remote: error: GH013: Repository rule violations found for refs/heads/main.
+remote: - Push cannot contain secrets
+</code></pre>
+<p>GitHub push protection, GitLab secret push protection or a custom scanner found an API key/token. <strong>Revoke the key first</strong> (it may be leaked already), then remove it from the commits, e.g. edit the file and <code>git commit --amend</code>, or for older commits <code>git rebase -i</code> / <code>git filter-repo --replace-text</code>. Move secrets to environment variables.</p>
+<h2 id="cause-4-commit-author-email-rules">Cause 4: commit author / email rules</h2>
+<pre><code>remote: GitLab: Author 'me@laptop.local' is not a member of team
+remote: Commit must be signed
+remote: error: GH007: Your push would publish a private email address.
+</code></pre>
+<p>Fix your identity and rewrite the unpushed commits:</p>
+<pre><code class="language-bash">git config user.email &quot;you@company.com&quot;
+git commit --amend --reset-author --no-edit            # last commit
+git rebase -r origin/main --exec &quot;git commit --amend --reset-author --no-edit&quot;   # all unpushed
+</code></pre>
+<p>For GH007, use your GitHub <code>ID+username@users.noreply.github.com</code> address or untick <em>Block command line pushes that expose my email</em>. For signature rules, configure signing (<code>git config commit.gpgsign true</code>, or <code>gpg.format ssh</code> with <code>user.signingkey</code>) and re-sign with the same rebase <code>--exec "git commit --amend --no-edit -S"</code>.</p>
+<h2 id="cause-5-commit-message-or-branch-name-rules">Cause 5: commit message or branch name rules</h2>
+<p>GitLab push rules and Bitbucket hooks can require messages like <code>JIRA-123: ...</code> or branch names like <code>feature/*</code>. Reword with <code>git commit --amend</code> (or <code>git rebase -i</code> with <code>reword</code>), or rename the branch: <code>git branch -m feature/login</code>.</p>
+<h2 id="cause-6-self-hosted-server-scripts">Cause 6: self-hosted server scripts</h2>
+<p>On a bare repo you manage, the hook is <code>hooks/pre-receive</code> (or <code>custom_hooks/</code> / <code>pre-receive.d/</code> on GitLab). Check it's executable and test it:</p>
+<pre><code class="language-bash">ls -l /srv/git/repo.git/hooks/pre-receive
+</code></pre>
+<p>Disk full or permission problems on the server can also make hooks fail; check the server logs. GitHub Enterprise admins can view hook output under the repository's <em>Pre-receive hooks</em> settings.</p>
+<p class="upd">Last updated 2026-11-12.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-gh001-large-files-detected/">remote: error: GH001: Large files detected. You may want to try Git Large File Storage</a></li><li><a href="/git/git-remote-rejected-protected-branch/">! [remote rejected] main -&gt; main (protected branch hook declined)</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

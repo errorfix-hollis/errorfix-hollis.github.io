@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>command not found (Linux) — how to fix</title>
+<meta name="description" content="The shell can&#x27;t find a program with that name in any PATH directory. Install it, fix the PATH, or use the full path.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-command-not-found/">
+<meta property="og:title" content="command not found (Linux) — how to fix"><meta property="og:description" content="The shell can&#x27;t find a program with that name in any PATH directory. Install it, fix the PATH, or use the full path.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-command-not-found/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "command not found (Linux) \u2014 how to fix", "description": "The shell can't find a program with that name in any PATH directory. Install it, fix the PATH, or use the full path.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/linux/linux-command-not-found/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "command not found", "item": "https://errorfix-hollis.github.io/linux/linux-command-not-found/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>command not found (Linux) — how to fix</h1>
+<pre class="err"><code>bash: somecommand: command not found</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check if it's installed with <code>type somecommand</code>. If not, install it (Ubuntu suggests the package). If it's installed somewhere like <code>~/.local/bin</code>, add that folder to PATH in <code>~/.bashrc</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When you type a command, the shell searches the directories listed in <code>$PATH</code>, in order. None of them contains an executable with that name.</p>
+<h2 id="step-1-is-it-a-typo">Step 1: is it a typo?</h2>
+<p>Commands are case-sensitive. <code>Git</code> is not <code>git</code>.</p>
+<h2 id="step-2-is-it-installed">Step 2: is it installed?</h2>
+<pre><code class="language-bash">type somecommand
+which -a somecommand
+</code></pre>
+<p>On Ubuntu/Debian, the "command not found" message often suggests a package. Otherwise search for it:</p>
+<pre><code class="language-bash">apt search somecommand          # Debian/Ubuntu
+dnf provides '*/somecommand'    # Fedora/RHEL
+brew search somecommand         # macOS
+</code></pre>
+<h2 id="step-3-installed-but-not-on-path">Step 3: installed, but not on PATH</h2>
+<p>Tools installed by pip (<code>--user</code>), pipx, npm (global), cargo, go or a manual download often live in folders not on PATH by default:</p>
+<table>
+<thead>
+<tr>
+<th>Installed by</th>
+<th>Folder</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pip --user / pipx</td>
+<td><code>~/.local/bin</code></td>
+</tr>
+<tr>
+<td>npm -g (custom prefix)</td>
+<td><code>~/.npm-global/bin</code></td>
+</tr>
+<tr>
+<td>cargo</td>
+<td><code>~/.cargo/bin</code></td>
+</tr>
+<tr>
+<td>go install</td>
+<td><code>~/go/bin</code></td>
+</tr>
+</tbody>
+</table>
+<p>Add the folder to PATH (bash: <code>~/.bashrc</code>, zsh: <code>~/.zshrc</code>):</p>
+<pre><code class="language-bash">echo 'export PATH=&quot;$HOME/.local/bin:$PATH&quot;' &gt;&gt; ~/.bashrc
+source ~/.bashrc
+</code></pre>
+<h2 id="step-4-it-works-in-one-terminal-but-not-another">Step 4: it works in one terminal but not another</h2>
+<ul>
+<li>You installed it in this session and the shell cached the old PATH: run <code>hash -r</code> or open a new terminal.</li>
+<li><strong>sudo</strong> uses a restricted PATH (<code>secure_path</code>), so <code>sudo mytool</code> may fail even though <code>mytool</code> works. Use the full path: <code>sudo "$(which mytool)"</code>.</li>
+<li><strong>cron</strong> and <strong>systemd</strong> jobs run with a minimal PATH. Use absolute paths in those scripts.</li>
+</ul>
+<h2 id="running-a-file-in-the-current-directory">Running a file in the current directory</h2>
+<p>The current folder is not on PATH. Run it as <code>./myscript</code>, not <code>myscript</code>.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-permission-denied-running-script/">bash: ./script.sh: Permission denied</a></li><li><a href="/python/python-pip-command-not-found/">pip: command not found</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/linux/linux-cannot-execute-binary-file/">cannot execute binary file: Exec format error</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

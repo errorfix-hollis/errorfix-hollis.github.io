@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal: refusing to fetch into branch &#x27;refs/heads/main&#x27; checked out at ... (Git) — how to fix</title>
+<meta name="description" content="You ran git fetch with a refspec that writes directly into the branch you have checked out. Git refuses because it would change the branch under your working tree without updating your files.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-refusing-to-fetch-into-current-branch/">
+<meta property="og:title" content="fatal: refusing to fetch into branch &#x27;refs/heads/main&#x27; checked out at ... (Git) — how to fix"><meta property="og:description" content="You ran git fetch with a refspec that writes directly into the branch you have checked out. Git refuses because it would change the branch under your working tree without updating your files.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-refusing-to-fetch-into-current-branch/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal: refusing to fetch into branch 'refs/heads/main' checked out at ... (Git) \u2014 how to fix", "description": "You ran git fetch with a refspec that writes directly into the branch you have checked out. Git refuses because it would change the branch under your working tree without updating your files.", "dateModified": "2026-11-09", "url": "https://errorfix-hollis.github.io/git/git-refusing-to-fetch-into-current-branch/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "fatal: refusing to fetch into branch 'refs/heads/main' checked out at ...", "item": "https://errorfix-hollis.github.io/git/git-refusing-to-fetch-into-current-branch/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>fatal: refusing to fetch into branch &#x27;refs/heads/main&#x27; checked out at ... (Git) — how to fix</h1>
+<pre class="err"><code>fatal: refusing to fetch into branch &#x27;refs/heads/main&#x27; checked out at &#x27;/home/me/project&#x27;
+fatal: Refusing to fetch into current branch refs/heads/main of non-bare repository
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Don't fetch into the current branch. Use <code>git pull origin main</code> (fetch + merge), or <code>git fetch origin</code> then <code>git merge origin/main</code>. If you really want to update a local branch with fetch, switch away from it first: <code>git switch other &amp;&amp; git fetch origin main:main</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>git fetch origin main:main</code> means "download <code>main</code> from origin and write it into my local branch <code>main</code>". If <code>main</code> is the branch you have checked out (in this worktree or another worktree), updating its ref would leave your index and working files out of sync with <code>HEAD</code>. Git refuses rather than silently corrupt your state.</p>
+<p>Newer Git phrases it as "refusing to fetch into branch ... checked out at <path>", which also triggers when the branch is checked out in <strong>another worktree</strong>.</p>
+<h2 id="fix-1-use-pull-or-fetch-merge">Fix 1: use pull or fetch + merge</h2>
+<p>Normally you don't want to write into the local branch with fetch at all. Fetch updates remote-tracking refs (<code>origin/main</code>); then integrate:</p>
+<pre><code class="language-bash">git fetch origin
+git merge origin/main         # or: git rebase origin/main
+</code></pre>
+<p>Or in one step:</p>
+<pre><code class="language-bash">git pull origin main
+</code></pre>
+<h2 id="fix-2-update-a-branch-you-are-not-on">Fix 2: update a branch you are NOT on</h2>
+<p>The <code>src:dst</code> fetch form is handy for fast-forwarding another local branch without checking it out:</p>
+<pre><code class="language-bash">git switch feature
+git fetch origin main:main    # fast-forwards local main, works now
+</code></pre>
+<p>It only succeeds if it's a fast-forward; add <code>+</code> (<code>+main:main</code>) to force, which discards local commits on that branch.</p>
+<h2 id="fix-3-the-branch-is-checked-out-in-another-worktree">Fix 3: the branch is checked out in another worktree</h2>
+<pre><code class="language-bash">git worktree list
+</code></pre>
+<p>If <code>main</code> is checked out in another worktree, either run <code>git pull</code> inside that worktree, switch that worktree to another branch, or remove it:</p>
+<pre><code class="language-bash">git worktree remove ../project-main
+</code></pre>
+<h2 id="fix-4-scripts-and-ci-with-a-bad-refspec">Fix 4: scripts and CI with a bad refspec</h2>
+<p>A config like this triggers it on every plain <code>git fetch</code>:</p>
+<pre><code class="language-ini">[remote &quot;origin&quot;]
+    fetch = +refs/heads/*:refs/heads/*
+</code></pre>
+<p>That maps remote branches straight onto local ones — only correct for bare mirrors. Restore the default:</p>
+<pre><code class="language-bash">git config remote.origin.fetch &quot;+refs/heads/*:refs/remotes/origin/*&quot;
+</code></pre>
+<h2 id="fix-5-you-know-what-youre-doing">Fix 5: you know what you're doing</h2>
+<p><code>git fetch --update-head-ok origin main:main</code> bypasses the check (used internally by <code>git pull</code>). Afterwards your working tree doesn't match <code>HEAD</code>; run <code>git reset --hard HEAD</code> only if you have no uncommitted changes worth keeping. Fix 1 is almost always the better choice.</p>
+<h2 id="related">Related</h2>
+<p>In a non-bare repo the same protection exists on the push side: pushing to a checked-out branch fails with "refusing to update checked out branch". Push to a bare repo instead, or set <code>receive.denyCurrentBranch updateInstead</code> on the server repo.</p>
+<p class="upd">Last updated 2026-11-09.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-not-possible-to-fast-forward-aborting/">fatal: Not possible to fast-forward, aborting.</a></li><li><a href="/git/git-your-local-changes-would-be-overwritten/">error: Your local changes to the following files would be overwritten by merge</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

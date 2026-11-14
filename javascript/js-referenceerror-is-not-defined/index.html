@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ReferenceError: x is not defined (JavaScript) — how to fix</title>
+<meta name="description" content="You used a variable or function name that doesn&#x27;t exist in the current scope. Typo, missing import, script loaded in the wrong order, browser-only global used in Node (or vice versa), or a variable defined inside another block.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-referenceerror-is-not-defined/">
+<meta property="og:title" content="ReferenceError: x is not defined (JavaScript) — how to fix"><meta property="og:description" content="You used a variable or function name that doesn&#x27;t exist in the current scope. Typo, missing import, script loaded in the wrong order, browser-only global used in Node (or vice versa), or a variable defined inside another block.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-referenceerror-is-not-defined/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ReferenceError: x is not defined (JavaScript) \u2014 how to fix", "description": "You used a variable or function name that doesn't exist in the current scope. Typo, missing import, script loaded in the wrong order, browser-only global used in Node (or vice versa), or a variable defined inside another block.", "dateModified": "2026-10-28", "url": "https://errorfix-hollis.github.io/javascript/js-referenceerror-is-not-defined/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "ReferenceError: x is not defined", "item": "https://errorfix-hollis.github.io/javascript/js-referenceerror-is-not-defined/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>ReferenceError: x is not defined (JavaScript) — how to fix</h1>
+<pre class="err"><code>Uncaught ReferenceError: $ is not defined
+    at main.js:1:1
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check spelling and scope, import the name (<code>import x from ...</code>), and make sure library scripts load before your code. <code>window</code>/<code>document</code> don't exist in Node; <code>process</code>/<code>__dirname</code> don't exist in browsers or ES modules.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>JavaScript looked up a name through every enclosing scope up to the global one and didn't find it. (If the name exists but its value is <code>undefined</code>, you'd get <code>Cannot read properties of undefined</code> instead.)</p>
+<h2 id="cause-1-typo-or-wrong-case">Cause 1: typo or wrong case</h2>
+<p><code>useState</code> vs <code>usestate</code>, <code>myVar</code> vs <code>myvar</code>. JavaScript names are case-sensitive.</p>
+<h2 id="cause-2-missing-import">Cause 2: missing import</h2>
+<pre><code class="language-js">const [count, setCount] = useState(0);   // ReferenceError: useState is not defined
+</code></pre>
+<pre><code class="language-js">import { useState } from &quot;react&quot;;
+</code></pre>
+<h2 id="cause-3-script-order-is-not-defined-jquery-is-not-defined">Cause 3: script order (<code>$ is not defined</code>, <code>jQuery is not defined</code>)</h2>
+<p>Your script runs before the library has loaded:</p>
+<pre><code class="language-html">&lt;script src=&quot;main.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://code.jquery.com/jquery-3.7.1.min.js&quot;&gt;&lt;/script&gt;
+</code></pre>
+<p>Load the library first. With <code>defer</code>/<code>async</code> on one but not the other, order can also break; use <code>defer</code> on both (deferred scripts run in order).</p>
+<h2 id="cause-4-browser-vs-node-globals">Cause 4: browser vs Node globals</h2>
+<ul>
+<li><code>window</code>, <code>document</code>, <code>localStorage</code>, <code>navigator</code> exist only in the browser. In Next.js/Nuxt server rendering, access them inside <code>useEffect</code> or behind <code>typeof window !== "undefined"</code>.</li>
+<li><code>process</code>, <code>require</code>, <code>module</code>, <code>__dirname</code> exist in CommonJS Node, not in the browser. In bundlers use <code>import.meta.env</code> (Vite) for env vars.</li>
+<li>In Node ES modules, <code>__dirname</code> is not defined:</li>
+</ul>
+<pre><code class="language-js">import { fileURLToPath } from &quot;node:url&quot;;
+import { dirname } from &quot;node:path&quot;;
+const __dirname = dirname(fileURLToPath(import.meta.url));
+</code></pre>
+<h2 id="cause-5-block-scope">Cause 5: block scope</h2>
+<pre><code class="language-js">if (ok) {
+  const message = &quot;hi&quot;;
+}
+console.log(message);   // ReferenceError
+</code></pre>
+<p>Declare the variable in the outer scope. <code>let</code> and <code>const</code> are block-scoped; also, using them before their declaration line throws <code>Cannot access 'x' before initialization</code>.</p>
+<h2 id="cause-6-inline-event-handlers-with-modules">Cause 6: inline event handlers with modules</h2>
+<p>Functions in <code>&lt;script type="module"&gt;</code> aren't global, so <code>onclick="doThing()"</code> can't see them. Attach handlers with <code>addEventListener</code>, or assign <code>window.doThing = doThing</code>.</p>
+<p class="upd">Last updated 2026-10-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-is-not-a-function/">TypeError: x is not a function</a></li><li><a href="/javascript/js-require-is-not-defined/">ReferenceError: require is not defined</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li><li><a href="/javascript/js-hydration-failed-initial-ui-does-not-match/">Hydration failed because the initial UI does not match what was rendered on the server</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

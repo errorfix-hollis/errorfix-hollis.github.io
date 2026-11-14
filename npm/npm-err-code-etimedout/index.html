@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>npm ERR! code ETIMEDOUT — how to fix</title>
+<meta name="description" content="npm could not reach the registry in time. The usual causes are a corporate proxy, a broken IPv6 route, a wrong registry URL or a flaky connection; the same fixes apply to ECONNRESET and ERR_SOCKET_TIMEOUT.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-err-code-etimedout/">
+<meta property="og:title" content="npm ERR! code ETIMEDOUT — how to fix"><meta property="og:description" content="npm could not reach the registry in time. The usual causes are a corporate proxy, a broken IPv6 route, a wrong registry URL or a flaky connection; the same fixes apply to ECONNRESET and ERR_SOCKET_TIMEOUT.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-err-code-etimedout/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "npm ERR! code ETIMEDOUT \u2014 how to fix", "description": "npm could not reach the registry in time. The usual causes are a corporate proxy, a broken IPv6 route, a wrong registry URL or a flaky connection; the same fixes apply to ECONNRESET and ERR_SOCKET_TIMEOUT.", "dateModified": "2026-11-09", "url": "https://errorfix-hollis.github.io/npm/npm-err-code-etimedout/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "npm ERR! code ETIMEDOUT", "item": "https://errorfix-hollis.github.io/npm/npm-err-code-etimedout/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>npm ERR! code ETIMEDOUT — how to fix</h1>
+<pre class="err"><code>npm ERR! code ETIMEDOUT
+npm ERR! syscall connect
+npm ERR! errno ETIMEDOUT
+npm ERR! network request to https://registry.npmjs.org/react failed, reason: connect ETIMEDOUT 104.16.27.34:443
+npm ERR! network This is a problem related to network connectivity.
+npm ERR! network In most cases you are behind a proxy or have bad network settings.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Test with <code>curl -I https://registry.npmjs.org/</code>. Check <code>npm config get registry</code> and <code>npm config get proxy</code>; set the proxy with <code>npm config set proxy http://host:port</code> and <code>npm config set https-proxy http://host:port</code>, or remove a stale one with <code>npm config delete proxy</code> and <code>npm config delete https-proxy</code>. Raise timeouts: <code>npm config set fetch-retries 5</code> and <code>npm config set fetch-timeout 600000</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>npm opened a TCP connection to the registry (or a tarball URL) and nothing answered before the timeout. <code>ETIMEDOUT</code> = no response, <code>ECONNRESET</code> = the connection was cut mid-transfer, <code>ERR_SOCKET_TIMEOUT</code> = the socket went idle too long. npm itself is fine; the network path isn't.</p>
+<p>First, check whether the registry is reachable outside npm:</p>
+<pre><code class="language-bash">curl -I https://registry.npmjs.org/
+npm config get registry
+npm ping
+</code></pre>
+<p>If <code>curl</code> also hangs, the problem is your network/proxy/DNS, not npm.</p>
+<h2 id="cause-1-behind-a-proxy-or-a-stale-proxy-setting">Cause 1: behind a proxy (or a stale proxy setting)</h2>
+<p>On corporate networks, outbound HTTPS must go through a proxy:</p>
+<pre><code class="language-bash">npm config set proxy http://proxy.example.com:8080
+npm config set https-proxy http://proxy.example.com:8080
+</code></pre>
+<p>The reverse is just as common: a proxy configured long ago that no longer exists. List and remove:</p>
+<pre><code class="language-bash">npm config list            # look for proxy / https-proxy lines
+npm config delete proxy
+npm config delete https-proxy
+env | grep -i proxy        # HTTP_PROXY / HTTPS_PROXY env vars are also used
+</code></pre>
+<p>Also check <code>~/.npmrc</code> and the project's <code>.npmrc</code>.</p>
+<h2 id="cause-2-wrong-or-unreachable-registry">Cause 2: wrong or unreachable registry</h2>
+<p>A leftover mirror or private registry URL (e.g. an old Verdaccio, Nexus or regional mirror) that is down will time out:</p>
+<pre><code class="language-bash">npm config get registry
+npm config set registry https://registry.npmjs.org/
+</code></pre>
+<p>Also look in <code>package-lock.json</code>: <code>resolved</code> URLs pointing at a dead host will keep failing. Regenerate the lock file or replace the host.</p>
+<h2 id="cause-3-ipv6-route-is-broken">Cause 3: IPv6 route is broken</h2>
+<p>If your machine has an IPv6 address but no working IPv6 route, Node may try IPv6 first and hang. Node 17+ uses the OS address order. Prefer IPv4:</p>
+<pre><code class="language-bash">export NODE_OPTIONS=--dns-result-order=ipv4first
+npm install
+</code></pre>
+<p>Or disable IPv6 on the interface if you don't use it.</p>
+<h2 id="cause-4-slow-or-flaky-connection-vpn-wi-fi-ci">Cause 4: slow or flaky connection (VPN, Wi-Fi, CI)</h2>
+<p>Increase retries and timeouts:</p>
+<pre><code class="language-bash">npm config set fetch-retries 5
+npm config set fetch-retry-mintimeout 20000
+npm config set fetch-retry-maxtimeout 120000
+npm config set fetch-timeout 600000
+</code></pre>
+<p>Reduce parallel connections, which helps on weak links and with <code>ECONNRESET</code>:</p>
+<pre><code class="language-bash">npm config set maxsockets 5
+</code></pre>
+<h2 id="cause-5-firewall-antivirus-or-vpn-interference">Cause 5: firewall, antivirus or VPN interference</h2>
+<p>Some VPNs and TLS-inspecting firewalls drop long downloads. Try disconnecting the VPN, or another network (phone hotspot) to confirm. If the firewall re-signs TLS you'll usually see <code>SELF_SIGNED_CERT_IN_CHAIN</code> instead — configure <code>cafile</code> rather than disabling <code>strict-ssl</code>.</p>
+<h2 id="after-fixing">After fixing</h2>
+<p>Clear partial downloads and retry:</p>
+<pre><code class="language-bash">npm cache verify
+npm install
+</code></pre>
+<p>In Docker builds, the container may not inherit your host's proxy; pass it with <code>docker build --build-arg HTTPS_PROXY=http://proxy:8080 .</code>.</p>
+<p class="upd">Last updated 2026-11-09.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/npm-eresolve-unable-to-resolve-dependency-tree/">npm ERR! code ERESOLVE unable to resolve dependency tree</a></li><li><a href="/npm/npm-err-code-e404/">npm ERR! code E404 - Not Found</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

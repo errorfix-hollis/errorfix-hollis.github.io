@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error[E0412]: cannot find type `X` in this scope (Rust) — how to fix</title>
+<meta name="description" content="The compiler can&#x27;t resolve a type name at that point: it isn&#x27;t imported with `use`, is misspelled, lives in another module that isn&#x27;t declared or public, is a generic parameter you forgot to declare, or needs a crate feature.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/rust/rust-e0412-cannot-find-type-in-this-scope/">
+<meta property="og:title" content="error[E0412]: cannot find type `X` in this scope (Rust) — how to fix"><meta property="og:description" content="The compiler can&#x27;t resolve a type name at that point: it isn&#x27;t imported with `use`, is misspelled, lives in another module that isn&#x27;t declared or public, is a generic parameter you forgot to declare, or needs a crate feature.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/rust/rust-e0412-cannot-find-type-in-this-scope/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error[E0412]: cannot find type `X` in this scope (Rust) \u2014 how to fix", "description": "The compiler can't resolve a type name at that point: it isn't imported with `use`, is misspelled, lives in another module that isn't declared or public, is a generic parameter you forgot to declare, or needs a crate feature.", "dateModified": "2026-11-11", "url": "https://errorfix-hollis.github.io/rust/rust-e0412-cannot-find-type-in-this-scope/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Rust", "item": "https://errorfix-hollis.github.io/rust/"}, {"@type": "ListItem", "position": 3, "name": "error[E0412]: cannot find type `X` in this scope", "item": "https://errorfix-hollis.github.io/rust/rust-e0412-cannot-find-type-in-this-scope/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/rust/">Rust</a></p>
+<article><h1>error[E0412]: cannot find type `X` in this scope (Rust) — how to fix</h1>
+<pre class="err"><code>error[E0412]: cannot find type `HashMap` in this scope
+ --&gt; src/main.rs:4:12
+  |
+4 |     cache: HashMap&lt;String, u32&gt;,
+  |            ^^^^^^^ not found in this scope
+  |
+help: consider importing this struct
+  |
+1 + use std::collections::HashMap;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Import it (<code>use std::collections::HashMap;</code>, <code>use crate::models::User;</code>) as the compiler's help line suggests, declare the module with <code>mod models;</code>, make the type <code>pub</code>, declare generics on the impl (<code>impl&lt;T&gt; Foo&lt;T&gt;</code>), or enable the crate feature that provides it in Cargo.toml.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>E0412 is the type version of E0425 (<code>cannot find value</code>). Rust only knows names that are defined in the current module, brought in with <code>use</code>, or part of the prelude (<code>Vec</code>, <code>String</code>, <code>Option</code>, <code>Result</code>, <code>Box</code>...). Anything else must be imported or written with its full path.</p>
+<p>Always read the <code>help:</code> lines first; rustc often prints the exact <code>use</code> line you need.</p>
+<h2 id="cause-1-missing-use-for-a-std-type">Cause 1: missing use for a std type</h2>
+<p>Common std types are <strong>not</strong> in the prelude:</p>
+<pre><code class="language-rust">use std::collections::{HashMap, HashSet, BTreeMap, VecDeque};
+use std::sync::{Arc, Mutex, RwLock};
+use std::rc::Rc;
+use std::cell::RefCell;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
+use std::fmt;              // for fmt::Display, fmt::Result
+</code></pre>
+<p>Or use the full path inline: <code>std::collections::HashMap&lt;String, u32&gt;</code>.</p>
+<h2 id="cause-2-type-from-another-file-in-your-crate">Cause 2: type from another file in your crate</h2>
+<p>Given <code>src/models.rs</code> with <code>pub struct User</code>, the module must be declared once (in <code>main.rs</code> or <code>lib.rs</code>) and the type imported where it's used:</p>
+<pre><code class="language-rust">// src/main.rs
+mod models;            // declares the module: loads src/models.rs
+use models::User;
+</code></pre>
+<p>From a nested module, start the path at the crate root:</p>
+<pre><code class="language-rust">use crate::models::User;
+use super::User;       // from the parent module
+</code></pre>
+<p>If the type isn't <code>pub</code>, you'll get E0603 (<code>struct User is private</code>) instead. Add <code>pub</code> (or <code>pub(crate)</code>) to the struct.</p>
+<h2 id="cause-3-type-from-an-external-crate">Cause 3: type from an external crate</h2>
+<p>Add the crate and import the type:</p>
+<pre><code class="language-bash">cargo add serde --features derive
+cargo add chrono
+</code></pre>
+<pre><code class="language-rust">use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Utc};
+</code></pre>
+<p>Some types exist only behind a feature flag. For example <code>tokio::net::TcpStream</code> needs the <code>net</code> feature, and <code>reqwest::blocking::Client</code> needs <code>blocking</code>:</p>
+<pre><code class="language-toml">[dependencies]
+tokio = { version = &quot;1&quot;, features = [&quot;full&quot;] }
+reqwest = { version = &quot;0.12&quot;, features = [&quot;blocking&quot;, &quot;json&quot;] }
+</code></pre>
+<p>Check the crate's docs.rs page; feature-gated items show "Available on crate feature X only".</p>
+<h2 id="cause-4-undeclared-generic-parameter">Cause 4: undeclared generic parameter</h2>
+<pre><code class="language-rust">struct Wrapper&lt;T&gt; { inner: T }
+
+impl Wrapper&lt;T&gt; {          // E0412: cannot find type `T`
+    fn get(&amp;self) -&gt; &amp;T { &amp;self.inner }
+}
+
+impl&lt;T&gt; Wrapper&lt;T&gt; {       // OK: declare T after impl
+    fn get(&amp;self) -&gt; &amp;T { &amp;self.inner }
+}
+</code></pre>
+<p>The same applies to functions: <code>fn first&lt;T&gt;(v: &amp;[T]) -&gt; &amp;T</code>.</p>
+<h2 id="cause-5-typo-or-wrong-case">Cause 5: typo or wrong case</h2>
+<p>Types are <code>UpperCamelCase</code>: <code>String</code>, not <code>string</code>; <code>Vec</code>, not <code>vec</code> (<code>vec!</code> is a macro); <code>i32</code>, not <code>int</code>; <code>f64</code>, not <code>float</code>; <code>bool</code>, not <code>Bool</code>. rustc usually suggests <code>a struct with a similar name exists</code>.</p>
+<h2 id="cause-6-associated-types-and-self">Cause 6: associated types and Self</h2>
+<p>Inside a trait impl, use <code>Self::Item</code> (or the concrete type), not a bare <code>Item</code>:</p>
+<pre><code class="language-rust">impl Iterator for Counter {
+    type Item = u32;
+    fn next(&amp;mut self) -&gt; Option&lt;Self::Item&gt; { None }
+}
+</code></pre>
+<h2 id="cause-7-cfg-gated-code">Cause 7: cfg-gated code</h2>
+<p>If a type is defined under <code>#[cfg(feature = "x")]</code>, <code>#[cfg(test)]</code> or <code>#[cfg(target_os = "linux")]</code>, it doesn't exist in other builds. Gate the code that uses it the same way, or enable the feature: <code>cargo build --features x</code>.</p>
+<p class="upd">Last updated 2026-11-11.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/rust/rust-e0425-cannot-find-value-in-this-scope/">error[E0425]: cannot find value `x` in this scope</a></li><li><a href="/rust/rust-e0433-failed-to-resolve/">error[E0433]: failed to resolve: use of undeclared crate or module</a></li><li><a href="/rust/rust-e0463-cant-find-crate/">error[E0463]: can&#x27;t find crate for `std`</a></li><li><a href="/rust/rust-borrow-of-moved-value/">error[E0382]: borrow of moved value</a></li><li><a href="/rust/rust-cannot-borrow-as-mutable/">error[E0502]: cannot borrow as mutable because it is also borrowed as immutable</a></li><li><a href="/rust/rust-e0106-missing-lifetime-specifier/">error[E0106]: missing lifetime specifier</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

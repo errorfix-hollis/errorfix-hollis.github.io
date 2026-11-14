@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Author identity unknown *** Please tell me who you are. (Git) — how to fix</title>
+<meta name="description" content="Git needs a name and email to record as the author of every commit, and none is configured for this user or repository.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-please-tell-me-who-you-are/">
+<meta property="og:title" content="Author identity unknown *** Please tell me who you are. (Git) — how to fix"><meta property="og:description" content="Git needs a name and email to record as the author of every commit, and none is configured for this user or repository.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-please-tell-me-who-you-are/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Author identity unknown *** Please tell me who you are. (Git) \u2014 how to fix", "description": "Git needs a name and email to record as the author of every commit, and none is configured for this user or repository.", "dateModified": "2026-11-13", "url": "https://errorfix-hollis.github.io/git/git-please-tell-me-who-you-are/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "Author identity unknown *** Please tell me who you are.", "item": "https://errorfix-hollis.github.io/git/git-please-tell-me-who-you-are/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>Author identity unknown *** Please tell me who you are. (Git) — how to fix</h1>
+<pre class="err"><code>Author identity unknown
+
+*** Please tell me who you are.
+
+Run
+
+  git config --global user.email &quot;you@example.com&quot;
+  git config --global user.name &quot;Your Name&quot;
+
+to set your account&#x27;s default identity.
+Omit --global to set the identity only in this repository.
+
+fatal: unable to auto-detect email address (got &#x27;me@laptop.(none)&#x27;)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>git config --global user.name "Your Name"</code> and <code>git config --global user.email "you@example.com"</code>, then commit again. Use the email registered with GitHub/GitLab (or your noreply address) so commits link to your account. Omit <code>--global</code> to set it for one repo only.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Each commit stores an author and committer name and email. Git looks for <code>user.name</code> and <code>user.email</code> in repo config, then <code>~/.gitconfig</code>, then environment variables. If it can't find them and can't guess a valid email from your hostname, it refuses to commit.</p>
+<p>Nothing is broken; you just haven't told Git who you are yet. This happens on a new machine, a fresh container, CI runner, or after running Git as another user (e.g. with <code>sudo</code>).</p>
+<h2 id="fix-1-set-your-identity-globally">Fix 1: set your identity globally</h2>
+<pre><code class="language-bash">git config --global user.name &quot;Your Name&quot;
+git config --global user.email &quot;you@example.com&quot;
+</code></pre>
+<p>Verify:</p>
+<pre><code class="language-bash">git config --global --list | grep user
+</code></pre>
+<p>Then re-run <code>git commit</code>.</p>
+<p>On GitHub, use the email on your account so commits show your avatar. To keep your email private, use your noreply address from <em>Settings → Emails</em> (looks like <code>12345678+username@users.noreply.github.com</code>). If GitHub rejects the push with "push declines due to email privacy restrictions", switch to that noreply address and amend:</p>
+<pre><code class="language-bash">git commit --amend --reset-author --no-edit
+</code></pre>
+<h2 id="fix-2-per-repository-identity">Fix 2: per-repository identity</h2>
+<p>For a work repo with a different email, run inside the repo without <code>--global</code>:</p>
+<pre><code class="language-bash">git config user.name &quot;Your Name&quot;
+git config user.email &quot;you@company.com&quot;
+</code></pre>
+<p>Or switch automatically by folder in <code>~/.gitconfig</code>:</p>
+<pre><code class="language-ini">[includeIf &quot;gitdir:~/work/&quot;]
+    path = ~/.gitconfig-work
+</code></pre>
+<h2 id="fix-3-you-set-it-but-for-a-different-user">Fix 3: you set it, but for a different user</h2>
+<p>Config is per user. If you configured it as yourself but run <code>sudo git commit</code>, root has no identity. Don't use <code>sudo</code> for Git; fix ownership instead:</p>
+<pre><code class="language-bash">sudo chown -R &quot;$USER&quot; .
+</code></pre>
+<p>Check where a value comes from:</p>
+<pre><code class="language-bash">git config --show-origin --get user.email
+</code></pre>
+<h2 id="fix-4-ci-pipelines-and-docker-containers">Fix 4: CI pipelines and Docker containers</h2>
+<p>Runners start with an empty config. Set it in the job:</p>
+<pre><code class="language-bash">git config --global user.name &quot;ci-bot&quot;
+git config --global user.email &quot;ci-bot@example.com&quot;
+</code></pre>
+<p>GitHub Actions often uses the Actions bot identity:</p>
+<pre><code class="language-yaml">- run: |
+    git config user.name &quot;github-actions[bot]&quot;
+    git config user.email &quot;41898282+github-actions[bot]@users.noreply.github.com&quot;
+</code></pre>
+<p>Or set environment variables, which override config for a single command:</p>
+<pre><code class="language-bash">GIT_AUTHOR_NAME=bot GIT_AUTHOR_EMAIL=bot@example.com \
+GIT_COMMITTER_NAME=bot GIT_COMMITTER_EMAIL=bot@example.com \
+git commit -m &quot;Automated update&quot;
+</code></pre>
+<h2 id="fix-5-wrong-identity-on-commits-you-already-made">Fix 5: wrong identity on commits you already made</h2>
+<pre><code class="language-bash">git commit --amend --reset-author --no-edit          # last commit
+git rebase -r &lt;base&gt; --exec &quot;git commit --amend --no-edit --reset-author&quot;   # several
+</code></pre>
+<p>Rewriting pushed commits requires a force push (<code>git push --force-with-lease</code>).</p>
+<p class="upd">Last updated 2026-11-13.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-dubious-ownership/">fatal: detected dubious ownership in repository</a></li><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-not-a-git-repository/">fatal: not a git repository (or any of the parent directories): .git</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

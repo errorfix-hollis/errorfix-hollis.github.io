@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: &#x27;float&#x27; object cannot be interpreted as an integer (Python) — how to fix</title>
+<meta name="description" content="You passed a float where Python needs a real integer, most often to range(). In Python 3 the / operator always returns a float, even for 10 / 2.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-float-object-cannot-be-interpreted-as-an-integer/">
+<meta property="og:title" content="TypeError: &#x27;float&#x27; object cannot be interpreted as an integer (Python) — how to fix"><meta property="og:description" content="You passed a float where Python needs a real integer, most often to range(). In Python 3 the / operator always returns a float, even for 10 / 2.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-float-object-cannot-be-interpreted-as-an-integer/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: 'float' object cannot be interpreted as an integer (Python) \u2014 how to fix", "description": "You passed a float where Python needs a real integer, most often to range(). In Python 3 the / operator always returns a float, even for 10 / 2.", "dateModified": "2026-11-06", "url": "https://errorfix-hollis.github.io/python/python-typeerror-float-object-cannot-be-interpreted-as-an-integer/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: 'float' object cannot be interpreted as an integer", "item": "https://errorfix-hollis.github.io/python/python-typeerror-float-object-cannot-be-interpreted-as-an-integer/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: &#x27;float&#x27; object cannot be interpreted as an integer (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;main.py&quot;, line 3, in &lt;module&gt;
+    for i in range(n / 2):
+TypeError: &#x27;float&#x27; object cannot be interpreted as an integer
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Use integer division <code>//</code> instead of <code>/</code> (<code>range(n // 2)</code>), or convert explicitly with <code>int(x)</code>, <code>round(x)</code> or <code>math.ceil(x)</code>. For NumPy values use <code>int(arr.shape[0] / 2)</code> or <code>//</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Some built-ins only accept integers: <code>range()</code>, <code>list * n</code>, <code>str * n</code>, <code>bytes(n)</code>, <code>chr()</code>, <code>hex()</code>, slice indices, <code>random.randrange()</code> and others. They call the object's <code>__index__</code> method, which <code>float</code> deliberately doesn't have, because <code>2.5</code> has no exact integer meaning. Even <code>4.0</code> is rejected.</p>
+<pre><code class="language-python">range(5.0)      # TypeError
+&quot;-&quot; * 3.0       # TypeError: can't multiply sequence by non-int of type 'float'
+</code></pre>
+<h2 id="cause-1-returns-a-float-in-python-3">Cause 1: <code>/</code> returns a float in Python 3</h2>
+<p>In Python 2, <code>7 / 2</code> was <code>3</code>. In Python 3 it is <code>3.5</code>, and <code>10 / 2</code> is <code>5.0</code> — still a float.</p>
+<pre><code class="language-python">n = 10
+for i in range(n / 2):     # range(5.0) -&gt; TypeError
+    ...
+</code></pre>
+<h2 id="fix-1-use-floor-division">Fix 1: use floor division <code>//</code></h2>
+<pre><code class="language-python">for i in range(n // 2):    # 5
+    ...
+
+mid = len(items) // 2
+left, right = items[:mid], items[mid:]
+</code></pre>
+<p><code>//</code> returns an <code>int</code> when both operands are ints. Note <code>7.0 // 2</code> is still <code>3.0</code> (a float), so if either side might be a float, convert explicitly.</p>
+<h2 id="fix-2-convert-explicitly-choosing-the-rounding-you-want">Fix 2: convert explicitly, choosing the rounding you want</h2>
+<pre><code class="language-python">import math
+
+int(3.7)        # 3   (truncates toward zero)
+round(3.7)      # 4   (banker's rounding: round(2.5) == 2)
+math.floor(3.7) # 3
+math.ceil(3.2)  # 4   (e.g. number of pages)
+
+pages = math.ceil(total_items / per_page)
+for p in range(pages):
+    ...
+</code></pre>
+<p>Pick deliberately: <code>int()</code> silently drops the fraction, which can hide off-by-one bugs.</p>
+<h2 id="cause-2-values-that-came-from-parsing-or-math-functions">Cause 2: values that came from parsing or math functions</h2>
+<p><code>float(input())</code>, <code>json.load()</code> with <code>10.0</code> in the file, <code>math.sqrt()</code>, <code>math.pow()</code> and <code>**</code> with a negative or float exponent all return floats:</p>
+<pre><code class="language-python">side = math.sqrt(area)        # 4.0, a float
+for row in range(side):       # TypeError
+</code></pre>
+<p>Fix: <code>range(int(side))</code>, or use <code>math.isqrt(area)</code> (Python 3.8+), which returns an int.</p>
+<p>If the value comes from user input and should be a whole number, parse it as one: <code>n = int(input())</code>.</p>
+<h2 id="cause-3-numpy-and-pandas-values">Cause 3: NumPy and pandas values</h2>
+<p>NumPy floats (<code>numpy.float64</code>) behave like <code>float</code> here:</p>
+<pre><code class="language-python">import numpy as np
+arr = np.zeros(10)
+half = arr.size / 2            # 5.0
+arr[:half]                     # TypeError: slice indices must be integers
+np.zeros(half)                 # TypeError: 'float' object cannot be interpreted as an integer
+</code></pre>
+<p>Fix with <code>arr.size // 2</code> or <code>int(...)</code>. For <code>np.linspace(0, 1, num)</code>, <code>num</code> must also be an int.</p>
+<p>pandas columns with missing values are stored as <code>float64</code> (NaN is a float), so <code>df["count"].max()</code> may return <code>12.0</code>. Convert with <code>int(...)</code>, or use the nullable integer dtype: <code>df["count"] = df["count"].astype("Int64")</code>.</p>
+<h2 id="cause-4-random-and-time-helpers">Cause 4: <code>random</code> and <code>time</code> helpers</h2>
+<p><code>random.randrange(0, 10.0)</code> and <code>random.sample(population, k=2.0)</code> raise the same family of errors in recent Python versions. Pass ints.</p>
+<h2 id="finding-it-quickly">Finding it quickly</h2>
+<p>The traceback's last line points at the call. Print the type of the suspicious argument:</p>
+<pre><code class="language-python">print(type(n), n)
+</code></pre>
+<p>If it says <code>&lt;class 'float'&gt;</code>, trace it back to the first <code>/</code>, <code>float()</code>, <code>math.*</code> call or JSON value that produced it, and fix it there rather than sprinkling <code>int()</code> everywhere.</p>
+<p class="upd">Last updated 2026-11-06.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-typeerror-int-object-is-not-subscriptable/">TypeError: &#x27;int&#x27; object is not subscriptable</a></li><li><a href="/python/python-typeerror-unsupported-operand-types/">TypeError: unsupported operand type(s) for +: &#x27;int&#x27; and &#x27;str&#x27;</a></li><li><a href="/python/python-valueerror-invalid-literal-for-int-with-base-10/">ValueError: invalid literal for int() with base 10</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

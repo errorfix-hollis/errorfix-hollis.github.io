@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;numpy&#x27; (Python) — how to fix</title>
+<meta name="description" content="NumPy isn&#x27;t installed in the Python environment running your code, or it&#x27;s installed in a different interpreter, venv or Jupyter kernel.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-numpy/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;numpy&#x27; (Python) — how to fix"><meta property="og:description" content="NumPy isn&#x27;t installed in the Python environment running your code, or it&#x27;s installed in a different interpreter, venv or Jupyter kernel.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-numpy/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'numpy' (Python) \u2014 how to fix", "description": "NumPy isn't installed in the Python environment running your code, or it's installed in a different interpreter, venv or Jupyter kernel.", "dateModified": "2026-11-13", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-numpy/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'numpy'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-numpy/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;numpy&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;script.py&quot;, line 1, in &lt;module&gt;
+    import numpy as np
+ModuleNotFoundError: No module named &#x27;numpy&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>python -m pip install numpy</code> with the same <code>python</code> you use to run the script (activate your venv first). In Jupyter use <code>%pip install numpy</code>. With conda: <code>conda install numpy</code>. Check with <code>python -c "import numpy; print(numpy.__file__)"</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>NumPy is a third-party package. Python searched the <code>site-packages</code> of the interpreter that is running and didn't find it. Usually it's either not installed at all, or installed for a <em>different</em> Python.</p>
+<p>Check which Python you are using:</p>
+<pre><code class="language-bash">python -c &quot;import sys; print(sys.executable)&quot;
+python -m pip show numpy
+</code></pre>
+<h2 id="cause-1-not-installed">Cause 1: not installed</h2>
+<pre><code class="language-bash">python -m pip install numpy
+</code></pre>
+<p>Use <code>python3 -m pip</code> on Linux/macOS if <code>python</code> isn't Python 3, or <code>py -m pip install numpy</code> on Windows. Installing via <code>python -m pip</code> avoids the classic mismatch where <code>pip</code> belongs to another Python.</p>
+<h2 id="cause-2-wrong-environment-venv-conda-multiple-pythons">Cause 2: wrong environment (venv, conda, multiple Pythons)</h2>
+<pre><code class="language-bash">source .venv/bin/activate       # Windows: .venv\Scripts\activate
+python -m pip install numpy
+</code></pre>
+<p>With conda, install into the active env:</p>
+<pre><code class="language-bash">conda activate myenv
+conda install numpy
+</code></pre>
+<p>If <code>which python</code> (or <code>where python</code> on Windows) points somewhere unexpected, your shell isn't using the env you think.</p>
+<h2 id="cause-3-jupyter-kernel-is-a-different-python">Cause 3: Jupyter kernel is a different Python</h2>
+<p><code>!pip install numpy</code> in a notebook can install into the wrong environment. Use the magic, which targets the running kernel:</p>
+<pre><code class="language-python">%pip install numpy
+</code></pre>
+<p>Then restart the kernel. Or register your venv as a kernel:</p>
+<pre><code class="language-bash">python -m pip install ipykernel
+python -m ipykernel install --user --name myenv
+</code></pre>
+<h2 id="cause-4-ide-interpreter">Cause 4: IDE interpreter</h2>
+<p>VS Code: <code>Ctrl+Shift+P</code> → <em>Python: Select Interpreter</em>. PyCharm: Settings → Project → Python Interpreter. Pick the environment where NumPy is installed.</p>
+<h2 id="cause-5-running-from-inside-the-numpy-source-tree-or-a-numpypy-file">Cause 5: running from inside the NumPy source tree, or a numpy.py file</h2>
+<p>A local file named <code>numpy.py</code> shadows the real package. If you cloned the NumPy repo, running Python from its root gives import errors too. Rename the file / <code>cd</code> elsewhere and clear <code>__pycache__</code>.</p>
+<h2 id="cause-6-install-fails-on-a-new-python-version">Cause 6: install fails on a new Python version</h2>
+<p>Brand-new Python releases sometimes don't have NumPy wheels yet, so pip tries to compile from source and fails (see <a href="/python/python-failed-building-wheel/">failed building wheel</a>). Upgrade pip first so it can find wheels, or use a supported Python version:</p>
+<pre><code class="language-bash">python -m pip install --upgrade pip
+python -m pip install numpy
+</code></pre>
+<p>On system Python in Debian/Ubuntu, pip may be blocked by <a href="/python/python-externally-managed-environment/">externally-managed-environment</a>; use a venv or <code>sudo apt install python3-numpy</code>.</p>
+<h2 id="related-numpycoremultiarray-failed-to-import">Related: "numpy.core.multiarray failed to import"</h2>
+<p>That's a different problem — a package compiled against NumPy 1.x running on NumPy 2.x. Upgrade the dependent package (e.g. <code>pip install -U opencv-python pandas</code>) or pin <code>pip install "numpy&lt;2"</code>.</p>
+<p class="upd">Last updated 2026-11-13.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-externally-managed-environment/">error: externally-managed-environment</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-sklearn/">ModuleNotFoundError: No module named &#x27;sklearn&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

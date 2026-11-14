@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TS2564: Property &#x27;x&#x27; has no initializer and is not definitely assigned in the constructor. (TypeScript) — how to fix</title>
+<meta name="description" content="With strictPropertyInitialization (part of strict mode), TypeScript requires every non-optional class property to be assigned in its declaration or the constructor.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-ts2564-property-has-no-initializer/">
+<meta property="og:title" content="TS2564: Property &#x27;x&#x27; has no initializer and is not definitely assigned in the constructor. (TypeScript) — how to fix"><meta property="og:description" content="With strictPropertyInitialization (part of strict mode), TypeScript requires every non-optional class property to be assigned in its declaration or the constructor.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-ts2564-property-has-no-initializer/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TS2564: Property 'x' has no initializer and is not definitely assigned in the constructor. (TypeScript) \u2014 how to fix", "description": "With strictPropertyInitialization (part of strict mode), TypeScript requires every non-optional class property to be assigned in its declaration or the constructor.", "dateModified": "2026-11-14", "url": "https://errorfix-hollis.github.io/javascript/js-ts2564-property-has-no-initializer/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "TS2564: Property 'x' has no initializer and is not definitely assigned in the constructor.", "item": "https://errorfix-hollis.github.io/javascript/js-ts2564-property-has-no-initializer/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>TS2564: Property &#x27;x&#x27; has no initializer and is not definitely assigned in the constructor. (TypeScript) — how to fix</h1>
+<pre class="err"><code>src/app/user.component.ts:9:3 - error TS2564: Property &#x27;name&#x27; has no initializer and is not definitely assigned in the constructor.
+
+9   name: string;
+    ~~~~
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Give it a value (<code>name = ''</code>), assign it in the constructor, make it optional (<code>name?: string</code>) or allow undefined (<code>name: string | undefined</code>). If a framework sets it later (Angular @Input/@ViewChild, TypeORM, class-validator DTOs) use the definite assignment assertion: <code>name!: string</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>With <code>"strict": true</code> (or <code>"strictPropertyInitialization": true</code>, which also needs <code>strictNullChecks</code>) TypeScript checks that every class property whose type doesn't include <code>undefined</code> actually gets a value by the end of the constructor:</p>
+<pre><code class="language-ts">class User {
+  name: string;            // TS2564
+  constructor() {}
+}
+</code></pre>
+<p>Otherwise <code>new User().name</code> would be <code>undefined</code> at runtime even though the type says <code>string</code>. Pick the fix that matches how the property gets its value.</p>
+<h2 id="fix-1-initialise-it">Fix 1: initialise it</h2>
+<pre><code class="language-ts">class User {
+  name = &quot;&quot;;
+  tags: string[] = [];
+  createdAt = new Date();
+}
+</code></pre>
+<h2 id="fix-2-assign-it-in-the-constructor">Fix 2: assign it in the constructor</h2>
+<pre><code class="language-ts">class User {
+  name: string;
+  constructor(name: string) {
+    this.name = name;
+  }
+}
+
+// shorter: parameter property
+class User {
+  constructor(public name: string) {}
+}
+</code></pre>
+<p>Assignments in a helper method called from the constructor (<code>this.init()</code>) don't count; TypeScript only looks at the constructor body itself.</p>
+<h2 id="fix-3-make-it-optional-or-nullable">Fix 3: make it optional or nullable</h2>
+<p>If it can legitimately be missing, say so in the type:</p>
+<pre><code class="language-ts">class User {
+  nickname?: string;              // string | undefined
+  manager: User | null = null;
+}
+</code></pre>
+<p>You'll then need to handle <code>undefined</code> where you use it (see <a href="/javascript/js-ts2532-object-is-possibly-undefined/">TS2532 Object is possibly undefined</a>).</p>
+<h2 id="fix-4-definite-assignment-assertion-framework-set-properties">Fix 4: definite assignment assertion <code>!</code> (framework-set properties)</h2>
+<p>When something outside the constructor sets the property before it's used, tell TypeScript with <code>!</code>:</p>
+<p><strong>Angular:</strong></p>
+<pre><code class="language-ts">@Input() user!: User;
+@ViewChild(&quot;canvas&quot;) canvas!: ElementRef&lt;HTMLCanvasElement&gt;;
+form!: FormGroup;                 // created in ngOnInit
+</code></pre>
+<p>With Angular 17.1+ signal inputs you can avoid it: <code>user = input.required&lt;User&gt;();</code>.</p>
+<p><strong>TypeORM / MikroORM entities:</strong></p>
+<pre><code class="language-ts">@Entity()
+export class Post {
+  @PrimaryGeneratedColumn() id!: number;
+  @Column() title!: string;
+}
+</code></pre>
+<p><strong>NestJS DTOs with class-validator:</strong></p>
+<pre><code class="language-ts">export class CreateUserDto {
+  @IsEmail() email!: string;
+}
+</code></pre>
+<p><code>!</code> turns the check off for that one property only, so if nothing assigns it you get <code>undefined</code> at runtime. Use it only when the framework guarantees the value.</p>
+<h2 id="fix-5-turn-the-check-off-last-resort">Fix 5: turn the check off (last resort)</h2>
+<pre><code class="language-json">{
+  &quot;compilerOptions&quot;: {
+    &quot;strict&quot;: true,
+    &quot;strictPropertyInitialization&quot;: false
+  }
+}
+</code></pre>
+<p>This disables the check for the whole project. Prefer <code>!</code> on specific properties.</p>
+<h2 id="note-on-usedefineforclassfields">Note on <code>useDefineForClassFields</code></h2>
+<p>With <code>target</code> ES2022 or later, <code>useDefineForClassFields</code> defaults to <code>true</code>, so a declared-but-unassigned field is initialised to <code>undefined</code> by JavaScript itself, which can <strong>overwrite</strong> values set by a base class or decorators. If you just need a type annotation for a property set elsewhere, use <code>declare</code>:</p>
+<pre><code class="language-ts">class Dog extends Animal {
+  declare owner: Person;    // no runtime field emitted, no TS2564
+}
+</code></pre>
+<p class="upd">Last updated 2026-11-14.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-ts2322-type-is-not-assignable-to-type/">TS2322: Type &#x27;X&#x27; is not assignable to type &#x27;Y&#x27;</a></li><li><a href="/javascript/js-ts2339-property-does-not-exist-on-type/">Property &#x27;x&#x27; does not exist on type &#x27;Y&#x27;</a></li><li><a href="/javascript/js-ts2532-object-is-possibly-undefined/">Object is possibly &#x27;undefined&#x27;. ts(2532)</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

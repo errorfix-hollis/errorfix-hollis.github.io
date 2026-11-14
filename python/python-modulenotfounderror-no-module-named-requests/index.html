@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;requests&#x27; (Python) — how to fix</title>
+<meta name="description" content="requests is a third-party package, not part of the standard library. It isn&#x27;t installed in the Python interpreter (or virtualenv) that is running your script.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-requests/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;requests&#x27; (Python) — how to fix"><meta property="og:description" content="requests is a third-party package, not part of the standard library. It isn&#x27;t installed in the Python interpreter (or virtualenv) that is running your script.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-requests/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'requests' (Python) \u2014 how to fix", "description": "requests is a third-party package, not part of the standard library. It isn't installed in the Python interpreter (or virtualenv) that is running your script.", "dateModified": "2026-11-13", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-requests/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'requests'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-requests/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;requests&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;main.py&quot;, line 1, in &lt;module&gt;
+    import requests
+ModuleNotFoundError: No module named &#x27;requests&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install it into the interpreter you actually run: <code>python -m pip install requests</code> (or <code>python3 -m pip install requests</code>). If you use a venv, activate it first. On Debian/Ubuntu system Python, use a venv or <code>sudo apt install python3-requests</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>import requests</code> looks for the package in the <code>site-packages</code> of the Python that is running. <code>requests</code> has shipped with Python 2 era distros and many tools, so people assume it is built in — it isn't. Python 3 needs it installed separately, <em>per interpreter</em>.</p>
+<p>First find out which Python runs your code:</p>
+<pre><code class="language-bash">python -c &quot;import sys; print(sys.executable)&quot;
+python -m pip --version     # shows which Python this pip belongs to
+</code></pre>
+<p>If those two paths disagree with where you ran <code>pip install</code>, that's the bug.</p>
+<h2 id="cause-1-its-simply-not-installed">Cause 1: it's simply not installed</h2>
+<pre><code class="language-bash">python -m pip install requests
+</code></pre>
+<p>Use <code>python -m pip</code> instead of bare <code>pip</code>: it guarantees the package goes into the same interpreter that <code>python</code> starts. On systems where <code>python</code> is Python 2 or missing, use <code>python3 -m pip install requests</code>. On Windows, <code>py -m pip install requests</code>.</p>
+<h2 id="cause-2-installed-in-a-different-environment">Cause 2: installed in a different environment</h2>
+<p>Common with virtualenvs, conda and multiple Python versions:</p>
+<pre><code class="language-bash"># venv
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install requests
+python main.py
+
+# conda
+conda activate myenv
+conda install requests             # or: python -m pip install requests
+</code></pre>
+<p>If you installed with <code>pip3.11</code> but run <code>python3.12</code>, the package is invisible. Always install with the same interpreter: <code>python3.12 -m pip install requests</code>.</p>
+<h2 id="cause-3-vs-code-pycharm-jupyter-uses-another-interpreter">Cause 3: VS Code / PyCharm / Jupyter uses another interpreter</h2>
+<p>The editor's "Run" button may use a different Python than your terminal.</p>
+<ul>
+<li><strong>VS Code</strong>: <code>Ctrl+Shift+P</code> → <em>Python: Select Interpreter</em> → pick your <code>.venv</code>.</li>
+<li><strong>PyCharm</strong>: Settings → Project → Python Interpreter.</li>
+<li><strong>Jupyter</strong>: install into the kernel itself from a cell:</li>
+</ul>
+<pre><code class="language-python">%pip install requests
+</code></pre>
+<p><code>%pip</code> (not <code>!pip</code>) targets the running kernel's environment.</p>
+<h2 id="cause-4-externally-managed-environment-stopped-the-install">Cause 4: "externally-managed-environment" stopped the install</h2>
+<p>On Ubuntu 23.04+, Debian 12+ and recent Homebrew Python, <code>pip install requests</code> into the system Python is blocked, so it was never installed. Use a venv (Cause 2), <code>pipx</code> for CLI tools, or the distro package:</p>
+<pre><code class="language-bash">sudo apt install python3-requests
+</code></pre>
+<p>See <a href="/python/python-externally-managed-environment/">externally-managed-environment</a>.</p>
+<h2 id="cause-5-a-file-named-requestspy">Cause 5: a file named requests.py</h2>
+<p>If your project has a file called <code>requests.py</code> (or a folder <code>requests/</code>), Python may import that instead, giving <code>ModuleNotFoundError</code> for submodules or <code>AttributeError: module 'requests' has no attribute 'get'</code>. Rename it and delete <code>__pycache__</code>.</p>
+<h2 id="cause-6-docker-image-or-ci-doesnt-install-it">Cause 6: Docker image or CI doesn't install it</h2>
+<p>Add it to <code>requirements.txt</code> and install during build:</p>
+<pre><code class="language-dockerfile">COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+</code></pre>
+<p>Verify the fix:</p>
+<pre><code class="language-bash">python -c &quot;import requests; print(requests.__version__)&quot;
+</code></pre>
+<p class="upd">Last updated 2026-11-13.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-externally-managed-environment/">error: externally-managed-environment</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-pip-command-not-found/">pip: command not found</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

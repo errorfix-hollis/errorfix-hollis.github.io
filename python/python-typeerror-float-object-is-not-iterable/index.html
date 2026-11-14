@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: &#x27;float&#x27; object is not iterable (Python) — how to fix</title>
+<meta name="description" content="Python tried to loop over, unpack or call sum()/list()/max() on a single float. You meant to iterate over a list (or a range) but have one number.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-float-object-is-not-iterable/">
+<meta property="og:title" content="TypeError: &#x27;float&#x27; object is not iterable (Python) — how to fix"><meta property="og:description" content="Python tried to loop over, unpack or call sum()/list()/max() on a single float. You meant to iterate over a list (or a range) but have one number.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-float-object-is-not-iterable/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: 'float' object is not iterable (Python) \u2014 how to fix", "description": "Python tried to loop over, unpack or call sum()/list()/max() on a single float. You meant to iterate over a list (or a range) but have one number.", "dateModified": "2026-11-06", "url": "https://errorfix-hollis.github.io/python/python-typeerror-float-object-is-not-iterable/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: 'float' object is not iterable", "item": "https://errorfix-hollis.github.io/python/python-typeerror-float-object-is-not-iterable/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: &#x27;float&#x27; object is not iterable (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;main.py&quot;, line 4, in &lt;module&gt;
+    for x in total:
+TypeError: &#x27;float&#x27; object is not iterable
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Loop over the collection, not the number: <code>for i in range(int(n))</code> or <code>for x in values</code>. For <code>sum(a, b)</code>/<code>max(x)</code> pass a list: <code>sum([a, b])</code>. Check <code>type(x)</code> — a pandas column with NaN or a function that returns a single float is a common source.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Iterating means asking an object for its items one by one. Lists, tuples, strings, dicts, sets, ranges and generators can do that; a <code>float</code> is a single number and can't. Anything that iterates implicitly raises this error when given a float:</p>
+<ul>
+<li><code>for x in value:</code></li>
+<li><code>a, b = value</code> (unpacking)</li>
+<li><code>list(value)</code>, <code>tuple(value)</code>, <code>set(value)</code></li>
+<li><code>sum(value)</code>, <code>max(value)</code>, <code>min(value)</code>, <code>sorted(value)</code></li>
+<li><code>x in value</code>, <code>"".join(value)</code>, <code>zip(value, ...)</code></li>
+</ul>
+<h2 id="cause-1-looping-over-a-number-instead-of-a-range">Cause 1: looping over a number instead of a range</h2>
+<pre><code class="language-python">n = 5.0
+for i in n:            # TypeError
+    ...
+</code></pre>
+<p>Fix: wrap the count in <code>range()</code>, which also needs an int:</p>
+<pre><code class="language-python">for i in range(int(n)):
+    ...
+</code></pre>
+<h2 id="cause-2-sum-max-min-called-with-separate-numbers">Cause 2: <code>sum()</code>, <code>max()</code>, <code>min()</code> called with separate numbers</h2>
+<p><code>sum()</code> takes an iterable, not several arguments:</p>
+<pre><code class="language-python">sum(3.5, 2.0)          # TypeError: 'float' object is not iterable
+sum([3.5, 2.0])        # 5.5
+</code></pre>
+<p><code>max()</code>/<code>min()</code> accept either several arguments or one iterable — but not one float:</p>
+<pre><code class="language-python">max(3.5)               # TypeError
+max(3.5, 2.0)          # 3.5
+max([3.5])             # 3.5
+</code></pre>
+<h2 id="cause-3-a-variable-was-overwritten-with-a-float">Cause 3: a variable was overwritten with a float</h2>
+<p>Common when an accumulator reuses the name of the list:</p>
+<pre><code class="language-python">prices = [9.99, 4.50, 3.25]
+for prices in prices:   # after the loop, prices is 3.25
+    ...
+total = sum(prices)     # TypeError
+</code></pre>
+<p>Use distinct names: <code>for price in prices:</code>.</p>
+<p>Same thing when a function sometimes returns a list and sometimes a single float. Make it always return a list (<code>return [value]</code>).</p>
+<h2 id="cause-4-unpacking-a-single-value">Cause 4: unpacking a single value</h2>
+<pre><code class="language-python">lat, lon = get_location()   # returns 52.37 instead of (52.37, 4.89)
+</code></pre>
+<p>Fix the function to return a tuple, or check what it actually returns with <code>print(repr(get_location()))</code>.</p>
+<h2 id="cause-5-pandas-nan-is-a-float">Cause 5: pandas — NaN is a float</h2>
+<p>Missing values in pandas are <code>float('nan')</code>. If a column holds lists or strings and some rows are missing, an <code>apply</code> that iterates over each cell blows up on the NaN rows:</p>
+<pre><code class="language-python">df[&quot;tags&quot;].apply(lambda tags: &quot;, &quot;.join(tags))   # TypeError on NaN rows
+</code></pre>
+<p>Handle the missing case:</p>
+<pre><code class="language-python">df[&quot;tags&quot;].apply(lambda t: &quot;, &quot;.join(t) if isinstance(t, list) else &quot;&quot;)
+# or drop / fill first
+df[&quot;tags&quot;] = df[&quot;tags&quot;].apply(lambda t: t if isinstance(t, list) else [])
+</code></pre>
+<p>Also watch for <code>for x in df["price"].sum():</code> — <code>.sum()</code> returns a single float.</p>
+<h2 id="cause-6-wrong-json-shape">Cause 6: wrong JSON shape</h2>
+<p><code>data["score"]</code> might be <code>4.5</code> in one response and <code>[4.5, 3.0]</code> in another. Normalise it:</p>
+<pre><code class="language-python">scores = data[&quot;score&quot;]
+if not isinstance(scores, (list, tuple)):
+    scores = [scores]
+</code></pre>
+<h2 id="debugging">Debugging</h2>
+<p>Print the type just before the failing line:</p>
+<pre><code class="language-python">print(type(value), repr(value))
+</code></pre>
+<p>Then trace where that variable was last assigned. The fix is almost always to pass the list that holds the float, not the float itself.</p>
+<p class="upd">Last updated 2026-11-06.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-typeerror-float-object-cannot-be-interpreted-as-an-integer/">TypeError: &#x27;float&#x27; object cannot be interpreted as an integer</a></li><li><a href="/python/python-typeerror-nonetype-object-is-not-iterable/">TypeError: &#x27;NoneType&#x27; object is not iterable</a></li><li><a href="/python/python-valueerror-too-many-values-to-unpack/">ValueError: too many values to unpack (expected 2)</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

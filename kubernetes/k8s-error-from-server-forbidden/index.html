@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error from server (Forbidden): User cannot list resource in API group at the cluster scope (Kubernetes) — how to fix</title>
+<meta name="description" content="Kubernetes authenticated you, but RBAC doesn&#x27;t grant your user or service account the verb (get, list, create...) on that resource in that namespace. Fix the Role/ClusterRole and binding, or use the right namespace or context.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-error-from-server-forbidden/">
+<meta property="og:title" content="Error from server (Forbidden): User cannot list resource in API group at the cluster scope (Kubernetes) — how to fix"><meta property="og:description" content="Kubernetes authenticated you, but RBAC doesn&#x27;t grant your user or service account the verb (get, list, create...) on that resource in that namespace. Fix the Role/ClusterRole and binding, or use the right namespace or context.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-error-from-server-forbidden/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error from server (Forbidden): User cannot list resource in API group at the cluster scope (Kubernetes) \u2014 how to fix", "description": "Kubernetes authenticated you, but RBAC doesn't grant your user or service account the verb (get, list, create...) on that resource in that namespace. Fix the Role/ClusterRole and binding, or use the right namespace or context.", "dateModified": "2026-10-31", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-error-from-server-forbidden/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "Error from server (Forbidden): User cannot list resource in API group at the cluster scope", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-error-from-server-forbidden/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>Error from server (Forbidden): User cannot list resource in API group at the cluster scope (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Error from server (Forbidden): pods is forbidden: User &quot;jane@example.com&quot; cannot list resource &quot;pods&quot; in API group &quot;&quot; in the namespace &quot;default&quot;
+Error from server (Forbidden): nodes is forbidden: User &quot;system:serviceaccount:ci:deployer&quot; cannot list resource &quot;nodes&quot; in API group &quot;&quot; at the cluster scope
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check with <code>kubectl auth can-i list pods -n &lt;ns&gt;</code> and <code>kubectl config current-context</code>. Grant access: <code>kubectl create role pod-reader --verb=get,list,watch --resource=pods -n &lt;ns&gt;</code> then <code>kubectl create rolebinding pod-reader-binding --role=pod-reader --user=&lt;user&gt; -n &lt;ns&gt;</code> (or <code>--serviceaccount=&lt;ns&gt;:&lt;sa&gt;</code>). Use a ClusterRole + ClusterRoleBinding for cluster-scoped resources like nodes.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The message tells you exactly what's missing:</p>
+<pre><code>User &quot;system:serviceaccount:ci:deployer&quot; cannot list resource &quot;nodes&quot; in API group &quot;&quot; at the cluster scope
+      ^ who                                    ^ verb        ^ resource  ^ group  ^ where
+</code></pre>
+<p>API group <code>""</code> is the core group (pods, services, configmaps, secrets, nodes). Deployments are in <code>apps</code>, Ingresses in <code>networking.k8s.io</code>. The request passed authentication; it failed <strong>authorisation</strong> (RBAC). An authentication problem would say <code>Unauthorized</code> instead.</p>
+<h2 id="step-1-confirm-who-you-are-and-where">Step 1: confirm who you are and where</h2>
+<pre><code class="language-bash">kubectl config current-context
+kubectl config view --minify -o jsonpath='{..namespace}'; echo
+kubectl auth whoami          # kubectl 1.28+
+kubectl auth can-i list pods -n default
+kubectl auth can-i --list -n default
+</code></pre>
+<p>Often the fix is just the namespace: you have rights in <code>team-a</code>, but your context defaults to <code>default</code>. Use <code>-n team-a</code> or:</p>
+<pre><code class="language-bash">kubectl config set-context --current --namespace=team-a
+</code></pre>
+<h2 id="fix-2-grant-a-namespaced-role">Fix 2: grant a namespaced Role</h2>
+<p>For resources inside a namespace (pods, deployments, secrets):</p>
+<pre><code class="language-bash">kubectl create role pod-reader --verb=get,list,watch --resource=pods -n team-a
+kubectl create rolebinding pod-reader-binding --role=pod-reader --user=jane@example.com -n team-a
+</code></pre>
+<p>For a service account, bind with <code>--serviceaccount=&lt;namespace&gt;:&lt;name&gt;</code>:</p>
+<pre><code class="language-bash">kubectl create rolebinding deployer-edit --clusterrole=edit --serviceaccount=ci:deployer -n team-a
+</code></pre>
+<p>Binding a built-in ClusterRole (<code>view</code>, <code>edit</code>, <code>admin</code>) with a RoleBinding limits it to that namespace — a common, convenient pattern.</p>
+<h2 id="fix-3-cluster-scoped-resources">Fix 3: cluster-scoped resources</h2>
+<p>Nodes, namespaces, PersistentVolumes, CRDs and ClusterRoles aren't namespaced, so a Role can't grant them. Use a ClusterRole and ClusterRoleBinding:</p>
+<pre><code class="language-bash">kubectl create clusterrole node-reader --verb=get,list,watch --resource=nodes
+kubectl create clusterrolebinding node-reader-binding --clusterrole=node-reader --serviceaccount=ci:deployer
+</code></pre>
+<h2 id="fix-4-pods-calling-the-api">Fix 4: pods calling the API</h2>
+<p>An app running in a pod uses its service account (<code>default</code> unless set). Give it its own:</p>
+<pre><code class="language-yaml">apiVersion: v1
+kind: ServiceAccount
+metadata: { name: deployer, namespace: ci }
+---
+# in the Pod/Deployment spec
+spec:
+  serviceAccountName: deployer
+</code></pre>
+<p>then bind a role to <code>ci:deployer</code> as above. Test as that account:</p>
+<pre><code class="language-bash">kubectl auth can-i list pods -n team-a --as=system:serviceaccount:ci:deployer
+</code></pre>
+<h2 id="fix-5-managed-clusters-eks-gke-aks">Fix 5: managed clusters (EKS, GKE, AKS)</h2>
+<ul>
+<li><strong>EKS</strong>: your IAM identity must be mapped to a Kubernetes user/group (access entries, or the <code>aws-auth</code> ConfigMap in older setups). Check which IAM identity you're using with <code>aws sts get-caller-identity</code>.</li>
+<li><strong>GKE</strong>: IAM roles like "Kubernetes Engine Developer" grant API access in addition to RBAC.</li>
+<li><strong>AKS</strong> with Azure RBAC: role assignments are done in Azure (<code>az role assignment create</code>).</li>
+</ul>
+<h2 id="least-privilege">Least privilege</h2>
+<p>Avoid "fixing" this with <code>cluster-admin</code>. Grant only the verbs and resources needed, and prefer namespaced RoleBindings.</p>
+<p class="upd">Last updated 2026-10-31.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-imagepullbackoff/">ImagePullBackOff / ErrImagePull</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li><li><a href="/kubernetes/k8s-error-converting-yaml-to-json-mapping-values-are-not-allowed/">error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

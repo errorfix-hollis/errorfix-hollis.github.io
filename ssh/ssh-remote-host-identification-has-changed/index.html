@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED! (SSH) — how to fix</title>
+<meta name="description" content="The server&#x27;s host key differs from the one saved in known_hosts. If you know why (reinstalled server, new IP owner), remove the old key with ssh-keygen -R.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/ssh/ssh-remote-host-identification-has-changed/">
+<meta property="og:title" content="WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED! (SSH) — how to fix"><meta property="og:description" content="The server&#x27;s host key differs from the one saved in known_hosts. If you know why (reinstalled server, new IP owner), remove the old key with ssh-keygen -R.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/ssh/ssh-remote-host-identification-has-changed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED! (SSH) \u2014 how to fix", "description": "The server's host key differs from the one saved in known_hosts. If you know why (reinstalled server, new IP owner), remove the old key with ssh-keygen -R.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/ssh/ssh-remote-host-identification-has-changed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "SSH", "item": "https://errorfix-hollis.github.io/ssh/"}, {"@type": "ListItem", "position": 3, "name": "WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!", "item": "https://errorfix-hollis.github.io/ssh/ssh-remote-host-identification-has-changed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/ssh/">SSH</a></p>
+<article><h1>WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED! (SSH) — how to fix</h1>
+<pre class="err"><code>@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!
+Host key verification failed.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> If the server was rebuilt or the IP reused, run <code>ssh-keygen -R hostname</code> (or the IP), then connect again and verify the new fingerprint. If you don't know why it changed, stop and investigate.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The first time you connected, SSH saved the server's host key in <code>~/.ssh/known_hosts</code>. This time the server presented a <strong>different</strong> key. That's what a man-in-the-middle attack looks like, so SSH refuses to connect.</p>
+<h2 id="harmless-reasons">Harmless reasons</h2>
+<ul>
+<li>The server was reinstalled or rebuilt (new host keys are generated).</li>
+<li>A cloud IP address or hostname now points to a different machine.</li>
+<li>A router, Raspberry Pi or VM got a new DHCP address that previously belonged to another device.</li>
+</ul>
+<p>If one of these applies, you can safely replace the stored key.</p>
+<h2 id="fix">Fix</h2>
+<pre><code class="language-bash">ssh-keygen -R server.example.com
+ssh-keygen -R 203.0.113.10        # also remove the IP entry if you connect by IP
+ssh user@server.example.com
+</code></pre>
+<p>SSH then shows the new fingerprint and asks you to confirm. If possible, compare it with the fingerprint printed on the server's console:</p>
+<pre><code class="language-bash">ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub     # run on the server
+</code></pre>
+<p>For a non-standard port: <code>ssh-keygen -R '[server.example.com]:2222'</code>.</p>
+<h2 id="dont-do-this">Don't do this</h2>
+<p>Disabling the check (<code>StrictHostKeyChecking no</code>, <code>UserKnownHostsFile /dev/null</code>) hides real attacks. It's acceptable for short-lived test VMs, not for real servers.</p>
+<h2 id="github">GitHub</h2>
+<p>GitHub rotated its RSA host key in March 2023. If you see this error for <code>github.com</code>, run <code>ssh-keygen -R github.com</code> and reconnect; the new fingerprints are listed in GitHub's documentation.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/ssh/ssh-permission-denied-publickey/">Permission denied (publickey)</a></li><li><a href="/ssh/ssh-connect-to-host-port-22-connection-refused/">ssh: connect to host port 22: Connection refused</a></li><li><a href="/ssh/ssh-connection-closed-by-remote-host/">Connection closed by remote host</a></li><li><a href="/ssh/ssh-connection-timed-out/">ssh: connect to host port 22: Connection timed out</a></li><li><a href="/ssh/ssh-host-key-verification-failed/">Host key verification failed.</a></li><li><a href="/ssh/ssh-kex-exchange-identification-connection-closed/">kex_exchange_identification: Connection closed by remote host</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

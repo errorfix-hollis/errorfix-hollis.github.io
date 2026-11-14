@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error: Cannot find module (Node.js) — how to fix</title>
+<meta name="description" content="Node can&#x27;t find a package or file you required. Install the dependency, fix the path, or check you&#x27;re running from the right folder.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/node-cannot-find-module/">
+<meta property="og:title" content="Error: Cannot find module (Node.js) — how to fix"><meta property="og:description" content="Node can&#x27;t find a package or file you required. Install the dependency, fix the path, or check you&#x27;re running from the right folder.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/node-cannot-find-module/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error: Cannot find module (Node.js) \u2014 how to fix", "description": "Node can't find a package or file you required. Install the dependency, fix the path, or check you're running from the right folder.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/npm/node-cannot-find-module/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "Error: Cannot find module", "item": "https://errorfix-hollis.github.io/npm/node-cannot-find-module/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>Error: Cannot find module (Node.js) — how to fix</h1>
+<pre class="err"><code>node:internal/modules/cjs/loader:1228
+  throw err;
+  ^
+
+Error: Cannot find module &#x27;express&#x27;
+Require stack:
+- /home/user/app/index.js
+code: &#x27;MODULE_NOT_FOUND&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> If the name is a package (like <code>express</code>), run <code>npm install express</code>. If it's a path (like <code>./utils</code>), check spelling, case and the file extension.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>require()</code> (or the entry file you passed to <code>node</code>) points to something that doesn't exist where Node looks.</p>
+<h2 id="case-1-a-package-name-eg-cannot-find-module-express">Case 1: a package name, e.g. <code>Cannot find module 'express'</code></h2>
+<p>The package isn't installed in this project's <code>node_modules</code>.</p>
+<pre><code class="language-bash">npm install express
+</code></pre>
+<p>If it <strong>is</strong> listed in <code>package.json</code>, your <code>node_modules</code> is missing or broken:</p>
+<pre><code class="language-bash">rm -rf node_modules
+npm install
+</code></pre>
+<p>Also check that you're running the command in the folder that contains <code>package.json</code>.</p>
+<h2 id="case-2-a-relative-path-eg-cannot-find-module-utils">Case 2: a relative path, e.g. <code>Cannot find module './utils'</code></h2>
+<ul>
+<li>Check spelling and <strong>case</strong>. macOS and Windows ignore case, Linux (and most servers and CI) don't: <code>./Utils.js</code> ≠ <code>./utils.js</code>.</li>
+<li>The path is relative to the file doing the <code>require</code>, not to your terminal's folder.</li>
+<li>Check that the file exists: <code>ls ./utils.js</code>.</li>
+</ul>
+<h2 id="case-3-the-script-itself-eg-cannot-find-module-homeuserappserverjs">Case 3: the script itself, e.g. <code>Cannot find module '/home/user/app/server.js'</code></h2>
+<p>You ran <code>node server.js</code> (or <code>npm start</code>) from the wrong directory, or the <code>main</code>/<code>start</code> entry in <code>package.json</code> points to a missing file. If you use TypeScript, you may need to build first (<code>npm run build</code>) so the <code>dist/</code> files exist.</p>
+<h2 id="case-4-a-global-package">Case 4: a global package</h2>
+<p>Globally installed packages can't be <code>require</code>d from your project. Install it locally (<code>npm install name</code>) instead of with <code>-g</code>.</p>
+<h2 id="case-5-docker">Case 5: Docker</h2>
+<p>If <code>node_modules</code> exists on your machine but not in the container, make sure your Dockerfile runs <code>npm ci</code> and that a volume mount isn't hiding <code>/app/node_modules</code>. A common fix is an extra anonymous volume: <code>-v /app/node_modules</code>.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li><li><a href="/npm/npm-eresolve-unable-to-resolve-dependency-tree/">npm ERR! code ERESOLVE unable to resolve dependency tree</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-require-esm/">Error [ERR_REQUIRE_ESM]: require() of ES Module not supported</a></li><li><a href="/npm/node-error-listen-eaddrinuse-address-already-in-use/">Error: listen EADDRINUSE: address already in use :::3000</a></li><li><a href="/npm/node-javascript-heap-out-of-memory/">FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>413 Request Entity Too Large (nginx) — how to fix</title>
+<meta name="description" content="The upload is bigger than nginx allows (1 MB by default). Raise client_max_body_size, and the limit in your app or PHP too.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-nginx-413-request-entity-too-large/">
+<meta property="og:title" content="413 Request Entity Too Large (nginx) — how to fix"><meta property="og:description" content="The upload is bigger than nginx allows (1 MB by default). Raise client_max_body_size, and the limit in your app or PHP too.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-nginx-413-request-entity-too-large/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "413 Request Entity Too Large (nginx) \u2014 how to fix", "description": "The upload is bigger than nginx allows (1 MB by default). Raise client_max_body_size, and the limit in your app or PHP too.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/web/web-nginx-413-request-entity-too-large/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "413 Request Entity Too Large (nginx)", "item": "https://errorfix-hollis.github.io/web/web-nginx-413-request-entity-too-large/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>413 Request Entity Too Large (nginx) — how to fix</h1>
+<pre class="err"><code>413 Request Entity Too Large (nginx)</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Add <code>client_max_body_size 50M;</code> to the <code>http</code>, <code>server</code> or <code>location</code> block, then <code>sudo nginx -t &amp;&amp; sudo systemctl reload nginx</code>. For PHP also raise <code>upload_max_filesize</code> and <code>post_max_size</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>nginx rejects request bodies larger than <code>client_max_body_size</code>, which defaults to <strong>1 MB</strong>. Any upload bigger than that gets a 413 before it reaches your app.</p>
+<h2 id="fix-in-nginx">Fix in nginx</h2>
+<pre><code class="language-nginx">server {
+    client_max_body_size 50M;
+    ...
+}
+</code></pre>
+<p>You can put it in <code>http { }</code> (all sites), <code>server { }</code> (one site) or <code>location { }</code> (one path). Then:</p>
+<pre><code class="language-bash">sudo nginx -t &amp;&amp; sudo systemctl reload nginx
+</code></pre>
+<p><code>0</code> disables the check entirely. Usually not a good idea on public servers.</p>
+<h2 id="php-wordpress-raise-phps-limits-too">PHP / WordPress: raise PHP's limits too</h2>
+<p>In <code>php.ini</code> (find it with <code>php --ini</code>, or the FPM one in <code>/etc/php/*/fpm/php.ini</code>):</p>
+<pre><code class="language-ini">upload_max_filesize = 50M
+post_max_size = 55M
+</code></pre>
+<p>Then <code>sudo systemctl restart php8.3-fpm</code>. When PHP's limit is hit, WordPress shows "The uploaded file exceeds the upload_max_filesize directive" instead of a 413.</p>
+<h2 id="other-layers-with-their-own-limits">Other layers with their own limits</h2>
+<ul>
+<li><strong>Node/Express:</strong> <code>express.json({ limit: '10mb' })</code>; multer has <code>limits.fileSize</code>.</li>
+<li><strong>Django:</strong> <code>DATA_UPLOAD_MAX_MEMORY_SIZE</code>.</li>
+<li><strong>Kubernetes ingress-nginx:</strong> annotation <code>nginx.ingress.kubernetes.io/proxy-body-size: 50m</code>.</li>
+<li><strong>Cloudflare:</strong> the free plan caps proxied request bodies at 100 MB (larger plans allow more).</li>
+<li><strong>Apache:</strong> <code>LimitRequestBody</code>.</li>
+</ul>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-nginx-502-bad-gateway/">502 Bad Gateway (nginx)</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/web/web-err-connection-refused/">ERR_CONNECTION_REFUSED</a></li><li><a href="/web/web-err-ssl-protocol-error/">ERR_SSL_PROTOCOL_ERROR</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

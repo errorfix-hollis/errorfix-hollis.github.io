@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error[E0106]: missing lifetime specifier (Rust) — how to fix</title>
+<meta name="description" content="A function returns a reference, or a struct/enum holds one, and Rust can&#x27;t infer which input the reference borrows from. You must name the lifetime — or return/store an owned value instead.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/rust/rust-e0106-missing-lifetime-specifier/">
+<meta property="og:title" content="error[E0106]: missing lifetime specifier (Rust) — how to fix"><meta property="og:description" content="A function returns a reference, or a struct/enum holds one, and Rust can&#x27;t infer which input the reference borrows from. You must name the lifetime — or return/store an owned value instead.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/rust/rust-e0106-missing-lifetime-specifier/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error[E0106]: missing lifetime specifier (Rust) \u2014 how to fix", "description": "A function returns a reference, or a struct/enum holds one, and Rust can't infer which input the reference borrows from. You must name the lifetime \u2014 or return/store an owned value instead.", "dateModified": "2026-11-06", "url": "https://errorfix-hollis.github.io/rust/rust-e0106-missing-lifetime-specifier/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Rust", "item": "https://errorfix-hollis.github.io/rust/"}, {"@type": "ListItem", "position": 3, "name": "error[E0106]: missing lifetime specifier", "item": "https://errorfix-hollis.github.io/rust/rust-e0106-missing-lifetime-specifier/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/rust/">Rust</a></p>
+<article><h1>error[E0106]: missing lifetime specifier (Rust) — how to fix</h1>
+<pre class="err"><code>error[E0106]: missing lifetime specifier
+ --&gt; src/main.rs:1:33
+  |
+1 | fn longest(x: &amp;str, y: &amp;str) -&gt; &amp;str {
+  |               ----     ----     ^ expected named lifetime parameter
+  |
+  = help: this function&#x27;s return type contains a borrowed value, but the signature does not say whether it is borrowed from `x` or `y`
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Name the lifetime: <code>fn longest&lt;'a&gt;(x: &amp;'a str, y: &amp;'a str) -&gt; &amp;'a str</code>. For structs: <code>struct Parser&lt;'a&gt; { input: &amp;'a str }</code> and <code>impl&lt;'a&gt; Parser&lt;'a&gt;</code>. If the data is created inside the function, return an owned type (<code>String</code>, <code>Vec&lt;T&gt;</code>) instead of a reference. Use <code>&amp;'static str</code> only for string literals.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Every reference in Rust has a lifetime — the span during which the data it points to is guaranteed to be valid. Inside function bodies the compiler infers lifetimes, but in <strong>signatures</strong> and <strong>type definitions</strong> they must be either written or covered by the <em>elision rules</em>:</p>
+<ol>
+<li>Each reference parameter gets its own lifetime.</li>
+<li>If there is exactly one input lifetime, it's used for all output references.</li>
+<li>If one parameter is <code>&amp;self</code> or <code>&amp;mut self</code>, its lifetime is used for outputs.</li>
+</ol>
+<p>E0106 means those rules didn't produce an answer: there are zero or several candidate inputs, or the reference is in a struct field where nothing is elided.</p>
+<h2 id="cause-1-function-returns-a-reference-two-reference-inputs">Cause 1: function returns a reference, two reference inputs</h2>
+<pre><code class="language-rust">fn longest(x: &amp;str, y: &amp;str) -&gt; &amp;str {
+    if x.len() &gt; y.len() { x } else { y }
+}
+</code></pre>
+<p>Rule 2 doesn't apply (two inputs). Declare a lifetime and tie them together:</p>
+<pre><code class="language-rust">fn longest&lt;'a&gt;(x: &amp;'a str, y: &amp;'a str) -&gt; &amp;'a str {
+    if x.len() &gt; y.len() { x } else { y }
+}
+</code></pre>
+<p>This says: the result lives at most as long as the shorter of <code>x</code> and <code>y</code>. If the result only ever comes from one argument, tie it to that one only — it gives callers more freedom:</p>
+<pre><code class="language-rust">fn first_word&lt;'a&gt;(s: &amp;'a str, _sep: &amp;str) -&gt; &amp;'a str {
+    s.split(' ').next().unwrap_or(&quot;&quot;)
+}
+</code></pre>
+<h2 id="cause-2-function-returns-a-reference-but-takes-none">Cause 2: function returns a reference but takes none</h2>
+<pre><code class="language-rust">fn make_greeting(name: String) -&gt; &amp;str {   // E0106
+    let s = format!(&quot;Hello, {name}&quot;);
+    &amp;s
+}
+</code></pre>
+<p>There's nothing to borrow from: <code>s</code> is dropped when the function returns. Adding <code>'a</code> or <code>'static</code> won't help (you'd get E0515 "returns a value referencing data owned by the current function"). Return an owned value:</p>
+<pre><code class="language-rust">fn make_greeting(name: &amp;str) -&gt; String {
+    format!(&quot;Hello, {name}&quot;)
+}
+</code></pre>
+<p><code>&amp;'static str</code> is right only when you actually return a literal or other static data:</p>
+<pre><code class="language-rust">fn level_name(n: u8) -&gt; &amp;'static str {
+    match n { 0 =&gt; &quot;debug&quot;, 1 =&gt; &quot;info&quot;, _ =&gt; &quot;error&quot; }
+}
+</code></pre>
+<h2 id="cause-3-reference-in-a-struct-or-enum">Cause 3: reference in a struct or enum</h2>
+<pre><code class="language-rust">struct Parser {
+    input: &amp;str,          // E0106
+}
+</code></pre>
+<p>Struct fields never get elided lifetimes. Add a parameter to the type, and to the <code>impl</code>:</p>
+<pre><code class="language-rust">struct Parser&lt;'a&gt; {
+    input: &amp;'a str,
+}
+
+impl&lt;'a&gt; Parser&lt;'a&gt; {
+    fn new(input: &amp;'a str) -&gt; Self {
+        Parser { input }
+    }
+    fn rest(&amp;self) -&gt; &amp;'a str {
+        self.input
+    }
+}
+</code></pre>
+<p>Since Rust 2018 you can write <code>impl Parser&lt;'_&gt;</code> when methods don't need to name it.</p>
+<p>Often the simpler choice is to <strong>own</strong> the data, which removes the lifetime entirely and makes the struct easier to store and return:</p>
+<pre><code class="language-rust">struct Parser {
+    input: String,
+}
+</code></pre>
+<p>Borrowing in structs is best for short-lived views (parsers, iterators); owning is best for things you keep around.</p>
+<h2 id="cause-4-references-inside-generic-types">Cause 4: references inside generic types</h2>
+<p>The same rule applies to <code>Vec&lt;&amp;str&gt;</code>, <code>Option&lt;&amp;T&gt;</code>, <code>HashMap&lt;&amp;str, i32&gt;</code> in struct fields and in return types:</p>
+<pre><code class="language-rust">struct Index&lt;'a&gt; {
+    words: Vec&lt;&amp;'a str&gt;,
+}
+
+fn keys&lt;'a&gt;(m: &amp;'a HashMap&lt;String, i32&gt;, prefix: &amp;str) -&gt; Vec&lt;&amp;'a str&gt; {
+    m.keys().filter(|k| k.starts_with(prefix)).map(|k| k.as_str()).collect()
+}
+</code></pre>
+<h2 id="cause-5-trait-objects-and-impl-trait-returning-borrowed-data">Cause 5: trait objects and impl Trait returning borrowed data</h2>
+<pre><code class="language-rust">fn iter_words(s: &amp;str, sep: &amp;str) -&gt; impl Iterator&lt;Item = &amp;str&gt; { ... }  // E0106
+</code></pre>
+<p>Name the lifetime the iterator borrows from:</p>
+<pre><code class="language-rust">fn iter_words&lt;'a&gt;(s: &amp;'a str, sep: &amp;'a str) -&gt; impl Iterator&lt;Item = &amp;'a str&gt; + 'a {
+    s.split(sep)
+}
+</code></pre>
+<p>Boxed trait objects in structs need it too: <code>Box&lt;dyn Fn(&amp;str) -&gt; bool + 'a&gt;</code> if the closure borrows, otherwise the default is <code>'static</code>.</p>
+<h2 id="reading-the-compilers-suggestion">Reading the compiler's suggestion</h2>
+<p><code>rustc</code> usually prints a <code>help: consider introducing a named lifetime parameter</code> with the exact signature. It's usually correct mechanically — but first ask whether the function should return an owned value. If you find yourself adding <code>'a</code> to half your types, switching a field to <code>String</code>/<code>Vec&lt;T&gt;</code> or using <code>Rc</code>/<code>Arc</code> is often the better design.</p>
+<p class="upd">Last updated 2026-11-06.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/rust/rust-borrow-of-moved-value/">error[E0382]: borrow of moved value</a></li><li><a href="/rust/rust-cannot-borrow-as-mutable/">error[E0502]: cannot borrow as mutable because it is also borrowed as immutable</a></li><li><a href="/rust/rust-e0308-mismatched-types/">error[E0308]: mismatched types</a></li><li><a href="/rust/rust-e0277-trait-bound-not-satisfied/">error[E0277]: the trait bound is not satisfied</a></li><li><a href="/rust/rust-e0412-cannot-find-type-in-this-scope/">error[E0412]: cannot find type `X` in this scope</a></li><li><a href="/rust/rust-e0425-cannot-find-value-in-this-scope/">error[E0425]: cannot find value `x` in this scope</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

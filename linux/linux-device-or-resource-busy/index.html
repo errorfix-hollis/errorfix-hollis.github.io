@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>umount: target is busy / Device or resource busy (Linux) — how to fix</title>
+<meta name="description" content="The kernel refuses because something is still using the filesystem or device: a process has a file open, its current directory is inside the mount, another mount sits on top, or the device is held by LVM/RAID/swap.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-device-or-resource-busy/">
+<meta property="og:title" content="umount: target is busy / Device or resource busy (Linux) — how to fix"><meta property="og:description" content="The kernel refuses because something is still using the filesystem or device: a process has a file open, its current directory is inside the mount, another mount sits on top, or the device is held by LVM/RAID/swap.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-device-or-resource-busy/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "umount: target is busy / Device or resource busy (Linux) \u2014 how to fix", "description": "The kernel refuses because something is still using the filesystem or device: a process has a file open, its current directory is inside the mount, another mount sits on top, or the device is held by LVM/RAID/swap.", "dateModified": "2026-11-07", "url": "https://errorfix-hollis.github.io/linux/linux-device-or-resource-busy/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "umount: target is busy / Device or resource busy", "item": "https://errorfix-hollis.github.io/linux/linux-device-or-resource-busy/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>umount: target is busy / Device or resource busy (Linux) — how to fix</h1>
+<pre class="err"><code>umount: /mnt/data: target is busy.
+rm: cannot remove &#x27;/mnt/data&#x27;: Device or resource busy
+mount: /mnt/usb: /dev/sdb1 already mounted or mount point busy.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find the user: <code>sudo fuser -vm /mnt/data</code> or <code>sudo lsof +f -- /mnt/data</code>, then <code>cd</code> out of it and stop or kill those processes, and run <code>sudo umount /mnt/data</code>. Last resort: <code>sudo umount -l /mnt/data</code> (lazy detach). For <code>rm</code> errors, the path is a mount point: unmount it first.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>EBUSY</code> means the kernel can't complete the operation while something else holds a reference. For <code>umount</code>, any open file, current working directory, memory-mapped file, nested mount, loop device or swap file on that filesystem keeps it busy.</p>
+<h2 id="fix-1-find-and-stop-whats-using-it">Fix 1: find and stop what's using it</h2>
+<pre><code class="language-bash">sudo fuser -vm /mnt/data          # -m: everything on that filesystem
+sudo lsof +f -- /mnt/data         # open files on the filesystem
+</code></pre>
+<p><code>fuser</code> shows the access type: <code>c</code> = current directory, <code>f</code> = open file, <code>m</code> = mmap, <code>e</code> = running executable.</p>
+<p>The usual culprit is your own shell:</p>
+<pre><code class="language-bash">pwd          # inside /mnt/data? then:
+cd ~
+sudo umount /mnt/data
+</code></pre>
+<p>Stop services cleanly (<code>sudo systemctl stop myapp</code>) rather than killing them. To kill all processes using the mount (careful):</p>
+<pre><code class="language-bash">sudo fuser -km /mnt/data
+</code></pre>
+<h2 id="fix-2-nested-mounts">Fix 2: nested mounts</h2>
+<p>If something is mounted <em>under</em> the target, unmount that first, or unmount the whole tree:</p>
+<pre><code class="language-bash">findmnt -R /mnt/data
+sudo umount -R /mnt/data
+</code></pre>
+<p>Bind mounts, chroots (<code>/mnt/chroot/proc</code>, <code>/dev</code>, <code>/sys</code>) and Docker volumes often leave nested mounts behind.</p>
+<h2 id="fix-3-swap-loop-devices-lvm-raid">Fix 3: swap, loop devices, LVM, RAID</h2>
+<ul>
+<li>Swap file on the filesystem: <code>sudo swapoff /mnt/data/swapfile</code>.</li>
+<li>Loop devices backed by files there: <code>losetup -a</code>, then <code>sudo losetup -d /dev/loop0</code>.</li>
+<li>Wiping or repartitioning a disk fails with "Device or resource busy" when it holds an active LVM volume group or RAID array: <code>sudo vgchange -an &lt;vg&gt;</code> or <code>sudo mdadm --stop /dev/md0</code>. <code>lsblk</code> shows what sits on the device.</li>
+</ul>
+<h2 id="fix-4-lazy-unmount-last-resort">Fix 4: lazy unmount (last resort)</h2>
+<pre><code class="language-bash">sudo umount -l /mnt/data
+</code></pre>
+<p>This detaches the mount point immediately and finishes cleanup when the last user closes it. Processes still using it keep working on the old filesystem, so don't unplug the device until they are gone. For a dead NFS server, use <code>sudo umount -f -l /mnt/nfs</code>.</p>
+<h2 id="fix-5-rm-cannot-remove-device-or-resource-busy">Fix 5: <code>rm: cannot remove ... Device or resource busy</code></h2>
+<p>The directory is a mount point (often inside Docker containers: <code>/etc/hosts</code>, <code>/etc/resolv.conf</code> and volume paths are bind mounts). Check with <code>findmnt /path</code> or <code>mountpoint /path</code>. Unmount it first on the host; inside a container, change the volume configuration instead of deleting the file.</p>
+<h2 id="fix-6-mount-already-mounted-or-mount-point-busy">Fix 6: <code>mount: ... already mounted or mount point busy</code></h2>
+<p>The device is already mounted somewhere else or used by something (swap, RAID, LVM, or an automounter):</p>
+<pre><code class="language-bash">findmnt /dev/sdb1
+lsblk -f /dev/sdb
+</code></pre>
+<p>Unmount it from the other location first, or mount the right partition (<code>/dev/sdb1</code> vs <code>/dev/sdb</code>).</p>
+<h2 id="desktop-file-managers-and-indexers">Desktop file managers and indexers</h2>
+<p>GNOME/KDE file managers, <code>tracker-miner</code>, <code>baloo</code>, antivirus and backup tools often have files open on USB drives. Close windows showing the drive, or eject from the file manager, which handles this for you.</p>
+<p class="upd">Last updated 2026-11-07.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-no-space-left-on-device/">No space left on device</a></li><li><a href="/linux/linux-read-only-file-system/">Read-only file system</a></li><li><a href="/linux/linux-text-file-busy/">Text file busy</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

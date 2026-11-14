@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RuntimeError: dictionary changed size during iteration (Python) — how to fix</title>
+<meta name="description" content="You added or deleted keys in a dict (or set) while looping over it. Iterate over a copy of the keys, or build a new dict instead.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-runtimeerror-dictionary-changed-size-during-iteration/">
+<meta property="og:title" content="RuntimeError: dictionary changed size during iteration (Python) — how to fix"><meta property="og:description" content="You added or deleted keys in a dict (or set) while looping over it. Iterate over a copy of the keys, or build a new dict instead.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-runtimeerror-dictionary-changed-size-during-iteration/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "RuntimeError: dictionary changed size during iteration (Python) \u2014 how to fix", "description": "You added or deleted keys in a dict (or set) while looping over it. Iterate over a copy of the keys, or build a new dict instead.", "dateModified": "2026-11-04", "url": "https://errorfix-hollis.github.io/python/python-runtimeerror-dictionary-changed-size-during-iteration/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "RuntimeError: dictionary changed size during iteration", "item": "https://errorfix-hollis.github.io/python/python-runtimeerror-dictionary-changed-size-during-iteration/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>RuntimeError: dictionary changed size during iteration (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 5, in &lt;module&gt;
+    for key in d:
+RuntimeError: dictionary changed size during iteration
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Loop over a snapshot: <code>for k in list(d):</code> (or <code>list(d.items())</code>) and then <code>del d[k]</code> is safe. Better: build a new dict with a comprehension, e.g. <code>d = {k: v for k, v in d.items() if v is not None}</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A dict iterator remembers the dict's size. If keys are added or removed while the loop runs, Python can't guarantee every key is visited exactly once, so it stops with this error:</p>
+<pre><code class="language-python">d = {&quot;a&quot;: 1, &quot;b&quot;: None, &quot;c&quot;: 3}
+for k in d:
+    if d[k] is None:
+        del d[k]        # RuntimeError: dictionary changed size during iteration
+</code></pre>
+<p>Changing the <em>values</em> of existing keys (<code>d[k] = 0</code>) is allowed. Only adding or removing keys triggers it. Sets behave the same way (<code>RuntimeError: Set changed size during iteration</code>).</p>
+<h2 id="fix-1-iterate-over-a-copy-of-the-keys">Fix 1: iterate over a copy of the keys</h2>
+<pre><code class="language-python">for k in list(d):          # list(d) is a snapshot of the keys
+    if d[k] is None:
+        del d[k]
+
+for k, v in list(d.items()):
+    if v is None:
+        d.pop(k)
+</code></pre>
+<p>In Python 3, <code>d.keys()</code> and <code>d.items()</code> are live <em>views</em>, not copies, so <code>for k in d.keys():</code> still fails. You need <code>list(...)</code>.</p>
+<h2 id="fix-2-build-a-new-dict">Fix 2: build a new dict</h2>
+<p>Usually clearer and just as fast:</p>
+<pre><code class="language-python">d = {k: v for k, v in d.items() if v is not None}
+</code></pre>
+<p>If other code holds a reference to the same dict object and must see the change, update it in place:</p>
+<pre><code class="language-python">keep = {k: v for k, v in d.items() if v is not None}
+d.clear()
+d.update(keep)
+</code></pre>
+<h2 id="fix-3-collect-changes-apply-after-the-loop">Fix 3: collect changes, apply after the loop</h2>
+<p>When adding keys based on existing ones:</p>
+<pre><code class="language-python">additions = {}
+for k, v in d.items():
+    additions[k.upper()] = v
+d.update(additions)
+</code></pre>
+<p>Same pattern for deletions:</p>
+<pre><code class="language-python">to_delete = [k for k, v in d.items() if v is None]
+for k in to_delete:
+    del d[k]
+</code></pre>
+<h2 id="cause-a-function-called-inside-the-loop-mutates-the-dict">Cause: a function called inside the loop mutates the dict</h2>
+<p>The change isn't always visible in the loop body. A helper, a callback, or a cache (e.g. <code>cache.setdefault(...)</code>) can add keys to the dict you're iterating. Look at the traceback line that the loop starts on, then check every call inside it for writes to the same object.</p>
+<h2 id="cause-threads">Cause: threads</h2>
+<p>Another thread modifying a shared dict while one thread iterates causes the same error intermittently. Iterate over a snapshot (<code>for k, v in list(shared.items()):</code>) or guard access with a <code>threading.Lock</code>.</p>
+<h2 id="sets-and-osenviron">Sets and <code>os.environ</code></h2>
+<pre><code class="language-python">s = {1, 2, 3, 4}
+s = {x for x in s if x % 2}     # instead of s.remove() inside the loop
+</code></pre>
+<p><code>os.environ</code> and objects like <code>sys.modules</code> are dict-like and fail the same way when modified during iteration; use <code>list(os.environ)</code> for the loop.</p>
+<h2 id="note-on-lists">Note on lists</h2>
+<p>Lists don't raise an error when modified during iteration, but they silently skip elements. Removing items from a list inside <code>for x in lst:</code> is a bug too; use <code>lst = [x for x in lst if keep(x)]</code>.</p>
+<p class="upd">Last updated 2026-11-04.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-indexerror-list-index-out-of-range/">IndexError: list index out of range</a></li><li><a href="/python/python-keyerror/">KeyError</a></li><li><a href="/python/python-recursionerror-maximum-recursion-depth/">RecursionError: maximum recursion depth exceeded</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

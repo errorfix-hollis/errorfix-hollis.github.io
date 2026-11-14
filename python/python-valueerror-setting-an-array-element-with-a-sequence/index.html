@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ValueError: setting an array element with a sequence. (Python) — how to fix</title>
+<meta name="description" content="NumPy tried to put a list (or array) into a single numeric slot. Usually your nested lists have different lengths (a ragged array), or you assigned a sequence to one element of an array.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-valueerror-setting-an-array-element-with-a-sequence/">
+<meta property="og:title" content="ValueError: setting an array element with a sequence. (Python) — how to fix"><meta property="og:description" content="NumPy tried to put a list (or array) into a single numeric slot. Usually your nested lists have different lengths (a ragged array), or you assigned a sequence to one element of an array.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-valueerror-setting-an-array-element-with-a-sequence/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ValueError: setting an array element with a sequence. (Python) \u2014 how to fix", "description": "NumPy tried to put a list (or array) into a single numeric slot. Usually your nested lists have different lengths (a ragged array), or you assigned a sequence to one element of an array.", "dateModified": "2026-11-05", "url": "https://errorfix-hollis.github.io/python/python-valueerror-setting-an-array-element-with-a-sequence/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ValueError: setting an array element with a sequence.", "item": "https://errorfix-hollis.github.io/python/python-valueerror-setting-an-array-element-with-a-sequence/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ValueError: setting an array element with a sequence. (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 4, in &lt;module&gt;
+    arr = np.array([[1, 2, 3], [4, 5]], dtype=float)
+ValueError: setting an array element with a sequence. The requested array has an inhomogeneous shape after 1 dimensions. The detected shape was (2,) + inhomogeneous part.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the lengths: <code>print({len(r) for r in rows})</code>. Pad or truncate rows to equal length (or use <code>dtype=object</code> if you really want ragged data). When assigning, match shapes: <code>arr[i, :] = row</code> instead of <code>arr[i] = [row, extra]</code>. For pandas columns of lists, use <code>np.stack(df['col'].to_numpy())</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A NumPy array with a numeric dtype holds exactly one number per element, and all rows must have the same length. If NumPy finds a nested list where it expects a scalar, it raises this error. NumPy 1.24+ adds <code>The requested array has an inhomogeneous shape after N dimensions</code>, which tells you the depth at which lengths stopped matching.</p>
+<h2 id="cause-1-ragged-nested-lists">Cause 1: ragged nested lists</h2>
+<pre><code class="language-python">rows = [[1, 2, 3], [4, 5]]
+np.array(rows)                 # ValueError (NumPy &gt;= 1.24)
+</code></pre>
+<p>Find the bad rows:</p>
+<pre><code class="language-python">from collections import Counter
+print(Counter(len(r) for r in rows))
+print([i for i, r in enumerate(rows) if len(r) != 3])
+</code></pre>
+<p>Fix by padding to a fixed length:</p>
+<pre><code class="language-python">width = max(len(r) for r in rows)
+arr = np.array([r + [0] * (width - len(r)) for r in rows], dtype=float)
+</code></pre>
+<p>Or, for variable-length sequences that you won't do math on, keep them as objects:</p>
+<pre><code class="language-python">arr = np.empty(len(rows), dtype=object)
+arr[:] = rows
+</code></pre>
+<p>In older NumPy (&lt; 1.24) ragged input silently became <code>dtype=object</code> with a <code>VisibleDeprecationWarning</code>; code that "worked" before may fail after an upgrade for this reason.</p>
+<h2 id="cause-2-assigning-a-sequence-to-a-single-element">Cause 2: assigning a sequence to a single element</h2>
+<pre><code class="language-python">a = np.zeros(3)
+a[0] = [1, 2]                  # one slot, two values
+</code></pre>
+<p>Assign to a slice of matching shape, or make the array 2-D:</p>
+<pre><code class="language-python">a = np.zeros((3, 2))
+a[0] = [1, 2]                  # row 0 now [1., 2.]
+</code></pre>
+<h2 id="cause-3-pandas-column-containing-lists-or-arrays">Cause 3: pandas column containing lists or arrays</h2>
+<p>Feeding <code>df["embedding"]</code> (each cell a list) into scikit-learn, <code>np.array(df.values, dtype=float)</code> or <code>df.astype(float)</code> triggers it. Stack the cells into a 2-D array:</p>
+<pre><code class="language-python">X = np.stack(df[&quot;embedding&quot;].to_numpy())          # all cells same length
+# or expand into columns
+emb = pd.DataFrame(df[&quot;embedding&quot;].tolist(), index=df.index)
+</code></pre>
+<p>If the cells are strings like <code>"[0.1, 0.2]"</code> (after a CSV round-trip), parse them first: <code>df["embedding"].apply(json.loads)</code>.</p>
+<h2 id="cause-4-mixing-scalars-and-arrays">Cause 4: mixing scalars and arrays</h2>
+<pre><code class="language-python">np.array([1.0, np.array([2.0, 3.0])], dtype=float)  # ValueError
+</code></pre>
+<p>Flatten first: <code>np.concatenate([[1.0], np.array([2.0, 3.0])])</code> or <code>np.hstack(...)</code>.</p>
+<h2 id="cause-5-functions-returning-different-shapes">Cause 5: functions returning different shapes</h2>
+<p>When building arrays in a loop, one iteration may return a shorter result (e.g. an empty list on error). Assert shape as you go:</p>
+<pre><code class="language-python">features = []
+for item in items:
+    f = extract(item)
+    assert len(f) == 128, (item, len(f))
+    features.append(f)
+X = np.array(features)
+</code></pre>
+<p>Better still, preallocate: <code>X = np.zeros((len(items), 128))</code> and fill <code>X[i] = extract(item)</code>; the bad row raises immediately with a clear broadcast error.</p>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-indexerror-list-index-out-of-range/">IndexError: list index out of range</a></li><li><a href="/python/python-typeerror-unsupported-operand-types/">TypeError: unsupported operand type(s) for +: &#x27;int&#x27; and &#x27;str&#x27;</a></li><li><a href="/python/python-valueerror-could-not-convert-string-to-float/">ValueError: could not convert string to float</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

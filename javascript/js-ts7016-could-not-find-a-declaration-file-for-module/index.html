@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TS7016: Could not find a declaration file for module (TypeScript) — how to fix</title>
+<meta name="description" content="The package is installed and its JavaScript was found, but it ships no TypeScript types and there is no @types package installed, so with noImplicitAny on TypeScript refuses to treat it as any.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-ts7016-could-not-find-a-declaration-file-for-module/">
+<meta property="og:title" content="TS7016: Could not find a declaration file for module (TypeScript) — how to fix"><meta property="og:description" content="The package is installed and its JavaScript was found, but it ships no TypeScript types and there is no @types package installed, so with noImplicitAny on TypeScript refuses to treat it as any.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-ts7016-could-not-find-a-declaration-file-for-module/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TS7016: Could not find a declaration file for module (TypeScript) \u2014 how to fix", "description": "The package is installed and its JavaScript was found, but it ships no TypeScript types and there is no @types package installed, so with noImplicitAny on TypeScript refuses to treat it as any.", "dateModified": "2026-11-06", "url": "https://errorfix-hollis.github.io/javascript/js-ts7016-could-not-find-a-declaration-file-for-module/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "TS7016: Could not find a declaration file for module", "item": "https://errorfix-hollis.github.io/javascript/js-ts7016-could-not-find-a-declaration-file-for-module/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>TS7016: Could not find a declaration file for module (TypeScript) — how to fix</h1>
+<pre class="err"><code>error TS7016: Could not find a declaration file for module &#x27;lodash&#x27;. &#x27;/home/me/app/node_modules/lodash/index.js&#x27; implicitly has an &#x27;any&#x27; type.
+  Try `npm i --save-dev @types/lodash` if it exists or add a new declaration (.d.ts) file containing `declare module &#x27;lodash&#x27;;`
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install the community types: <code>npm i -D @types/&lt;package&gt;</code> (for scoped packages <code>@scope/pkg</code> use <code>@types/scope__pkg</code>). If none exist, create <code>src/types/&lt;package&gt;.d.ts</code> with <code>declare module '&lt;package&gt;';</code> and make sure that folder is included by tsconfig.json.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>TypeScript resolved the import to a real <code>.js</code> file in <code>node_modules</code>, but couldn't find any type information for it:</p>
+<ul>
+<li>the package has no <code>types</code>/<code>typings</code> field and no <code>.d.ts</code> files, and</li>
+<li>there is no matching <code>@types/...</code> package installed.</li>
+</ul>
+<p>Because <code>noImplicitAny</code> is on (it is with <code>"strict": true</code>), TypeScript won't silently type the module as <code>any</code>, so it raises TS7016. This is different from TS2307, where the module itself can't be found.</p>
+<h2 id="fix-1-install-the-types-package">Fix 1: install the @types package</h2>
+<p>Most popular JS-only libraries have community types in DefinitelyTyped:</p>
+<pre><code class="language-bash">npm i -D @types/lodash
+npm i -D @types/express @types/node
+yarn add -D @types/lodash
+pnpm add -D @types/lodash
+</code></pre>
+<p>For scoped packages the name is flattened with a double underscore:</p>
+<pre><code class="language-bash"># @babel/core -&gt; @types/babel__core
+npm i -D @types/babel__core
+</code></pre>
+<p>Check whether types exist with <code>npm view @types/&lt;name&gt; version</code>. If it returns a 404, there are none.</p>
+<p>Also check that the library hasn't started bundling its own types in a newer version — upgrading the package itself may fix it, and then you should remove the outdated <code>@types</code> package.</p>
+<h2 id="fix-2-write-a-declaration">Fix 2: write a declaration</h2>
+<p>If no types exist, declare the module yourself. Create e.g. <code>src/types/untyped-lib.d.ts</code>:</p>
+<pre><code class="language-ts">// Shorthand: everything imported from it is `any`
+declare module &quot;untyped-lib&quot;;
+</code></pre>
+<p>Or describe the parts you use, which gives you real type checking:</p>
+<pre><code class="language-ts">declare module &quot;untyped-lib&quot; {
+  export function slugify(input: string, sep?: string): string;
+  const version: string;
+  export default version;
+}
+</code></pre>
+<p>The file must <strong>not</strong> contain a top-level <code>import</code>/<code>export</code> outside the <code>declare module</code> block — that turns it into a module and the declaration no longer applies globally. Put imports inside the <code>declare module</code> block if you need them.</p>
+<h2 id="fix-3-make-sure-tsconfig-includes-the-dts-file">Fix 3: make sure tsconfig includes the .d.ts file</h2>
+<p>If you added a declaration and still get TS7016, TypeScript probably isn't reading the file. Check <code>tsconfig.json</code>:</p>
+<pre><code class="language-json">{
+  &quot;compilerOptions&quot;: { &quot;strict&quot;: true },
+  &quot;include&quot;: [&quot;src&quot;, &quot;types&quot;]
+}
+</code></pre>
+<p>Files outside <code>include</code> are ignored. If you set <code>typeRoots</code>, remember it replaces the default <code>node_modules/@types</code>:</p>
+<pre><code class="language-json">&quot;typeRoots&quot;: [&quot;./node_modules/@types&quot;, &quot;./types&quot;]
+</code></pre>
+<p>Restart the TypeScript server in your editor afterwards (VS Code: Command Palette → "TypeScript: Restart TS Server").</p>
+<h2 id="fix-4-package-has-types-but-exports-hides-them">Fix 4: package has types, but <code>exports</code> hides them</h2>
+<p>With <code>"moduleResolution": "node16"</code>, <code>"nodenext"</code> or <code>"bundler"</code>, TypeScript follows the package's <code>exports</code> map. If the package lists types only under the legacy <code>types</code> field, or only for <code>import</code> and not <code>require</code>, you can get TS7016 even though <code>.d.ts</code> files exist. Options:</p>
+<ul>
+<li>upgrade the package (many fixed their <code>exports</code> "types" conditions),</li>
+<li>import the path that has types,</li>
+<li>or temporarily use <code>"moduleResolution": "node"</code> if that matches your toolchain.</li>
+</ul>
+<p><code>npx @arethetypeswrong/cli &lt;package&gt;</code> diagnoses these packaging problems.</p>
+<h2 id="fix-5-last-resort-turn-off-the-check">Fix 5 (last resort): turn off the check</h2>
+<p>Setting <code>"noImplicitAny": false</code> makes TS7016 disappear for all modules but also weakens type checking across your whole codebase. A one-line <code>declare module "x";</code> is a far smaller hole.</p>
+<h2 id="javascript-files-with-checkjs">JavaScript files with checkJs</h2>
+<p>In a JS project using <code>// @ts-check</code> or <code>"checkJs": true</code>, the same error appears in the editor. The fixes are identical: install <code>@types/...</code> or add a <code>.d.ts</code> file to the project.</p>
+<p class="upd">Last updated 2026-11-06.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-module-not-found-error-cant-resolve/">Module not found: Error: Can&#x27;t resolve</a></li><li><a href="/javascript/js-ts2307-cannot-find-module-or-its-corresponding-type-declarations/">TS2307: Cannot find module or its corresponding type declarations.</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>docker-compose: command not found — how to fix</title>
+<meta name="description" content="Compose v1 (the separate docker-compose binary) is deprecated and often not installed. Modern Docker ships Compose v2 as a plugin, run as &quot;docker compose&quot; with a space. If that also fails, install the compose plugin.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-compose-command-not-found/">
+<meta property="og:title" content="docker-compose: command not found — how to fix"><meta property="og:description" content="Compose v1 (the separate docker-compose binary) is deprecated and often not installed. Modern Docker ships Compose v2 as a plugin, run as &quot;docker compose&quot; with a space. If that also fails, install the compose plugin.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-compose-command-not-found/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "docker-compose: command not found \u2014 how to fix", "description": "Compose v1 (the separate docker-compose binary) is deprecated and often not installed. Modern Docker ships Compose v2 as a plugin, run as \"docker compose\" with a space. If that also fails, install the compose plugin.", "dateModified": "2026-10-28", "url": "https://errorfix-hollis.github.io/docker/docker-compose-command-not-found/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "docker-compose: command not found", "item": "https://errorfix-hollis.github.io/docker/docker-compose-command-not-found/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>docker-compose: command not found — how to fix</h1>
+<pre class="err"><code>docker-compose: command not found
+docker: &#x27;compose&#x27; is not a docker command.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Use <code>docker compose up</code> (space, not dash). If you get <code>'compose' is not a docker command</code>, install the plugin: <code>sudo apt-get install docker-compose-plugin</code> (from Docker's apt repo) or update Docker Desktop.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>There are two generations of Compose:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Compose v1</th>
+<th>Compose v2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Command</td>
+<td><code>docker-compose</code></td>
+<td><code>docker compose</code></td>
+</tr>
+<tr>
+<td>Written in</td>
+<td>Python</td>
+<td>Go (Docker CLI plugin)</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>End of life since 2023</td>
+<td>Current</td>
+</tr>
+</tbody>
+</table>
+<p>Most tutorials still say <code>docker-compose</code>, but new installs only include v2.</p>
+<h2 id="fix-1-use-the-v2-command">Fix 1: use the v2 command</h2>
+<pre><code class="language-bash">docker compose version
+docker compose up -d
+docker compose down
+</code></pre>
+<p>The flags and <code>docker-compose.yml</code> / <code>compose.yaml</code> files are the same.</p>
+<h2 id="fix-2-install-the-compose-plugin-linux">Fix 2: install the Compose plugin (Linux)</h2>
+<p>If <code>docker compose</code> says <code>'compose' is not a docker command</code>:</p>
+<p>Ubuntu/Debian with Docker's official repository:</p>
+<pre><code class="language-bash">sudo apt-get update
+sudo apt-get install docker-compose-plugin
+</code></pre>
+<p>Fedora/RHEL: <code>sudo dnf install docker-compose-plugin</code>.</p>
+<p>If you installed Docker from your distro's own packages (<code>docker.io</code> on Ubuntu), the plugin may be called <code>docker-compose-v2</code>:</p>
+<pre><code class="language-bash">sudo apt-get install docker-compose-v2
+</code></pre>
+<p>Manual install for the current user:</p>
+<pre><code class="language-bash">mkdir -p ~/.docker/cli-plugins
+curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+  -o ~/.docker/cli-plugins/docker-compose
+chmod +x ~/.docker/cli-plugins/docker-compose
+</code></pre>
+<h2 id="fix-3-docker-desktop-macwindows">Fix 3: Docker Desktop (Mac/Windows)</h2>
+<p>Compose v2 is bundled. Update Docker Desktop, and make sure the Docker CLI is on your PATH (restart the terminal after installing).</p>
+<h2 id="scripts-that-still-call-docker-compose">Scripts that still call <code>docker-compose</code></h2>
+<p>Add a small wrapper instead of editing every script:</p>
+<pre><code class="language-bash">sudo tee /usr/local/bin/docker-compose &gt;/dev/null &lt;&lt;'SH'
+#!/bin/sh
+exec docker compose &quot;$@&quot;
+SH
+sudo chmod +x /usr/local/bin/docker-compose
+</code></pre>
+<p class="upd">Last updated 2026-10-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-permission-denied-docker-sock/">permission denied while trying to connect to the Docker daemon socket</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li><li><a href="/docker/docker-container-name-already-in-use/">Conflict. The container name is already in use by container</a></li><li><a href="/docker/docker-context-deadline-exceeded/">Error response from daemon: Get &quot;https://registry-1.docker.io/v2/&quot;: context deadline exceeded</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

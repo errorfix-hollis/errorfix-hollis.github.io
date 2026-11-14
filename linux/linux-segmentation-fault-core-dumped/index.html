@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Segmentation fault (core dumped) (Linux) — how to fix</title>
+<meta name="description" content="The program accessed memory it wasn&#x27;t allowed to and the kernel killed it. Get a backtrace with gdb or the core dump to find where.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-segmentation-fault-core-dumped/">
+<meta property="og:title" content="Segmentation fault (core dumped) (Linux) — how to fix"><meta property="og:description" content="The program accessed memory it wasn&#x27;t allowed to and the kernel killed it. Get a backtrace with gdb or the core dump to find where.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-segmentation-fault-core-dumped/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Segmentation fault (core dumped) (Linux) \u2014 how to fix", "description": "The program accessed memory it wasn't allowed to and the kernel killed it. Get a backtrace with gdb or the core dump to find where.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/linux/linux-segmentation-fault-core-dumped/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "Segmentation fault (core dumped)", "item": "https://errorfix-hollis.github.io/linux/linux-segmentation-fault-core-dumped/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>Segmentation fault (core dumped) (Linux) — how to fix</h1>
+<pre class="err"><code>Segmentation fault (core dumped)</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run the program under a debugger: <code>gdb --args ./program args</code>, type <code>run</code>, and after the crash <code>bt</code> for the backtrace. For a past crash on systemd systems: <code>coredumpctl gdb</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The process tried to read or write memory that isn't mapped for it (a null or dangling pointer, a buffer overflow, a stack overflow from deep recursion). The kernel sent it <code>SIGSEGV</code>, and the shell printed this message. Exit code 139 (128 + 11) means the same thing.</p>
+<h2 id="find-where-it-crashed">Find where it crashed</h2>
+<p><strong>Run it under gdb:</strong></p>
+<pre><code class="language-bash">gdb --args ./program arg1 arg2
+(gdb) run
+(gdb) bt
+</code></pre>
+<p>Compile your own code with debug info (<code>-g</code>, and preferably <code>-O0</code>) so the backtrace has file names and line numbers.</p>
+<p><strong>Use the core dump</strong> (systemd-coredump on Ubuntu/Fedora/Arch):</p>
+<pre><code class="language-bash">coredumpctl list
+coredumpctl gdb        # opens the most recent crash
+</code></pre>
+<p>Without systemd-coredump, enable core files first: <code>ulimit -c unlimited</code>, then rerun.</p>
+<h2 id="catch-the-bug-at-its-source">Catch the bug at its source</h2>
+<p>AddressSanitizer reports the exact bad access, often before it turns into a segfault:</p>
+<pre><code class="language-bash">gcc -g -fsanitize=address,undefined program.c -o program
+./program
+</code></pre>
+<p>Valgrind works without recompiling: <code>valgrind ./program</code>.</p>
+<h2 id="python-node-or-another-interpreter-segfaults">Python, Node or another interpreter segfaults</h2>
+<p>Pure Python code can't segfault, so the crash is in a native extension (numpy, torch, opencv, a database driver…) or the interpreter itself.</p>
+<pre><code class="language-bash">python -X faulthandler script.py
+</code></pre>
+<p>prints the Python stack at the crash. Common fixes: upgrade the extension, make sure packages are built for the same Python and architecture, or avoid mixing pip and conda builds of the same library.</p>
+<h2 id="deep-recursion">Deep recursion</h2>
+<p>A very deep recursion can overflow the stack. Rewrite as a loop, or raise the stack limit for testing: <code>ulimit -s unlimited</code>.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-command-not-found/">command not found</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/linux/linux-cannot-execute-binary-file/">cannot execute binary file: Exec format error</a></li><li><a href="/linux/linux-could-not-get-lock-dpkg/">E: Could not get lock /var/lib/dpkg/lock-frontend</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

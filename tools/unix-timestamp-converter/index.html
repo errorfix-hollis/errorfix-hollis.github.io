@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Unix Timestamp Converter — epoch to date and date to epoch</title>
+<meta name="description" content="Convert Unix epoch timestamps (seconds, milliseconds, microseconds) to ISO 8601, UTC and local time, and convert dates back to timestamps. Shows the current epoch time live.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/unix-timestamp-converter/">
+<meta property="og:title" content="Unix Timestamp Converter — epoch to date and date to epoch"><meta property="og:description" content="Convert Unix epoch timestamps (seconds, milliseconds, microseconds) to ISO 8601, UTC and local time, and convert dates back to timestamps. Shows the current epoch time live.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/unix-timestamp-converter/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "Unix timestamp converter", "url": "https://errorfix-hollis.github.io/tools/unix-timestamp-converter/", "description": "Convert Unix epoch timestamps (seconds, milliseconds, microseconds) to ISO 8601, UTC and local time, and convert dates back to timestamps. Shows the current epoch time live.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-01", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": "Unix timestamp converter", "item": "https://errorfix-hollis.github.io/tools/unix-timestamp-converter/"}]}</script><script src="/tools.js?v=70df2f10" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>Unix timestamp converter</h1>
+<p class="lead">Paste a Unix timestamp to see it as a UTC, ISO 8601 and local date, or type a date to get its timestamp; seconds and milliseconds are detected automatically.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="timestamp"><div class="now"><div><small>Now (seconds)</small><b id="ts-now-s"></b></div><div><small>Now (milliseconds)</small><b id="ts-now-ms"></b></div><div><small>ISO 8601 UTC</small><b id="ts-now-iso"></b></div></div>
+<h3>Timestamp → date</h3>
+<div class="row"><input type="text" id="ts-in" class="big grow" spellcheck="false" autocomplete="off" inputmode="numeric" aria-label="Unix timestamp"><button id="ts-usenow" class="sec">Now</button></div>
+<div id="ts-msg" class="msg" hidden></div>
+<table id="ts-out" class="kv"></table>
+<h3>Date → timestamp</h3>
+<div class="row"><input type="text" id="ts-date" class="big grow" spellcheck="false" autocomplete="off" aria-label="Date and time"></div>
+<div class="row"><label><input type="checkbox" id="ts-utc"> Interpret as UTC (otherwise your time zone: <span id="ts-tz"></span>)</label></div>
+<div id="ts-dmsg" class="msg" hidden></div>
+<table id="ts-dout" class="kv"></table>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<h2 id="what-a-unix-timestamp-is">What a Unix timestamp is</h2>
+<p>A Unix timestamp (epoch time) is the number of seconds since <strong>1970-01-01 00:00:00 UTC</strong>, ignoring leap seconds. It has no time zone: the same instant has the same timestamp everywhere, and only the <em>display</em> changes with your location.</p>
+<table>
+<thead>
+<tr>
+<th>Digits</th>
+<th>Unit</th>
+<th>Example</th>
+<th>Used by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10</td>
+<td>seconds</td>
+<td><code>1700000000</code></td>
+<td>Unix, <code>date +%s</code>, PHP, Python <code>int(time.time())</code>, JWT <code>exp</code></td>
+</tr>
+<tr>
+<td>13</td>
+<td>milliseconds</td>
+<td><code>1700000000000</code></td>
+<td>JavaScript <code>Date.now()</code>, Java <code>System.currentTimeMillis()</code></td>
+</tr>
+<tr>
+<td>16</td>
+<td>microseconds</td>
+<td><code>1700000000000000</code></td>
+<td>Python <code>time.time_ns()//1000</code>, PostgreSQL internals</td>
+</tr>
+<tr>
+<td>19</td>
+<td>nanoseconds</td>
+<td><code>1700000000000000000</code></td>
+<td>Go <code>UnixNano()</code>, <code>time.time_ns()</code></td>
+</tr>
+</tbody>
+</table>
+<p>This converter guesses the unit from the size of the number. A classic bug is passing seconds to something that expects milliseconds, which gives a date in January 1970; the reverse gives a date tens of thousands of years in the future.</p>
+<h2 id="getting-the-current-timestamp">Getting the current timestamp</h2>
+<table>
+<thead>
+<tr>
+<th>Language</th>
+<th>Seconds</th>
+<th>Milliseconds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Shell</td>
+<td><code>date +%s</code></td>
+<td><code>date +%s%3N</code></td>
+</tr>
+<tr>
+<td>JavaScript</td>
+<td><code>Math.floor(Date.now()/1000)</code></td>
+<td><code>Date.now()</code></td>
+</tr>
+<tr>
+<td>Python</td>
+<td><code>int(time.time())</code></td>
+<td><code>time.time_ns() // 1_000_000</code></td>
+</tr>
+<tr>
+<td>Go</td>
+<td><code>time.Now().Unix()</code></td>
+<td><code>time.Now().UnixMilli()</code></td>
+</tr>
+<tr>
+<td>SQL (PostgreSQL)</td>
+<td><code>extract(epoch from now())</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>To convert in the shell: <code>date -u -d @1700000000</code> (GNU) or <code>date -u -r 1700000000</code> (macOS).</p>
+<h2 id="clocks-and-certificate-errors">Clocks and certificate errors</h2>
+<p>A wrong system clock breaks TLS: certificates have <code>notBefore</code>/<code>notAfter</code> timestamps, so a machine whose clock is years off rejects valid certificates with errors like <a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem</a> or <a href="/python/python-ssl-certificate-verify-failed/">CERTIFICATE_VERIFY_FAILED</a>. Compare the live clock above with the server's <code>date -u</code> output. The <strong>year 2038 problem</strong> affects systems storing seconds in a signed 32-bit integer, which overflows at <code>2147483647</code> (2038-01-19 03:14:07 UTC).</p>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/python/python-ssl-certificate-verify-failed/">ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate</a></li><li><a href="/web/web-net-err-cert-authority-invalid/">NET::ERR_CERT_AUTHORITY_INVALID</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/json-formatter/">JSON formatter &amp; validator</a></li><li><a href="/tools/cron-expression-explainer/">Cron expression explainer</a></li><li><a href="/tools/chmod-calculator/">chmod calculator</a></li><li><a href="/tools/base64-encode-decode/">Base64 encode / decode</a></li><li><a href="/tools/url-encode-decode/">URL encode / decode</a></li><li><a href="/tools/jwt-decoder/">JWT decoder</a></li><li><a href="/tools/regex-tester/">Regex tester</a></li><li><a href="/tools/yaml-validator/">YAML validator &amp; YAML ↔ JSON converter</a></li><li><a href="/tools/uuid-generator/">UUID generator &amp; validator (v4, v7)</a></li><li><a href="/tools/text-diff/">Text diff checker</a></li><li><a href="/tools/http-status-codes/">HTTP status codes reference</a></li><li><a href="/tools/hash-generator/">Hash generator (MD5, SHA-256, SHA-512)</a></li><li><a href="/tools/line-ending-whitespace-inspector/">Line ending &amp; whitespace inspector</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

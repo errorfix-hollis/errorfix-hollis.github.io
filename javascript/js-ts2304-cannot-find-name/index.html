@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error TS2304: Cannot find name (TypeScript) — how to fix</title>
+<meta name="description" content="TypeScript doesn&#x27;t know a global name: either a missing type package (@types/node, @types/jest), a missing lib in tsconfig (dom, es2020), a tsconfig &#x27;types&#x27; list that excludes it, or a plain typo/missing import.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-ts2304-cannot-find-name/">
+<meta property="og:title" content="error TS2304: Cannot find name (TypeScript) — how to fix"><meta property="og:description" content="TypeScript doesn&#x27;t know a global name: either a missing type package (@types/node, @types/jest), a missing lib in tsconfig (dom, es2020), a tsconfig &#x27;types&#x27; list that excludes it, or a plain typo/missing import.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-ts2304-cannot-find-name/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error TS2304: Cannot find name (TypeScript) \u2014 how to fix", "description": "TypeScript doesn't know a global name: either a missing type package (@types/node, @types/jest), a missing lib in tsconfig (dom, es2020), a tsconfig 'types' list that excludes it, or a plain typo/missing import.", "dateModified": "2026-11-08", "url": "https://errorfix-hollis.github.io/javascript/js-ts2304-cannot-find-name/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "error TS2304: Cannot find name", "item": "https://errorfix-hollis.github.io/javascript/js-ts2304-cannot-find-name/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>error TS2304: Cannot find name (TypeScript) — how to fix</h1>
+<pre class="err"><code>src/index.ts:3:1 - error TS2304: Cannot find name &#x27;process&#x27;.
+error TS2304: Cannot find name &#x27;describe&#x27;.
+error TS2304: Cannot find name &#x27;document&#x27;.
+error TS2580: Cannot find name &#x27;require&#x27;. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install the types for the environment: <code>npm i -D @types/node</code> (process, require, Buffer) or <code>@types/jest</code>/<code>vitest/globals</code> (describe, it, expect). For browser globals add "dom" to <code>compilerOptions.lib</code>. If tsconfig has a <code>types</code> array, add the package there. For your own identifiers, add the missing import or <code>declare</code> it.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>TS2304 means an identifier is used but TypeScript can't find any declaration for it in scope: no local variable, no import, no global from a <code>.d.ts</code> file. The code might even run fine (Node does have <code>process</code>), but the type checker has no declaration.</p>
+<p>Related codes: <strong>TS2580</strong> (<code>Cannot find name 'require'</code>/<code>'process'</code>... <em>Do you need to install type definitions for node?</em>), <strong>TS2582</strong> (same for test globals like <code>describe</code>), and <strong>TS2583/TS2584</strong> (<em>Do you need to change your target library?</em>). The fixes are the same.</p>
+<h2 id="cause-1-node-globals-without-typesnode">Cause 1: Node globals without @types/node</h2>
+<p><code>process</code>, <code>require</code>, <code>module</code>, <code>__dirname</code>, <code>Buffer</code>, <code>setImmediate</code>, <code>NodeJS.Timeout</code>:</p>
+<pre><code class="language-bash">npm install --save-dev @types/node
+</code></pre>
+<p>Then restart the TS server in your editor (VS Code: <em>TypeScript: Restart TS Server</em>).</p>
+<h2 id="cause-2-test-globals-describe-it-expect-jest">Cause 2: test globals (describe, it, expect, jest)</h2>
+<pre><code class="language-bash">npm install --save-dev @types/jest        # Jest
+npm install --save-dev @types/mocha       # Mocha
+</code></pre>
+<p>For Vitest with <code>globals: true</code>, add the types in tsconfig:</p>
+<pre><code class="language-json">{ &quot;compilerOptions&quot;: { &quot;types&quot;: [&quot;vitest/globals&quot;] } }
+</code></pre>
+<p>Or import them explicitly: <code>import { describe, it, expect } from 'vitest'</code>.</p>
+<h2 id="cause-3-a-types-array-that-filters-them-out">Cause 3: a <code>types</code> array that filters them out</h2>
+<p>If <code>tsconfig.json</code> has <code>compilerOptions.types</code>, <strong>only</strong> the listed <code>@types</code> packages are loaded automatically. Installing <code>@types/node</code> does nothing until it's listed:</p>
+<pre><code class="language-json">{
+  &quot;compilerOptions&quot;: {
+    &quot;types&quot;: [&quot;node&quot;, &quot;jest&quot;]
+  }
+}
+</code></pre>
+<p>Remove the <code>types</code> option to load every <code>@types/*</code> package, or list what you need. Also check the right tsconfig applies to the file: test files are often excluded by <code>include</code>/<code>exclude</code>, or covered by a separate <code>tsconfig.spec.json</code>.</p>
+<h2 id="cause-4-browser-or-newer-js-globals-missing-from-lib">Cause 4: browser or newer JS globals missing from <code>lib</code></h2>
+<p><code>document</code>, <code>window</code>, <code>HTMLElement</code>, <code>fetch</code> come from the <code>dom</code> lib; <code>Promise</code>, <code>Map</code>, <code>Object.entries</code>, <code>Array.prototype.includes</code> and others come from ES libs. If you set <code>lib</code> explicitly, include what you use:</p>
+<pre><code class="language-json">{
+  &quot;compilerOptions&quot;: {
+    &quot;target&quot;: &quot;ES2022&quot;,
+    &quot;lib&quot;: [&quot;ES2022&quot;, &quot;DOM&quot;, &quot;DOM.Iterable&quot;]
+  }
+}
+</code></pre>
+<p>Omitting <code>lib</code> entirely gives you the defaults for your <code>target</code>, including DOM.</p>
+<h2 id="cause-5-your-own-name-is-undeclared">Cause 5: your own name is undeclared</h2>
+<ul>
+<li>A typo or wrong case (<code>useState</code> vs <code>UseState</code>).</li>
+<li>A missing import: <code>import { useState } from 'react'</code>.</li>
+<li>A global injected at build time (Vite <code>import.meta.env</code> is fine, but <code>__APP_VERSION__</code> from <code>define</code> isn't known). Declare it in a <code>.d.ts</code> file included by tsconfig:</li>
+</ul>
+<pre><code class="language-ts">// src/globals.d.ts
+declare const __APP_VERSION__: string;
+</code></pre>
+<ul>
+<li>A global from a <code>&lt;script&gt;</code> tag (e.g. <code>gtag</code>, <code>google</code>): install its types (<code>@types/gtag.js</code>, <code>@types/google.maps</code>) or declare it as above.</li>
+</ul>
+<h2 id="cause-6-cannot-find-name-react-in-jsx-files">Cause 6: <code>Cannot find name 'React'</code> in JSX files</h2>
+<p>With the new JSX transform set <code>"jsx": "react-jsx"</code> in tsconfig instead of <code>"react"</code>, so you don't need <code>import React</code> in every file.</p>
+<p class="upd">Last updated 2026-11-08.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-ts2307-cannot-find-module-or-its-corresponding-type-declarations/">TS2307: Cannot find module or its corresponding type declarations.</a></li><li><a href="/javascript/js-ts2339-property-does-not-exist-on-type/">Property &#x27;x&#x27; does not exist on type &#x27;Y&#x27;</a></li><li><a href="/javascript/js-ts7016-could-not-find-a-declaration-file-for-module/">TS7016: Could not find a declaration file for module</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

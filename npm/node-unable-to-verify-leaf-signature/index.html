@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error: unable to verify the first certificate (UNABLE_TO_VERIFY_LEAF_SIGNATURE) (Node.js) — how to fix</title>
+<meta name="description" content="Node.js got a TLS certificate it can&#x27;t chain to a trusted root. Usually the server doesn&#x27;t send its intermediate certificate, or a corporate proxy/internal CA signed it and Node doesn&#x27;t trust that CA.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/node-unable-to-verify-leaf-signature/">
+<meta property="og:title" content="Error: unable to verify the first certificate (UNABLE_TO_VERIFY_LEAF_SIGNATURE) (Node.js) — how to fix"><meta property="og:description" content="Node.js got a TLS certificate it can&#x27;t chain to a trusted root. Usually the server doesn&#x27;t send its intermediate certificate, or a corporate proxy/internal CA signed it and Node doesn&#x27;t trust that CA.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/node-unable-to-verify-leaf-signature/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error: unable to verify the first certificate (UNABLE_TO_VERIFY_LEAF_SIGNATURE) (Node.js) \u2014 how to fix", "description": "Node.js got a TLS certificate it can't chain to a trusted root. Usually the server doesn't send its intermediate certificate, or a corporate proxy/internal CA signed it and Node doesn't trust that CA.", "dateModified": "2026-11-13", "url": "https://errorfix-hollis.github.io/npm/node-unable-to-verify-leaf-signature/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "Error: unable to verify the first certificate (UNABLE_TO_VERIFY_LEAF_SIGNATURE)", "item": "https://errorfix-hollis.github.io/npm/node-unable-to-verify-leaf-signature/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>Error: unable to verify the first certificate (UNABLE_TO_VERIFY_LEAF_SIGNATURE) (Node.js) — how to fix</h1>
+<pre class="err"><code>Error: unable to verify the first certificate
+    at TLSSocket.onConnectSecure (node:_tls_wrap:1674:34)
+    at TLSSocket.emit (node:events:519:28) {
+  code: &#x27;UNABLE_TO_VERIFY_LEAF_SIGNATURE&#x27;
+}
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Test with <code>openssl s_client -connect host:443 -servername host -showcerts</code>. If you own the server, serve the full chain (<code>fullchain.pem</code>, not <code>cert.pem</code>). If it's an internal/corporate CA, trust it with <code>export NODE_EXTRA_CA_CERTS=/path/to/ca.pem</code> (or <code>npm config set cafile /path/to/ca.pem</code> for npm). Don't use <code>NODE_TLS_REJECT_UNAUTHORIZED=0</code> outside quick local tests.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>To trust a server certificate, Node must build a chain: server (leaf) cert → intermediate CA → root CA it trusts. <code>UNABLE_TO_VERIFY_LEAF_SIGNATURE</code> means it couldn't verify the leaf's signature because the issuing certificate is missing or unknown.</p>
+<p>Browsers often hide this problem: they cache intermediates and fetch missing ones automatically (AIA fetching). Node does not, so a site that "works in Chrome" can still fail in Node, <code>axios</code>, <code>fetch</code>, or npm.</p>
+<p>Diagnose:</p>
+<pre><code class="language-bash">openssl s_client -connect api.example.com:443 -servername api.example.com -showcerts &lt;/dev/null
+</code></pre>
+<p>Look at <code>Certificate chain</code>. If only <code>0 s:CN=api.example.com</code> appears with no <code>1 s:</code> intermediate, the server is sending an incomplete chain. <code>Verify return code: 21 (unable to verify the first certificate)</code> confirms it.</p>
+<h2 id="fix-1-the-server-is-missing-its-intermediate-you-control-the-server">Fix 1: the server is missing its intermediate (you control the server)</h2>
+<p>Serve the full chain. With Let's Encrypt / certbot:</p>
+<pre><code class="language-nginx">ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;   # not cert.pem
+ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+</code></pre>
+<p>For a commercial CA, concatenate leaf + intermediate(s) in that order:</p>
+<pre><code class="language-bash">cat server.crt intermediate.crt &gt; fullchain.crt
+</code></pre>
+<p>Apache 2.4.8+: put the chain in <code>SSLCertificateFile</code>. Node HTTPS servers: pass the chain in <code>cert</code>, or the intermediate in <code>ca</code>. Reload and re-run the <code>openssl</code> check.</p>
+<h2 id="fix-2-corporate-proxy-or-internal-ca">Fix 2: corporate proxy or internal CA</h2>
+<p>Proxies like Zscaler, Netskope or Fortinet re-sign HTTPS traffic with their own CA. Get that CA's certificate (PEM) from IT or export it from your OS/browser certificate store, then tell Node to trust it <strong>in addition</strong> to the built-in roots:</p>
+<pre><code class="language-bash">export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/corp-root.pem
+node app.js
+</code></pre>
+<p>It must be set before Node starts (not via <code>process.env</code> inside the app). For npm:</p>
+<pre><code class="language-bash">npm config set cafile /etc/ssl/certs/corp-root.pem
+</code></pre>
+<p>Node 23.8+/22.15+ can also use the OS certificate store: <code>node --use-system-ca app.js</code>.</p>
+<h2 id="fix-3-third-party-server-with-a-broken-chain-you-dont-control-it">Fix 3: third-party server with a broken chain (you don't control it)</h2>
+<p>Report it to the owner. Meanwhile, download the missing intermediate (its URL is in the leaf cert's "Authority Information Access" field) and pass it as <code>ca</code> for that host only:</p>
+<pre><code class="language-js">import https from &quot;node:https&quot;;
+import fs from &quot;node:fs&quot;;
+import tls from &quot;node:tls&quot;;
+
+const agent = new https.Agent({
+  ca: [...tls.rootCertificates, fs.readFileSync(&quot;intermediate.pem&quot;)],
+});
+// axios.get(url, { httpsAgent: agent })
+</code></pre>
+<p>Or simply add it via <code>NODE_EXTRA_CA_CERTS</code>.</p>
+<h2 id="fix-4-old-nodejs-version">Fix 4: old Node.js version</h2>
+<p>Very old Node releases ship an outdated CA bundle. Upgrade to a current LTS (<code>nvm install --lts</code>).</p>
+<h2 id="what-not-to-do">What not to do</h2>
+<pre><code class="language-bash">NODE_TLS_REJECT_UNAUTHORIZED=0 node app.js     # disables ALL certificate checks
+</code></pre>
+<p>and <code>rejectUnauthorized: false</code> / <code>npm config set strict-ssl false</code> make you vulnerable to man-in-the-middle attacks. Use them only for a one-off local test, never in production.</p>
+<p class="upd">Last updated 2026-11-13.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/node-cert-has-expired/">Error: certificate has expired (CERT_HAS_EXPIRED)</a></li><li><a href="/npm/node-unable-to-get-issuer-cert-locally/">Error: unable to get local issuer certificate (UNABLE_TO_GET_ISSUER_CERT_LOCALLY)</a></li><li><a href="/npm/npm-self-signed-cert-in-chain/">npm ERR! code SELF_SIGNED_CERT_IN_CHAIN</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

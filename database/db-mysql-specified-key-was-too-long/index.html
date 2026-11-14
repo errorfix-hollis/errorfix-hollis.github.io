@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Specified key was too long; max key length is 767 bytes (MySQL) — how to fix</title>
+<meta name="description" content="An index on a VARCHAR/TEXT column is larger than the storage engine allows. With utf8mb4 each character can take 4 bytes, so `VARCHAR(255)` needs 1020 bytes, over the old 767-byte InnoDB limit.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-mysql-specified-key-was-too-long/">
+<meta property="og:title" content="Specified key was too long; max key length is 767 bytes (MySQL) — how to fix"><meta property="og:description" content="An index on a VARCHAR/TEXT column is larger than the storage engine allows. With utf8mb4 each character can take 4 bytes, so `VARCHAR(255)` needs 1020 bytes, over the old 767-byte InnoDB limit.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-mysql-specified-key-was-too-long/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Specified key was too long; max key length is 767 bytes (MySQL) \u2014 how to fix", "description": "An index on a VARCHAR/TEXT column is larger than the storage engine allows. With utf8mb4 each character can take 4 bytes, so `VARCHAR(255)` needs 1020 bytes, over the old 767-byte InnoDB limit.", "dateModified": "2026-11-07", "url": "https://errorfix-hollis.github.io/database/db-mysql-specified-key-was-too-long/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "Specified key was too long; max key length is 767 bytes", "item": "https://errorfix-hollis.github.io/database/db-mysql-specified-key-was-too-long/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>Specified key was too long; max key length is 767 bytes (MySQL) — how to fix</h1>
+<pre class="err"><code>ERROR 1071 (42000): Specified key was too long; max key length is 767 bytes
+SQLSTATE[42000]: Syntax error or access violation: 1071 Specified key was too long; max key length is 1000 bytes
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> On MySQL 5.7.7+/8.0 and MariaDB 10.2.2+ use InnoDB with <code>ROW_FORMAT=DYNAMIC</code> (the default), which allows 3072-byte keys. On older servers either index a prefix (<code>INDEX (email(191))</code>), shorten the column to <code>VARCHAR(191)</code>, or in Laravel set <code>Schema::defaultStringLength(191);</code>. A 1000-byte limit means the table is MyISAM: convert with <code>ENGINE=InnoDB</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Index keys have a maximum size in bytes, not characters:</p>
+<table>
+<thead>
+<tr>
+<th>Engine / row format</th>
+<th>Max key length</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>InnoDB <code>COMPACT</code> / <code>REDUNDANT</code> (old default)</td>
+<td>767 bytes</td>
+</tr>
+<tr>
+<td>InnoDB <code>DYNAMIC</code> / <code>COMPRESSED</code> (default since MySQL 5.7.7, MariaDB 10.2.2)</td>
+<td>3072 bytes</td>
+</tr>
+<tr>
+<td>MyISAM</td>
+<td>1000 bytes</td>
+</tr>
+</tbody>
+</table>
+<p>MySQL reserves the worst case per character: 4 bytes for <code>utf8mb4</code>, 3 for <code>utf8mb3</code>. So:</p>
+<ul>
+<li><code>VARCHAR(255)</code> utf8mb4 = 1020 bytes → too long for 767 and 1000</li>
+<li><code>VARCHAR(191)</code> utf8mb4 = 764 bytes → fits 767 (that's why "191" appears everywhere)</li>
+<li><code>VARCHAR(768)</code> utf8mb4 = 3072 bytes → max for DYNAMIC</li>
+</ul>
+<p>Composite indexes add up all their columns.</p>
+<p>Check your server and table:</p>
+<pre><code class="language-sql">SELECT VERSION();
+SHOW VARIABLES LIKE 'innodb_default_row_format';
+SHOW TABLE STATUS WHERE Name = 'users';   -- Engine and Row_format columns
+</code></pre>
+<h2 id="fix-1-use-innodb-with-dynamic-row-format-modern-servers">Fix 1: use InnoDB with DYNAMIC row format (modern servers)</h2>
+<p>On MySQL 5.7+/8.0 or MariaDB 10.2+ the default is already DYNAMIC; you only get the 767 error if the table was created with <code>COMPACT</code> or the server is configured that way:</p>
+<pre><code class="language-sql">ALTER TABLE users ROW_FORMAT=DYNAMIC;
+</code></pre>
+<p>On MySQL 5.6 / MariaDB 10.1 you also need these in <code>my.cnf</code> (they were removed later):</p>
+<pre><code class="language-ini">[mysqld]
+innodb_file_format = Barracuda
+innodb_file_per_table = 1
+innodb_large_prefix = 1
+</code></pre>
+<h2 id="fix-2-the-1000-byte-message-means-myisam">Fix 2: the 1000-byte message means MyISAM</h2>
+<pre><code class="language-sql">ALTER TABLE users ENGINE=InnoDB;
+</code></pre>
+<p>Set the default so new tables are InnoDB: <code>default-storage-engine=InnoDB</code>.</p>
+<h2 id="fix-3-shorten-the-column-or-index-a-prefix">Fix 3: shorten the column or index a prefix</h2>
+<p>If you can't change the server, limit the indexed length.</p>
+<pre><code class="language-sql">-- shorter column
+ALTER TABLE users MODIFY email VARCHAR(191) NOT NULL;
+
+-- or keep the column, index only the first 191 characters
+CREATE INDEX idx_users_email ON users (email(191));
+</code></pre>
+<p>A prefix index can't enforce uniqueness on the full value: a <code>UNIQUE (email(191))</code> treats two values with the same first 191 characters as duplicates. For real emails that's fine; for long URLs or paths consider a hash column instead:</p>
+<pre><code class="language-sql">ALTER TABLE pages ADD url_hash BINARY(32) AS (UNHEX(SHA2(url, 256))) STORED,
+                  ADD UNIQUE KEY uq_url_hash (url_hash);
+</code></pre>
+<h2 id="fix-4-laravel">Fix 4: Laravel</h2>
+<p>The classic Laravel error on old MySQL/MariaDB. In <code>app/Providers/AppServiceProvider.php</code>:</p>
+<pre><code class="language-php">use Illuminate\Support\Facades\Schema;
+
+public function boot(): void
+{
+    Schema::defaultStringLength(191);
+}
+</code></pre>
+<p>Better: upgrade the database server, after which the default 255 works.</p>
+<h2 id="fix-5-django-rails-and-others">Fix 5: Django, Rails and others</h2>
+<ul>
+<li><strong>Django</strong>: <code>CharField(max_length=255, unique=True)</code> on old MySQL; reduce <code>max_length</code> to 191 or upgrade. Ensure <code>OPTIONS: {'charset': 'utf8mb4'}</code> matches your intent.</li>
+<li><strong>Rails</strong>: set <code>encoding: utf8mb4</code> and ensure <code>ROW_FORMAT=DYNAMIC</code> for the table, or <code>limit: 191</code> on indexed strings.</li>
+</ul>
+<p>Don't "fix" it by switching to <code>utf8</code> (utf8mb3): it can't store emoji and leads to <a href="/database/db-mysql-error-1366-incorrect-string-value/">error 1366</a>.</p>
+<p class="upd">Last updated 2026-11-07.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li><li><a href="/database/db-mysql-error-1366-incorrect-string-value/">ERROR 1366 (HY000): Incorrect string value</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li><li><a href="/database/db-mysql-error-1130-host-is-not-allowed-to-connect/">ERROR 1130 (HY000): Host is not allowed to connect to this MySQL server</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

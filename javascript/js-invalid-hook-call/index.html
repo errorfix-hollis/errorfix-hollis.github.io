@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Invalid hook call. Hooks can only be called inside of the body of a function component. (JavaScript) — how to fix</title>
+<meta name="description" content="A React hook (useState, useEffect, useContext, ...) ran outside a function component&#x27;s render, or the app has two copies of React. The message lists the three possible reasons.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-invalid-hook-call/">
+<meta property="og:title" content="Invalid hook call. Hooks can only be called inside of the body of a function component. (JavaScript) — how to fix"><meta property="og:description" content="A React hook (useState, useEffect, useContext, ...) ran outside a function component&#x27;s render, or the app has two copies of React. The message lists the three possible reasons.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-invalid-hook-call/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Invalid hook call. Hooks can only be called inside of the body of a function component. (JavaScript) \u2014 how to fix", "description": "A React hook (useState, useEffect, useContext, ...) ran outside a function component's render, or the app has two copies of React. The message lists the three possible reasons.", "dateModified": "2026-11-14", "url": "https://errorfix-hollis.github.io/javascript/js-invalid-hook-call/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "Invalid hook call. Hooks can only be called inside of the body of a function component.", "item": "https://errorfix-hollis.github.io/javascript/js-invalid-hook-call/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>Invalid hook call. Hooks can only be called inside of the body of a function component. (JavaScript) — how to fix</h1>
+<pre class="err"><code>Error: Invalid hook call. Hooks can only be called inside of the body of a function component. This could happen for one of the following reasons:
+1. You might have mismatching versions of React and the renderer (such as React DOM)
+2. You might be breaking the Rules of Hooks
+3. You might have more than one copy of React in the same app
+See https://react.dev/link/invalid-hook-call for tips about how to debug and fix this problem.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Only call hooks at the top level of a function component or custom hook, never in regular functions, class components, callbacks, loops or conditions. Then check for duplicate React: <code>npm ls react</code> should show one version. In linked/monorepo packages make react a peerDependency and alias it to one copy.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>React keeps track of hooks through the component that is currently rendering. If a hook is called when no component is rendering, or React's internal dispatcher comes from a different copy of React than the one rendering, you get this error. The message itself lists the three reasons; work through them in this order.</p>
+<h2 id="cause-1-hook-called-outside-a-component-rules-of-hooks">Cause 1: hook called outside a component (Rules of Hooks)</h2>
+<p>Hooks must be called at the top level of a <strong>function component</strong> or a <strong>custom hook</strong> (a function whose name starts with <code>use</code>).</p>
+<pre><code class="language-jsx">// Wrong: called in a normal function
+function getUser() {
+  const [user] = useState(null);      // invalid hook call
+}
+
+// Wrong: inside an event handler
+&lt;button onClick={() =&gt; { const nav = useNavigate(); nav(&quot;/&quot;); }} /&gt;
+
+// Right: call at top level, use the result later
+function Header() {
+  const navigate = useNavigate();
+  return &lt;button onClick={() =&gt; navigate(&quot;/&quot;)}&gt;Home&lt;/button&gt;;
+}
+</code></pre>
+<p>Also wrong: hooks inside class components, <code>useMemo</code>/<code>useEffect</code> callbacks, <code>.map()</code> callbacks, conditions and loops.</p>
+<h2 id="cause-2-calling-a-component-as-a-function-outside-rendering">Cause 2: calling a component as a function outside rendering</h2>
+<pre><code class="language-jsx">// Wrong: Modal uses hooks, but here it is called from an event handler
+onClick={() =&gt; showDialog(Modal({ title: &quot;Hi&quot; }))}
+
+// Right: render it as an element
+{open &amp;&amp; &lt;Modal title=&quot;Hi&quot; /&gt;}
+</code></pre>
+<p>Calling a component function from an event handler, a router loader, <code>setTimeout</code>, or a non-React library callback runs its hooks while no component is rendering. Even inside render, prefer <code>&lt;Profile /&gt;</code> over <code>{Profile()}</code>: the direct call attaches Profile's hooks to the parent and breaks as soon as it is called conditionally.</p>
+<h2 id="cause-3-more-than-one-copy-of-react">Cause 3: more than one copy of React</h2>
+<p>Very common with <code>npm link</code>, monorepos, and component libraries that bundle React. Check:</p>
+<pre><code class="language-bash">npm ls react
+npm ls react-dom
+</code></pre>
+<p>You want exactly one <code>react</code> (and every <code>react-dom</code> must match its version). Quick runtime check: in your app add <code>window.React1 = require('react')</code>, in the library <code>window.React2 = require('react')</code>, and compare <code>window.React1 === window.React2</code> in the console.</p>
+<p>Fixes:</p>
+<ul>
+<li>In a library, list React as a <strong>peer dependency</strong>, not a dependency:</li>
+</ul>
+<pre><code class="language-json">{
+  &quot;peerDependencies&quot;: { &quot;react&quot;: &quot;^18 || ^19&quot;, &quot;react-dom&quot;: &quot;^18 || ^19&quot; },
+  &quot;devDependencies&quot;: { &quot;react&quot;: &quot;^19.0.0&quot;, &quot;react-dom&quot;: &quot;^19.0.0&quot; }
+}
+</code></pre>
+<ul>
+<li>Mark React as external in the library's bundler (Rollup/Vite <code>external: ["react", "react-dom", "react/jsx-runtime"]</code>).</li>
+<li>With <code>npm link</code>, point the library at the app's copy: <code>npm link ../my-app/node_modules/react</code> from the library folder.</li>
+<li>Force one version with aliases. Vite: <code>resolve: { dedupe: ["react", "react-dom"] }</code>. Webpack:</li>
+</ul>
+<pre><code class="language-js">resolve: {
+  alias: { react: path.resolve(&quot;./node_modules/react&quot;) }
+}
+</code></pre>
+<ul>
+<li>npm <code>overrides</code> / Yarn <code>resolutions</code> / pnpm <code>overrides</code> to pin one version across the workspace, then reinstall.</li>
+</ul>
+<h2 id="cause-4-mismatched-react-and-react-dom-versions">Cause 4: mismatched React and React DOM versions</h2>
+<p><code>react@19</code> with <code>react-dom@18</code> (or the reverse) breaks hooks. Upgrade both together:</p>
+<pre><code class="language-bash">npm install react@latest react-dom@latest
+</code></pre>
+<p>Same for React Native (<code>react</code> must match what your <code>react-native</code> version expects) and test renderers (<code>react-test-renderer</code> must match <code>react</code>).</p>
+<h2 id="cause-5-hooks-in-server-only-code-nextjs">Cause 5: hooks in server-only code (Next.js)</h2>
+<p>In the App Router, files are Server Components by default and can't use <code>useState</code>/<code>useEffect</code>. Add <code>"use client"</code> at the top of the file that uses them. Hooks also can't be used in <code>getServerSideProps</code>, route handlers or middleware.</p>
+<h2 id="catch-it-early">Catch it early</h2>
+<p>Install <code>eslint-plugin-react-hooks</code> and enable <code>react-hooks/rules-of-hooks</code> (included in the recommended config). It flags hooks in conditions, loops, and non-hook functions at lint time.</p>
+<p class="upd">Last updated 2026-11-14.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-objects-are-not-valid-as-a-react-child/">Objects are not valid as a React child</a></li><li><a href="/javascript/js-react-hook-useeffect-has-a-missing-dependency/">React Hook useEffect has a missing dependency</a></li><li><a href="/javascript/js-too-many-re-renders/">Too many re-renders. React limits the number of renders to prevent an infinite loop.</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

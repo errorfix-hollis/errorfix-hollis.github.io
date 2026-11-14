@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: Failed building wheel for X (Python) — how to fix</title>
+<meta name="description" content="pip couldn&#x27;t find a prebuilt wheel for your Python version and platform, so it tried to compile the package from source and the compile failed, usually because a compiler or C headers are missing.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-failed-building-wheel/">
+<meta property="og:title" content="error: Failed building wheel for X (Python) — how to fix"><meta property="og:description" content="pip couldn&#x27;t find a prebuilt wheel for your Python version and platform, so it tried to compile the package from source and the compile failed, usually because a compiler or C headers are missing.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-failed-building-wheel/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: Failed building wheel for X (Python) \u2014 how to fix", "description": "pip couldn't find a prebuilt wheel for your Python version and platform, so it tried to compile the package from source and the compile failed, usually because a compiler or C headers are missing.", "dateModified": "2026-10-31", "url": "https://errorfix-hollis.github.io/python/python-failed-building-wheel/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "error: Failed building wheel for X", "item": "https://errorfix-hollis.github.io/python/python-failed-building-wheel/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>error: Failed building wheel for X (Python) — how to fix</h1>
+<pre class="err"><code>Building wheel for psycopg2 (setup.py) ... error
+error: subprocess-exited-with-error
+× Building wheel for psycopg2 (pyproject.toml) did not run successfully.
+│ exit code: 1
+ERROR: Failed building wheel for psycopg2
+ERROR: Could not build wheels for psycopg2, which is required to install pyproject.toml-based projects
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Scroll up to the first real compiler error. Usually: upgrade build tools (<code>python -m pip install --upgrade pip setuptools wheel</code>), install a compiler and headers (<code>sudo apt install build-essential python3-dev</code>, plus the library's <code>-dev</code> package, e.g. <code>libpq-dev</code>), or use a Python version the package ships wheels for.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A <em>wheel</em> is a prebuilt package. When PyPI has no wheel matching your Python version, OS and CPU, pip downloads the source distribution and builds it locally. For packages with C/C++/Rust extensions that requires a compiler, Python headers and sometimes system libraries. "Failed building wheel" is only the summary; the real reason is printed <strong>above</strong> it.</p>
+<p>Rerun with more output to find it:</p>
+<pre><code class="language-bash">pip install psycopg2 -v 2&gt;&amp;1 | grep -iE &quot;error|fatal&quot; | head -20
+</code></pre>
+<p>Typical lines: <code>gcc: command not found</code>, <code>fatal error: Python.h: No such file or directory</code>, <code>pg_config executable not found</code>, <code>error: can't find Rust compiler</code>.</p>
+<h2 id="fix-1-upgrade-pip-setuptools-and-wheel">Fix 1: upgrade pip, setuptools and wheel</h2>
+<p>Old pip versions don't recognise newer wheel tags (e.g. <code>manylinux_2_28</code>) and fall back to building from source unnecessarily.</p>
+<pre><code class="language-bash">python -m pip install --upgrade pip setuptools wheel
+pip install &lt;package&gt;
+</code></pre>
+<h2 id="fix-2-install-a-compiler-and-python-headers">Fix 2: install a compiler and Python headers</h2>
+<p>Debian/Ubuntu:</p>
+<pre><code class="language-bash">sudo apt update
+sudo apt install build-essential python3-dev
+</code></pre>
+<p>Fedora/RHEL: <code>sudo dnf install gcc python3-devel</code>. Alpine: <code>apk add build-base python3-dev</code>. macOS: <code>xcode-select --install</code>. On Windows see the "Microsoft Visual C++ 14.0 or greater is required" page.</p>
+<h2 id="fix-3-install-the-system-library-the-package-wraps">Fix 3: install the system library the package wraps</h2>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Debian/Ubuntu packages</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>psycopg2</td>
+<td><code>libpq-dev</code></td>
+</tr>
+<tr>
+<td>mysqlclient</td>
+<td><code>default-libmysqlclient-dev pkg-config</code></td>
+</tr>
+<tr>
+<td>lxml</td>
+<td><code>libxml2-dev libxslt1-dev</code></td>
+</tr>
+<tr>
+<td>Pillow</td>
+<td><code>libjpeg-dev zlib1g-dev</code></td>
+</tr>
+<tr>
+<td>cryptography (old versions)</td>
+<td><code>libssl-dev libffi-dev</code></td>
+</tr>
+</tbody>
+</table>
+<p>Or use a binary alternative where one exists, e.g. <code>pip install psycopg2-binary</code>.</p>
+<h2 id="fix-4-your-python-is-too-new-or-too-old">Fix 4: your Python is too new (or too old)</h2>
+<p>Right after a new Python release, many packages don't publish wheels yet. Check the "Download files" list on the package's PyPI page for a <code>cp3XX</code> tag matching <code>python --version</code>. If there is none, either upgrade the package to a version that has one or use an older Python in a virtual environment:</p>
+<pre><code class="language-bash">pip install --upgrade &lt;package&gt;      # newer releases often add wheels
+python3.12 -m venv .venv &amp;&amp; . .venv/bin/activate
+</code></pre>
+<h2 id="fix-5-rust-based-packages">Fix 5: Rust-based packages</h2>
+<p>Packages like <code>tokenizers</code>, <code>orjson</code> or <code>pydantic-core</code> need Rust when no wheel matches. Install it with <code>curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh</code>, open a new shell, and retry — but usually a newer package version or supported Python is the better fix.</p>
+<h2 id="fix-6-alpine-based-docker-images">Fix 6: Alpine-based Docker images</h2>
+<p><code>python:3.x-alpine</code> uses musl, and many packages only ship <code>manylinux</code> (glibc) wheels, so everything compiles. Switching to <code>python:3.x-slim</code> usually makes the error disappear and the build much faster.</p>
+<p class="upd">Last updated 2026-10-31.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-could-not-find-a-version-that-satisfies-the-requirement/">ERROR: Could not find a version that satisfies the requirement</a></li><li><a href="/python/python-microsoft-visual-cpp-required/">error: Microsoft Visual C++ 14.0 or greater is required.</a></li><li><a href="/python/python-no-module-named-distutils/">ModuleNotFoundError: No module named &#x27;distutils&#x27;</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

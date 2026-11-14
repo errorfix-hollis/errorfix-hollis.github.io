@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>pull access denied for X, repository does not exist or may require &#x27;docker login&#x27; — how to fix</title>
+<meta name="description" content="Docker tried to pull the image from a registry and was refused. Usually the image name is wrong or was never built locally, it lives in a private repository you haven&#x27;t logged in to, or the registry/namespace prefix is missing.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-pull-access-denied-repository-does-not-exist/">
+<meta property="og:title" content="pull access denied for X, repository does not exist or may require &#x27;docker login&#x27; — how to fix"><meta property="og:description" content="Docker tried to pull the image from a registry and was refused. Usually the image name is wrong or was never built locally, it lives in a private repository you haven&#x27;t logged in to, or the registry/namespace prefix is missing.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-pull-access-denied-repository-does-not-exist/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "pull access denied for X, repository does not exist or may require 'docker login' \u2014 how to fix", "description": "Docker tried to pull the image from a registry and was refused. Usually the image name is wrong or was never built locally, it lives in a private repository you haven't logged in to, or the registry/namespace prefix is missing.", "dateModified": "2026-11-02", "url": "https://errorfix-hollis.github.io/docker/docker-pull-access-denied-repository-does-not-exist/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "pull access denied for X, repository does not exist or may require 'docker login'", "item": "https://errorfix-hollis.github.io/docker/docker-pull-access-denied-repository-does-not-exist/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>pull access denied for X, repository does not exist or may require &#x27;docker login&#x27; — how to fix</h1>
+<pre class="err"><code>Unable to find image &#x27;myapp:latest&#x27; locally
+docker: Error response from daemon: pull access denied for myapp, repository does not exist or may require &#x27;docker login&#x27;: denied: requested access to the resource is denied.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the name with <code>docker images</code> — if it's a local image, build it first (<code>docker build -t myapp .</code>) and use the exact same tag. For private images run <code>docker login</code> (or <code>docker login ghcr.io</code>, <code>aws ecr get-login-password | docker login ...</code>) and use the full name <code>registry/namespace/image:tag</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When you <code>docker run</code>, <code>docker pull</code> or <code>docker compose up</code> an image that isn't in the local cache, Docker pulls it from a registry. A name without a registry host (e.g. <code>myapp</code>) means Docker Hub, <code>docker.io/library/myapp</code>. The registry answered "denied", and for security it gives the same answer whether the repository <strong>doesn't exist</strong> or <strong>exists but you can't access it</strong>.</p>
+<h2 id="fix-1-the-image-only-exists-locally-or-not-at-all">Fix 1: the image only exists locally (or not at all)</h2>
+<p>If you meant your own image, it must be built with exactly that name and tag:</p>
+<pre><code class="language-bash">docker images | grep myapp
+docker build -t myapp:latest .
+docker run myapp:latest
+</code></pre>
+<p><code>myapp</code>, <code>myapp:latest</code> and <code>myapp:1.0</code> are different references; <code>docker run myapp</code> means <code>myapp:latest</code>. A typo (<code>my-app</code> vs <code>myapp</code>) sends Docker to Docker Hub, where it fails.</p>
+<h3 id="docker-compose">docker compose</h3>
+<p>If a service has both <code>image:</code> and <code>build:</code>, Compose builds it. If it only has <code>image: myapp</code>, Compose tries to pull. Either add a <code>build:</code> section or build first:</p>
+<pre><code class="language-yaml">services:
+  web:
+    build: .
+    image: myapp:latest
+</code></pre>
+<pre><code class="language-bash">docker compose build
+docker compose up
+</code></pre>
+<p><code>docker compose up</code> without <code>--build</code> may also try pulling before building; <code>docker compose up --build</code> avoids that.</p>
+<h2 id="fix-2-typo-in-a-public-image-name">Fix 2: typo in a public image name</h2>
+<p>Official images have no namespace (<code>nginx</code>, <code>postgres</code>); others need <code>user/repo</code>. Check the exact name on hub.docker.com. Examples of wrong names: <code>mongo-db</code> (should be <code>mongo</code>), <code>node:lts-alpine3.99</code> (nonexistent tag gives <code>manifest unknown</code> instead).</p>
+<h2 id="fix-3-private-repository-log-in">Fix 3: private repository — log in</h2>
+<pre><code class="language-bash">docker login                       # Docker Hub
+docker pull myuser/private-app:1.0
+</code></pre>
+<p>Other registries need the host in both the login and the image name:</p>
+<pre><code class="language-bash"># GitHub Container Registry (use a PAT with read:packages)
+echo $CR_PAT | docker login ghcr.io -u USERNAME --password-stdin
+docker pull ghcr.io/owner/app:1.0
+
+# AWS ECR
+aws ecr get-login-password --region us-east-1 \
+  | docker login --username AWS --password-stdin 123456789012.dkr.ecr.us-east-1.amazonaws.com
+
+# Google Artifact Registry
+gcloud auth configure-docker europe-docker.pkg.dev
+</code></pre>
+<p>Check stored credentials in <code>~/.docker/config.json</code>. If you ran <code>sudo docker login</code> but run <code>docker</code> without sudo (or vice versa), the credentials are in a different home directory.</p>
+<h2 id="fix-4-pushing-wrong-namespace">Fix 4: pushing — wrong namespace</h2>
+<p><code>denied: requested access to the resource is denied</code> on <code>docker push</code> means you're pushing to a namespace you don't own. Tag with your username or org:</p>
+<pre><code class="language-bash">docker tag myapp:latest myuser/myapp:latest
+docker push myuser/myapp:latest
+</code></pre>
+<h2 id="fix-5-dockerfile-from-references-a-local-or-private-image">Fix 5: Dockerfile <code>FROM</code> references a local or private image</h2>
+<p><code>docker build</code> fails the same way if <code>FROM mybase:1.0</code> isn't available locally or in a registry you're logged in to. Build the base image first, or log in. With BuildKit, a local image may not be visible to a <code>docker-container</code> builder — use the default builder (<code>docker buildx use default</code>) or push the base to a registry.</p>
+<h2 id="fix-6-kubernetes">Fix 6: Kubernetes</h2>
+<p>In a cluster the equivalent is <code>ErrImagePull</code> / <code>ImagePullBackOff</code>. Create a pull secret and reference it:</p>
+<pre><code class="language-bash">kubectl create secret docker-registry regcred \
+  --docker-server=ghcr.io --docker-username=USER --docker-password=TOKEN
+</code></pre>
+<pre><code class="language-yaml">spec:
+  imagePullSecrets:
+    - name: regcred
+</code></pre>
+<p class="upd">Last updated 2026-11-02.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-no-matching-manifest/">no matching manifest for linux/arm64/v8 in the manifest list entries</a></li><li><a href="/kubernetes/k8s-imagepullbackoff/">ImagePullBackOff / ErrImagePull</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

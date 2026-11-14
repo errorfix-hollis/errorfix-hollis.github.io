@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Web server failed to start. Port 8080 was already in use. (Java) — how to fix</title>
+<meta name="description" content="Spring Boot&#x27;s embedded Tomcat (or Jetty/Undertow) couldn&#x27;t bind to port 8080 because another process is already listening there — often a previous run of the same app that never stopped.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-spring-port-8080-was-already-in-use/">
+<meta property="og:title" content="Web server failed to start. Port 8080 was already in use. (Java) — how to fix"><meta property="og:description" content="Spring Boot&#x27;s embedded Tomcat (or Jetty/Undertow) couldn&#x27;t bind to port 8080 because another process is already listening there — often a previous run of the same app that never stopped.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-spring-port-8080-was-already-in-use/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Web server failed to start. Port 8080 was already in use. (Java) \u2014 how to fix", "description": "Spring Boot's embedded Tomcat (or Jetty/Undertow) couldn't bind to port 8080 because another process is already listening there \u2014 often a previous run of the same app that never stopped.", "dateModified": "2026-10-31", "url": "https://errorfix-hollis.github.io/java/java-spring-port-8080-was-already-in-use/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "Web server failed to start. Port 8080 was already in use.", "item": "https://errorfix-hollis.github.io/java/java-spring-port-8080-was-already-in-use/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>Web server failed to start. Port 8080 was already in use. (Java) — how to fix</h1>
+<pre class="err"><code>***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Web server failed to start. Port 8080 was already in use.
+
+Action:
+
+Identify and stop the process that&#x27;s listening on port 8080 or configure this application to listen on another port.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find and stop the process: <code>sudo lsof -i :8080</code> or <code>sudo ss -ltnp 'sport = :8080'</code>, then <code>kill &lt;PID&gt;</code> (Windows: <code>netstat -ano | findstr :8080</code> then <code>taskkill /PID &lt;PID&gt; /F</code>). Or run on another port: <code>server.port=8081</code> in application.properties, or <code>--server.port=8081</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Only one process can listen on a TCP port at a time. On startup Spring Boot tries to bind its embedded web server to <code>server.port</code> (default 8080). The OS refused because something else holds it. Spring prints the friendly message above instead of the underlying <code>java.net.BindException: Address already in use</code>.</p>
+<h2 id="fix-1-find-and-stop-the-process">Fix 1: find and stop the process</h2>
+<p>Linux / macOS:</p>
+<pre><code class="language-bash">sudo lsof -i :8080              # shows COMMAND and PID
+sudo ss -ltnp 'sport = :8080'   # Linux alternative
+kill &lt;PID&gt;                      # then kill -9 &lt;PID&gt; if it ignores it
+</code></pre>
+<p>Windows (Command Prompt):</p>
+<pre><code class="language-bat">netstat -ano | findstr :8080
+taskkill /PID &lt;PID&gt; /F
+</code></pre>
+<p>PowerShell: <code>Get-NetTCPConnection -LocalPort 8080 | Select-Object OwningProcess</code>.</p>
+<p>If it's <code>java</code>, it's very likely an earlier run of your app.</p>
+<h2 id="cause-the-previous-run-is-still-alive">Cause: the previous run is still alive</h2>
+<p>Common in IDEs: you click Run again instead of Restart, or close the console tab without stopping the app. In IntelliJ IDEA, open the Run/Services tool window and stop old instances; with "Allow multiple instances" unchecked (the default), Rerun replaces the old instance. Apps started with <code>mvn spring-boot:run</code> or <code>./gradlew bootRun</code> in a terminal are stopped with Ctrl+C — Ctrl+Z only suspends them and keeps the port.</p>
+<h2 id="fix-2-use-a-different-port">Fix 2: use a different port</h2>
+<p><code>src/main/resources/application.properties</code>:</p>
+<pre><code class="language-properties">server.port=8081
+</code></pre>
+<p>or <code>application.yml</code>:</p>
+<pre><code class="language-yaml">server:
+  port: 8081
+</code></pre>
+<p>Or override at launch, without changing code:</p>
+<pre><code class="language-bash">java -jar app.jar --server.port=8081
+SERVER_PORT=8081 java -jar app.jar
+mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=8081
+</code></pre>
+<p><code>server.port=0</code> picks a random free port (useful for tests and running several instances).</p>
+<h2 id="cause-another-service-uses-8080">Cause: another service uses 8080</h2>
+<p>8080 is a popular default: Jenkins, Tomcat installs, other dev servers, Docker containers with <code>-p 8080:...</code>. Check containers:</p>
+<pre><code class="language-bash">docker ps --filter &quot;publish=8080&quot;
+</code></pre>
+<p>Stop that service, or move one of them to another port.</p>
+<h2 id="tests">Tests</h2>
+<p><code>@SpringBootTest(webEnvironment = WebEnvironment.DEFINED_PORT)</code> uses the real port and fails if the app is also running. Prefer <code>WebEnvironment.RANDOM_PORT</code> and inject it with <code>@LocalServerPort</code>.</p>
+<h2 id="not-a-web-app">Not a web app?</h2>
+<p>If the application shouldn't start a web server at all (batch job, CLI), disable it:</p>
+<pre><code class="language-properties">spring.main.web-application-type=none
+</code></pre>
+<p class="upd">Last updated 2026-10-31.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-port-is-already-allocated/">Bind for 0.0.0.0:8080 failed: port is already allocated</a></li><li><a href="/java/java-could-not-find-or-load-main-class/">Error: Could not find or load main class</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-comparison-method-violates-its-general-contract/">java.lang.IllegalArgumentException: Comparison method violates its general contract!</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

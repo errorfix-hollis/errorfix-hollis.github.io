@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>unauthorized: authentication required (Docker) — how to fix</title>
+<meta name="description" content="The registry rejected your pull or push because you&#x27;re not logged in, your credentials or token expired, or you&#x27;re pushing to a repository name your account can&#x27;t write to.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-unauthorized-authentication-required/">
+<meta property="og:title" content="unauthorized: authentication required (Docker) — how to fix"><meta property="og:description" content="The registry rejected your pull or push because you&#x27;re not logged in, your credentials or token expired, or you&#x27;re pushing to a repository name your account can&#x27;t write to.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-unauthorized-authentication-required/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "unauthorized: authentication required (Docker) \u2014 how to fix", "description": "The registry rejected your pull or push because you're not logged in, your credentials or token expired, or you're pushing to a repository name your account can't write to.", "dateModified": "2026-11-03", "url": "https://errorfix-hollis.github.io/docker/docker-unauthorized-authentication-required/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "unauthorized: authentication required", "item": "https://errorfix-hollis.github.io/docker/docker-unauthorized-authentication-required/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>unauthorized: authentication required (Docker) — how to fix</h1>
+<pre class="err"><code>Error response from daemon: Head &quot;https://registry-1.docker.io/v2/myorg/app/manifests/latest&quot;: unauthorized: authentication required
+denied: requested access to the resource is denied
+unauthorized: incorrect username or password
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Log in to the right registry: <code>docker login</code> (Docker Hub) or <code>docker login ghcr.io -u USER</code> with a personal access token. Tag images with your namespace before pushing: <code>docker tag app myuser/app:1.0 &amp;&amp; docker push myuser/app:1.0</code>. For ECR: <code>aws ecr get-login-password | docker login --username AWS --password-stdin &lt;acct&gt;.dkr.ecr.&lt;region&gt;.amazonaws.com</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The registry returned HTTP 401/403. Docker sent either no credentials or credentials the registry didn't accept for that repository. Common variants:</p>
+<ul>
+<li><code>unauthorized: authentication required</code> — no valid login for this registry</li>
+<li><code>denied: requested access to the resource is denied</code> — logged in, but not allowed to push to that name</li>
+<li><code>unauthorized: incorrect username or password</code> — bad login (often 2FA account using a password instead of a token)</li>
+</ul>
+<p>Check who you're logged in as:</p>
+<pre><code class="language-bash">cat ~/.docker/config.json     # &quot;auths&quot; lists registries; &quot;credsStore&quot; = helper in use
+docker info | grep -i username
+</code></pre>
+<h2 id="fix-1-log-in-to-the-registry-in-the-image-name">Fix 1: log in to the registry in the image name</h2>
+<p>Credentials are per registry host, taken from the image name:</p>
+<table>
+<thead>
+<tr>
+<th>Image</th>
+<th>Login command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>myuser/app</code></td>
+<td><code>docker login</code> (Docker Hub)</td>
+</tr>
+<tr>
+<td><code>ghcr.io/org/app</code></td>
+<td><code>docker login ghcr.io -u USER</code></td>
+</tr>
+<tr>
+<td><code>registry.gitlab.com/g/p</code></td>
+<td><code>docker login registry.gitlab.com</code></td>
+</tr>
+<tr>
+<td><code>123.dkr.ecr.eu-west-1.amazonaws.com/app</code></td>
+<td>see ECR below</td>
+</tr>
+</tbody>
+</table>
+<p>Use a <strong>personal access token</strong>, not your password, if your account has 2FA or SSO. Docker Hub: Account Settings → Personal access tokens. GitHub: a classic PAT with <code>write:packages</code> (and <code>read:packages</code>):</p>
+<pre><code class="language-bash">echo &quot;$GHCR_TOKEN&quot; | docker login ghcr.io -u myuser --password-stdin
+</code></pre>
+<h2 id="fix-2-tag-with-your-namespace-before-pushing">Fix 2: tag with your namespace before pushing</h2>
+<pre><code class="language-bash">docker push app:1.0                    # tries docker.io/library/app -&gt; denied
+docker tag app:1.0 myuser/app:1.0
+docker push myuser/app:1.0
+</code></pre>
+<p>The first path segment on Docker Hub must be your username or an organization you can push to. For other registries, the full host must be in the tag: <code>docker tag app ghcr.io/myorg/app:1.0</code>.</p>
+<h2 id="fix-3-expired-token-ecr-gcr-acr">Fix 3: expired token (ECR, GCR, ACR)</h2>
+<p>Cloud registry logins expire (ECR tokens last 12 hours). Log in again:</p>
+<pre><code class="language-bash"># AWS ECR
+aws ecr get-login-password --region eu-west-1 \
+  | docker login --username AWS --password-stdin 123456789012.dkr.ecr.eu-west-1.amazonaws.com
+
+# Google Artifact Registry
+gcloud auth configure-docker europe-west1-docker.pkg.dev
+
+# Azure
+az acr login --name myregistry
+</code></pre>
+<p>For ECR, the repository must also exist before you push: <code>aws ecr create-repository --repository-name app</code>.</p>
+<h2 id="fix-4-sudo-uses-a-different-config">Fix 4: sudo uses a different config</h2>
+<p><code>docker login</code> stores credentials in <code>~/.docker/config.json</code> of the user who ran it. <code>sudo docker push</code> reads <code>/root/.docker/config.json</code> instead. Use the same user for both, or add yourself to the <code>docker</code> group so you don't need sudo.</p>
+<h2 id="fix-5-broken-credential-helper">Fix 5: broken credential helper</h2>
+<p>If <code>config.json</code> has <code>"credsStore": "desktop"</code> (or <code>osxkeychain</code>, <code>pass</code>, <code>secretservice</code>) and the helper is missing or locked, logins silently fail. Log out and in again:</p>
+<pre><code class="language-bash">docker logout
+docker login
+</code></pre>
+<p>On a headless Linux box without a keyring, remove the <code>credsStore</code> line so credentials are stored in the file.</p>
+<h2 id="fix-6-private-base-image-in-a-build">Fix 6: private base image in a build</h2>
+<p><code>docker build</code> pulls <code>FROM</code> images with your logged-in credentials; in CI you must log in before building. In GitHub Actions use <code>docker/login-action</code>; with BuildKit and a remote builder, the builder needs the credentials too.</p>
+<h2 id="pulls-failing-on-public-images">Pulls failing on public images</h2>
+<p><code>unauthorized</code> on a public image usually means a wrong name (repository doesn't exist and the registry refuses to say so) or a stale/invalid login being sent. Try <code>docker logout</code> and pull again anonymously.</p>
+<p class="upd">Last updated 2026-11-03.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-no-matching-manifest/">no matching manifest for linux/arm64/v8 in the manifest list entries</a></li><li><a href="/docker/docker-pull-access-denied-repository-does-not-exist/">pull access denied for X, repository does not exist or may require &#x27;docker login&#x27;</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

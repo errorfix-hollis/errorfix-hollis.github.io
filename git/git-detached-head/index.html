@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>You are in &#x27;detached HEAD&#x27; state. (Git) — how to fix</title>
+<meta name="description" content="HEAD points to a commit, not a branch. Switch back to a branch, or create one here to keep any commits you made.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-detached-head/">
+<meta property="og:title" content="You are in &#x27;detached HEAD&#x27; state. (Git) — how to fix"><meta property="og:description" content="HEAD points to a commit, not a branch. Switch back to a branch, or create one here to keep any commits you made.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-detached-head/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "You are in 'detached HEAD' state. (Git) \u2014 how to fix", "description": "HEAD points to a commit, not a branch. Switch back to a branch, or create one here to keep any commits you made.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/git/git-detached-head/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "You are in 'detached HEAD' state.", "item": "https://errorfix-hollis.github.io/git/git-detached-head/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>You are in &#x27;detached HEAD&#x27; state. (Git) — how to fix</h1>
+<pre class="err"><code>Note: switching to &#x27;a1b2c3d&#x27;.
+
+You are in &#x27;detached HEAD&#x27; state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> To keep work you did here: <code>git switch -c my-branch</code>. To go back: <code>git switch main</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Normally <code>HEAD</code> points to a branch (like <code>main</code>), and new commits move that branch forward. You checked out a <strong>commit, tag, or remote branch</strong> directly, so <code>HEAD</code> points to a bare commit. New commits here don't belong to any branch.</p>
+<p>It's not an error. It's a warning that commits made now are easy to lose.</p>
+<h2 id="just-looking-around-go-back">Just looking around? Go back</h2>
+<pre><code class="language-bash">git switch main          # or: git checkout main
+</code></pre>
+<h2 id="made-commits-you-want-to-keep">Made commits you want to keep?</h2>
+<p>Create a branch where you are, before switching away:</p>
+<pre><code class="language-bash">git switch -c my-fix
+</code></pre>
+<h2 id="already-switched-away-and-lost-the-commits">Already switched away and lost the commits?</h2>
+<p>They still exist for a while. Find them in the reflog:</p>
+<pre><code class="language-bash">git reflog
+# a1b2c3d HEAD@{2}: commit: my lost work
+git branch recovered a1b2c3d
+</code></pre>
+<h2 id="why-it-happens">Why it happens</h2>
+<ul>
+<li><code>git checkout &lt;commit-hash&gt;</code> or <code>git checkout v1.2.0</code> (a tag)</li>
+<li><code>git checkout origin/main</code> (remote-tracking branch). Use <code>git switch main</code> instead, which creates a local branch tracking it.</li>
+<li>During <code>git rebase</code> or <code>git bisect</code>, Git temporarily detaches HEAD. Finish with <code>git rebase --continue</code> / <code>git bisect reset</code>.</li>
+<li>CI systems and submodules often check out a specific commit. That's expected.</li>
+</ul>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-your-local-changes-would-be-overwritten/">error: Your local changes to the following files would be overwritten by merge</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li><li><a href="/git/git-could-not-resolve-host/">fatal: unable to access ... Could not resolve host: github.com</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

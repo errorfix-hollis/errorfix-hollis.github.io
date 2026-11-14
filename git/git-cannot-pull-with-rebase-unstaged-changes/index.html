@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: cannot pull with rebase: You have unstaged changes. (Git) — how to fix</title>
+<meta name="description" content="`git pull` is configured to rebase, and rebase refuses to start while the working tree has uncommitted changes. Stash or commit them first, or let Git do it with `--autostash`.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-cannot-pull-with-rebase-unstaged-changes/">
+<meta property="og:title" content="error: cannot pull with rebase: You have unstaged changes. (Git) — how to fix"><meta property="og:description" content="`git pull` is configured to rebase, and rebase refuses to start while the working tree has uncommitted changes. Stash or commit them first, or let Git do it with `--autostash`.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-cannot-pull-with-rebase-unstaged-changes/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: cannot pull with rebase: You have unstaged changes. (Git) \u2014 how to fix", "description": "`git pull` is configured to rebase, and rebase refuses to start while the working tree has uncommitted changes. Stash or commit them first, or let Git do it with `--autostash`.", "dateModified": "2026-11-04", "url": "https://errorfix-hollis.github.io/git/git-cannot-pull-with-rebase-unstaged-changes/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "error: cannot pull with rebase: You have unstaged changes.", "item": "https://errorfix-hollis.github.io/git/git-cannot-pull-with-rebase-unstaged-changes/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>error: cannot pull with rebase: You have unstaged changes. (Git) — how to fix</h1>
+<pre class="err"><code>error: cannot pull with rebase: You have unstaged changes.
+error: please commit or stash them.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>git pull --rebase --autostash</code> (or <code>git stash &amp;&amp; git pull &amp;&amp; git stash pop</code>). To make it permanent: <code>git config --global rebase.autoStash true</code>. If the changes are junk, discard them with <code>git restore .</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Your <code>git pull</code> is doing <code>fetch</code> + <code>rebase</code> (because of <code>pull.rebase=true</code>, <code>--rebase</code>, or an IDE setting). A rebase rewrites your local commits on top of the remote branch and needs a clean working tree to do that safely. Any modified tracked file blocks it, even if the remote changes don't touch that file. (<code>error: cannot pull with rebase: Your index contains uncommitted changes.</code> is the same thing for staged changes.)</p>
+<p>See what's dirty:</p>
+<pre><code class="language-bash">git status --short
+</code></pre>
+<h2 id="fix-1-autostash-one-command">Fix 1: autostash (one command)</h2>
+<pre><code class="language-bash">git pull --rebase --autostash
+</code></pre>
+<p>Git stashes your changes, rebases, then re-applies the stash. Make it the default:</p>
+<pre><code class="language-bash">git config --global rebase.autoStash true
+</code></pre>
+<p>If re-applying conflicts, Git tells you; resolve the files, <code>git add</code> them, and the stash is kept in <code>git stash list</code> so nothing is lost.</p>
+<h2 id="fix-2-stash-manually">Fix 2: stash manually</h2>
+<pre><code class="language-bash">git stash push -m &quot;wip before pull&quot;
+git pull
+git stash pop
+</code></pre>
+<p>Include untracked files with <code>git stash -u</code> if they'd collide with incoming files. If <code>git stash pop</code> conflicts, fix the files, then <code>git add</code> them and <code>git stash drop</code>.</p>
+<h2 id="fix-3-commit-first">Fix 3: commit first</h2>
+<p>If the work is meaningful, commit it — it will be rebased along with your other local commits:</p>
+<pre><code class="language-bash">git add -A
+git commit -m &quot;WIP: feature X&quot;
+git pull --rebase
+</code></pre>
+<p>You can tidy the WIP commit later with <code>git commit --amend</code> or an interactive rebase before pushing.</p>
+<h2 id="fix-4-discard-the-changes">Fix 4: discard the changes</h2>
+<p>Only if you're sure you don't need them:</p>
+<pre><code class="language-bash">git restore .              # discard modifications to tracked files
+git restore --staged .     # unstage
+git clean -fd              # delete untracked files/dirs (careful)
+git pull
+</code></pre>
+<h2 id="changes-you-didnt-make-line-endings-file-mode">Changes you didn't make (line endings, file mode)</h2>
+<p>Sometimes files show as modified right after cloning: line-ending conversion (<code>core.autocrlf</code>) or permission bits (<code>core.fileMode</code>) differ from the repo.</p>
+<pre><code class="language-bash">git diff --stat          # many files, no visible content change?
+git diff -w | head       # empty -&gt; only whitespace/line endings
+git config core.fileMode false   # ignore chmod-only changes
+</code></pre>
+<p>Add a <code>.gitattributes</code> with <code>* text=auto</code> to normalize line endings for the repo.</p>
+<h2 id="prefer-merge-instead-of-rebase">Prefer merge instead of rebase?</h2>
+<p>If you don't want <code>git pull</code> to rebase at all:</p>
+<pre><code class="language-bash">git config --global pull.rebase false   # merge
+git config --global pull.ff only        # or: only fast-forward, fail otherwise
+</code></pre>
+<p>Merging also refuses to overwrite local changes in files it needs to update, but it doesn't require a fully clean tree.</p>
+<p class="upd">Last updated 2026-11-04.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-merge-conflict/">CONFLICT (content): Merge conflict in</a></li><li><a href="/git/git-not-possible-to-fast-forward-aborting/">fatal: Not possible to fast-forward, aborting.</a></li><li><a href="/git/git-your-local-changes-would-be-overwritten/">error: Your local changes to the following files would be overwritten by merge</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

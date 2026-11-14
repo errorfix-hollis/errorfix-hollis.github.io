@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ReferenceError: require is not defined (JavaScript) — how to fix</title>
+<meta name="description" content="require() only exists in CommonJS. In ES modules and browsers, use import, or create require with createRequire.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-require-is-not-defined/">
+<meta property="og:title" content="ReferenceError: require is not defined (JavaScript) — how to fix"><meta property="og:description" content="require() only exists in CommonJS. In ES modules and browsers, use import, or create require with createRequire.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-require-is-not-defined/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ReferenceError: require is not defined (JavaScript) \u2014 how to fix", "description": "require() only exists in CommonJS. In ES modules and browsers, use import, or create require with createRequire.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/javascript/js-require-is-not-defined/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "ReferenceError: require is not defined", "item": "https://errorfix-hollis.github.io/javascript/js-require-is-not-defined/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>ReferenceError: require is not defined (JavaScript) — how to fix</h1>
+<pre class="err"><code>ReferenceError: require is not defined in ES module scope, you can use import instead</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Replace <code>const x = require('x')</code> with <code>import x from 'x'</code>. Need require in ESM? Use <code>import { createRequire } from 'module'; const require = createRequire(import.meta.url);</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>require</code> is a function Node provides to <strong>CommonJS</strong> files only. It doesn't exist in:</p>
+<ul>
+<li>ES module files in Node (<code>"type": "module"</code> in <code>package.json</code>, or <code>.mjs</code>)</li>
+<li>the browser</li>
+</ul>
+<h2 id="fix-in-node-use-import">Fix in Node: use import</h2>
+<pre><code class="language-js">// before
+const fs = require('fs');
+const { join } = require('path');
+
+// after
+import fs from 'fs';
+import { join } from 'path';
+</code></pre>
+<p>JSON files: <code>import data from './data.json' with { type: 'json' };</code> (Node 22+), or read them with <code>fs</code>.</p>
+<h2 id="fix-in-node-keep-using-require-inside-esm">Fix in Node: keep using require inside ESM</h2>
+<pre><code class="language-js">import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const legacy = require('./legacy.cjs');
+</code></pre>
+<h2 id="fix-in-node-go-back-to-commonjs">Fix in Node: go back to CommonJS</h2>
+<p>Remove <code>"type": "module"</code> from <code>package.json</code>, or rename this file to <code>.cjs</code>.</p>
+<h2 id="fix-in-the-browser">Fix in the browser</h2>
+<p>Browsers have no <code>require</code>. Either:</p>
+<ul>
+<li>use <code>&lt;script type="module"&gt;</code> and <code>import</code> from URLs or relative paths, or</li>
+<li>bundle your code with a bundler (Vite, esbuild, webpack) that turns <code>require</code> calls into browser code.</li>
+</ul>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/node-cannot-use-import-statement-outside-a-module/">SyntaxError: Cannot use import statement outside a module</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li><li><a href="/javascript/js-hydration-failed-initial-ui-does-not-match/">Hydration failed because the initial UI does not match what was rendered on the server</a></li><li><a href="/javascript/js-invalid-hook-call/">Invalid hook call. Hooks can only be called inside of the body of a function component.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

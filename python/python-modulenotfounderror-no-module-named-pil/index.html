@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;PIL&#x27; (Python) — how to fix</title>
+<meta name="description" content="The Pillow imaging library is not installed in the Python environment that runs your code. The import name is PIL, but the package you install is called Pillow.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-pil/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;PIL&#x27; (Python) — how to fix"><meta property="og:description" content="The Pillow imaging library is not installed in the Python environment that runs your code. The import name is PIL, but the package you install is called Pillow.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-pil/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'PIL' (Python) \u2014 how to fix", "description": "The Pillow imaging library is not installed in the Python environment that runs your code. The import name is PIL, but the package you install is called Pillow.", "dateModified": "2026-11-10", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-pil/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'PIL'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-pil/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;PIL&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 1, in &lt;module&gt;
+    from PIL import Image
+ModuleNotFoundError: No module named &#x27;PIL&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install Pillow into the same interpreter that runs the script: <code>python -m pip install Pillow</code> (not <code>pip install PIL</code>, which does not exist for Python 3). In a venv, activate it first; in Jupyter, run <code>%pip install Pillow</code> in a cell and restart the kernel.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>from PIL import Image</code> imports <strong>Pillow</strong>, the maintained fork of the old Python Imaging Library (PIL). The original <code>PIL</code> package was abandoned in 2011 and never supported Python 3. So the package name on PyPI (<code>Pillow</code>) is different from the import name (<code>PIL</code>), which is why this error trips people up.</p>
+<p>Python searched every directory on <code>sys.path</code> of the <em>current interpreter</em> and found no <code>PIL</code> package.</p>
+<h2 id="cause-1-pillow-is-not-installed">Cause 1: Pillow is not installed</h2>
+<pre><code class="language-bash">python -m pip install Pillow
+</code></pre>
+<p>Then verify:</p>
+<pre><code class="language-bash">python -c &quot;import PIL; print(PIL.__version__)&quot;
+</code></pre>
+<p>Don't run <code>pip install PIL</code> — it fails with <code>No matching distribution found for PIL</code>. Also don't install <code>image</code> or <code>pil</code>; those are unrelated or empty packages.</p>
+<h2 id="cause-2-installed-into-a-different-python">Cause 2: installed into a different Python</h2>
+<p><code>pip</code> and <code>python</code> can point at different interpreters (system Python, Homebrew, pyenv, conda, a venv). Compare:</p>
+<pre><code class="language-bash">which python; python --version
+python -m pip --version     # shows which Python this pip belongs to
+</code></pre>
+<p>Always using <code>python -m pip install ...</code> guarantees the package goes into the interpreter you then run. On Windows use <code>py -m pip install Pillow</code>.</p>
+<p>If you use a virtual environment, activate it first:</p>
+<pre><code class="language-bash">source .venv/bin/activate        # Windows: .venv\Scripts\activate
+python -m pip install Pillow
+</code></pre>
+<p>On Debian/Ubuntu 23.04+ a bare <code>pip install</code> outside a venv gives <code>externally-managed-environment</code>; use a venv or <code>sudo apt install python3-pil</code>. See <a href="/python/python-externally-managed-environment/">error: externally-managed-environment</a>.</p>
+<h2 id="cause-3-jupyter-ide-uses-another-kernel">Cause 3: Jupyter / IDE uses another kernel</h2>
+<p>A notebook kernel often isn't the Python your terminal uses. Install from inside the notebook so it targets the running kernel:</p>
+<pre><code class="language-python">%pip install Pillow
+</code></pre>
+<p>Then restart the kernel. In VS Code or PyCharm, check the selected interpreter (bottom status bar / <em>Settings → Python Interpreter</em>) and install Pillow there.</p>
+<h2 id="cause-4-broken-or-conflicting-install">Cause 4: broken or conflicting install</h2>
+<p>If you previously installed the old <code>PIL</code> or <code>Imaging</code> package, or Pillow was half-uninstalled, reinstall cleanly:</p>
+<pre><code class="language-bash">python -m pip uninstall -y PIL Pillow
+python -m pip install --no-cache-dir Pillow
+</code></pre>
+<p>With conda, prefer <code>conda install pillow</code> over mixing pip and conda in the same env.</p>
+<h2 id="cause-5-your-own-file-is-named-pilpy">Cause 5: your own file is named PIL.py</h2>
+<p>A local <code>PIL.py</code> or <code>PIL/</code> folder in the project can shadow the real package and cause <code>ImportError: cannot import name 'Image' from 'PIL'</code>. Rename it and delete any <code>__pycache__</code> folder next to it.</p>
+<h2 id="docker">Docker</h2>
+<p>Add Pillow to <code>requirements.txt</code> (<code>Pillow&gt;=10</code>) and install it in the image. On slim/Alpine images, prebuilt wheels usually work; if pip falls back to building from source you need <code>libjpeg</code> and <code>zlib</code> dev headers (<code>apk add jpeg-dev zlib-dev</code> on Alpine).</p>
+<p class="upd">Last updated 2026-11-10.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-externally-managed-environment/">error: externally-managed-environment</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-cv2/">ModuleNotFoundError: No module named &#x27;cv2&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

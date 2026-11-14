@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Host key verification failed. (SSH) — how to fix</title>
+<meta name="description" content="SSH couldn&#x27;t confirm the server&#x27;s identity — the host isn&#x27;t in known_hosts and SSH can&#x27;t ask you (non-interactive/CI or StrictHostKeyChecking=yes), or the stored key doesn&#x27;t match.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/ssh/ssh-host-key-verification-failed/">
+<meta property="og:title" content="Host key verification failed. (SSH) — how to fix"><meta property="og:description" content="SSH couldn&#x27;t confirm the server&#x27;s identity — the host isn&#x27;t in known_hosts and SSH can&#x27;t ask you (non-interactive/CI or StrictHostKeyChecking=yes), or the stored key doesn&#x27;t match.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/ssh/ssh-host-key-verification-failed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Host key verification failed. (SSH) \u2014 how to fix", "description": "SSH couldn't confirm the server's identity \u2014 the host isn't in known_hosts and SSH can't ask you (non-interactive/CI or StrictHostKeyChecking=yes), or the stored key doesn't match.", "dateModified": "2026-11-03", "url": "https://errorfix-hollis.github.io/ssh/ssh-host-key-verification-failed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "SSH", "item": "https://errorfix-hollis.github.io/ssh/"}, {"@type": "ListItem", "position": 3, "name": "Host key verification failed.", "item": "https://errorfix-hollis.github.io/ssh/ssh-host-key-verification-failed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/ssh/">SSH</a></p>
+<article><h1>Host key verification failed. (SSH) — how to fix</h1>
+<pre class="err"><code>No ECDSA host key is known for github.com and you have requested strict checking.
+Host key verification failed.
+fatal: Could not read from remote repository.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Add the host key to known_hosts after verifying its fingerprint: <code>ssh-keyscan -t ed25519 github.com &gt;&gt; ~/.ssh/known_hosts</code> (compare with the provider's published fingerprints). If the key changed legitimately, remove the old one: <code>ssh-keygen -R hostname</code>. In CI, write a pinned known_hosts instead of disabling checking.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>On every connection SSH checks the server's host key against <code>~/.ssh/known_hosts</code> (and <code>/etc/ssh/ssh_known_hosts</code>). "Host key verification failed" happens before authentication, so it isn't about your private key. One of three things is true:</p>
+<ol>
+<li>The host isn't known, and SSH can't prompt you (no TTY — CI, scripts, Docker builds, IDEs) or <code>StrictHostKeyChecking=yes</code> is set.</li>
+<li>The host is known but its key <strong>changed</strong> — you'll also see the big <code>REMOTE HOST IDENTIFICATION HAS CHANGED!</code> warning.</li>
+<li>known_hosts isn't readable, or you're running as a different user (e.g. <code>sudo</code>) whose known_hosts is empty.</li>
+</ol>
+<h2 id="fix-1-connect-once-interactively">Fix 1: connect once interactively</h2>
+<p>On your own machine:</p>
+<pre><code class="language-bash">ssh -T git@github.com     # or: ssh user@server
+</code></pre>
+<p>Check the fingerprint shown against the provider's published value, then type <code>yes</code>. The key is saved to <code>~/.ssh/known_hosts</code>.</p>
+<h2 id="fix-2-add-the-key-non-interactively-ci-scripts">Fix 2: add the key non-interactively (CI, scripts)</h2>
+<pre><code class="language-bash">mkdir -p ~/.ssh &amp;&amp; chmod 700 ~/.ssh
+ssh-keyscan -t ed25519,ecdsa,rsa github.com &gt;&gt; ~/.ssh/known_hosts
+ssh-keygen -lf ~/.ssh/known_hosts      # print fingerprints to verify
+</code></pre>
+<p><code>ssh-keyscan</code> trusts whatever answers on the network, so compare the fingerprints with the official ones (GitHub, GitLab and Bitbucket publish them in their docs) — or better, store a known-good known_hosts line as a CI secret/variable and write it out:</p>
+<pre><code class="language-yaml"># GitHub Actions / GitLab CI style
+- run: |
+    mkdir -p ~/.ssh
+    echo &quot;$SSH_KNOWN_HOSTS&quot; &gt;&gt; ~/.ssh/known_hosts
+    chmod 644 ~/.ssh/known_hosts
+</code></pre>
+<p>Non-standard port: <code>ssh-keyscan -p 2222 host</code> — the entry is stored as <code>[host]:2222</code>.</p>
+<h2 id="fix-3-the-key-changed-legitimately">Fix 3: the key changed legitimately</h2>
+<p>Server reinstalled, IP reused, or the provider rotated keys (GitHub replaced its RSA key in March 2023). Remove the stale entry and re-add:</p>
+<pre><code class="language-bash">ssh-keygen -R github.com
+ssh-keygen -R 203.0.113.10          # also remove by IP if present
+ssh-keyscan -t ed25519 github.com &gt;&gt; ~/.ssh/known_hosts
+</code></pre>
+<p>If you <strong>didn't</strong> expect a change, stop and confirm with the server's admin — this is exactly what a man-in-the-middle looks like.</p>
+<h2 id="fix-4-wrong-user-wrong-file">Fix 4: wrong user / wrong file</h2>
+<ul>
+<li><code>sudo git clone ...</code> uses root's <code>/root/.ssh/known_hosts</code>. Clone without sudo, or add the key for root too.</li>
+<li>Jenkins, GitLab Runner and systemd services run as their own user (e.g. <code>jenkins</code>); add the key in that user's home.</li>
+<li>Docker builds have no known_hosts. With BuildKit:</li>
+</ul>
+<pre><code class="language-dockerfile">RUN mkdir -p -m 0700 ~/.ssh &amp;&amp; ssh-keyscan github.com &gt;&gt; ~/.ssh/known_hosts
+RUN --mount=type=ssh git clone git@github.com:org/private.git
+</code></pre>
+<ul>
+<li>Check permissions: <code>~/.ssh</code> should be <code>700</code> and owned by the user.</li>
+</ul>
+<h2 id="fix-5-use-accept-new-instead-of-disabling-checks">Fix 5: use accept-new instead of disabling checks</h2>
+<p>OpenSSH 7.6+ supports accepting unknown hosts automatically while still rejecting <em>changed</em> keys:</p>
+<pre><code class="language-bash">ssh -o StrictHostKeyChecking=accept-new user@server
+export GIT_SSH_COMMAND=&quot;ssh -o StrictHostKeyChecking=accept-new&quot;
+</code></pre>
+<p>Or per host in <code>~/.ssh/config</code>:</p>
+<pre><code>Host build-*.internal
+    StrictHostKeyChecking accept-new
+</code></pre>
+<p>Avoid <code>StrictHostKeyChecking=no</code> with <code>UserKnownHostsFile=/dev/null</code> outside of throwaway test environments — it disables the protection completely.</p>
+<p class="upd">Last updated 2026-11-03.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li><li><a href="/ssh/ssh-permission-denied-publickey/">Permission denied (publickey)</a></li><li><a href="/ssh/ssh-remote-host-identification-has-changed/">WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!</a></li><li><a href="/ssh/ssh-connect-to-host-port-22-connection-refused/">ssh: connect to host port 22: Connection refused</a></li><li><a href="/ssh/ssh-connection-closed-by-remote-host/">Connection closed by remote host</a></li><li><a href="/ssh/ssh-connection-timed-out/">ssh: connect to host port 22: Connection timed out</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

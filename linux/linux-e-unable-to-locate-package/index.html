@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>E: Unable to locate package (Linux) — how to fix</title>
+<meta name="description" content="apt doesn&#x27;t know the package name. The package lists are outdated, the name is misspelled, the needed repository (universe, a PPA) isn&#x27;t enabled, or the package doesn&#x27;t exist for your Ubuntu/Debian release.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-e-unable-to-locate-package/">
+<meta property="og:title" content="E: Unable to locate package (Linux) — how to fix"><meta property="og:description" content="apt doesn&#x27;t know the package name. The package lists are outdated, the name is misspelled, the needed repository (universe, a PPA) isn&#x27;t enabled, or the package doesn&#x27;t exist for your Ubuntu/Debian release.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-e-unable-to-locate-package/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "E: Unable to locate package (Linux) \u2014 how to fix", "description": "apt doesn't know the package name. The package lists are outdated, the name is misspelled, the needed repository (universe, a PPA) isn't enabled, or the package doesn't exist for your Ubuntu/Debian release.", "dateModified": "2026-10-28", "url": "https://errorfix-hollis.github.io/linux/linux-e-unable-to-locate-package/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "E: Unable to locate package", "item": "https://errorfix-hollis.github.io/linux/linux-e-unable-to-locate-package/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>E: Unable to locate package (Linux) — how to fix</h1>
+<pre class="err"><code>Reading package lists... Done
+Building dependency tree... Done
+E: Unable to locate package python3.12-venv
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>sudo apt update</code> first. Then search the real name with <code>apt search &lt;name&gt;</code> or <code>apt-cache policy &lt;name&gt;</code>. On Ubuntu, enable universe: <code>sudo add-apt-repository universe &amp;&amp; sudo apt update</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>apt install foo</code> looks <code>foo</code> up in the local package lists downloaded by <code>apt update</code>. If no enabled repository lists that exact name, you get this error.</p>
+<h2 id="fix-1-update-the-package-lists">Fix 1: update the package lists</h2>
+<p>Fresh containers, WSL installs and cloud images often have empty lists:</p>
+<pre><code class="language-bash">sudo apt update
+sudo apt install &lt;package&gt;
+</code></pre>
+<p>In a Dockerfile, combine them in one layer:</p>
+<pre><code class="language-dockerfile">RUN apt-get update &amp;&amp; apt-get install -y --no-install-recommends curl \
+ &amp;&amp; rm -rf /var/lib/apt/lists/*
+</code></pre>
+<h2 id="fix-2-check-the-exact-name">Fix 2: check the exact name</h2>
+<pre><code class="language-bash">apt search ripgrep
+apt-cache policy python3.12-venv
+</code></pre>
+<p>Common mix-ups: <code>python</code> vs <code>python3</code>, <code>pip</code> vs <code>python3-pip</code>, <code>node</code> vs <code>nodejs</code>, <code>docker</code> vs <code>docker.io</code>, <code>fd</code> vs <code>fd-find</code>. Package names are lowercase.</p>
+<h2 id="fix-3-enable-the-right-repository">Fix 3: enable the right repository</h2>
+<p>Many packages live in Ubuntu's <em>universe</em> component:</p>
+<pre><code class="language-bash">sudo add-apt-repository universe
+sudo apt update
+</code></pre>
+<p>Third-party software (Docker CE, newer Node, PHP versions) needs its vendor's repository or a PPA added first, following the vendor's install docs.</p>
+<h2 id="fix-4-the-package-isnt-available-for-your-release">Fix 4: the package isn't available for your release</h2>
+<p>Versions are tied to releases: <code>python3.12</code> exists on Ubuntu 24.04 but not 20.04. Check your release:</p>
+<pre><code class="language-bash">lsb_release -a
+</code></pre>
+<p>Search packages.ubuntu.com or packages.debian.org to see which releases have it. Alternatives: a PPA (e.g. deadsnakes for Python), the vendor's .deb, Snap/Flatpak, or a newer OS.</p>
+<h2 id="fix-5-end-of-life-release">Fix 5: end-of-life release</h2>
+<p>On an unsupported Ubuntu, <code>apt update</code> fails with 404s and lists become empty. Point sources at <code>old-releases.ubuntu.com</code> or, better, upgrade.</p>
+<p class="upd">Last updated 2026-10-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-command-not-found/">command not found</a></li><li><a href="/linux/linux-could-not-get-lock-dpkg/">E: Could not get lock /var/lib/dpkg/lock-frontend</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/linux/linux-cannot-execute-binary-file/">cannot execute binary file: Exec format error</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

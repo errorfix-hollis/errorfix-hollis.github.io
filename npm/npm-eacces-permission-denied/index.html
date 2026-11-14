@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>npm ERR! code EACCES — how to fix</title>
+<meta name="description" content="npm can&#x27;t write to the global install folder. Don&#x27;t use sudo; point npm&#x27;s global prefix at your home directory or use a Node version manager.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-eacces-permission-denied/">
+<meta property="og:title" content="npm ERR! code EACCES — how to fix"><meta property="og:description" content="npm can&#x27;t write to the global install folder. Don&#x27;t use sudo; point npm&#x27;s global prefix at your home directory or use a Node version manager.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-eacces-permission-denied/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "npm ERR! code EACCES \u2014 how to fix", "description": "npm can't write to the global install folder. Don't use sudo; point npm's global prefix at your home directory or use a Node version manager.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/npm/npm-eacces-permission-denied/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "npm ERR! code EACCES", "item": "https://errorfix-hollis.github.io/npm/npm-eacces-permission-denied/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>npm ERR! code EACCES — how to fix</h1>
+<pre class="err"><code>npm ERR! code EACCES
+npm ERR! syscall mkdir
+npm ERR! path /usr/local/lib/node_modules/some-package
+npm ERR! errno -13
+npm ERR! Error: EACCES: permission denied, mkdir &#x27;/usr/local/lib/node_modules/some-package&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>mkdir -p ~/.npm-global &amp;&amp; npm config set prefix ~/.npm-global</code>, add <code>export PATH=~/.npm-global/bin:$PATH</code> to your shell profile, then install again without sudo.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>npm install -g</code> writes to a system folder (<code>/usr/local/lib/node_modules</code> or <code>/usr/lib/node_modules</code>) owned by root. Your user can't write there.</p>
+<h2 id="fix-1-use-a-global-folder-in-your-home-directory-recommended">Fix 1: use a global folder in your home directory (recommended)</h2>
+<pre><code class="language-bash">mkdir -p ~/.npm-global
+npm config set prefix ~/.npm-global
+echo 'export PATH=&quot;$HOME/.npm-global/bin:$PATH&quot;' &gt;&gt; ~/.bashrc   # or ~/.zshrc
+source ~/.bashrc
+npm install -g some-package
+</code></pre>
+<h2 id="fix-2-use-a-node-version-manager">Fix 2: use a Node version manager</h2>
+<p><a href="https://github.com/nvm-sh/nvm">nvm</a>, fnm or Volta install Node in your home directory, so global installs never need root:</p>
+<pre><code class="language-bash">nvm install --lts
+nvm use --lts
+npm install -g some-package
+</code></pre>
+<h2 id="why-not-sudo">Why not sudo?</h2>
+<p><code>sudo npm install -g</code> works, but package install scripts then run as root, and files in <code>~/.npm</code> can end up owned by root, which causes <strong>more</strong> EACCES errors later.</p>
+<h2 id="eacces-inside-your-project-or-npm">EACCES inside your project or ~/.npm</h2>
+<p>If the path in the error is your project or <code>~/.npm</code>, an earlier <code>sudo</code> command left root-owned files. Take them back:</p>
+<pre><code class="language-bash">sudo chown -R &quot;$(whoami)&quot; ~/.npm
+sudo chown -R &quot;$(whoami)&quot; ./node_modules
+</code></pre>
+<h2 id="on-docker">On Docker</h2>
+<p>In Node images, run as the <code>node</code> user and set <code>NPM_CONFIG_PREFIX=/home/node/.npm-global</code>, or install globals before switching users.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/npm-eresolve-unable-to-resolve-dependency-tree/">npm ERR! code ERESOLVE unable to resolve dependency tree</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li><li><a href="/npm/node-err-require-esm/">Error [ERR_REQUIRE_ESM]: require() of ES Module not supported</a></li><li><a href="/npm/node-error-listen-eaddrinuse-address-already-in-use/">Error: listen EADDRINUSE: address already in use :::3000</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

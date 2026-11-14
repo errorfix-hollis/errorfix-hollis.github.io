@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>npm ERR! code EPERM operation not permitted — how to fix</title>
+<meta name="description" content="The operating system refused a file operation (rename, unlink, mkdir) npm needed. On Windows it&#x27;s almost always a file locked by a running process, antivirus or an editor; elsewhere it&#x27;s ownership or a read-only/synced folder.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-eperm-operation-not-permitted/">
+<meta property="og:title" content="npm ERR! code EPERM operation not permitted — how to fix"><meta property="og:description" content="The operating system refused a file operation (rename, unlink, mkdir) npm needed. On Windows it&#x27;s almost always a file locked by a running process, antivirus or an editor; elsewhere it&#x27;s ownership or a read-only/synced folder.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-eperm-operation-not-permitted/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "npm ERR! code EPERM operation not permitted \u2014 how to fix", "description": "The operating system refused a file operation (rename, unlink, mkdir) npm needed. On Windows it's almost always a file locked by a running process, antivirus or an editor; elsewhere it's ownership or a read-only/synced folder.", "dateModified": "2026-11-02", "url": "https://errorfix-hollis.github.io/npm/npm-eperm-operation-not-permitted/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "npm ERR! code EPERM operation not permitted", "item": "https://errorfix-hollis.github.io/npm/npm-eperm-operation-not-permitted/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>npm ERR! code EPERM operation not permitted — how to fix</h1>
+<pre class="err"><code>npm ERR! code EPERM
+npm ERR! syscall rename
+npm ERR! path C:\Users\me\app\node_modules\.esbuild.DELETE
+npm ERR! errno -4048
+npm ERR! Error: EPERM: operation not permitted, rename &#x27;C:\Users\me\app\node_modules\esbuild&#x27; -&gt; &#x27;C:\Users\me\app\node_modules\.esbuild.DELETE&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Stop everything using the project (dev server, <code>node</code>, VS Code terminals, Docker), then <code>npm cache verify</code>, delete <code>node_modules</code> (<code>npx rimraf node_modules</code>) and run <code>npm install</code> again. On Windows exclude the project from antivirus/OneDrive; on Linux/macOS fix ownership with <code>sudo chown -R $(whoami) ~/.npm .</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>EPERM</code> is the OS saying "you are not allowed to do this operation on this file". The <code>syscall</code> line tells you which operation (<code>rename</code>, <code>unlink</code>, <code>rmdir</code>, <code>open</code>, <code>mkdir</code>) and <code>path</code> tells you where. Unlike <code>EACCES</code> (classic Unix permission bits), on Windows <code>EPERM</code> (<code>errno -4048</code>) usually means the file is <strong>open or locked</strong> by another process.</p>
+<h2 id="fix-1-close-whatever-is-locking-the-files-windows">Fix 1: close whatever is locking the files (Windows)</h2>
+<p>npm replaces packages by renaming folders. If any process has a file open inside <code>node_modules</code> (often native binaries like <code>esbuild.exe</code>, <code>.node</code> addons, or Electron), Windows forbids the rename.</p>
+<ol>
+<li>Stop running dev servers, test watchers and <code>node</code> processes:</li>
+</ol>
+<p><code>powershell
+   taskkill /F /IM node.exe</code></p>
+<ol start="2">
+<li>Close editors/terminals that have the project open (VS Code's TypeScript server and ESLint keep files open).</li>
+<li>Retry <code>npm install</code>.</li>
+</ol>
+<p>If it still fails, delete <code>node_modules</code> and reinstall:</p>
+<pre><code class="language-powershell">npx rimraf node_modules
+npm install
+</code></pre>
+<p>(<code>rimraf</code> handles long paths and retries better than Explorer or <code>rmdir</code>.)</p>
+<h2 id="fix-2-antivirus-windows-defender-onedrive">Fix 2: antivirus, Windows Defender, OneDrive</h2>
+<p>Real-time scanners open every new file npm writes, briefly locking it. Add the project folder and the npm cache (<code>%LocalAppData%\npm-cache</code>) to Defender/antivirus exclusions.</p>
+<p>Don't keep projects inside OneDrive, Dropbox or Google Drive synced folders (OneDrive includes <code>Desktop</code> and <code>Documents</code> by default). Move the project to e.g. <code>C:\dev\app</code>.</p>
+<h2 id="fix-3-the-npm-cache-is-corrupted-or-locked">Fix 3: the npm cache is corrupted or locked</h2>
+<pre><code class="language-bash">npm cache verify
+# if that reports problems or the error mentions npm-cache:
+npm cache clean --force
+</code></pre>
+<p>Then reinstall. If the path in the error is inside the cache and you're on Windows, make sure no other <code>npm</code> command is running at the same time.</p>
+<h2 id="fix-4-ownership-problems-linuxmacos">Fix 4: ownership problems (Linux/macOS)</h2>
+<p>Running <code>sudo npm install</code> once leaves root-owned files in the project or <code>~/.npm</code>. Later installs as your user fail with <code>EPERM</code> or <code>EACCES</code>:</p>
+<pre><code class="language-bash">sudo chown -R &quot;$(whoami)&quot; ~/.npm
+sudo chown -R &quot;$(whoami)&quot; node_modules package-lock.json
+</code></pre>
+<p>Never use <code>sudo</code> for project installs. For global installs, use a Node version manager (nvm, fnm) or set a user prefix:</p>
+<pre><code class="language-bash">npm config set prefix ~/.npm-global
+export PATH=&quot;$HOME/.npm-global/bin:$PATH&quot;
+</code></pre>
+<h2 id="fix-5-global-installs-on-windows">Fix 5: global installs on Windows</h2>
+<p><code>EPERM</code> when running <code>npm install -g</code> into <code>C:\Program Files\nodejs</code> means you need an elevated terminal, or better, a per-user prefix:</p>
+<pre><code class="language-powershell">npm config set prefix &quot;$env:APPDATA\npm&quot;
+</code></pre>
+<h2 id="fix-6-mounted-or-read-only-filesystems">Fix 6: mounted or read-only filesystems</h2>
+<p>In Docker bind mounts, WSL <code>/mnt/c/...</code>, or network drives, renames and symlinks may not be allowed. Work inside the Linux filesystem in WSL (<code>~/projects</code>), and in Docker use a named volume for <code>node_modules</code>:</p>
+<pre><code class="language-yaml">volumes:
+  - .:/app
+  - node_modules:/app/node_modules
+</code></pre>
+<p class="upd">Last updated 2026-11-02.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/npm-eacces-permission-denied/">npm ERR! code EACCES</a></li><li><a href="/npm/npm-elifecycle/">npm ERR! code ELIFECYCLE</a></li><li><a href="/npm/npm-enoent-package-json/">npm ERR! enoent Could not read package.json</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

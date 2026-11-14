@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IndexError: list index out of range (Python) — how to fix</title>
+<meta name="description" content="You accessed a list position that doesn&#x27;t exist. Lists are zero-indexed, so a list of length n has valid indexes 0 to n-1 (and -1 to -n). Often the list is empty or shorter than you assumed.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-indexerror-list-index-out-of-range/">
+<meta property="og:title" content="IndexError: list index out of range (Python) — how to fix"><meta property="og:description" content="You accessed a list position that doesn&#x27;t exist. Lists are zero-indexed, so a list of length n has valid indexes 0 to n-1 (and -1 to -n). Often the list is empty or shorter than you assumed.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-indexerror-list-index-out-of-range/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "IndexError: list index out of range (Python) \u2014 how to fix", "description": "You accessed a list position that doesn't exist. Lists are zero-indexed, so a list of length n has valid indexes 0 to n-1 (and -1 to -n). Often the list is empty or shorter than you assumed.", "dateModified": "2026-11-02", "url": "https://errorfix-hollis.github.io/python/python-indexerror-list-index-out-of-range/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "IndexError: list index out of range", "item": "https://errorfix-hollis.github.io/python/python-indexerror-list-index-out-of-range/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>IndexError: list index out of range (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;main.py&quot;, line 3, in &lt;module&gt;
+    print(items[3])
+IndexError: list index out of range
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Print <code>len(items)</code> and the index right before the failing line. Use <code>range(len(items))</code> (not <code>len + 1</code>), iterate directly with <code>for x in items</code>, check <code>if items:</code> before <code>items[0]</code>, and use <code>sys.argv</code> / <code>split()</code> results only after checking their length.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>For <code>items = ["a", "b", "c"]</code>, valid indexes are <code>0</code>, <code>1</code>, <code>2</code> and <code>-1</code>, <code>-2</code>, <code>-3</code>. <code>items[3]</code> or <code>items[-4]</code> raises <code>IndexError</code>. Related messages: <code>string index out of range</code>, <code>tuple index out of range</code>, <code>pop from empty list</code>.</p>
+<p>Debug by printing just before the line:</p>
+<pre><code class="language-python">print(len(items), i, items)
+</code></pre>
+<p>Note that <strong>slices never raise</strong>: <code>items[5:10]</code> returns <code>[]</code>.</p>
+<h2 id="cause-1-off-by-one-in-a-loop">Cause 1: off-by-one in a loop</h2>
+<pre><code class="language-python">for i in range(len(items) + 1):   # goes one past the end
+    print(items[i])
+
+for i in range(1, len(items) + 1):  # 1-based thinking
+    print(items[i])
+</code></pre>
+<p>Prefer iterating directly; use <code>enumerate</code> if you need the index:</p>
+<pre><code class="language-python">for item in items:
+    print(item)
+
+for i, item in enumerate(items):
+    print(i, item)
+</code></pre>
+<p>Comparing neighbours? Stop one early:</p>
+<pre><code class="language-python">for i in range(len(items) - 1):
+    if items[i] &gt; items[i + 1]: ...
+</code></pre>
+<p>Or <code>for a, b in zip(items, items[1:]):</code>.</p>
+<h2 id="cause-2-the-list-is-empty">Cause 2: the list is empty</h2>
+<p><code>items[0]</code> or <code>items[-1]</code> on <code>[]</code> fails. Common with filtered results, API responses and database queries.</p>
+<pre><code class="language-python">if items:
+    first = items[0]
+else:
+    first = None
+
+# or
+first = items[0] if items else None
+first = next(iter(items), None)
+</code></pre>
+<h2 id="cause-3-sysargv-without-arguments">Cause 3: <code>sys.argv</code> without arguments</h2>
+<pre><code class="language-python">import sys
+filename = sys.argv[1]   # IndexError when run as: python script.py
+</code></pre>
+<p><code>sys.argv[0]</code> is the script name. Check the length, or use <code>argparse</code>, which prints a usage message instead:</p>
+<pre><code class="language-python">if len(sys.argv) &lt; 2:
+    sys.exit(&quot;usage: script.py FILE&quot;)
+</code></pre>
+<h2 id="cause-4-split-returned-fewer-parts">Cause 4: <code>split()</code> returned fewer parts</h2>
+<pre><code class="language-python">line = &quot;alice&quot;
+name, age = line.split(&quot;,&quot;)[0], line.split(&quot;,&quot;)[1]   # IndexError
+</code></pre>
+<p>Lines in CSV or log files may be blank or malformed — especially a trailing empty line. Guard it:</p>
+<pre><code class="language-python">parts = line.strip().split(&quot;,&quot;)
+if len(parts) &lt; 2:
+    continue
+</code></pre>
+<p>Use the <code>csv</code> module for real CSV files, and <code>str.partition(",")</code> when you want exactly two parts without errors.</p>
+<h2 id="cause-5-modifying-a-list-while-iterating-by-index">Cause 5: modifying a list while iterating by index</h2>
+<pre><code class="language-python">for i in range(len(items)):
+    if items[i] &lt; 0:
+        items.pop(i)        # list shrinks; later i is out of range
+</code></pre>
+<p>Build a new list instead:</p>
+<pre><code class="language-python">items = [x for x in items if x &gt;= 0]
+</code></pre>
+<h2 id="cause-6-nested-lists-2d-grids">Cause 6: nested lists / 2D grids</h2>
+<p><code>grid[row][col]</code> fails if rows have different lengths or you swapped row and column. Use <code>len(grid)</code> for rows and <code>len(grid[row])</code> for that row's columns. When creating grids, use <code>[[0] * cols for _ in range(rows)]</code>.</p>
+<h2 id="cause-7-numpy-pandas">Cause 7: NumPy / pandas</h2>
+<p><code>IndexError: index 5 is out of bounds for axis 0 with size 5</code> is the NumPy equivalent. In pandas, <code>df.iloc[n]</code> raises <code>IndexError: single positional indexer is out-of-bounds</code>; check <code>len(df)</code> or <code>df.empty</code> first.</p>
+<p class="upd">Last updated 2026-11-02.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-keyerror/">KeyError</a></li><li><a href="/python/python-typeerror-nonetype-object-is-not-subscriptable/">TypeError: &#x27;NoneType&#x27; object is not subscriptable</a></li><li><a href="/python/python-valueerror-too-many-values-to-unpack/">ValueError: too many values to unpack (expected 2)</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

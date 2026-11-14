@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal: Not possible to fast-forward, aborting. (Git) — how to fix</title>
+<meta name="description" content="Your local branch and the remote branch both have commits the other doesn&#x27;t, and Git is configured to only allow fast-forward pulls (pull.ff=only or --ff-only), so it refuses to merge or rebase automatically.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-not-possible-to-fast-forward-aborting/">
+<meta property="og:title" content="fatal: Not possible to fast-forward, aborting. (Git) — how to fix"><meta property="og:description" content="Your local branch and the remote branch both have commits the other doesn&#x27;t, and Git is configured to only allow fast-forward pulls (pull.ff=only or --ff-only), so it refuses to merge or rebase automatically.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-not-possible-to-fast-forward-aborting/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal: Not possible to fast-forward, aborting. (Git) \u2014 how to fix", "description": "Your local branch and the remote branch both have commits the other doesn't, and Git is configured to only allow fast-forward pulls (pull.ff=only or --ff-only), so it refuses to merge or rebase automatically.", "dateModified": "2026-10-31", "url": "https://errorfix-hollis.github.io/git/git-not-possible-to-fast-forward-aborting/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "fatal: Not possible to fast-forward, aborting.", "item": "https://errorfix-hollis.github.io/git/git-not-possible-to-fast-forward-aborting/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>fatal: Not possible to fast-forward, aborting. (Git) — how to fix</h1>
+<pre class="err"><code>hint: Diverging branches can&#x27;t be fast-forwarded, you need to either:
+hint:
+hint: 	git merge --no-ff
+hint:
+hint: or:
+hint:
+hint: 	git rebase
+hint:
+hint: Disable this message with &quot;git config advice.diverging false&quot;
+fatal: Not possible to fast-forward, aborting.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Choose how to combine the histories: <code>git pull --rebase</code> (linear history) or <code>git pull --no-ff</code> (merge commit). To set a default: <code>git config --global pull.rebase true</code>. If your local commits are junk, <code>git reset --hard origin/&lt;branch&gt;</code> (destroys them).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A <em>fast-forward</em> is possible only when your branch is strictly behind the remote: Git just moves your branch pointer forward. Here the branches have <strong>diverged</strong> — you made local commits and someone pushed other commits. Combining them needs a merge or rebase, and your config (<code>pull.ff = only</code>) or the <code>--ff-only</code> flag says "don't do that automatically".</p>
+<p>See what diverged:</p>
+<pre><code class="language-bash">git fetch
+git status                           # &quot;have diverged, and have 2 and 3 different commits each&quot;
+git log --oneline --graph HEAD...origin/main
+</code></pre>
+<h2 id="fix-1-rebase-your-commits-on-top-linear-history">Fix 1: rebase your commits on top (linear history)</h2>
+<pre><code class="language-bash">git pull --rebase
+# resolve conflicts if any, then:
+git add &lt;files&gt; &amp;&amp; git rebase --continue
+git push
+</code></pre>
+<p>Make it the default:</p>
+<pre><code class="language-bash">git config --global pull.rebase true
+</code></pre>
+<h2 id="fix-2-merge-keeps-both-histories">Fix 2: merge (keeps both histories)</h2>
+<pre><code class="language-bash">git pull --no-ff
+# or explicitly:
+git fetch &amp;&amp; git merge origin/main
+</code></pre>
+<p>Set as default with <code>git config --global pull.rebase false</code>.</p>
+<h2 id="fix-3-check-what-is-forcing-fast-forward-only">Fix 3: check what is forcing fast-forward only</h2>
+<pre><code class="language-bash">git config --show-origin --get-all pull.ff
+git config --show-origin --get-all merge.ff
+</code></pre>
+<p>If you see <code>only</code> and didn't intend it, remove it:</p>
+<pre><code class="language-bash">git config --global --unset pull.ff
+</code></pre>
+<p><code>--ff-only</code> is a sensible default for avoiding surprise merge commits; just know you'll need to choose rebase or merge whenever branches diverge.</p>
+<h2 id="fix-4-you-dont-want-your-local-commits">Fix 4: you don't want your local commits</h2>
+<p>If the local commits were mistakes (or the remote was force-pushed and you want to match it):</p>
+<pre><code class="language-bash">git branch backup-mine           # optional safety copy
+git reset --hard origin/main
+</code></pre>
+<p><code>reset --hard</code> deletes uncommitted changes and local-only commits on that branch.</p>
+<h2 id="fix-5-the-remote-was-rewritten">Fix 5: the remote was rewritten</h2>
+<p>If a teammate force-pushed (rebased or amended), your branch "diverges" from commits you already have under different hashes. Rebase while skipping the old copies:</p>
+<pre><code class="language-bash">git fetch
+git rebase --onto origin/main &lt;old-upstream-commit&gt; main
+</code></pre>
+<p>Or, if you have no work of your own on top, simply <code>git reset --hard origin/main</code>.</p>
+<h2 id="same-error-in-merges">Same error in merges</h2>
+<p><code>git merge --ff-only feature</code> gives the same message when <code>feature</code> isn't a direct descendant of your current branch. Rebase <code>feature</code> onto the target first (<code>git switch feature &amp;&amp; git rebase main</code>), then the fast-forward merge works.</p>
+<p class="upd">Last updated 2026-10-31.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-merge-conflict/">CONFLICT (content): Merge conflict in</a></li><li><a href="/git/git-refusing-to-merge-unrelated-histories/">fatal: refusing to merge unrelated histories</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

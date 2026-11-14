@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SettingWithCopyWarning: A value is trying to be set on a copy of a slice from a DataFrame (Python) — how to fix</title>
+<meta name="description" content="pandas warns that you&#x27;re assigning to something that may be a temporary copy of a DataFrame, so the change might not reach the original. Caused by chained indexing like df[mask][&#x27;col&#x27;] = x, or by modifying a filtered subset.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-pandas-settingwithcopywarning/">
+<meta property="og:title" content="SettingWithCopyWarning: A value is trying to be set on a copy of a slice from a DataFrame (Python) — how to fix"><meta property="og:description" content="pandas warns that you&#x27;re assigning to something that may be a temporary copy of a DataFrame, so the change might not reach the original. Caused by chained indexing like df[mask][&#x27;col&#x27;] = x, or by modifying a filtered subset.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-pandas-settingwithcopywarning/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "SettingWithCopyWarning: A value is trying to be set on a copy of a slice from a DataFrame (Python) \u2014 how to fix", "description": "pandas warns that you're assigning to something that may be a temporary copy of a DataFrame, so the change might not reach the original. Caused by chained indexing like df[mask]['col'] = x, or by modifying a filtered subset.", "dateModified": "2026-10-31", "url": "https://errorfix-hollis.github.io/python/python-pandas-settingwithcopywarning/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "SettingWithCopyWarning: A value is trying to be set on a copy of a slice from a DataFrame", "item": "https://errorfix-hollis.github.io/python/python-pandas-settingwithcopywarning/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>SettingWithCopyWarning: A value is trying to be set on a copy of a slice from a DataFrame (Python) — how to fix</h1>
+<pre class="err"><code>SettingWithCopyWarning:
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Assign in one step with <code>.loc</code>: <code>df.loc[df['age'] &gt; 30, 'group'] = 'senior'</code>. When you want an independent subset, make it explicit: <code>sub = df[df['age'] &gt; 30].copy()</code> and then modify <code>sub</code>. Since pandas 2.x you can also enable copy-on-write: <code>pd.options.mode.copy_on_write = True</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Indexing a DataFrame sometimes returns a <em>view</em> (shares memory with the original) and sometimes a <em>copy</em>. pandas can't always tell which you got, so when you assign into the result it warns: your assignment may silently do nothing to the original <code>df</code>. Treat it as a bug signal, not noise.</p>
+<h2 id="cause-1-chained-indexing">Cause 1: chained indexing</h2>
+<p>Two indexing operations in a row, then an assignment:</p>
+<pre><code class="language-python"># Wrong: df[df.age &gt; 30] creates a new object; ['group'] = ... modifies that object
+df[df['age'] &gt; 30]['group'] = 'senior'
+</code></pre>
+<p>Use a single <code>.loc</code> call with row and column selectors:</p>
+<pre><code class="language-python">df.loc[df['age'] &gt; 30, 'group'] = 'senior'
+</code></pre>
+<p>Same for single cells: <code>df.loc[5, 'price'] = 9.99</code> (or <code>df.at[5, 'price'] = 9.99</code>) instead of <code>df['price'][5] = 9.99</code>.</p>
+<h2 id="cause-2-modifying-a-filtered-subset">Cause 2: modifying a filtered subset</h2>
+<pre><code class="language-python">adults = df[df['age'] &gt;= 18]
+adults['score'] = adults['score'] * 2      # warning
+</code></pre>
+<p>If <code>adults</code> should be a separate table, say so:</p>
+<pre><code class="language-python">adults = df[df['age'] &gt;= 18].copy()
+adults['score'] = adults['score'] * 2      # fine, df is untouched
+</code></pre>
+<p>If you meant to change <code>df</code> itself, use <code>.loc</code> on <code>df</code>:</p>
+<pre><code class="language-python">mask = df['age'] &gt;= 18
+df.loc[mask, 'score'] = df.loc[mask, 'score'] * 2
+</code></pre>
+<h2 id="cause-3-column-subsets-and-functions">Cause 3: column subsets and functions</h2>
+<pre><code class="language-python">sub = df[['name', 'price']]
+sub['price'] = sub['price'].round(2)       # warning
+</code></pre>
+<p>Fix with <code>.copy()</code> or by building new columns with <code>assign</code>, which always returns a new DataFrame:</p>
+<pre><code class="language-python">sub = df[['name', 'price']].assign(price=lambda d: d['price'].round(2))
+</code></pre>
+<p>Functions that receive a slice and modify it in place trigger it too; return a new frame from the function instead.</p>
+<h2 id="fix-4-enable-copy-on-write-pandas-2x">Fix 4: enable copy-on-write (pandas 2.x)</h2>
+<p>Copy-on-write makes every indexing result behave like a copy, so the rules become simple and the warning goes away. Chained assignment then never modifies the original (it raises <code>ChainedAssignmentError</code> warnings instead), so you must use <code>.loc</code>.</p>
+<pre><code class="language-python">import pandas as pd
+pd.options.mode.copy_on_write = True
+</code></pre>
+<p>Copy-on-write is the default behaviour in pandas 3.0.</p>
+<h2 id="dont-just-silence-it">Don't just silence it</h2>
+<pre><code class="language-python">pd.options.mode.chained_assignment = None   # hides the warning
+</code></pre>
+<p>This hides it, but your assignments may still be lost. Only do this after you've verified the code is correct.</p>
+<h2 id="check-your-pandas-version">Check your pandas version</h2>
+<pre><code class="language-bash">python -c &quot;import pandas; print(pandas.__version__)&quot;
+</code></pre>
+<p class="upd">Last updated 2026-10-31.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-keyerror/">KeyError</a></li><li><a href="/python/python-typeerror-unsupported-operand-types/">TypeError: unsupported operand type(s) for +: &#x27;int&#x27; and &#x27;str&#x27;</a></li><li><a href="/python/python-valueerror-too-many-values-to-unpack/">ValueError: too many values to unpack (expected 2)</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

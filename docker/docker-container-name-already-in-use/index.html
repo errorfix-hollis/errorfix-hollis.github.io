@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Conflict. The container name is already in use by container (Docker) — how to fix</title>
+<meta name="description" content="A container with that name already exists (often stopped). Remove it, start it instead, or run with --rm next time.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-container-name-already-in-use/">
+<meta property="og:title" content="Conflict. The container name is already in use by container (Docker) — how to fix"><meta property="og:description" content="A container with that name already exists (often stopped). Remove it, start it instead, or run with --rm next time.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-container-name-already-in-use/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Conflict. The container name is already in use by container (Docker) \u2014 how to fix", "description": "A container with that name already exists (often stopped). Remove it, start it instead, or run with --rm next time.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/docker/docker-container-name-already-in-use/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "Conflict. The container name is already in use by container", "item": "https://errorfix-hollis.github.io/docker/docker-container-name-already-in-use/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>Conflict. The container name is already in use by container (Docker) — how to fix</h1>
+<pre class="err"><code>docker: Error response from daemon: Conflict. The container name &quot;/web&quot; is already in use by container &quot;3f5c1e…&quot;. You have to remove (or rename) that container to be able to reuse that name.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Remove the old one: <code>docker rm -f web</code>, then run again. Or reuse it: <code>docker start web</code>. Add <code>--rm</code> to <code>docker run</code> so containers delete themselves when they stop.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>docker run --name web ...</code> creates a <strong>new</strong> container. Container names are unique, and a container named <code>web</code> already exists, even if it's stopped.</p>
+<pre><code class="language-bash">docker ps -a --filter name=web
+</code></pre>
+<h2 id="fix-1-remove-the-old-container">Fix 1: remove the old container</h2>
+<pre><code class="language-bash">docker rm web        # if it's stopped
+docker rm -f web     # stop and remove
+</code></pre>
+<p>Volumes survive this; anonymous data inside the container's filesystem does not.</p>
+<h2 id="fix-2-start-the-existing-container">Fix 2: start the existing container</h2>
+<p>If you want the same container (with its existing state) back:</p>
+<pre><code class="language-bash">docker start -a web
+</code></pre>
+<h2 id="fix-3-avoid-it-in-the-future">Fix 3: avoid it in the future</h2>
+<pre><code class="language-bash">docker run --rm --name web nginx       # removed automatically when it stops
+</code></pre>
+<p>In scripts, remove before running:</p>
+<pre><code class="language-bash">docker rm -f web 2&gt;/dev/null || true
+docker run -d --name web nginx
+</code></pre>
+<p>Or use Docker Compose, which recreates containers for you with <code>docker compose up -d</code>.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-port-is-already-allocated/">Bind for 0.0.0.0:8080 failed: port is already allocated</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li><li><a href="/docker/docker-context-deadline-exceeded/">Error response from daemon: Get &quot;https://registry-1.docker.io/v2/&quot;: context deadline exceeded</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

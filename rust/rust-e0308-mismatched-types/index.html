@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error[E0308]: mismatched types (Rust) — how to fix</title>
+<meta name="description" content="An expression has a different type than the place it&#x27;s used requires. Rust never converts between types implicitly, so you must parse, convert, borrow, dereference or wrap the value explicitly.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/rust/rust-e0308-mismatched-types/">
+<meta property="og:title" content="error[E0308]: mismatched types (Rust) — how to fix"><meta property="og:description" content="An expression has a different type than the place it&#x27;s used requires. Rust never converts between types implicitly, so you must parse, convert, borrow, dereference or wrap the value explicitly.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/rust/rust-e0308-mismatched-types/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error[E0308]: mismatched types (Rust) \u2014 how to fix", "description": "An expression has a different type than the place it's used requires. Rust never converts between types implicitly, so you must parse, convert, borrow, dereference or wrap the value explicitly.", "dateModified": "2026-11-02", "url": "https://errorfix-hollis.github.io/rust/rust-e0308-mismatched-types/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Rust", "item": "https://errorfix-hollis.github.io/rust/"}, {"@type": "ListItem", "position": 3, "name": "error[E0308]: mismatched types", "item": "https://errorfix-hollis.github.io/rust/rust-e0308-mismatched-types/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/rust/">Rust</a></p>
+<article><h1>error[E0308]: mismatched types (Rust) — how to fix</h1>
+<pre class="err"><code>error[E0308]: mismatched types
+ --&gt; src/main.rs:4:18
+  |
+4 |     let n: u32 = &quot;5&quot;;
+  |            ---   ^^^ expected `u32`, found `&amp;str`
+  |            |
+  |            expected due to this
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Read the <code>expected X, found Y</code> line and convert explicitly: <code>.parse::&lt;u32&gt;()?</code> for strings to numbers, <code>.to_string()</code>/<code>String::from</code> for <code>&amp;str</code>→<code>String</code>, <code>&amp;s</code> / <code>.as_str()</code> for <code>String</code>→<code>&amp;str</code>, <code>as</code>/<code>into()</code>/<code>try_into()</code> between number types, <code>Some(x)</code> / <code>Ok(x)</code> for Option/Result. Remove a trailing <code>;</code> if it found <code>()</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The compiler inferred or was told one type for a spot (a variable annotation, a function parameter, a return type, a match arm) and the expression you put there has another. The <code>expected ..., found ...</code> label is the key. <code>rustc --explain E0308</code> gives the official description.</p>
+<h2 id="fix-1-expected-found-x-a-semicolon-or-missing-return">Fix 1: <code>expected (), found X</code> — a semicolon or missing return</h2>
+<p>A block's value is its last expression <em>without</em> a semicolon. Adding <code>;</code> turns it into a statement of type <code>()</code>.</p>
+<pre><code class="language-rust">fn double(x: i32) -&gt; i32 {
+    x * 2;          // error: expected `i32`, found `()`
+}
+</code></pre>
+<p>Remove the semicolon (<code>x * 2</code>) or write <code>return x * 2;</code>.</p>
+<p>The reverse: <code>if</code> without <code>else</code> has type <code>()</code>, so using its value fails:</p>
+<pre><code class="language-rust">let label = if n &gt; 0 { &quot;positive&quot; };          // error
+let label = if n &gt; 0 { &quot;positive&quot; } else { &quot;non-positive&quot; };
+</code></pre>
+<h2 id="fix-2-string-vs-str">Fix 2: <code>String</code> vs <code>&amp;str</code></h2>
+<pre><code class="language-rust">let s: String = &quot;hello&quot;;            // expected `String`, found `&amp;str`
+let s: String = &quot;hello&quot;.to_string(); // or String::from(&quot;hello&quot;), &quot;hello&quot;.into()
+
+fn greet(name: &amp;str) {}
+let owned = String::from(&quot;Ann&quot;);
+greet(owned);                        // expected `&amp;str`, found `String`
+greet(&amp;owned);                       // deref coercion: &amp;String -&gt; &amp;str
+greet(owned.as_str());
+</code></pre>
+<p>Comparing in a <code>match</code> on a <code>String</code>: <code>match s.as_str() { "a" =&gt; ..., _ =&gt; ... }</code>.</p>
+<h2 id="fix-3-numbers-of-different-types">Fix 3: numbers of different types</h2>
+<p>Rust doesn't mix <code>i32</code>, <code>u32</code>, <code>usize</code>, <code>f64</code> automatically:</p>
+<pre><code class="language-rust">let len: usize = v.len();
+let n: i32 = 10;
+let total = len + n;                 // error
+
+let total = len + n as usize;        // `as` truncates/wraps silently
+let total = len + usize::try_from(n)?; // checked conversion
+let x: f64 = n.into();               // lossless conversions via From/Into
+</code></pre>
+<p>Literals can be typed with a suffix: <code>10u64</code>, <code>2.0f32</code>.</p>
+<p>Strings to numbers need parsing:</p>
+<pre><code class="language-rust">let n: u32 = &quot;5&quot;.parse().expect(&quot;not a number&quot;);
+let n: u32 = input.trim().parse()?;   // trim the newline from read_line!
+</code></pre>
+<h2 id="fix-4-option-result-wrapping">Fix 4: <code>Option</code> / <code>Result</code> wrapping</h2>
+<pre><code class="language-rust">fn find() -&gt; Option&lt;i32&gt; {
+    42                    // expected `Option&lt;i32&gt;`, found integer
+}
+</code></pre>
+<p>Wrap it: <code>Some(42)</code>. For <code>Result</code>, <code>Ok(value)</code>. The other direction — <code>expected i32, found Option&lt;i32&gt;</code> — means you must handle the <code>None</code>/<code>Err</code> case:</p>
+<pre><code class="language-rust">let v = map.get(&quot;k&quot;).copied().unwrap_or(0);
+let v = text.parse::&lt;i32&gt;()?;      // in a fn returning Result
+if let Some(v) = maybe { ... }
+</code></pre>
+<h2 id="fix-5-references-vs-values">Fix 5: references vs values</h2>
+<p><code>expected i32, found &amp;i32</code> is common when iterating:</p>
+<pre><code class="language-rust">let v = vec![1, 2, 3];
+let sum: i32 = v.iter().map(|x| x * 2).sum(); // fine (ops work on &amp;i32)
+let first: i32 = v.iter().next().unwrap();    // error: found `&amp;i32`
+let first: i32 = *v.iter().next().unwrap();   // dereference
+let first: i32 = v[0];                        // Copy types index by value
+</code></pre>
+<p>Use <code>.copied()</code> / <code>.cloned()</code> on iterators, or <code>into_iter()</code> to get owned values.</p>
+<h2 id="fix-6-match-if-arms-with-different-types">Fix 6: match / if arms with different types</h2>
+<p>All arms must produce the same type. Returning <code>i32</code> in one arm and <code>&amp;str</code> in another fails. Make them agree, or return an enum or <code>Box&lt;dyn Trait&gt;</code>. For closures or iterators with different concrete types, <code>impl Trait</code> in return position needs a single concrete type — use <code>Box&lt;dyn Iterator&lt;Item = T&gt;&gt;</code> when branches differ.</p>
+<p class="upd">Last updated 2026-11-02.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/rust/rust-borrow-of-moved-value/">error[E0382]: borrow of moved value</a></li><li><a href="/rust/rust-cannot-borrow-as-mutable/">error[E0502]: cannot borrow as mutable because it is also borrowed as immutable</a></li><li><a href="/rust/rust-linker-cc-not-found/">error: linker `cc` not found</a></li><li><a href="/rust/rust-e0106-missing-lifetime-specifier/">error[E0106]: missing lifetime specifier</a></li><li><a href="/rust/rust-e0277-trait-bound-not-satisfied/">error[E0277]: the trait bound is not satisfied</a></li><li><a href="/rust/rust-e0412-cannot-find-type-in-this-scope/">error[E0412]: cannot find type `X` in this scope</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

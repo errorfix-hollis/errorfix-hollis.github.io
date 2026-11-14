@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TS1259: Module can only be default-imported using the &#x27;esModuleInterop&#x27; flag (TypeScript) — how to fix</title>
+<meta name="description" content="You wrote a default import (import x from &quot;pkg&quot;) for a CommonJS package whose types use export =. TypeScript only allows that when esModuleInterop (or allowSyntheticDefaultImports) is enabled.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-ts1259-can-only-be-default-imported-using-the-esmoduleinterop-flag/">
+<meta property="og:title" content="TS1259: Module can only be default-imported using the &#x27;esModuleInterop&#x27; flag (TypeScript) — how to fix"><meta property="og:description" content="You wrote a default import (import x from &quot;pkg&quot;) for a CommonJS package whose types use export =. TypeScript only allows that when esModuleInterop (or allowSyntheticDefaultImports) is enabled.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-ts1259-can-only-be-default-imported-using-the-esmoduleinterop-flag/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TS1259: Module can only be default-imported using the 'esModuleInterop' flag (TypeScript) \u2014 how to fix", "description": "You wrote a default import (import x from \"pkg\") for a CommonJS package whose types use export =. TypeScript only allows that when esModuleInterop (or allowSyntheticDefaultImports) is enabled.", "dateModified": "2026-11-13", "url": "https://errorfix-hollis.github.io/javascript/js-ts1259-can-only-be-default-imported-using-the-esmoduleinterop-flag/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "TS1259: Module can only be default-imported using the 'esModuleInterop' flag", "item": "https://errorfix-hollis.github.io/javascript/js-ts1259-can-only-be-default-imported-using-the-esmoduleinterop-flag/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>TS1259: Module can only be default-imported using the &#x27;esModuleInterop&#x27; flag (TypeScript) — how to fix</h1>
+<pre class="err"><code>error TS1259: Module &#x27;&quot;/app/node_modules/@types/express/index&quot;&#x27; can only be default-imported using the &#x27;esModuleInterop&#x27; flag
+
+1 import express from &quot;express&quot;;
+         ~~~~~~~
+
+  node_modules/@types/express/index.d.ts:133:1
+    133 export = e;
+        ~~~~~~~~~~~
+    This module is declared with &#x27;export =&#x27;, and can only be used with a default import when using the &#x27;esModuleInterop&#x27; flag.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Add <code>"esModuleInterop": true</code> to <code>compilerOptions</code> in tsconfig.json (it also enables <code>allowSyntheticDefaultImports</code>). Or, without changing config, use <code>import express = require("express")</code> or <code>import * as express from "express"</code>. Make sure the tsconfig you edit is the one actually used.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Many CommonJS packages (<code>express</code>, <code>react</code> types before v19, <code>lodash</code>, <code>moment</code>, <code>cors</code>...) are typed with <code>export = something</code>. Strictly, such a module has <strong>no</strong> default export, so <code>import express from "express"</code> is not valid unless TypeScript is told to synthesize one.</p>
+<p><code>esModuleInterop</code> does two things:</p>
+<ol>
+<li>Type-checking: allows default imports of <code>export =</code> modules (via <code>allowSyntheticDefaultImports</code>).</li>
+<li>Emit: adds <code>__importDefault</code> / <code>__importStar</code> helpers so the import works at runtime in CommonJS output.</li>
+</ol>
+<h2 id="fix-1-enable-esmoduleinterop-recommended">Fix 1: enable esModuleInterop (recommended)</h2>
+<pre><code class="language-json">{
+  &quot;compilerOptions&quot;: {
+    &quot;esModuleInterop&quot;: true
+  }
+}
+</code></pre>
+<p>This is the default in <code>tsc --init</code> configs and what most projects use. Restart your editor's TS server afterwards (VS Code: <em>TypeScript: Restart TS Server</em>).</p>
+<p>If a bundler (Vite, webpack, esbuild) emits the JS and <code>tsc</code> only type-checks, <code>"allowSyntheticDefaultImports": true</code> is enough. It's also implied by <code>"module": "system"</code>, <code>"moduleResolution": "bundler"</code> and <code>"esModuleInterop": true</code>.</p>
+<h2 id="fix-2-use-import-syntax-that-matches-export">Fix 2: use import syntax that matches export =</h2>
+<p>Without changing config:</p>
+<pre><code class="language-ts">import express = require(&quot;express&quot;);    // works with module: commonjs
+const app = express();
+</code></pre>
+<p>or a namespace import, for modules you don't call directly:</p>
+<pre><code class="language-ts">import * as path from &quot;path&quot;;
+</code></pre>
+<p>Note: <code>import * as express from "express"; express()</code> type-checks only without <code>esModuleInterop</code>, and calling a namespace object is invalid in real ESM. Prefer Fix 1.</p>
+<h2 id="fix-3-the-setting-is-in-the-wrong-tsconfig">Fix 3: the setting is in the wrong tsconfig</h2>
+<p>You set the flag, but the error remains:</p>
+<ul>
+<li>Monorepos and frameworks use several configs (<code>tsconfig.app.json</code>, <code>tsconfig.node.json</code>, <code>tsconfig.build.json</code>). Check which one includes the failing file.</li>
+<li><code>extends</code> is overridden by a later <code>compilerOptions</code> value.</li>
+<li>Running <code>tsc file.ts</code> with a file name <strong>ignores tsconfig.json</strong> entirely. Run <code>tsc -p .</code> or <code>npx tsc --noEmit</code>.</li>
+<li>ts-node / Jest may use their own config; pass it explicitly (<code>ts-jest</code> reads <code>tsconfig</code> option).</li>
+</ul>
+<p>Print the effective config:</p>
+<pre><code class="language-bash">npx tsc --showConfig | grep -i interop
+</code></pre>
+<h2 id="fix-4-check-types-and-the-module-setting">Fix 4: check @types and the module setting</h2>
+<p><code>"module": "node16"</code>, <code>"nodenext"</code> and <code>"preserve"</code> turn <code>esModuleInterop</code> on by default, so the error normally disappears with those settings. If it persists, an explicit <code>"esModuleInterop": false</code> somewhere in the <code>extends</code> chain may be overriding it, or outdated type packages may be involved — update them (<code>npm i -D @types/express@latest</code>).</p>
+<h2 id="runtime-symptom-of-the-same-problem">Runtime symptom of the same problem</h2>
+<p>If you silence the type error some other way (e.g. <code>// @ts-ignore</code>) without <code>esModuleInterop</code>, compiled CommonJS code calls <code>express_1.default()</code>, which crashes with <code>TypeError: (0 , express_1.default) is not a function</code>. Enabling <code>esModuleInterop</code> fixes both.</p>
+<p class="upd">Last updated 2026-11-13.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-ts1286-esm-syntax-is-not-allowed-in-a-commonjs-module/">error TS1286: ESM syntax is not allowed in a CommonJS module when &#x27;verbatimModuleSyntax&#x27; is enabled.</a></li><li><a href="/javascript/js-ts2307-cannot-find-module-or-its-corresponding-type-declarations/">TS2307: Cannot find module or its corresponding type declarations.</a></li><li><a href="/javascript/js-ts7016-could-not-find-a-declaration-file-for-module/">TS7016: Could not find a declaration file for module</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

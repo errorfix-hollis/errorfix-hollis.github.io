@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>java.lang.IllegalArgumentException: Comparison method violates its general contract! — how to fix</title>
+<meta name="description" content="Your Comparator or compareTo is inconsistent (not transitive, not symmetric, or changes while sorting), and Java&#x27;s TimSort detected it. Fix the comparison logic; the sort is not the bug.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-comparison-method-violates-its-general-contract/">
+<meta property="og:title" content="java.lang.IllegalArgumentException: Comparison method violates its general contract! — how to fix"><meta property="og:description" content="Your Comparator or compareTo is inconsistent (not transitive, not symmetric, or changes while sorting), and Java&#x27;s TimSort detected it. Fix the comparison logic; the sort is not the bug.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-comparison-method-violates-its-general-contract/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "java.lang.IllegalArgumentException: Comparison method violates its general contract! \u2014 how to fix", "description": "Your Comparator or compareTo is inconsistent (not transitive, not symmetric, or changes while sorting), and Java's TimSort detected it. Fix the comparison logic; the sort is not the bug.", "dateModified": "2026-11-10", "url": "https://errorfix-hollis.github.io/java/java-comparison-method-violates-its-general-contract/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "java.lang.IllegalArgumentException: Comparison method violates its general contract!", "item": "https://errorfix-hollis.github.io/java/java-comparison-method-violates-its-general-contract/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>java.lang.IllegalArgumentException: Comparison method violates its general contract! — how to fix</h1>
+<pre class="err"><code>Exception in thread &quot;main&quot; java.lang.IllegalArgumentException: Comparison method violates its general contract!
+	at java.base/java.util.TimSort.mergeHi(TimSort.java:903)
+	at java.base/java.util.TimSort.mergeAt(TimSort.java:520)
+	at java.base/java.util.TimSort.mergeCollapse(TimSort.java:448)
+	at java.base/java.util.TimSort.sort(TimSort.java:245)
+	at java.base/java.util.Arrays.sort(Arrays.java:1307)
+	at java.base/java.util.ArrayList.sort(ArrayList.java:1721)
+	at java.base/java.util.Collections.sort(Collections.java:179)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Replace hand-written comparisons with <code>Integer.compare(a, b)</code>, <code>Double.compare(a, b)</code> or <code>Comparator.comparing(...).thenComparing(...)</code>. Never return <code>a - b</code> for ints, always return 0 for equal values, handle null/NaN consistently, and don't sort on fields that change during the sort.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>Collections.sort</code>, <code>List.sort</code> and <code>Arrays.sort</code> on objects use TimSort, which relies on the comparator obeying the contract:</p>
+<ul>
+<li><strong>sign symmetry</strong>: <code>sgn(compare(a, b)) == -sgn(compare(b, a))</code></li>
+<li><strong>transitivity</strong>: if <code>a &gt; b</code> and <code>b &gt; c</code>, then <code>a &gt; c</code></li>
+<li><strong>consistency</strong>: if <code>compare(a, b) == 0</code>, then <code>a</code> and <code>b</code> compare the same against everything else</li>
+</ul>
+<p>When TimSort notices a contradiction during a merge, it throws this exception. It only fails for some inputs (usually 32+ elements, specific orderings), so it often shows up only in production.</p>
+<h2 id="cause-1-returning-a-b">Cause 1: returning <code>a - b</code></h2>
+<pre><code class="language-java">list.sort((x, y) -&gt; x.getScore() - y.getScore());   // overflows
+</code></pre>
+<p>With large or negative numbers the subtraction overflows and flips the sign (<code>Integer.MIN_VALUE - 1</code> is positive), breaking transitivity. Use:</p>
+<pre><code class="language-java">list.sort(Comparator.comparingInt(Item::getScore));
+// or
+list.sort((x, y) -&gt; Integer.compare(x.getScore(), y.getScore()));
+</code></pre>
+<p>For <code>long</code> use <code>Long.compare</code>. Casting a <code>long</code> or <code>double</code> difference to <code>int</code> (<code>(int)(a - b)</code>) has the same problem.</p>
+<h2 id="cause-2-never-returning-0">Cause 2: never returning 0</h2>
+<pre><code class="language-java">(a, b) -&gt; a.getPriority() &gt; b.getPriority() ? 1 : -1   // equal -&gt; -1 both ways
+</code></pre>
+<p>For equal values, <code>compare(a, b)</code> and <code>compare(b, a)</code> both return -1, violating symmetry. Return 0 for equal elements; the <code>Comparator</code> helpers do this for you:</p>
+<pre><code class="language-java">Comparator.comparingInt(Task::getPriority)
+          .thenComparing(Task::getName);
+</code></pre>
+<h2 id="cause-3-floating-point-and-nan">Cause 3: floating point and NaN</h2>
+<pre><code class="language-java">(a, b) -&gt; a.price &lt; b.price ? -1 : (a.price &gt; b.price ? 1 : 0)
+</code></pre>
+<p><code>NaN</code> compares as neither less nor greater, so it's "equal" to everything, breaking transitivity. <code>Double.compare</code> defines a total order (NaN is largest, <code>-0.0 &lt; 0.0</code>):</p>
+<pre><code class="language-java">Comparator.comparingDouble(p -&gt; p.price)
+</code></pre>
+<h2 id="cause-4-inconsistent-null-handling">Cause 4: inconsistent null handling</h2>
+<p>A comparator that returns -1 when <em>either</em> side is null is not symmetric. Use the null-safe wrappers:</p>
+<pre><code class="language-java">Comparator.comparing(User::getLastName, Comparator.nullsLast(Comparator.naturalOrder()))
+</code></pre>
+<h2 id="cause-5-values-change-during-the-sort">Cause 5: values change during the sort</h2>
+<p>Sorting by something that isn't stable during the sort breaks consistency: <code>System.currentTimeMillis()</code>, random numbers (<code>(a, b) -&gt; random.nextInt(3) - 1</code> to "shuffle"), cached values updated by another thread, or a <code>Map</code> lookup that's being modified concurrently.</p>
+<ul>
+<li>To shuffle, use <code>Collections.shuffle(list)</code>.</li>
+<li>Snapshot the sort key first, or sort a copy of immutable data.</li>
+</ul>
+<h2 id="cause-6-mixed-comparison-rules">Cause 6: mixed comparison rules</h2>
+<p>Comparators with special cases ("pinned items first, then by date, but drafts are equal to everything") often violate transitivity. Express the rules as a chain of keys instead:</p>
+<pre><code class="language-java">Comparator.comparing(Post::isPinned).reversed()
+          .thenComparing(Post::getDate, Comparator.reverseOrder())
+</code></pre>
+<p>The same applies to <code>compareTo</code> in classes implementing <code>Comparable</code>.</p>
+<h2 id="finding-the-bad-comparator">Finding the bad comparator</h2>
+<p>Write a quick check over a sample of real data that asserts symmetry and transitivity on all triples (or use a property-based testing library). It will point at the exact elements that break the contract.</p>
+<h2 id="about-uselegacymergesort">About <code>useLegacyMergeSort</code></h2>
+<p><code>-Djava.util.Arrays.useLegacyMergeSort=true</code> switches back to the old merge sort, which doesn't throw. It only hides the bug — the result can still be incorrectly ordered — and the option may be removed in future JDKs. Fix the comparator instead.</p>
+<p class="upd">Last updated 2026-11-10.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-concurrentmodificationexception/">java.util.ConcurrentModificationException</a></li><li><a href="/java/java-nullpointerexception/">java.lang.NullPointerException: Cannot invoke &quot;String.length()&quot; because &quot;&lt;local1&gt;&quot; is null</a></li><li><a href="/java/java-outofmemoryerror-java-heap-space/">java.lang.OutOfMemoryError: Java heap space</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-could-not-find-or-load-main-class/">Error: Could not find or load main class</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

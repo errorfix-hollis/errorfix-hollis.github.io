@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>x509: certificate has expired or is not yet valid (Kubernetes) — how to fix</title>
+<meta name="description" content="A TLS certificate in the chain is outside its validity period. On kubeadm clusters this is usually the control-plane certificates (valid 1 year) or the admin kubeconfig expiring; it can also be a wrong system clock.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-x509-certificate-has-expired-or-is-not-yet-valid/">
+<meta property="og:title" content="x509: certificate has expired or is not yet valid (Kubernetes) — how to fix"><meta property="og:description" content="A TLS certificate in the chain is outside its validity period. On kubeadm clusters this is usually the control-plane certificates (valid 1 year) or the admin kubeconfig expiring; it can also be a wrong system clock.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-x509-certificate-has-expired-or-is-not-yet-valid/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "x509: certificate has expired or is not yet valid (Kubernetes) \u2014 how to fix", "description": "A TLS certificate in the chain is outside its validity period. On kubeadm clusters this is usually the control-plane certificates (valid 1 year) or the admin kubeconfig expiring; it can also be a wrong system clock.", "dateModified": "2026-11-07", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-x509-certificate-has-expired-or-is-not-yet-valid/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "x509: certificate has expired or is not yet valid", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-x509-certificate-has-expired-or-is-not-yet-valid/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>x509: certificate has expired or is not yet valid (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Unable to connect to the server: x509: certificate has expired or is not yet valid: current time 2026-11-07T10:12:03Z is after 2026-10-30T08:41:55Z
+E1107 10:12:03.512 memcache.go:265] couldn&#x27;t get current server API group list: Get &quot;https://10.0.0.10:6443/api?timeout=32s&quot;: tls: failed to verify certificate: x509: certificate has expired or is not yet valid
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the clock first (<code>date</code>, <code>timedatectl</code>). On kubeadm control-plane nodes: <code>sudo kubeadm certs check-expiration</code>, then <code>sudo kubeadm certs renew all</code>, restart the static pods (move manifests out of /etc/kubernetes/manifests and back, or restart kubelet) and copy the new <code>/etc/kubernetes/admin.conf</code> to <code>~/.kube/config</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Every certificate has <code>notBefore</code> and <code>notAfter</code> dates. The error appears when the current time (as the client sees it) is outside that window. The message usually tells you which: "current time ... is after ..." means expired, "is before ..." means not yet valid (clock behind).</p>
+<p>kubeadm creates control-plane certificates valid for <strong>1 year</strong> (the CA for 10). They are renewed automatically only when you run <code>kubeadm upgrade</code>, so clusters that are never upgraded break after a year.</p>
+<h2 id="step-1-check-the-clock">Step 1: check the clock</h2>
+<pre><code class="language-bash">date -u
+timedatectl status          # &quot;System clock synchronized: yes&quot;?
+sudo timedatectl set-ntp true
+</code></pre>
+<p>A VM resumed from a snapshot, or a machine without NTP, can be far off. Fix the time on both your workstation and the nodes before renewing anything.</p>
+<h2 id="step-2-see-which-certificate-expired">Step 2: see which certificate expired</h2>
+<p>On a control-plane node:</p>
+<pre><code class="language-bash">sudo kubeadm certs check-expiration
+</code></pre>
+<p>For an arbitrary endpoint or file:</p>
+<pre><code class="language-bash">echo | openssl s_client -connect 10.0.0.10:6443 2&gt;/dev/null | openssl x509 -noout -dates
+sudo openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -enddate
+</code></pre>
+<p>Your kubeconfig embeds a client certificate as base64 (<code>client-certificate-data</code>); decode it to check:</p>
+<pre><code class="language-bash">grep client-certificate-data ~/.kube/config | awk '{print $2}' | base64 -d | openssl x509 -noout -enddate
+</code></pre>
+<p>(The <a href="/tools/base64-encode-decode/">Base64 tool</a> and <a href="/tools/unix-timestamp-converter/">timestamp converter</a> help when inspecting by hand.)</p>
+<h2 id="fix-1-renew-kubeadm-certificates">Fix 1: renew kubeadm certificates</h2>
+<p>On <strong>each</strong> control-plane node:</p>
+<pre><code class="language-bash">sudo cp -r /etc/kubernetes /root/kubernetes-backup-$(date +%F)
+sudo kubeadm certs renew all
+</code></pre>
+<p>The running components don't pick up new certs until restarted. Restart the static pods (apiserver, controller-manager, scheduler, etcd):</p>
+<pre><code class="language-bash">sudo mkdir -p /tmp/manifests
+sudo mv /etc/kubernetes/manifests/*.yaml /tmp/manifests/
+sleep 20
+sudo mv /tmp/manifests/*.yaml /etc/kubernetes/manifests/
+</code></pre>
+<p>Then refresh your kubeconfig, because <code>admin.conf</code> was regenerated:</p>
+<pre><code class="language-bash">mkdir -p ~/.kube
+sudo cp /etc/kubernetes/admin.conf ~/.kube/config
+sudo chown $(id -u):$(id -g) ~/.kube/config
+kubectl get nodes
+</code></pre>
+<p>Copy the new admin kubeconfig to any other machines that used the old one.</p>
+<h2 id="fix-2-kubelet-client-certificates">Fix 2: kubelet client certificates</h2>
+<p>If nodes show <code>NotReady</code> and kubelet logs mention an expired certificate, check <code>/var/lib/kubelet/pki/kubelet-client-current.pem</code>. Kubelet rotates it automatically when <code>rotateCertificates: true</code> (the kubeadm default), so this usually only happens when a node was off for a long time. If it already expired, generate a fresh kubeconfig for that node on a control-plane node:</p>
+<pre><code class="language-bash">NODE=worker-1
+sudo kubeadm kubeconfig user --org system:nodes --client-name system:node:$NODE &gt; kubelet-$NODE.conf
+</code></pre>
+<p>Copy it to the node as <code>/etc/kubernetes/kubelet.conf</code>, remove the expired <code>/var/lib/kubelet/pki/kubelet-client-*</code> files and run <code>sudo systemctl restart kubelet</code>. Rejoining the node with <code>kubeadm join</code> also works.</p>
+<h2 id="fix-3-managed-clusters-and-other-distros">Fix 3: managed clusters and other distros</h2>
+<ul>
+<li><strong>EKS/GKE/AKS</strong>: control-plane certs are managed for you; the expired thing is usually a stale kubeconfig or an old auth plugin. Regenerate it: <code>aws eks update-kubeconfig --name &lt;cluster&gt;</code>, <code>gcloud container clusters get-credentials &lt;cluster&gt;</code>, <code>az aks get-credentials -g &lt;rg&gt; -n &lt;cluster&gt;</code>.</li>
+<li><strong>k3s</strong>: certificates are renewed when k3s restarts within 90 days of expiry: <code>sudo systemctl restart k3s</code>. Newer versions also have <code>k3s certificate rotate</code>.</li>
+<li><strong>minikube</strong>: <code>minikube delete &amp;&amp; minikube start</code> is the quickest fix for a local cluster.</li>
+<li><strong>Webhooks / ingress / cert-manager</strong>: an expired certificate on an admission webhook or Ingress gives the same x509 text in pod events or API errors. Check <code>kubectl get certificates -A</code> and renew the Secret.</li>
+</ul>
+<h2 id="prevent-it">Prevent it</h2>
+<p>Upgrade kubeadm clusters at least once a year (<code>kubeadm upgrade apply</code> renews certs), or schedule <code>kubeadm certs renew all</code> plus a control-plane restart, and monitor <code>kubeadm certs check-expiration</code>.</p>
+<p class="upd">Last updated 2026-11-07.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-you-must-be-logged-in-to-the-server-unauthorized/">error: You must be logged in to the server (Unauthorized)</a></li><li><a href="/web/web-x509-certificate-signed-by-unknown-authority/">x509: certificate signed by unknown authority</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

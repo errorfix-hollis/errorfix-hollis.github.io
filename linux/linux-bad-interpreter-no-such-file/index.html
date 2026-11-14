@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>/bin/bash^M: bad interpreter: No such file or directory (Linux) — how to fix</title>
+<meta name="description" content="The script has Windows (CRLF) line endings, so Linux looks for an interpreter literally named &quot;bash\r&quot;. Convert the file to Unix line endings.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-bad-interpreter-no-such-file/">
+<meta property="og:title" content="/bin/bash^M: bad interpreter: No such file or directory (Linux) — how to fix"><meta property="og:description" content="The script has Windows (CRLF) line endings, so Linux looks for an interpreter literally named &quot;bash\r&quot;. Convert the file to Unix line endings.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-bad-interpreter-no-such-file/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "/bin/bash^M: bad interpreter: No such file or directory (Linux) \u2014 how to fix", "description": "The script has Windows (CRLF) line endings, so Linux looks for an interpreter literally named \"bash\\r\". Convert the file to Unix line endings.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/linux/linux-bad-interpreter-no-such-file/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "/bin/bash^M: bad interpreter: No such file or directory", "item": "https://errorfix-hollis.github.io/linux/linux-bad-interpreter-no-such-file/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>/bin/bash^M: bad interpreter: No such file or directory (Linux) — how to fix</h1>
+<pre class="err"><code>/bin/bash^M: bad interpreter: No such file or directory</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>sed -i 's/\r$//' script.sh</code> (or <code>dos2unix script.sh</code>). Prevent it with a <code>.gitattributes</code> line: <code>*.sh text eol=lf</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The <code>^M</code> is a carriage return (<code>\r</code>). Windows ends lines with <code>\r\n</code>, Linux with <code>\n</code>. Your first line is read as <code>#!/bin/bash\r</code>, and there's no program called <code>bash\r</code>.</p>
+<h2 id="fix">Fix</h2>
+<pre><code class="language-bash">sed -i 's/\r$//' script.sh
+</code></pre>
+<p>or</p>
+<pre><code class="language-bash">sudo apt install dos2unix
+dos2unix script.sh
+</code></pre>
+<p>Check the result: <code>file script.sh</code> should no longer say "with CRLF line terminators".</p>
+<h2 id="fix-it-in-your-editor">Fix it in your editor</h2>
+<ul>
+<li><strong>VS Code:</strong> click <code>CRLF</code> in the status bar and choose <code>LF</code>, then save.</li>
+<li><strong>Notepad++:</strong> Edit → EOL Conversion → Unix (LF).</li>
+</ul>
+<h2 id="stop-git-from-converting-it-again">Stop Git from converting it again</h2>
+<p>On Windows, <code>core.autocrlf=true</code> converts files to CRLF on checkout. Pin shell scripts to LF in the repository:</p>
+<pre><code class="language-gitattributes"># .gitattributes
+*.sh text eol=lf
+</code></pre>
+<p>Then renormalise once: <code>git add --renormalize . &amp;&amp; git commit -m "Normalize line endings"</code>.</p>
+<h2 id="other-bad-interpreter-causes">Other "bad interpreter" causes</h2>
+<p>If there's no <code>^M</code>, the interpreter path itself is wrong (e.g. <code>#!/usr/bin/python</code> on a system that only has <code>python3</code>). Use <code>#!/usr/bin/env python3</code> or <code>#!/usr/bin/env bash</code> so the interpreter is found on PATH.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-exec-format-error/">exec format error</a></li><li><a href="/linux/linux-permission-denied-running-script/">bash: ./script.sh: Permission denied</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-cannot-execute-binary-file/">cannot execute binary file: Exec format error</a></li><li><a href="/linux/linux-command-not-found/">command not found</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

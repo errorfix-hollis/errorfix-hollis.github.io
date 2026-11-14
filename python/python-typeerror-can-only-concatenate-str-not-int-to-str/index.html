@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: can only concatenate str (not &quot;int&quot;) to str (Python) — how to fix</title>
+<meta name="description" content="You used + to join a string with a number (or other non-string). Python won&#x27;t convert types implicitly; format the value or convert it with str().">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-can-only-concatenate-str-not-int-to-str/">
+<meta property="og:title" content="TypeError: can only concatenate str (not &quot;int&quot;) to str (Python) — how to fix"><meta property="og:description" content="You used + to join a string with a number (or other non-string). Python won&#x27;t convert types implicitly; format the value or convert it with str().">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-can-only-concatenate-str-not-int-to-str/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: can only concatenate str (not \"int\") to str (Python) \u2014 how to fix", "description": "You used + to join a string with a number (or other non-string). Python won't convert types implicitly; format the value or convert it with str().", "dateModified": "2026-11-03", "url": "https://errorfix-hollis.github.io/python/python-typeerror-can-only-concatenate-str-not-int-to-str/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: can only concatenate str (not \"int\") to str", "item": "https://errorfix-hollis.github.io/python/python-typeerror-can-only-concatenate-str-not-int-to-str/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: can only concatenate str (not &quot;int&quot;) to str (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;main.py&quot;, line 2, in &lt;module&gt;
+    print(&quot;Age: &quot; + age)
+TypeError: can only concatenate str (not &quot;int&quot;) to str
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Use an f-string: <code>f"Age: {age}"</code>, or convert explicitly: <code>"Age: " + str(age)</code>. If you meant arithmetic, convert the string to a number instead: <code>int(s) + 1</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>+</code> between two strings concatenates them. If the left side is a <code>str</code> and the right side is an <code>int</code>, <code>float</code>, <code>list</code>, <code>NoneType</code>, etc., Python raises this error rather than guessing what you meant. The type in quotes tells you what the right-hand operand was:</p>
+<pre><code>can only concatenate str (not &quot;int&quot;) to str
+can only concatenate str (not &quot;NoneType&quot;) to str
+can only concatenate str (not &quot;list&quot;) to str
+</code></pre>
+<p>If the number is on the <em>left</em> (<code>5 + "a"</code>) you get <code>unsupported operand type(s) for +: 'int' and 'str'</code> instead — same problem.</p>
+<h2 id="fix-1-use-an-f-string-recommended">Fix 1: use an f-string (recommended)</h2>
+<pre><code class="language-python">age = 30
+print(f&quot;Age: {age}&quot;)
+msg = f&quot;{name} has {count} items costing {price:.2f}&quot;
+</code></pre>
+<p>f-strings call <code>format()</code> on each value, so any type works, and you get formatting options like <code>:.2f</code>, <code>:,</code> and <code>:&gt;10</code>.</p>
+<h2 id="fix-2-convert-with-str">Fix 2: convert with str()</h2>
+<pre><code class="language-python">print(&quot;Age: &quot; + str(age))
+</code></pre>
+<p>Or let <code>print</code> do it: <code>print("Age:", age)</code> (comma-separated arguments are converted and joined with spaces).</p>
+<h2 id="fix-3-you-wanted-arithmetic-not-text">Fix 3: you wanted arithmetic, not text</h2>
+<p>Values from <code>input()</code>, files, <code>sys.argv</code>, environment variables and web forms are always strings:</p>
+<pre><code class="language-python">n = input(&quot;Number: &quot;)
+print(n + 1)        # TypeError
+print(int(n) + 1)   # correct
+</code></pre>
+<h2 id="fix-4-joining-a-list">Fix 4: joining a list</h2>
+<pre><code class="language-python">parts = [&quot;a&quot;, &quot;b&quot;]
+&quot;prefix: &quot; + parts            # (not &quot;list&quot;)
+&quot;prefix: &quot; + &quot;, &quot;.join(parts)  # 'prefix: a, b'
+
+nums = [1, 2, 3]
+&quot;, &quot;.join(nums)                     # TypeError: expected str instance, int found
+&quot;, &quot;.join(str(n) for n in nums)     # '1, 2, 3'
+</code></pre>
+<h2 id="fix-5-not-nonetype">Fix 5: (not "NoneType")</h2>
+<p>A variable you thought was a string is <code>None</code> — often a function with no <code>return</code>, <code>dict.get()</code> on a missing key, or <code>os.environ.get("VAR")</code> when the variable isn't set:</p>
+<pre><code class="language-python">home = os.environ.get(&quot;APP_HOME&quot;)
+path = home + &quot;/config&quot;     # (not &quot;NoneType&quot;)
+</code></pre>
+<p>Give a default or fail clearly:</p>
+<pre><code class="language-python">home = os.environ.get(&quot;APP_HOME&quot;, &quot;/opt/app&quot;)
+# or
+home = os.environ[&quot;APP_HOME&quot;]   # KeyError names the missing variable
+</code></pre>
+<p>For filesystem paths, prefer <code>pathlib</code>: <code>Path(home) / "config"</code>.</p>
+<h2 id="fix-6-building-strings-in-a-loop">Fix 6: building strings in a loop</h2>
+<pre><code class="language-python">out = &quot;&quot;
+for i in range(3):
+    out += str(i)        # not out += i
+</code></pre>
+<p>For many pieces, collecting into a list and calling <code>"".join(...)</code> at the end is faster.</p>
+<p class="upd">Last updated 2026-11-03.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-typeerror-str-object-is-not-callable/">TypeError: &#x27;str&#x27; object is not callable</a></li><li><a href="/python/python-typeerror-unsupported-operand-types/">TypeError: unsupported operand type(s) for +: &#x27;int&#x27; and &#x27;str&#x27;</a></li><li><a href="/python/python-valueerror-invalid-literal-for-int-with-base-10/">ValueError: invalid literal for int() with base 10</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

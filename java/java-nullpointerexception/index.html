@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>java.lang.NullPointerException: Cannot invoke &quot;String.length()&quot; because &quot;&lt;local1&gt;&quot; is null — how to fix</title>
+<meta name="description" content="Code dereferenced a reference that is null — called a method, read a field, indexed an array, unboxed a number or synchronized on it. Since Java 14, the message names exactly which expression was null.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-nullpointerexception/">
+<meta property="og:title" content="java.lang.NullPointerException: Cannot invoke &quot;String.length()&quot; because &quot;&lt;local1&gt;&quot; is null — how to fix"><meta property="og:description" content="Code dereferenced a reference that is null — called a method, read a field, indexed an array, unboxed a number or synchronized on it. Since Java 14, the message names exactly which expression was null.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-nullpointerexception/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "java.lang.NullPointerException: Cannot invoke \"String.length()\" because \"<local1>\" is null \u2014 how to fix", "description": "Code dereferenced a reference that is null \u2014 called a method, read a field, indexed an array, unboxed a number or synchronized on it. Since Java 14, the message names exactly which expression was null.", "dateModified": "2026-11-05", "url": "https://errorfix-hollis.github.io/java/java-nullpointerexception/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "java.lang.NullPointerException: Cannot invoke \"String.length()\" because \"<local1>\" is null", "item": "https://errorfix-hollis.github.io/java/java-nullpointerexception/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>java.lang.NullPointerException: Cannot invoke &quot;String.length()&quot; because &quot;&lt;local1&gt;&quot; is null — how to fix</h1>
+<pre class="err"><code>Exception in thread &quot;main&quot; java.lang.NullPointerException: Cannot invoke &quot;String.length()&quot; because &quot;name&quot; is null
+	at com.example.App.greet(App.java:12)
+	at com.example.App.main(App.java:5)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Read the helpful message (<code>because "x" is null</code>) and the first <code>at</code> line in your code. Find where that value should have been set: an uninitialized field, a map/repository lookup that returned null, a missing injection, or an unboxed null Integer. Fix it at the source, or handle absence explicitly with <code>Objects.requireNonNull</code>, <code>Optional</code>, or a null check.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>You used <code>null</code> as if it were an object. Since JDK 14 (default on since 15), <em>helpful NullPointerException</em> messages say what was null:</p>
+<ul>
+<li><code>Cannot invoke "String.length()" because "name" is null</code></li>
+<li><code>Cannot read field "address" because "user" is null</code></li>
+<li><code>Cannot load from int array because "arr" is null</code></li>
+<li><code>Cannot invoke "java.lang.Integer.intValue()" because ... is null</code> (unboxing)</li>
+</ul>
+<p>If the message says <code>"&lt;local1&gt;"</code> instead of a variable name, the class was compiled without debug info; compile with <code>javac -g</code> (Maven/Gradle do this by default) to see names.</p>
+<p>The first <code>at</code> line pointing to <strong>your</strong> package is where it happened. On older JDKs with no message, split chained calls across lines so the line number tells you which part was null.</p>
+<h2 id="cause-1-an-uninitialized-field">Cause 1: an uninitialized field</h2>
+<pre><code class="language-java">class Cart {
+    private List&lt;Item&gt; items;           // null
+    void add(Item i) { items.add(i); }  // NPE
+}
+</code></pre>
+<p>Initialise at declaration or in the constructor:</p>
+<pre><code class="language-java">private final List&lt;Item&gt; items = new ArrayList&lt;&gt;();
+</code></pre>
+<h2 id="cause-2-a-lookup-returned-null">Cause 2: a lookup returned null</h2>
+<p><code>Map.get</code>, <code>HttpServletRequest.getParameter</code>, <code>System.getenv</code>, <code>Class.getResource</code>, many DAO methods and JSON libraries return <code>null</code> when something isn't there.</p>
+<pre><code class="language-java">String port = System.getenv(&quot;PORT&quot;);
+int p = Integer.parseInt(port);               // NumberFormatException: null, or NPE later
+</code></pre>
+<p>Handle the absent case:</p>
+<pre><code class="language-java">int p = Integer.parseInt(System.getenv().getOrDefault(&quot;PORT&quot;, &quot;8080&quot;));
+
+User u = repo.findById(id)                    // Optional&lt;User&gt; in Spring Data
+             .orElseThrow(() -&gt; new NotFoundException(id));
+</code></pre>
+<h2 id="cause-3-auto-unboxing-a-null-wrapper">Cause 3: auto-unboxing a null wrapper</h2>
+<pre><code class="language-java">Map&lt;String, Integer&gt; counts = new HashMap&lt;&gt;();
+int c = counts.get(&quot;x&quot;);          // get returns null -&gt; NPE on intValue()
+</code></pre>
+<p>Use <code>counts.getOrDefault("x", 0)</code>, or keep the type as <code>Integer</code> and check it. The same happens with <code>Boolean</code> fields from JSON/DB in <code>if (user.getActive())</code>. Use <code>Boolean.TRUE.equals(user.getActive())</code>.</p>
+<h2 id="cause-4-springdi-didnt-inject-the-field">Cause 4: Spring/DI didn't inject the field</h2>
+<p><code>@Autowired</code> fields are <code>null</code> when:</p>
+<ul>
+<li>you created the object yourself with <code>new MyService()</code> instead of letting Spring create it;</li>
+<li>the class isn't a bean (<code>@Component</code>/<code>@Service</code> missing, or outside the component-scan package);</li>
+<li>you use the field in a constructor (field injection happens after construction).</li>
+</ul>
+<p>Prefer constructor injection, which fails at startup instead of with an NPE later:</p>
+<pre><code class="language-java">@Service
+class OrderService {
+    private final PaymentClient client;
+    OrderService(PaymentClient client) { this.client = client; }
+}
+</code></pre>
+<h2 id="cause-5-string-comparisons-and-equals-on-a-null">Cause 5: string comparisons and equals on a null</h2>
+<p><code>status.equals("ACTIVE")</code> throws if <code>status</code> is null. Put the constant first or use <code>Objects.equals</code>:</p>
+<pre><code class="language-java">&quot;ACTIVE&quot;.equals(status);
+Objects.equals(a, b);
+</code></pre>
+<p><code>switch</code> on a null <code>String</code> or enum also throws an NPE.</p>
+<h2 id="cause-6-arrays-and-collections-containing-null">Cause 6: arrays and collections containing null</h2>
+<p><code>new String[10]</code> holds ten <code>null</code>s until you fill it. <code>List.of(...)</code> and <code>Map.of(...)</code> reject nulls with an NPE at creation, and <code>ConcurrentHashMap</code> rejects null keys/values.</p>
+<h2 id="prevent-it">Prevent it</h2>
+<ul>
+<li>Validate inputs early: <code>this.name = Objects.requireNonNull(name, "name");</code></li>
+<li>Return empty collections or <code>Optional</code> instead of <code>null</code>.</li>
+<li>Use nullness annotations (<code>@Nullable</code>, <code>@NonNull</code>) with IntelliJ inspections, Error Prone/NullAway or SpotBugs to catch NPEs at compile time.</li>
+</ul>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-could-not-find-or-load-main-class/">Error: Could not find or load main class</a></li><li><a href="/java/java-noclassdeffounderror/">java.lang.NoClassDefFoundError</a></li><li><a href="/java/java-outofmemoryerror-java-heap-space/">java.lang.OutOfMemoryError: Java heap space</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-comparison-method-violates-its-general-contract/">java.lang.IllegalArgumentException: Comparison method violates its general contract!</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Too many re-renders. React limits the number of renders to prevent an infinite loop. (JavaScript) — how to fix</title>
+<meta name="description" content="A state setter is being called during render, which triggers another render, which calls it again. Usually it&#x27;s an onClick that calls a function instead of passing one.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-too-many-re-renders/">
+<meta property="og:title" content="Too many re-renders. React limits the number of renders to prevent an infinite loop. (JavaScript) — how to fix"><meta property="og:description" content="A state setter is being called during render, which triggers another render, which calls it again. Usually it&#x27;s an onClick that calls a function instead of passing one.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-too-many-re-renders/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Too many re-renders. React limits the number of renders to prevent an infinite loop. (JavaScript) \u2014 how to fix", "description": "A state setter is being called during render, which triggers another render, which calls it again. Usually it's an onClick that calls a function instead of passing one.", "dateModified": "2026-10-30", "url": "https://errorfix-hollis.github.io/javascript/js-too-many-re-renders/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "Too many re-renders. React limits the number of renders to prevent an infinite loop.", "item": "https://errorfix-hollis.github.io/javascript/js-too-many-re-renders/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>Too many re-renders. React limits the number of renders to prevent an infinite loop. (JavaScript) — how to fix</h1>
+<pre class="err"><code>Uncaught Error: Too many re-renders. React limits the number of renders to prevent an infinite loop.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Pass a function to event handlers instead of calling it: <code>onClick={() =&gt; setCount(count + 1)}</code> not <code>onClick={setCount(count + 1)}</code>. Move any unconditional <code>setState</code> out of the component body into <code>useEffect</code> or an event handler, or compute the value directly during render.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>React threw this because state was updated <em>during rendering</em> over and over. Each <code>setState</code> during render schedules another render; the render calls <code>setState</code> again; after ~50 nested updates React stops with this error.</p>
+<p>Note this is different from <code>Maximum update depth exceeded</code>, which is usually caused by <code>useEffect</code> / <code>componentDidUpdate</code> loops.</p>
+<h2 id="cause-1-calling-the-handler-instead-of-passing-it">Cause 1: calling the handler instead of passing it</h2>
+<p>The most common cause by far:</p>
+<pre><code class="language-jsx">// Wrong: setCount runs immediately, on every render
+&lt;button onClick={setCount(count + 1)}&gt;+&lt;/button&gt;
+&lt;button onClick={handleClick(id)}&gt;Delete&lt;/button&gt;
+
+// Right: pass a function that runs on click
+&lt;button onClick={() =&gt; setCount(count + 1)}&gt;+&lt;/button&gt;
+&lt;button onClick={() =&gt; handleClick(id)}&gt;Delete&lt;/button&gt;
+</code></pre>
+<p>If the handler takes no arguments you can pass it directly: <code>onClick={handleClick}</code> (no parentheses).</p>
+<h2 id="cause-2-setstate-directly-in-the-component-body">Cause 2: setState directly in the component body</h2>
+<pre><code class="language-jsx">// Wrong
+function Cart({ items }) {
+  const [total, setTotal] = useState(0);
+  setTotal(items.reduce((s, i) =&gt; s + i.price, 0));   // runs every render
+  return &lt;p&gt;{total}&lt;/p&gt;;
+}
+</code></pre>
+<p>Derived values don't need state at all — compute them during render:</p>
+<pre><code class="language-jsx">function Cart({ items }) {
+  const total = items.reduce((s, i) =&gt; s + i.price, 0);
+  return &lt;p&gt;{total}&lt;/p&gt;;
+}
+</code></pre>
+<p>If it's expensive, wrap it in <code>useMemo</code>:</p>
+<pre><code class="language-jsx">const total = useMemo(
+  () =&gt; items.reduce((s, i) =&gt; s + i.price, 0),
+  [items]
+);
+</code></pre>
+<h2 id="cause-3-side-effect-that-belongs-in-useeffect">Cause 3: side effect that belongs in useEffect</h2>
+<p>If you really need to set state in response to something (e.g. after reading from <code>localStorage</code>), do it in an effect so it runs after render, not during it:</p>
+<pre><code class="language-jsx">useEffect(() =&gt; {
+  setTheme(localStorage.getItem('theme') ?? 'light');
+}, []);   // empty array: run once after mount
+</code></pre>
+<h2 id="cause-4-unconditional-sync-props-to-state">Cause 4: unconditional "sync props to state"</h2>
+<pre><code class="language-jsx">// Wrong
+if (props.value !== value) setValue(props.value);   // fine only if it eventually stops
+setValue(props.value);                               // never stops
+</code></pre>
+<p>React does allow setting state during render if it's <em>conditional</em> and converges, but it's easy to get wrong. Prefer using the prop directly, or reset the component with a <code>key</code>:</p>
+<pre><code class="language-jsx">&lt;Editor key={userId} initialValue={user.bio} /&gt;
+</code></pre>
+<h2 id="cause-5-a-custom-hook-that-sets-state-on-every-call">Cause 5: a custom hook that sets state on every call</h2>
+<p>A custom hook is just code in the render. If it calls a setter unconditionally, you get the same loop. Move the update into a <code>useEffect</code> inside the hook.</p>
+<h2 id="finding-it">Finding it</h2>
+<p>The error's stack trace in the browser console points to the component. Search that component for <code>onClick={</code>, <code>onChange={</code>, <code>onSubmit={</code> followed by a call with <code>(...)</code>, and for any <code>set...(</code> call that isn't inside a handler or effect.</p>
+<p class="upd">Last updated 2026-10-30.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-is-not-a-function/">TypeError: x is not a function</a></li><li><a href="/javascript/js-objects-are-not-valid-as-a-react-child/">Objects are not valid as a React child</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li><li><a href="/javascript/js-hydration-failed-initial-ui-does-not-match/">Hydration failed because the initial UI does not match what was rendered on the server</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

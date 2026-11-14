@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error response from daemon: Get &quot;https://registry-1.docker.io/v2/&quot;: context deadline exceeded — how to fix</title>
+<meta name="description" content="The Docker daemon could not reach the registry before its timeout. The cause is almost always DNS, a proxy the daemon doesn&#x27;t know about, an MTU/VPN problem, or a blocked registry.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-context-deadline-exceeded/">
+<meta property="og:title" content="Error response from daemon: Get &quot;https://registry-1.docker.io/v2/&quot;: context deadline exceeded — how to fix"><meta property="og:description" content="The Docker daemon could not reach the registry before its timeout. The cause is almost always DNS, a proxy the daemon doesn&#x27;t know about, an MTU/VPN problem, or a blocked registry.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-context-deadline-exceeded/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error response from daemon: Get \"https://registry-1.docker.io/v2/\": context deadline exceeded \u2014 how to fix", "description": "The Docker daemon could not reach the registry before its timeout. The cause is almost always DNS, a proxy the daemon doesn't know about, an MTU/VPN problem, or a blocked registry.", "dateModified": "2026-11-09", "url": "https://errorfix-hollis.github.io/docker/docker-context-deadline-exceeded/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "Error response from daemon: Get \"https://registry-1.docker.io/v2/\": context deadline exceeded", "item": "https://errorfix-hollis.github.io/docker/docker-context-deadline-exceeded/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>Error response from daemon: Get &quot;https://registry-1.docker.io/v2/&quot;: context deadline exceeded — how to fix</h1>
+<pre class="err"><code>Error response from daemon: Get &quot;https://registry-1.docker.io/v2/&quot;: net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)
+Error response from daemon: Get &quot;https://registry-1.docker.io/v2/&quot;: context deadline exceeded
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Test from the host: <code>curl -v https://registry-1.docker.io/v2/</code> (401 = reachable). Fix DNS in <code>/etc/docker/daemon.json</code> with <code>{"dns": ["1.1.1.1", "8.8.8.8"]}</code>, or give the daemon your proxy via a systemd drop-in (<code>Environment=HTTPS_PROXY=...</code>), then <code>sudo systemctl restart docker</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>context deadline exceeded</code> is Go's generic "timed out" error. Here the <strong>daemon</strong> (dockerd), not your CLI, tried to connect to the registry and got no answer in time. It happens on <code>docker pull</code>, <code>docker login</code>, <code>docker build</code> (pulling the base image) and <code>docker push</code>.</p>
+<p>Important: the daemon runs as a system service. Proxy variables and DNS settings in your shell do <strong>not</strong> apply to it.</p>
+<p>First check basic reachability from the host:</p>
+<pre><code class="language-bash">curl -v https://registry-1.docker.io/v2/
+</code></pre>
+<p>A <code>401 Unauthorized</code> response means the network is fine (Docker Hub requires a token). A hang points to DNS, proxy or firewall.</p>
+<h2 id="cause-1-dns-resolution-fails-or-is-slow">Cause 1: DNS resolution fails or is slow</h2>
+<pre><code class="language-bash">nslookup registry-1.docker.io
+resolvectl status          # systemd-resolved hosts
+</code></pre>
+<p>Set explicit DNS servers for the daemon in <code>/etc/docker/daemon.json</code>:</p>
+<pre><code class="language-json">{
+  &quot;dns&quot;: [&quot;1.1.1.1&quot;, &quot;8.8.8.8&quot;]
+}
+</code></pre>
+<pre><code class="language-bash">sudo systemctl restart docker
+</code></pre>
+<p>The <code>dns</code> key affects containers; if the host itself can't resolve, fix <code>/etc/resolv.conf</code> first (see <a href="/linux/linux-temporary-failure-in-name-resolution/">Temporary failure in name resolution</a>). Validate the JSON before restarting — a syntax error stops dockerd from starting (<a href="/tools/json-formatter/">JSON formatter</a>).</p>
+<h2 id="cause-2-you-are-behind-a-proxy">Cause 2: you are behind a proxy</h2>
+<p>Configure the proxy for the daemon with a systemd drop-in:</p>
+<pre><code class="language-bash">sudo mkdir -p /etc/systemd/system/docker.service.d
+sudo tee /etc/systemd/system/docker.service.d/http-proxy.conf &lt;&lt;'CONF'
+[Service]
+Environment=&quot;HTTP_PROXY=http://proxy.example.com:3128&quot;
+Environment=&quot;HTTPS_PROXY=http://proxy.example.com:3128&quot;
+Environment=&quot;NO_PROXY=localhost,127.0.0.1,.internal&quot;
+CONF
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+systemctl show --property=Environment docker
+</code></pre>
+<p>Docker Engine 23+ also accepts <code>"proxies": {"http-proxy": "...", "https-proxy": "...", "no-proxy": "..."}</code> in <code>daemon.json</code>. On Docker Desktop use Settings → Resources → Proxies.</p>
+<h2 id="cause-3-vpn-or-mtu-problems">Cause 3: VPN or MTU problems</h2>
+<p>TLS handshakes that stall (connection opens, then hangs) often mean packets larger than the tunnel MTU are dropped. Test with the VPN off. If that fixes it, lower the MTU on the VPN interface or for Docker:</p>
+<pre><code class="language-json">{ &quot;mtu&quot;: 1400 }
+</code></pre>
+<h2 id="cause-4-registry-mirror-misconfigured-or-down">Cause 4: registry mirror misconfigured or down</h2>
+<p>A dead <code>registry-mirrors</code> entry in <code>daemon.json</code> causes timeouts before Docker falls back:</p>
+<pre><code class="language-bash">docker info | grep -A3 &quot;Registry Mirrors&quot;
+</code></pre>
+<p>Remove the mirror or fix its URL, then restart Docker.</p>
+<h2 id="cause-5-ipv6-without-a-working-route">Cause 5: IPv6 without a working route</h2>
+<p>If the host prefers IPv6 but can't route it, connections hang. Check with <code>curl -6 -v https://registry-1.docker.io/v2/</code>. Disable IPv6 on the interface or fix the route.</p>
+<h2 id="cause-6-docker-desktop-wsl-2-networking">Cause 6: Docker Desktop / WSL 2 networking</h2>
+<p>On Windows, restart WSL (<code>wsl --shutdown</code>) and Docker Desktop. Corporate VPN clients commonly break WSL 2 DNS; setting <code>dns</code> in Docker Desktop's Docker Engine JSON settings usually fixes it.</p>
+<h2 id="retry">Retry</h2>
+<p>Once <code>curl</code> returns 401 quickly, <code>docker pull</code> will work. Transient Hub outages also produce this error — check status.docker.com before changing config.</p>
+<p class="upd">Last updated 2026-11-09.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-error-getting-credentials/">error getting credentials - err: exec: &quot;docker-credential-desktop&quot;: executable file not found in $PATH</a></li><li><a href="/docker/docker-toomanyrequests-pull-rate-limit/">toomanyrequests: You have reached your pull rate limit.</a></li><li><a href="/linux/linux-temporary-failure-in-name-resolution/">Temporary failure in name resolution</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

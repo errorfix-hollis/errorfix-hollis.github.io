@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>invalid operation: mismatched types int and time.Duration (Go) — how to fix</title>
+<meta name="description" content="Go never converts between numeric types implicitly. Both operands of +, -, *, / and comparisons must have the same type, so int * time.Duration or int + int64 is a compile error until you convert one side.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-invalid-operation-mismatched-types/">
+<meta property="og:title" content="invalid operation: mismatched types int and time.Duration (Go) — how to fix"><meta property="og:description" content="Go never converts between numeric types implicitly. Both operands of +, -, *, / and comparisons must have the same type, so int * time.Duration or int + int64 is a compile error until you convert one side.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-invalid-operation-mismatched-types/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "invalid operation: mismatched types int and time.Duration (Go) \u2014 how to fix", "description": "Go never converts between numeric types implicitly. Both operands of +, -, *, / and comparisons must have the same type, so int * time.Duration or int + int64 is a compile error until you convert one side.", "dateModified": "2026-11-12", "url": "https://errorfix-hollis.github.io/go/go-invalid-operation-mismatched-types/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "invalid operation: mismatched types int and time.Duration", "item": "https://errorfix-hollis.github.io/go/go-invalid-operation-mismatched-types/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>invalid operation: mismatched types int and time.Duration (Go) — how to fix</h1>
+<pre class="err"><code>./main.go:10:24: invalid operation: n * time.Second (mismatched types int and time.Duration)
+./main.go:14:9: invalid operation: a + b (mismatched types int and int64)
+./main.go:18:12: invalid operation: total / count (mismatched types float64 and int)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Convert explicitly: <code>time.Duration(n) * time.Second</code>, <code>int64(a) + b</code>, <code>total / float64(count)</code>. Untyped constants convert automatically (<code>5 * time.Second</code> works), variables don't. Declare variables with the type you need to avoid repeated conversions.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>In Go, <code>int</code>, <code>int64</code>, <code>float64</code>, <code>time.Duration</code> and every other named numeric type are <strong>distinct types</strong>. Binary operators require both sides to have identical types, and Go never inserts conversions for you. So:</p>
+<pre><code class="language-go">n := 5
+time.Sleep(n * time.Second)   // mismatched types int and time.Duration
+</code></pre>
+<p>But this compiles:</p>
+<pre><code class="language-go">time.Sleep(5 * time.Second)
+</code></pre>
+<p>because <code>5</code> is an <strong>untyped constant</strong>, which takes on the type of the other operand. <code>n</code> is a variable of type <code>int</code>, so no automatic conversion happens.</p>
+<h2 id="fix-1-int-and-timeduration">Fix 1: <code>int</code> and <code>time.Duration</code></h2>
+<p><code>time.Duration</code> is an <code>int64</code> count of nanoseconds. Convert the number, then multiply by the unit:</p>
+<pre><code class="language-go">timeout := time.Duration(n) * time.Second
+time.Sleep(time.Duration(ms) * time.Millisecond)
+</code></pre>
+<p>Don't write <code>time.Duration(n * time.Second)</code>; that's the same mismatched expression. And don't convert <code>n</code> alone and pass it (<code>time.Duration(5)</code> is 5 <em>nanoseconds</em>).</p>
+<p>Going the other way, use the Duration methods:</p>
+<pre><code class="language-go">secs := d.Seconds()          // float64
+ms := d.Milliseconds()       // int64
+n := int(d / time.Second)    // whole seconds as int
+</code></pre>
+<p>For config values, parse durations directly instead of multiplying:</p>
+<pre><code class="language-go">d, err := time.ParseDuration(&quot;1m30s&quot;)
+</code></pre>
+<h2 id="fix-2-different-integer-sizes">Fix 2: different integer sizes</h2>
+<pre><code class="language-go">var a int = 10
+var b int64 = 20
+sum := int64(a) + b        // or a + int(b)
+</code></pre>
+<p>Prefer converting the smaller type to the larger to avoid overflow. Converting <code>int64</code> → <code>int32</code> silently truncates. <code>len()</code> returns <code>int</code>, so comparisons with <code>int64</code>/<code>uint</code> counters need a conversion too:</p>
+<pre><code class="language-go">if int64(len(buf)) &gt; maxSize { ... }
+</code></pre>
+<h2 id="fix-3-integer-and-float">Fix 3: integer and float</h2>
+<pre><code class="language-go">avg := total / float64(count)     // total is float64, count is int
+pct := float64(done) / float64(all) * 100
+</code></pre>
+<p><code>int(f)</code> truncates toward zero; use <code>math.Round(f)</code> first if you want rounding.</p>
+<h2 id="fix-4-named-types-you-defined">Fix 4: named types you defined</h2>
+<pre><code class="language-go">type Celsius float64
+var t Celsius = 20
+var delta float64 = 1.5
+t + delta              // mismatched types Celsius and float64
+t + Celsius(delta)     // OK
+</code></pre>
+<h2 id="fix-5-generics">Fix 5: generics</h2>
+<p>In a generic function, operands must share the <em>type parameter</em>, not just a constraint:</p>
+<pre><code class="language-go">func Sum[T int | float64](xs []T) T {
+    var s T
+    for _, x := range xs { s += x }
+    return s
+}
+</code></pre>
+<p>Mixing <code>T</code> with a concrete <code>int</code> (e.g. <code>s / len(xs)</code>) fails; convert with <code>T(len(xs))</code>.</p>
+<h2 id="avoid-the-conversions">Avoid the conversions</h2>
+<p>Declare values with the right type at the source, e.g. store timeouts as <code>time.Duration</code> in your config struct, and use <code>int64</code> consistently for IDs coming from databases.</p>
+<pre><code class="language-go">type Config struct {
+    Timeout time.Duration
+}
+</code></pre>
+<p>Note that <code>encoding/json</code> decodes a <code>time.Duration</code> from a plain number of <strong>nanoseconds</strong>; if your config says <code>"30s"</code>, read it as a string and call <code>time.ParseDuration</code>.</p>
+<p class="upd">Last updated 2026-11-12.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-cannot-use-as-value-in-assignment/">cannot use x (variable of type T) as U value in assignment</a></li><li><a href="/go/go-declared-and-not-used/">declared and not used</a></li><li><a href="/go/go-undefined/">undefined: X</a></li><li><a href="/go/go-all-goroutines-are-asleep-deadlock/">fatal error: all goroutines are asleep - deadlock!</a></li><li><a href="/go/go-cannot-find-main-module/">go: cannot find main module, but found .git/config</a></li><li><a href="/go/go-fatal-error-concurrent-map-writes/">fatal error: concurrent map writes</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>xcrun: error: invalid active developer path (/Library/Developer/CommandLineTools), missing xcrun (Git) — how to fix</title>
+<meta name="description" content="On macOS, git, make, gcc and clang are shims that call the Xcode Command Line Tools. After a macOS upgrade (or if they were never installed) the tools are missing, so every one of those commands fails with this message.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-xcrun-error-invalid-active-developer-path/">
+<meta property="og:title" content="xcrun: error: invalid active developer path (/Library/Developer/CommandLineTools), missing xcrun (Git) — how to fix"><meta property="og:description" content="On macOS, git, make, gcc and clang are shims that call the Xcode Command Line Tools. After a macOS upgrade (or if they were never installed) the tools are missing, so every one of those commands fails with this message.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-xcrun-error-invalid-active-developer-path/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "xcrun: error: invalid active developer path (/Library/Developer/CommandLineTools), missing xcrun (Git) \u2014 how to fix", "description": "On macOS, git, make, gcc and clang are shims that call the Xcode Command Line Tools. After a macOS upgrade (or if they were never installed) the tools are missing, so every one of those commands fails with this message.", "dateModified": "2026-11-09", "url": "https://errorfix-hollis.github.io/git/git-xcrun-error-invalid-active-developer-path/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "xcrun: error: invalid active developer path (/Library/Developer/CommandLineTools), missing xcrun", "item": "https://errorfix-hollis.github.io/git/git-xcrun-error-invalid-active-developer-path/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>xcrun: error: invalid active developer path (/Library/Developer/CommandLineTools), missing xcrun (Git) — how to fix</h1>
+<pre class="err"><code>xcrun: error: invalid active developer path (/Library/Developer/CommandLineTools), missing xcrun at: /Library/Developer/CommandLineTools/usr/bin/xcrun
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Reinstall the Command Line Tools: <code>xcode-select --install</code> and accept the dialog. If it says they're already installed, reset them: <code>sudo rm -rf /Library/Developer/CommandLineTools &amp;&amp; xcode-select --install</code>. If you have full Xcode, point to it instead: <code>sudo xcode-select -s /Applications/Xcode.app/Contents/Developer</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>On macOS, <code>/usr/bin/git</code>, <code>/usr/bin/make</code>, <code>/usr/bin/clang</code>, <code>/usr/bin/python3</code> and friends are small stubs. They ask <code>xcrun</code> to find the real tool in the <em>active developer directory</em> — either the Command Line Tools (<code>/Library/Developer/CommandLineTools</code>) or Xcode. If that directory is missing or incomplete, you get this error from every tool.</p>
+<p>It almost always appears right after a <strong>major macOS upgrade</strong> (the installer removes or invalidates the Command Line Tools), or on a fresh Mac. Your repositories are fine; only the tools are missing.</p>
+<p>Check the current setting:</p>
+<pre><code class="language-bash">xcode-select -p
+</code></pre>
+<h2 id="fix-1-install-the-command-line-tools">Fix 1: install the Command Line Tools</h2>
+<pre><code class="language-bash">xcode-select --install
+</code></pre>
+<p>A dialog appears; click <strong>Install</strong> and accept the licence. It downloads a few hundred MB. Afterwards:</p>
+<pre><code class="language-bash">git --version
+</code></pre>
+<h2 id="fix-2-command-line-tools-are-already-installed">Fix 2: "command line tools are already installed"</h2>
+<p>If <code>xcode-select --install</code> says they're installed but the error persists, the install is broken. Remove and reinstall:</p>
+<pre><code class="language-bash">sudo rm -rf /Library/Developer/CommandLineTools
+xcode-select --install
+</code></pre>
+<p>If the dialog doesn't appear or the download fails ("not currently available from the Software Update server"), download <strong>Command Line Tools for Xcode</strong> for your macOS version from developer.apple.com/download/all (free Apple ID needed) and run the <code>.pkg</code>. Or use Software Update:</p>
+<pre><code class="language-bash">softwareupdate --list
+softwareupdate --install &quot;Command Line Tools for Xcode-16.0&quot;   # use the exact label from --list
+</code></pre>
+<h2 id="fix-3-you-have-full-xcode-installed">Fix 3: you have full Xcode installed</h2>
+<p>Point the active developer directory at Xcode instead:</p>
+<pre><code class="language-bash">sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+sudo xcodebuild -license accept
+</code></pre>
+<p>If you previously pointed to Xcode and then deleted or renamed it (e.g. <code>Xcode-beta.app</code>), reset to the default:</p>
+<pre><code class="language-bash">sudo xcode-select --reset
+</code></pre>
+<h2 id="fix-4-use-homebrews-git-doesnt-remove-the-need-for-clt">Fix 4: use Homebrew's git (doesn't remove the need for CLT)</h2>
+<p><code>brew install git</code> gives you a git that doesn't go through the <code>/usr/bin</code> stub, and makes sure your <code>PATH</code> puts <code>/opt/homebrew/bin</code> (Apple Silicon) or <code>/usr/local/bin</code> (Intel) first. Note that Homebrew itself requires the Command Line Tools, so do Fix 1 anyway.</p>
+<h2 id="ides-and-gui-apps">IDEs and GUI apps</h2>
+<p>VS Code, JetBrains IDEs, SourceTree and GitHub Desktop that use the system git show the same error, often as "git not found" or "xcrun: error". Fix it in Terminal with the steps above, then restart the app.</p>
+<h2 id="related-errors-after-the-fix">Related errors after the fix</h2>
+<ul>
+<li><code>xcrun: error: unable to find utility "xctest"</code> / <code>"simctl"</code> — those need full Xcode, not just the Command Line Tools (Fix 3).</li>
+<li>node-gyp build failures (<code>gyp: No Xcode or CLT version detected!</code>) — same fix; reinstall CLT, then <code>npm rebuild</code>.</li>
+<li><code>You have not agreed to the Xcode license agreements</code> — run <code>sudo xcodebuild -license accept</code>.</li>
+</ul>
+<p class="upd">Last updated 2026-11-09.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-not-a-git-repository/">fatal: not a git repository (or any of the parent directories): .git</a></li><li><a href="/linux/linux-command-not-found/">command not found</a></li><li><a href="/npm/npm-gyp-err-find-python/">gyp ERR! find Python</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

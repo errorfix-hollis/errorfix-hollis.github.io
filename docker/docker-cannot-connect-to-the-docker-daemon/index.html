@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running? — how to fix</title>
+<meta name="description" content="The Docker CLI can&#x27;t reach the daemon. Start the Docker service (or Docker Desktop), and check you&#x27;re using the right context.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-cannot-connect-to-the-docker-daemon/">
+<meta property="og:title" content="Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running? — how to fix"><meta property="og:description" content="The Docker CLI can&#x27;t reach the daemon. Start the Docker service (or Docker Desktop), and check you&#x27;re using the right context.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-cannot-connect-to-the-docker-daemon/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running? \u2014 how to fix", "description": "The Docker CLI can't reach the daemon. Start the Docker service (or Docker Desktop), and check you're using the right context.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/docker/docker-cannot-connect-to-the-docker-daemon/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?", "item": "https://errorfix-hollis.github.io/docker/docker-cannot-connect-to-the-docker-daemon/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running? — how to fix</h1>
+<pre class="err"><code>Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Linux: <code>sudo systemctl start docker</code> (and <code>sudo systemctl enable docker</code> to start at boot). macOS/Windows: start Docker Desktop and wait until it says it's running.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The <code>docker</code> command is only a client. It needs the Docker daemon (<code>dockerd</code>) running and listening on the socket. Nothing is answering there.</p>
+<h2 id="linux">Linux</h2>
+<pre><code class="language-bash">sudo systemctl status docker
+sudo systemctl start docker
+sudo systemctl enable docker     # start on boot
+</code></pre>
+<p>If it fails to start, read the reason:</p>
+<pre><code class="language-bash">sudo journalctl -u docker --no-pager -n 50
+</code></pre>
+<p>Common reasons: a syntax error in <code>/etc/docker/daemon.json</code>, a full disk, or a conflicting storage driver.</p>
+<p>No systemd (some WSL setups, minimal containers)? Use <code>sudo service docker start</code>.</p>
+<h2 id="macos-and-windows">macOS and Windows</h2>
+<p>The daemon runs inside Docker Desktop. Open Docker Desktop and wait until the whale icon says <strong>running</strong>. If it's stuck, use <em>Troubleshoot → Restart</em> or <em>Reset to factory defaults</em>.</p>
+<h2 id="wsl-2">WSL 2</h2>
+<p>Either enable <em>Settings → Resources → WSL integration</em> for your distro in Docker Desktop, or install Docker Engine inside the distro and start it with <code>sudo service docker start</code>.</p>
+<h2 id="wrong-context-or-docker_host">Wrong context or DOCKER_HOST</h2>
+<p>The CLI may be pointing to a socket that doesn't exist:</p>
+<pre><code class="language-bash">docker context ls
+docker context use default
+echo $DOCKER_HOST     # unset it if it points somewhere wrong: unset DOCKER_HOST
+</code></pre>
+<p>Colima, Podman, OrbStack and Rancher Desktop each create their own context or socket, so make sure the one you're using is started (<code>colima start</code>, <code>podman machine start</code>).</p>
+<h2 id="it-works-with-sudo-but-not-without">It works with sudo but not without</h2>
+<p>That's a permissions problem, not a daemon problem. See <a href="/docker/docker-permission-denied-docker-sock/">permission denied while trying to connect to the Docker daemon socket</a>.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-permission-denied-docker-sock/">permission denied while trying to connect to the Docker daemon socket</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li><li><a href="/docker/docker-container-name-already-in-use/">Conflict. The container name is already in use by container</a></li><li><a href="/docker/docker-context-deadline-exceeded/">Error response from daemon: Get &quot;https://registry-1.docker.io/v2/&quot;: context deadline exceeded</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: resource mapping not found ... no matches for kind &quot;Deployment&quot; in version &quot;extensions/v1beta1&quot; (Kubernetes) — how to fix</title>
+<meta name="description" content="The cluster has no API for that kind/apiVersion combination. Either the apiVersion was removed in your Kubernetes version (old manifests and Helm charts), or the kind belongs to a CRD that isn&#x27;t installed yet.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-no-matches-for-kind/">
+<meta property="og:title" content="error: resource mapping not found ... no matches for kind &quot;Deployment&quot; in version &quot;extensions/v1beta1&quot; (Kubernetes) — how to fix"><meta property="og:description" content="The cluster has no API for that kind/apiVersion combination. Either the apiVersion was removed in your Kubernetes version (old manifests and Helm charts), or the kind belongs to a CRD that isn&#x27;t installed yet.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-no-matches-for-kind/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: resource mapping not found ... no matches for kind \"Deployment\" in version \"extensions/v1beta1\" (Kubernetes) \u2014 how to fix", "description": "The cluster has no API for that kind/apiVersion combination. Either the apiVersion was removed in your Kubernetes version (old manifests and Helm charts), or the kind belongs to a CRD that isn't installed yet.", "dateModified": "2026-11-05", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-no-matches-for-kind/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "error: resource mapping not found ... no matches for kind \"Deployment\" in version \"extensions/v1beta1\"", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-no-matches-for-kind/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>error: resource mapping not found ... no matches for kind &quot;Deployment&quot; in version &quot;extensions/v1beta1&quot; (Kubernetes) — how to fix</h1>
+<pre class="err"><code>error: resource mapping not found for name: &quot;web&quot; namespace: &quot;&quot; from &quot;deploy.yaml&quot;: no matches for kind &quot;Deployment&quot; in version &quot;extensions/v1beta1&quot;
+ensure CRDs are installed first
+error: unable to recognize &quot;deploy.yaml&quot;: no matches for kind &quot;Ingress&quot; in version &quot;networking.k8s.io/v1beta1&quot;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>kubectl api-resources | grep -i &lt;kind&gt;</code> to see the apiVersion your cluster serves, and update <code>apiVersion:</code> (e.g. Deployment → <code>apps/v1</code>, Ingress → <code>networking.k8s.io/v1</code>, CronJob → <code>batch/v1</code>). For custom kinds (Certificate, ServiceMonitor, ...) install the operator/CRDs first, then apply.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>kubectl</code> maps each manifest's <code>apiVersion</code> + <code>kind</code> to a REST endpoint by asking the API server what it supports. If nothing matches, you get <code>no matches for kind</code>. Newer kubectl phrases it as <code>resource mapping not found ... ensure CRDs are installed first</code>; older versions say <code>unable to recognize</code>.</p>
+<p>See what your cluster serves:</p>
+<pre><code class="language-bash">kubectl version
+kubectl api-resources | grep -i ingress
+kubectl api-versions | grep networking
+kubectl explain deployment | head -3      # shows GROUP and VERSION
+</code></pre>
+<h2 id="cause-1-the-apiversion-was-removed">Cause 1: the apiVersion was removed</h2>
+<p>Kubernetes removes beta APIs after deprecation. Common replacements:</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Old apiVersion</th>
+<th>Use</th>
+<th>Removed in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Deployment, DaemonSet, ReplicaSet, StatefulSet</td>
+<td><code>extensions/v1beta1</code>, <code>apps/v1beta1</code>, <code>apps/v1beta2</code></td>
+<td><code>apps/v1</code></td>
+<td>1.16</td>
+</tr>
+<tr>
+<td>Ingress</td>
+<td><code>extensions/v1beta1</code>, <code>networking.k8s.io/v1beta1</code></td>
+<td><code>networking.k8s.io/v1</code></td>
+<td>1.22</td>
+</tr>
+<tr>
+<td>CustomResourceDefinition</td>
+<td><code>apiextensions.k8s.io/v1beta1</code></td>
+<td><code>apiextensions.k8s.io/v1</code></td>
+<td>1.22</td>
+</tr>
+<tr>
+<td>CronJob</td>
+<td><code>batch/v1beta1</code></td>
+<td><code>batch/v1</code></td>
+<td>1.25</td>
+</tr>
+<tr>
+<td>PodDisruptionBudget</td>
+<td><code>policy/v1beta1</code></td>
+<td><code>policy/v1</code></td>
+<td>1.25</td>
+</tr>
+<tr>
+<td>HorizontalPodAutoscaler</td>
+<td><code>autoscaling/v2beta2</code></td>
+<td><code>autoscaling/v2</code></td>
+<td>1.26</td>
+</tr>
+<tr>
+<td>PodSecurityPolicy</td>
+<td><code>policy/v1beta1</code></td>
+<td>(removed; use Pod Security Admission)</td>
+<td>1.25</td>
+</tr>
+</tbody>
+</table>
+<p>Changing the version is not always enough — the schema can change too:</p>
+<ul>
+<li><code>apps/v1</code> Deployments <strong>require</strong> <code>spec.selector.matchLabels</code> matching the template labels.</li>
+<li><code>networking.k8s.io/v1</code> Ingress uses <code>pathType</code> and <code>backend.service.name</code> / <code>backend.service.port.number</code> instead of <code>serviceName</code> / <code>servicePort</code>.</li>
+</ul>
+<pre><code class="language-yaml">apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80
+</code></pre>
+<p>The <code>kubectl convert</code> plugin can rewrite old manifests: <code>kubectl convert -f old.yaml --output-version apps/v1</code>. Tools like <code>pluto</code> or <code>kubent</code> scan a cluster or Helm releases for removed APIs before you upgrade.</p>
+<h2 id="cause-2-the-crd-isnt-installed-yet">Cause 2: the CRD isn't installed (yet)</h2>
+<p>Kinds such as <code>Certificate</code> (cert-manager), <code>ServiceMonitor</code> (Prometheus Operator), <code>IngressRoute</code> (Traefik) or <code>Application</code> (Argo CD) only exist after their CRDs are installed.</p>
+<pre><code class="language-bash">kubectl get crd | grep -i certificate
+</code></pre>
+<p>Install the operator or its CRDs first, e.g. for cert-manager:</p>
+<pre><code class="language-bash">kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.15.0/cert-manager.crds.yaml
+</code></pre>
+<p>If the CRDs and resources are in the same file or directory, <code>kubectl apply</code> may try the resource before the CRD is registered. Apply CRDs in a separate step, then wait:</p>
+<pre><code class="language-bash">kubectl wait --for=condition=Established crd/certificates.cert-manager.io
+</code></pre>
+<h2 id="cause-3-typo-in-apiversion-or-kind">Cause 3: typo in apiVersion or kind</h2>
+<p><code>kind</code> is case-sensitive (<code>Deployment</code>, not <code>deployment</code>), and the group must be exact (<code>apps/v1</code>, not <code>app/v1</code>). A broken indentation can also move <code>kind:</code> somewhere unexpected — check the file in the <a href="/tools/yaml-validator/">YAML validator</a>.</p>
+<h2 id="cause-4-wrong-cluster-context">Cause 4: wrong cluster / context</h2>
+<p>The manifest may be fine for production but you're pointed at an old local cluster. Check <code>kubectl config current-context</code> and <code>kubectl version</code>.</p>
+<h2 id="cause-5-helm-charts-with-old-templates">Cause 5: Helm charts with old templates</h2>
+<p><code>helm upgrade</code> fails the same way when a chart or a stored release uses removed APIs. Upgrade the chart version; for a release stuck on removed APIs, the <code>helm mapkubeapis</code> plugin rewrites the stored release manifest.</p>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-error-from-server-forbidden/">Error from server (Forbidden): User cannot list resource in API group at the cluster scope</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li><li><a href="/kubernetes/k8s-error-converting-yaml-to-json-mapping-values-are-not-allowed/">error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

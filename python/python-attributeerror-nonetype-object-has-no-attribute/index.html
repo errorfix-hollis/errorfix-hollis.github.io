@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AttributeError: &#x27;NoneType&#x27; object has no attribute (Python) — how to fix</title>
+<meta name="description" content="You called a method or attribute on a variable that is None. Something earlier returned None instead of the object you expected.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-attributeerror-nonetype-object-has-no-attribute/">
+<meta property="og:title" content="AttributeError: &#x27;NoneType&#x27; object has no attribute (Python) — how to fix"><meta property="og:description" content="You called a method or attribute on a variable that is None. Something earlier returned None instead of the object you expected.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-attributeerror-nonetype-object-has-no-attribute/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "AttributeError: 'NoneType' object has no attribute (Python) \u2014 how to fix", "description": "You called a method or attribute on a variable that is None. Something earlier returned None instead of the object you expected.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/python/python-attributeerror-nonetype-object-has-no-attribute/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "AttributeError: 'NoneType' object has no attribute", "item": "https://errorfix-hollis.github.io/python/python-attributeerror-nonetype-object-has-no-attribute/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>AttributeError: &#x27;NoneType&#x27; object has no attribute (Python) — how to fix</h1>
+<pre class="err"><code>AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;group&#x27;</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> The object before the <code>.</code> is <code>None</code>. Check what produced it — a failed <code>re.search()</code>, a BeautifulSoup <code>find()</code> that matched nothing, or a function without <code>return</code> — and add an <code>if x is None</code> check.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>In <code>x.something</code>, <code>x</code> is <code>None</code>. The attribute name tells you what you expected <code>x</code> to be.</p>
+<table>
+<thead>
+<tr>
+<th>Attribute in the error</th>
+<th>Usual source of None</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>'group'</code></td>
+<td><code>re.match()</code> / <code>re.search()</code> found no match</td>
+</tr>
+<tr>
+<td><code>'text'</code>, <code>'find'</code>, <code>'get'</code></td>
+<td>BeautifulSoup <code>find()</code> / <code>select_one()</code> matched nothing</td>
+</tr>
+<tr>
+<td><code>'append'</code></td>
+<td><code>my_list = my_list.append(x)</code> (append returns None)</td>
+</tr>
+<tr>
+<td><code>'cursor'</code>, <code>'execute'</code></td>
+<td>A connection function returned None after failing</td>
+</tr>
+<tr>
+<td>any</td>
+<td>A function that has no <code>return</code> statement</td>
+</tr>
+</tbody>
+</table>
+<h2 id="fix-handle-the-none-case">Fix: handle the None case</h2>
+<pre><code class="language-python">m = re.search(r&quot;id=(\d+)&quot;, url)
+if m:
+    user_id = m.group(1)
+else:
+    user_id = None   # or raise, or skip
+</code></pre>
+<pre><code class="language-python">title = soup.find(&quot;h1&quot;)
+text = title.get_text(strip=True) if title else &quot;&quot;
+</code></pre>
+<h2 id="web-scraping-why-find-returns-none">Web scraping: why find() returns None</h2>
+<ul>
+<li>The page is built by JavaScript, so the element isn't in the HTML <code>requests</code> downloads. Check with <code>print(resp.text)</code>; you may need the site's API or a browser tool like Playwright.</li>
+<li>The site served a different page (a consent page, a CAPTCHA, a 403). Check <code>resp.status_code</code>.</li>
+<li>The class name or tag is different from what you see in the browser's DevTools.</li>
+</ul>
+<h2 id="dont-reassign-in-place-methods">Don't reassign in-place methods</h2>
+<pre><code class="language-python">items = items.append(4)   # items is now None
+items.append(4)           # correct
+</code></pre>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-typeerror-nonetype-object-is-not-subscriptable/">TypeError: &#x27;NoneType&#x27; object is not subscriptable</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li><li><a href="/python/python-attributeerror-str-object-has-no-attribute/">AttributeError: &#x27;str&#x27; object has no attribute</a></li><li><a href="/python/python-bs4-featurenotfound-couldnt-find-a-tree-builder/">bs4.FeatureNotFound: Couldn&#x27;t find a tree builder with the features you requested: lxml. Do you need to install a parser library?</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>failed to solve: process &quot;/bin/sh -c ...&quot; did not complete successfully: exit code: 1 (Docker) — how to fix</title>
+<meta name="description" content="A RUN instruction in your Dockerfile returned a non-zero exit code, so BuildKit stopped the build. The real error is printed above this line, in the output of that step.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-failed-to-solve-did-not-complete-successfully/">
+<meta property="og:title" content="failed to solve: process &quot;/bin/sh -c ...&quot; did not complete successfully: exit code: 1 (Docker) — how to fix"><meta property="og:description" content="A RUN instruction in your Dockerfile returned a non-zero exit code, so BuildKit stopped the build. The real error is printed above this line, in the output of that step.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-failed-to-solve-did-not-complete-successfully/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "failed to solve: process \"/bin/sh -c ...\" did not complete successfully: exit code: 1 (Docker) \u2014 how to fix", "description": "A RUN instruction in your Dockerfile returned a non-zero exit code, so BuildKit stopped the build. The real error is printed above this line, in the output of that step.", "dateModified": "2026-11-01", "url": "https://errorfix-hollis.github.io/docker/docker-failed-to-solve-did-not-complete-successfully/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "failed to solve: process \"/bin/sh -c ...\" did not complete successfully: exit code: 1", "item": "https://errorfix-hollis.github.io/docker/docker-failed-to-solve-did-not-complete-successfully/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>failed to solve: process &quot;/bin/sh -c ...&quot; did not complete successfully: exit code: 1 (Docker) — how to fix</h1>
+<pre class="err"><code>ERROR: failed to solve: process &quot;/bin/sh -c npm install&quot; did not complete successfully: exit code: 1
+ERROR: failed to solve: process &quot;/bin/sh -c apt-get install -y libpq-dev&quot; did not complete successfully: exit code: 100
+ERROR: failed to solve: process &quot;/bin/sh -c pip install -r requirements.txt&quot; did not complete successfully: exit code: 1
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Scroll up to the failing step's own output (or rebuild with <code>docker build --progress=plain --no-cache .</code>) and fix that error. Common ones: run <code>apt-get update</code> in the same RUN as <code>apt-get install -y</code>, copy <code>package-lock.json</code>/<code>requirements.txt</code> before installing, use a base image with the needed tools, and check the command exists in slim/alpine images.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Each <code>RUN</code> line runs a shell command inside the build container. If it exits with anything but 0, the build fails with this generic message. The message only tells you <strong>which</strong> command failed and its exit code; the reason is in that command's output just above.</p>
+<p>Get the full output, uncollapsed and uncached:</p>
+<pre><code class="language-bash">docker build --progress=plain --no-cache -t myapp . 2&gt;&amp;1 | tee build.log
+</code></pre>
+<p>The exit code is a hint:</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Usually means</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>the tool itself failed (npm/pip/compiler error)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>misuse / make error</td>
+</tr>
+<tr>
+<td>100</td>
+<td>apt-get failed (package not found, stale index)</td>
+</tr>
+<tr>
+<td>127</td>
+<td>command not found in the image</td>
+</tr>
+<tr>
+<td>137</td>
+<td>killed, usually out of memory</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cause-1-apt-get-exit-code-100">Cause 1: apt-get (exit code 100)</h2>
+<p><code>E: Unable to locate package</code> or 404s happen when the package index is missing or cached from an old layer. Always update and install in the same <code>RUN</code>:</p>
+<pre><code class="language-dockerfile">RUN apt-get update &amp;&amp; apt-get install -y --no-install-recommends \
+        build-essential libpq-dev \
+    &amp;&amp; rm -rf /var/lib/apt/lists/*
+</code></pre>
+<p>Check the package name exists for the base image's distro version (Debian names differ from Ubuntu sometimes). On Alpine use <code>apk add --no-cache ...</code> instead.</p>
+<h2 id="cause-2-command-not-found-exit-code-127">Cause 2: command not found (exit code 127)</h2>
+<p>Slim and Alpine images lack many tools (<code>curl</code>, <code>git</code>, <code>bash</code>, <code>make</code>, <code>gcc</code>). Install them first, or pick a fuller base image. Alpine has no <code>bash</code> by default; use <code>sh</code> or <code>apk add bash</code>.</p>
+<h2 id="cause-3-npm-install-npm-ci-fails">Cause 3: npm install / npm ci fails</h2>
+<ul>
+<li><code>npm ci</code> requires <code>package-lock.json</code>. Copy it before installing:</li>
+</ul>
+<pre><code class="language-dockerfile">COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+</code></pre>
+<ul>
+<li>Native modules (<code>node-gyp</code>, <code>bcrypt</code>, <code>sharp</code>) need build tools: <code>apk add --no-cache python3 make g++</code> on Alpine.</li>
+<li><code>ERESOLVE</code> peer dependency errors: fix the dependency, or <code>npm ci --legacy-peer-deps</code> as a stopgap.</li>
+<li>Add <code>node_modules</code> to <code>.dockerignore</code> so your host's modules don't get copied over.</li>
+</ul>
+<h2 id="cause-4-pip-install-fails">Cause 4: pip install fails</h2>
+<ul>
+<li><code>Failed building wheel</code> on slim/alpine: install compilers and headers (<code>gcc</code>, <code>python3-dev</code>/<code>musl-dev</code>, <code>libpq-dev</code>), or use the non-Alpine <code>python:3.x-slim</code> where most packages have prebuilt wheels.</li>
+<li>A pinned version not available for that Python version: match the base image's Python to what your requirements support.</li>
+</ul>
+<h2 id="cause-5-killed-for-memory-exit-code-137">Cause 5: killed for memory (exit code 137)</h2>
+<p>Builds of large frontends or compiled languages can exhaust Docker's memory. Increase memory in Docker Desktop settings, or limit the tool (<code>NODE_OPTIONS=--max-old-space-size=4096</code>, <code>cargo build -j 2</code>).</p>
+<h2 id="cause-6-wrong-architecture">Cause 6: wrong architecture</h2>
+<p>Building an <code>amd64</code> image on Apple Silicon (or vice versa) can make downloaded binaries fail with <code>exec format error</code>. Set the platform explicitly: <code>docker build --platform linux/amd64 .</code></p>
+<h2 id="debugging-tip">Debugging tip</h2>
+<p>Comment out the failing <code>RUN</code> and everything after it, build, then open a shell in that image and run the command by hand:</p>
+<pre><code class="language-bash">docker build -t debug .
+docker run --rm -it debug sh
+</code></pre>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-exec-format-error/">exec format error</a></li><li><a href="/docker/docker-no-space-left-on-device/">no space left on device (Docker)</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

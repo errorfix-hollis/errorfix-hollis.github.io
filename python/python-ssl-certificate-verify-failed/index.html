@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (Python) — how to fix</title>
+<meta name="description" content="Python can&#x27;t verify the server&#x27;s HTTPS certificate. Usually missing CA certificates (macOS python.org installs), a corporate proxy, or an outdated certifi.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-ssl-certificate-verify-failed/">
+<meta property="og:title" content="ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (Python) — how to fix"><meta property="og:description" content="Python can&#x27;t verify the server&#x27;s HTTPS certificate. Usually missing CA certificates (macOS python.org installs), a corporate proxy, or an outdated certifi.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-ssl-certificate-verify-failed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (Python) \u2014 how to fix", "description": "Python can't verify the server's HTTPS certificate. Usually missing CA certificates (macOS python.org installs), a corporate proxy, or an outdated certifi.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/python/python-ssl-certificate-verify-failed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate", "item": "https://errorfix-hollis.github.io/python/python-ssl-certificate-verify-failed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (Python) — how to fix</h1>
+<pre class="err"><code>ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> macOS (python.org installer): run <code>/Applications/Python\ 3.x/Install\ Certificates.command</code>. Everywhere else: <code>python -m pip install --upgrade certifi</code>. Behind a company proxy, point <code>REQUESTS_CA_BUNDLE</code> / <code>SSL_CERT_FILE</code> at its CA certificate.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When connecting over HTTPS, Python checks the server's certificate against a list of trusted certificate authorities (CAs). It couldn't build a chain from the server's certificate to any CA it trusts.</p>
+<h2 id="cause-1-macos-with-python-from-pythonorg">Cause 1: macOS with Python from python.org</h2>
+<p>That installer doesn't use the macOS keychain, and ships a script to install CA certificates:</p>
+<pre><code class="language-bash">open &quot;/Applications/Python 3.12/Install Certificates.command&quot;
+</code></pre>
+<p>(Adjust the version number.) Homebrew Python doesn't have this problem.</p>
+<h2 id="cause-2-outdated-certificate-bundle">Cause 2: outdated certificate bundle</h2>
+<p><code>requests</code> uses the <code>certifi</code> package:</p>
+<pre><code class="language-bash">python -m pip install --upgrade certifi requests
+</code></pre>
+<p>On Linux, update the system store: <code>sudo apt install --reinstall ca-certificates</code> (Debian/Ubuntu) or <code>sudo update-ca-trust</code> (Fedora/RHEL).</p>
+<h2 id="cause-3-a-corporate-proxy-or-antivirus-intercepting-https">Cause 3: a corporate proxy or antivirus intercepting HTTPS</h2>
+<p>These replace site certificates with their own, signed by a company CA that Python doesn't know. Get the CA certificate (<code>.pem</code>/<code>.crt</code>) from IT, then:</p>
+<pre><code class="language-bash">export REQUESTS_CA_BUNDLE=/path/to/company-ca.pem   # requests
+export SSL_CERT_FILE=/path/to/company-ca.pem        # urllib, httpx, many others
+pip config set global.cert /path/to/company-ca.pem  # pip
+</code></pre>
+<p>Python 3.10+ can also use the OS certificate store via <code>pip install truststore</code> (<code>truststore.inject_into_ssl()</code> in your code; pip 24.2+ uses it automatically).</p>
+<h2 id="cause-4-the-server-is-misconfigured">Cause 4: the server is misconfigured</h2>
+<p>If only one site fails, check it with <code>openssl s_client -connect example.com:443 -servername example.com</code>. A missing intermediate certificate or an expired certificate is the server owner's problem. You can pass the missing intermediate explicitly: <code>requests.get(url, verify="/path/to/chain.pem")</code>.</p>
+<h2 id="dont-disable-verification">Don't disable verification</h2>
+<p><code>verify=False</code> makes the error go away by accepting <strong>any</strong> certificate, including an attacker's. Use it only for a quick local test, never in real code.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li><li><a href="/python/python-attributeerror-str-object-has-no-attribute/">AttributeError: &#x27;str&#x27; object has no attribute</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

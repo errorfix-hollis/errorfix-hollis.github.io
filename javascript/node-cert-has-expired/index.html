@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error: certificate has expired (CERT_HAS_EXPIRED) (JavaScript) — how to fix</title>
+<meta name="description" content="Node&#x27;s TLS check found a certificate in the server&#x27;s chain whose validity period has ended, or your system clock is wrong. Common causes: a wrong date, a server with an expired cert, an outdated CA store or an old intercepting proxy cert.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/node-cert-has-expired/">
+<meta property="og:title" content="Error: certificate has expired (CERT_HAS_EXPIRED) (JavaScript) — how to fix"><meta property="og:description" content="Node&#x27;s TLS check found a certificate in the server&#x27;s chain whose validity period has ended, or your system clock is wrong. Common causes: a wrong date, a server with an expired cert, an outdated CA store or an old intercepting proxy cert.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/node-cert-has-expired/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error: certificate has expired (CERT_HAS_EXPIRED) (JavaScript) \u2014 how to fix", "description": "Node's TLS check found a certificate in the server's chain whose validity period has ended, or your system clock is wrong. Common causes: a wrong date, a server with an expired cert, an outdated CA store or an old intercepting proxy cert.", "dateModified": "2026-11-12", "url": "https://errorfix-hollis.github.io/javascript/node-cert-has-expired/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "Error: certificate has expired (CERT_HAS_EXPIRED)", "item": "https://errorfix-hollis.github.io/javascript/node-cert-has-expired/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>Error: certificate has expired (CERT_HAS_EXPIRED) (JavaScript) — how to fix</h1>
+<pre class="err"><code>Error: certificate has expired
+    at TLSSocket.onConnectSecure (node:_tls_wrap:1674:34)
+    at TLSSocket.emit (node:events:519:28) {
+  code: &#x27;CERT_HAS_EXPIRED&#x27;
+}
+npm ERR! code CERT_HAS_EXPIRED
+npm ERR! errno CERT_HAS_EXPIRED
+npm ERR! request to https://registry.npmjs.org/... failed, reason: certificate has expired
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> First check your clock: <code>date</code> (fix with <code>sudo timedatectl set-ntp true</code>). Then inspect the server's cert: `openssl s_client -connect host:443 -servername host </p>
+<h2 id="what-it-means">What it means</h2>
+<p>During the TLS handshake Node verified each certificate in the server's chain against the current time. One of them has a <code>notAfter</code> date in the past (according to <strong>your</strong> clock). Node refuses the connection with <code>CERT_HAS_EXPIRED</code>. It appears from <code>npm install</code>, <code>yarn</code>, <code>fetch</code>, <code>axios</code>, <code>https.get</code>, etc.</p>
+<p>Find out which side is wrong.</p>
+<h2 id="cause-1-your-system-clock-is-wrong">Cause 1: your system clock is wrong</h2>
+<p>A clock set years ahead (or a VM/container restored from a snapshot, a dead CMOS battery) makes valid certs look expired.</p>
+<pre><code class="language-bash">date
+timedatectl status          # Linux
+</code></pre>
+<p>Fix:</p>
+<pre><code class="language-bash">sudo timedatectl set-ntp true      # Linux with systemd
+</code></pre>
+<p>On Windows: <em>Settings → Time &amp; language → Set time automatically → Sync now</em>. In WSL, <code>sudo hwclock -s</code> re-syncs after the host sleeps.</p>
+<h2 id="cause-2-the-servers-certificate-really-expired">Cause 2: the server's certificate really expired</h2>
+<p>Check what the server sends:</p>
+<pre><code class="language-bash">openssl s_client -connect api.example.com:443 -servername api.example.com &lt;/dev/null 2&gt;/dev/null \
+  | openssl x509 -noout -subject -issuer -dates
+</code></pre>
+<p>If <code>notAfter</code> is in the past, the server owner must renew it (e.g. <code>sudo certbot renew</code> for Let's Encrypt, then reload nginx/Apache). You can't fix this from the client side safely. Also make sure the server sends the <strong>current</strong> intermediate certificate, not an old expired one bundled in its chain file.</p>
+<h2 id="cause-3-old-ca-store-old-node">Cause 3: old CA store / old Node</h2>
+<p>An expired <strong>root</strong> in an outdated trust store causes this even when the server is fine. The classic case: Let's Encrypt's old <em>DST Root CA X3</em> expired on 30 Sep 2021, breaking Node &lt; 16 / old OpenSSL with servers that served the cross-signed chain.</p>
+<ul>
+<li>Update Node to a current LTS (it bundles its own up-to-date Mozilla CA list): <code>nvm install --lts</code>.</li>
+<li>Update the OS store, used by curl, git and by Node when started with <code>--use-openssl-ca</code>:</li>
+</ul>
+<pre><code class="language-bash">sudo apt update &amp;&amp; sudo apt install --reinstall ca-certificates &amp;&amp; sudo update-ca-certificates   # Debian/Ubuntu
+sudo dnf update ca-certificates                                                                 # Fedora/RHEL
+</code></pre>
+<ul>
+<li>In old Docker images, rebuild from a newer base (<code>node:22-slim</code>), or add <code>RUN apt-get update &amp;&amp; apt-get install -y ca-certificates</code>.</li>
+</ul>
+<h2 id="cause-4-corporate-proxy-antivirus-with-an-expired-ca">Cause 4: corporate proxy / antivirus with an expired CA</h2>
+<p>Proxies like Zscaler, Netskope or antivirus HTTPS scanning re-sign traffic with their own CA. If you exported that CA long ago and it was rotated, Node sees an expired cert. Get the current CA from IT (or export it from your browser), then:</p>
+<pre><code class="language-bash">export NODE_EXTRA_CA_CERTS=/path/to/corp-ca.pem
+npm config set cafile /path/to/corp-ca.pem
+</code></pre>
+<p>Remove any stale <code>cafile</code> or <code>ca</code> lines from <code>~/.npmrc</code> that point to an old file:</p>
+<pre><code class="language-bash">npm config get cafile
+npm config delete cafile
+</code></pre>
+<h2 id="cause-5-an-old-npm-registry-url-mirror">Cause 5: an old npm registry URL / mirror</h2>
+<p>Very old npm versions or <code>.npmrc</code> files pointing at a private mirror with an expired cert. Check <code>npm config get registry</code> and update npm itself: <code>npm install -g npm@latest</code>.</p>
+<h2 id="what-not-to-do">What not to do</h2>
+<pre><code class="language-bash">npm config set strict-ssl false
+export NODE_TLS_REJECT_UNAUTHORIZED=0
+</code></pre>
+<p>These disable certificate checking entirely, making man-in-the-middle attacks trivial. Use them only for a one-off diagnosis, then undo (<code>npm config delete strict-ssl</code>).</p>
+<p class="upd">Last updated 2026-11-12.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/node-unable-to-get-issuer-cert-locally/">Error: unable to get local issuer certificate (UNABLE_TO_GET_ISSUER_CERT_LOCALLY)</a></li><li><a href="/npm/npm-self-signed-cert-in-chain/">npm ERR! code SELF_SIGNED_CERT_IN_CHAIN</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>! [rejected] v1.0 -&gt; v1.0 (would clobber existing tag) (Git) — how to fix</title>
+<meta name="description" content="A tag on the remote points to a different commit than your local tag with the same name, and Git (2.20+) refuses to overwrite local tags on fetch/pull. Someone moved or re-created the tag after you fetched it.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-would-clobber-existing-tag/">
+<meta property="og:title" content="! [rejected] v1.0 -&gt; v1.0 (would clobber existing tag) (Git) — how to fix"><meta property="og:description" content="A tag on the remote points to a different commit than your local tag with the same name, and Git (2.20+) refuses to overwrite local tags on fetch/pull. Someone moved or re-created the tag after you fetched it.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-would-clobber-existing-tag/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "! [rejected] v1.0 -> v1.0 (would clobber existing tag) (Git) \u2014 how to fix", "description": "A tag on the remote points to a different commit than your local tag with the same name, and Git (2.20+) refuses to overwrite local tags on fetch/pull. Someone moved or re-created the tag after you fetched it.", "dateModified": "2026-11-11", "url": "https://errorfix-hollis.github.io/git/git-would-clobber-existing-tag/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "! [rejected] v1.0 -> v1.0 (would clobber existing tag)", "item": "https://errorfix-hollis.github.io/git/git-would-clobber-existing-tag/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>! [rejected] v1.0 -&gt; v1.0 (would clobber existing tag) (Git) — how to fix</h1>
+<pre class="err"><code>From github.com:me/repo
+ ! [rejected]        v1.0       -&gt; v1.0  (would clobber existing tag)
+ ! [rejected]        latest     -&gt; latest  (would clobber existing tag)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Accept the remote's version of the tags: <code>git fetch --tags --force</code> (or <code>git pull --tags -f</code>). To update one tag: <code>git tag -d v1.0 &amp;&amp; git fetch origin tag v1.0</code>. If your local tag is the correct one, push it with <code>git push --force origin v1.0</code> instead.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Tags are supposed to be immutable. Since Git 2.20, <code>git fetch</code> and <code>git pull</code> no longer silently update a local tag when the remote tag with the same name points to a different commit. Instead they print <code>would clobber existing tag</code> and leave your local tag alone. The rest of the fetch still succeeds, but <code>git pull</code> may report an error exit code, which breaks scripts and CI.</p>
+<p>It happens when someone:</p>
+<ul>
+<li>deleted and re-created a release tag on another commit (<code>v1.0</code> re-tagged after a hotfix),</li>
+<li>uses a moving tag like <code>latest</code>, <code>stable</code>, <code>nightly</code> or a GitHub Action major tag (<code>v4</code>) that is updated on every release.</li>
+</ul>
+<p>Compare both sides:</p>
+<pre><code class="language-bash">git rev-parse v1.0^{commit}                  # your local tag
+git ls-remote --tags origin v1.0             # the remote's tag (and v1.0^{} for annotated)
+</code></pre>
+<h2 id="fix-1-take-the-remotes-tags">Fix 1: take the remote's tags</h2>
+<p>If the remote is authoritative (usually the case), force-update local tags:</p>
+<pre><code class="language-bash">git fetch --tags --force
+</code></pre>
+<p>Or as part of a pull:</p>
+<pre><code class="language-bash">git pull --tags --force
+</code></pre>
+<p><code>--force</code> here only affects refs being fetched; it doesn't touch your branches or working tree.</p>
+<h2 id="fix-2-update-a-single-tag">Fix 2: update a single tag</h2>
+<pre><code class="language-bash">git tag -d v1.0
+git fetch origin tag v1.0
+</code></pre>
+<p>This is the safest option when only one tag moved and you want to keep others unchanged.</p>
+<h2 id="fix-3-your-local-tag-is-the-right-one">Fix 3: your local tag is the right one</h2>
+<p>If you intentionally moved the tag and the remote has the old commit, push it with force (this rewrites the tag for everyone else, who will then see this same error):</p>
+<pre><code class="language-bash">git tag -f v1.0 &lt;commit&gt;
+git push --force origin v1.0
+</code></pre>
+<p>Pushing a moved tag without <code>--force</code> fails with <code>Updates were rejected because the tag already exists in the remote</code>. Many hosts protect release tags; you may need to lift the protection first.</p>
+<h2 id="fix-4-ci-and-scripts">Fix 4: CI and scripts</h2>
+<p>In CI the error usually comes from a cached checkout plus a moved tag. Options:</p>
+<pre><code class="language-bash">git fetch --tags --force --prune --prune-tags
+</code></pre>
+<p><code>--prune-tags</code> also deletes local tags that no longer exist on the remote. In GitHub Actions, <code>actions/checkout</code> with <code>fetch-tags: true</code> performs a fresh fetch; for self-hosted runners with persistent workspaces, add the command above before using tags.</p>
+<p>To make fetches always overwrite tags from a specific remote, set a forced refspec:</p>
+<pre><code class="language-bash">git config --add remote.origin.fetch &quot;+refs/tags/*:refs/tags/*&quot;
+</code></pre>
+<p>The leading <code>+</code> means force for those refs.</p>
+<h2 id="avoiding-it">Avoiding it</h2>
+<p>Don't move release tags; create a new version (<code>v1.0.1</code>) instead. For "latest"-style pointers, a branch is often a better fit than a tag, because moving branches is normal and doesn't trigger this protection.</p>
+<p class="upd">Last updated 2026-11-11.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-updates-were-rejected-because-the-tag-already-exists/">Updates were rejected because the tag already exists in the remote</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

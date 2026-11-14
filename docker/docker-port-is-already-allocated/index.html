@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bind for 0.0.0.0:8080 failed: port is already allocated (Docker) — how to fix</title>
+<meta name="description" content="Another container or process already uses that host port. Stop it, or publish your container on a different port.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-port-is-already-allocated/">
+<meta property="og:title" content="Bind for 0.0.0.0:8080 failed: port is already allocated (Docker) — how to fix"><meta property="og:description" content="Another container or process already uses that host port. Stop it, or publish your container on a different port.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-port-is-already-allocated/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Bind for 0.0.0.0:8080 failed: port is already allocated (Docker) \u2014 how to fix", "description": "Another container or process already uses that host port. Stop it, or publish your container on a different port.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/docker/docker-port-is-already-allocated/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "Bind for 0.0.0.0:8080 failed: port is already allocated", "item": "https://errorfix-hollis.github.io/docker/docker-port-is-already-allocated/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>Bind for 0.0.0.0:8080 failed: port is already allocated (Docker) — how to fix</h1>
+<pre class="err"><code>docker: Error response from daemon: driver failed programming external connectivity on endpoint web: Bind for 0.0.0.0:8080 failed: port is already allocated.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find what uses the port with <code>docker ps --filter publish=8080</code> (or <code>sudo lsof -i :8080</code>), stop it, or run your container on another host port: <code>-p 8081:8080</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>-p 8080:80</code> asks Docker to listen on <strong>host</strong> port 8080. Something already listens there, so Docker can't.</p>
+<h2 id="find-whats-using-the-port">Find what's using the port</h2>
+<p>Another container (including stopped-but-restarting ones):</p>
+<pre><code class="language-bash">docker ps -a --filter &quot;publish=8080&quot;
+</code></pre>
+<p>Any process on the host:</p>
+<pre><code class="language-bash">sudo lsof -i :8080
+# or
+sudo ss -ltnp | grep :8080
+</code></pre>
+<h2 id="fix-1-stop-the-other-container">Fix 1: stop the other container</h2>
+<pre><code class="language-bash">docker stop &lt;container&gt;
+docker rm &lt;container&gt;      # if you don't need it
+</code></pre>
+<p>With Compose, an old project might still be running: <code>docker compose ls</code>, then <code>docker compose -p &lt;name&gt; down</code>.</p>
+<h2 id="fix-2-use-a-different-host-port">Fix 2: use a different host port</h2>
+<p>The left number is the host port, the right one the container port:</p>
+<pre><code class="language-bash">docker run -p 8081:80 nginx
+</code></pre>
+<p>In <code>compose.yaml</code>:</p>
+<pre><code class="language-yaml">ports:
+  - &quot;8081:80&quot;
+</code></pre>
+<h2 id="fix-3-port-held-by-a-ghost">Fix 3: port held by a ghost</h2>
+<p>If nothing shows up but the error stays, the Docker proxy may be stuck. Restart Docker:</p>
+<pre><code class="language-bash">sudo systemctl restart docker
+</code></pre>
+<p>On Windows, ports can be reserved by Hyper-V/WinNAT. Check with <code>netsh interface ipv4 show excludedportrange protocol=tcp</code> and pick a port outside those ranges.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li><li><a href="/docker/docker-container-name-already-in-use/">Conflict. The container name is already in use by container</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

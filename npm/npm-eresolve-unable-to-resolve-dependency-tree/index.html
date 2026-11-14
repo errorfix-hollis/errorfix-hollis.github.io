@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>npm ERR! code ERESOLVE unable to resolve dependency tree — how to fix</title>
+<meta name="description" content="A package&#x27;s peer dependency doesn&#x27;t match the version you have installed. Upgrade the package, or install with --legacy-peer-deps.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-eresolve-unable-to-resolve-dependency-tree/">
+<meta property="og:title" content="npm ERR! code ERESOLVE unable to resolve dependency tree — how to fix"><meta property="og:description" content="A package&#x27;s peer dependency doesn&#x27;t match the version you have installed. Upgrade the package, or install with --legacy-peer-deps.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-eresolve-unable-to-resolve-dependency-tree/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "npm ERR! code ERESOLVE unable to resolve dependency tree \u2014 how to fix", "description": "A package's peer dependency doesn't match the version you have installed. Upgrade the package, or install with --legacy-peer-deps.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/npm/npm-eresolve-unable-to-resolve-dependency-tree/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "npm ERR! code ERESOLVE unable to resolve dependency tree", "item": "https://errorfix-hollis.github.io/npm/npm-eresolve-unable-to-resolve-dependency-tree/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>npm ERR! code ERESOLVE unable to resolve dependency tree — how to fix</h1>
+<pre class="err"><code>npm ERR! code ERESOLVE
+npm ERR! ERESOLVE unable to resolve dependency tree
+npm ERR!
+npm ERR! While resolving: my-app@0.1.0
+npm ERR! Found: react@18.2.0
+npm ERR! Could not resolve dependency:
+npm ERR! peer react@&quot;^16.8.0 || ^17.0.0&quot; from some-library@1.4.0
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Look for a newer version of the package named in <code>Could not resolve dependency</code> that supports your version. If none exists, run <code>npm install --legacy-peer-deps</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Since npm 7, <code>npm install</code> enforces <strong>peer dependencies</strong>. One of your packages says "I only work with react 16 or 17", but your project has react 18, so npm refuses to build a tree that breaks that promise.</p>
+<h2 id="how-to-read-the-message">How to read the message</h2>
+<ul>
+<li><code>Found: react@18.2.0</code> is what you have.</li>
+<li><code>peer react@"^16.8.0 || ^17.0.0" from some-library@1.4.0</code> is the package that complains and the versions it accepts.</li>
+</ul>
+<h2 id="fix-1-upgrade-the-package-that-complains-best">Fix 1: upgrade the package that complains (best)</h2>
+<pre><code class="language-bash">npm view some-library peerDependencies
+npm view some-library versions --json
+npm install some-library@latest
+</code></pre>
+<p>Newer releases often widen their peer range. Check the package's changelog or GitHub issues for "react 18 support" (or whatever your conflict is).</p>
+<h2 id="fix-2-install-with-legacy-peer-resolution">Fix 2: install with legacy peer resolution</h2>
+<p>This makes npm behave like npm 6: it installs anyway and ignores peer conflicts.</p>
+<pre><code class="language-bash">npm install --legacy-peer-deps
+</code></pre>
+<p>To make it permanent for the project (so teammates and CI behave the same):</p>
+<pre><code class="language-bash">echo &quot;legacy-peer-deps=true&quot; &gt;&gt; .npmrc
+</code></pre>
+<p>The package may still work fine, or it may break at runtime. Test it.</p>
+<h2 id="fix-3-force">Fix 3: --force</h2>
+<pre><code class="language-bash">npm install --force
+</code></pre>
+<p><code>--force</code> also installs, but it fetches the conflicting peer versions too, which can put duplicate copies in <code>node_modules</code>. Prefer <code>--legacy-peer-deps</code>.</p>
+<h2 id="fix-4-override-the-version">Fix 4: override the version</h2>
+<p>npm 8.3+ supports <code>overrides</code> in <code>package.json</code> to force one version everywhere:</p>
+<pre><code class="language-json">{
+  &quot;overrides&quot;: {
+    &quot;some-library&quot;: { &quot;react&quot;: &quot;$react&quot; }
+  }
+}
+</code></pre>
+<p><code>$react</code> means "use the version from my own dependencies".</p>
+<h2 id="still-stuck">Still stuck?</h2>
+<p>Delete the lock state and retry. Stale lockfiles sometimes pin old versions:</p>
+<pre><code class="language-bash">rm -rf node_modules package-lock.json
+npm install
+</code></pre>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/npm-eacces-permission-denied/">npm ERR! code EACCES</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li><li><a href="/npm/node-err-require-esm/">Error [ERR_REQUIRE_ESM]: require() of ES Module not supported</a></li><li><a href="/npm/node-error-listen-eaddrinuse-address-already-in-use/">Error: listen EADDRINUSE: address already in use :::3000</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>403 Forbidden nginx — how to fix</title>
+<meta name="description" content="nginx refused to serve the request. Usually there is no index file and autoindex is off, nginx&#x27;s worker user cannot read the files or traverse a parent directory, SELinux blocks access, or a deny/allow rule matches.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-nginx-403-forbidden/">
+<meta property="og:title" content="403 Forbidden nginx — how to fix"><meta property="og:description" content="nginx refused to serve the request. Usually there is no index file and autoindex is off, nginx&#x27;s worker user cannot read the files or traverse a parent directory, SELinux blocks access, or a deny/allow rule matches.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-nginx-403-forbidden/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "403 Forbidden nginx \u2014 how to fix", "description": "nginx refused to serve the request. Usually there is no index file and autoindex is off, nginx's worker user cannot read the files or traverse a parent directory, SELinux blocks access, or a deny/allow rule matches.", "dateModified": "2026-11-02", "url": "https://errorfix-hollis.github.io/web/web-nginx-403-forbidden/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "403 Forbidden nginx", "item": "https://errorfix-hollis.github.io/web/web-nginx-403-forbidden/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>403 Forbidden nginx — how to fix</h1>
+<pre class="err"><code>403 Forbidden
+nginx/1.24.0
+[error] 1234#1234: *1 directory index of &quot;/var/www/html/&quot; is forbidden
+[error] 1234#1234: *1 open() &quot;/var/www/site/index.html&quot; failed (13: Permission denied)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check <code>sudo tail /var/log/nginx/error.log</code>. For <code>directory index ... is forbidden</code> add an <code>index.html</code> or fix the <code>index</code> directive. For <code>(13: Permission denied)</code> make files readable and every parent directory executable by the nginx user (<code>namei -l /path/to/file</code>, <code>chmod o+x</code> on dirs). On RHEL/Fedora run <code>sudo restorecon -Rv /var/www</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>nginx found the location but decided not to serve it. The browser only shows "403 Forbidden"; the reason is always in the error log:</p>
+<pre><code class="language-bash">sudo tail -n 50 /var/log/nginx/error.log
+</code></pre>
+<p>Match the log line to a fix below.</p>
+<h2 id="fix-1-directory-index-of-is-forbidden">Fix 1: <code>directory index of "..." is forbidden</code></h2>
+<p>The URL points at a directory, nginx found no file from the <code>index</code> directive in it, and <code>autoindex</code> is off.</p>
+<ul>
+<li>Make sure the file exists: <code>ls -l /var/www/html/index.html</code>.</li>
+<li>Make sure the <code>index</code> directive includes it:</li>
+</ul>
+<pre><code class="language-nginx">server {
+    root /var/www/html;
+    index index.html index.htm index.php;
+}
+</code></pre>
+<ul>
+<li>For single-page apps, route everything to <code>index.html</code>:</li>
+</ul>
+<pre><code class="language-nginx">location / {
+    try_files $uri $uri/ /index.html;
+}
+</code></pre>
+<ul>
+<li>If you really want a file listing, add <code>autoindex on;</code> to the location.</li>
+</ul>
+<p>A common trap: <code>try_files $uri $uri/ =404;</code> with a missing index gives 403, not 404, because <code>$uri/</code> matches the directory.</p>
+<h2 id="fix-2-13-permission-denied">Fix 2: <code>(13: Permission denied)</code></h2>
+<p>The nginx worker (user <code>www-data</code> on Debian/Ubuntu, <code>nginx</code> on RHEL/Fedora — see the <code>user</code> line in <code>nginx.conf</code>) must be able to <strong>read</strong> the file and <strong>execute (traverse)</strong> every directory above it.</p>
+<p>Check the whole path at once:</p>
+<pre><code class="language-bash">namei -l /var/www/site/index.html
+</code></pre>
+<p>Fix permissions:</p>
+<pre><code class="language-bash">sudo chmod -R o+r /var/www/site
+sudo find /var/www/site -type d -exec chmod o+x {} \;
+</code></pre>
+<p>Serving from a home directory is the classic case: <code>/home/alice</code> is <code>drwx------</code> or <code>drwxr-x---</code>, so nginx can't enter it. Either <code>chmod o+x /home/alice</code> (allows traversal only) or, better, move the site to <code>/var/www/</code> and give ownership to a deploy group.</p>
+<p>Test as the nginx user:</p>
+<pre><code class="language-bash">sudo -u www-data cat /var/www/site/index.html
+</code></pre>
+<h2 id="fix-3-selinux-rhel-centos-fedora-rocky-alma">Fix 3: SELinux (RHEL, CentOS, Fedora, Rocky, Alma)</h2>
+<p>If Unix permissions look fine but you still get <code>Permission denied</code>, SELinux is likely blocking it. Check:</p>
+<pre><code class="language-bash">getenforce
+sudo ausearch -m avc -ts recent | grep nginx
+ls -Z /var/www/site
+</code></pre>
+<p>Files must have the <code>httpd_sys_content_t</code> label:</p>
+<pre><code class="language-bash">sudo semanage fcontext -a -t httpd_sys_content_t &quot;/srv/site(/.*)?&quot;
+sudo restorecon -Rv /srv/site
+</code></pre>
+<p>If nginx proxies to an upstream and gets 403/502 with SELinux, also: <code>sudo setsebool -P httpd_can_network_connect 1</code>.</p>
+<h2 id="fix-4-an-access-rule">Fix 4: an access rule</h2>
+<p><code>access forbidden by rule</code> in the log means an <code>allow</code>/<code>deny</code> directive matched:</p>
+<pre><code class="language-nginx">location /admin/ {
+    allow 10.0.0.0/8;
+    deny all;
+}
+</code></pre>
+<p>Add your IP or remove the rule. Many configs also have <code>location ~ /\. { deny all; }</code>, which blocks dotfiles like <code>/.well-known/</code> — add an exception:</p>
+<pre><code class="language-nginx">location ^~ /.well-known/acme-challenge/ { allow all; }
+</code></pre>
+<h2 id="fix-5-php-upstream-returned-403">Fix 5: PHP / upstream returned 403</h2>
+<p>If the log is clean, the 403 may come from the backend (PHP-FPM <code>security.limit_extensions</code>, an app's auth). Check the upstream's logs, and that <code>fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;</code> points at a real file.</p>
+<p>After any change:</p>
+<pre><code class="language-bash">sudo nginx -t &amp;&amp; sudo systemctl reload nginx
+</code></pre>
+<p class="upd">Last updated 2026-11-02.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-permission-denied-running-script/">bash: ./script.sh: Permission denied</a></li><li><a href="/web/web-nginx-413-request-entity-too-large/">413 Request Entity Too Large (nginx)</a></li><li><a href="/web/web-nginx-502-bad-gateway/">502 Bad Gateway (nginx)</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: src refspec main does not match any (Git) — how to fix</title>
+<meta name="description" content="Git can&#x27;t find a local branch called main. Either you have no commits yet or your branch is named master.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-src-refspec-main-does-not-match-any/">
+<meta property="og:title" content="error: src refspec main does not match any (Git) — how to fix"><meta property="og:description" content="Git can&#x27;t find a local branch called main. Either you have no commits yet or your branch is named master.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-src-refspec-main-does-not-match-any/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: src refspec main does not match any (Git) \u2014 how to fix", "description": "Git can't find a local branch called main. Either you have no commits yet or your branch is named master.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/git/git-src-refspec-main-does-not-match-any/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "error: src refspec main does not match any", "item": "https://errorfix-hollis.github.io/git/git-src-refspec-main-does-not-match-any/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>error: src refspec main does not match any (Git) — how to fix</h1>
+<pre class="err"><code>error: src refspec main does not match any
+error: failed to push some refs to &#x27;origin&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check your branch name with <code>git branch</code>. If it says <code>master</code>, push that (<code>git push origin master</code>) or rename it with <code>git branch -M main</code>. If there are no commits, commit first.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The <code>main</code> in <code>git push origin main</code> is a <strong>local branch name</strong>, and Git can't find a local branch with that name.</p>
+<h2 id="cause-1-no-commits-yet">Cause 1: no commits yet</h2>
+<p>A brand-new repository has no branch until the first commit.</p>
+<pre><code class="language-bash">git add .
+git commit -m &quot;Initial commit&quot;
+git push -u origin main
+</code></pre>
+<p>If <code>git commit</code> says "nothing to commit", you have no files staged. Check <code>git status</code>.</p>
+<h2 id="cause-2-your-branch-is-called-master-or-something-else">Cause 2: your branch is called master (or something else)</h2>
+<pre><code class="language-bash">git branch
+</code></pre>
+<p>If it shows <code>* master</code>, either push that:</p>
+<pre><code class="language-bash">git push -u origin master
+</code></pre>
+<p>or rename it to <code>main</code> (what GitHub expects by default):</p>
+<pre><code class="language-bash">git branch -M main
+git push -u origin main
+</code></pre>
+<p>To make new repositories start with <code>main</code>: <code>git config --global init.defaultBranch main</code>.</p>
+<h2 id="cause-3-a-typo-or-wrong-case">Cause 3: a typo or wrong case</h2>
+<p>Branch names are case-sensitive: <code>Main</code> and <code>main</code> are different branches. Copy the exact name from <code>git branch</code>.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li><li><a href="/git/git-could-not-resolve-host/">fatal: unable to access ... Could not resolve host: github.com</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error: listen EADDRINUSE: address already in use (Linux) — how to fix</title>
+<meta name="description" content="Another process is already listening on that port. Find it with lsof or ss and stop it, or use a different port.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-address-already-in-use/">
+<meta property="og:title" content="Error: listen EADDRINUSE: address already in use (Linux) — how to fix"><meta property="og:description" content="Another process is already listening on that port. Find it with lsof or ss and stop it, or use a different port.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-address-already-in-use/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error: listen EADDRINUSE: address already in use (Linux) \u2014 how to fix", "description": "Another process is already listening on that port. Find it with lsof or ss and stop it, or use a different port.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/linux/linux-address-already-in-use/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "Error: listen EADDRINUSE: address already in use", "item": "https://errorfix-hollis.github.io/linux/linux-address-already-in-use/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>Error: listen EADDRINUSE: address already in use (Linux) — how to fix</h1>
+<pre class="err"><code>Error: listen EADDRINUSE: address already in use :::3000
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find the process: <code>sudo lsof -i :3000</code> (or <code>sudo ss -ltnp 'sport = :3000'</code>). Stop it with <code>kill &lt;PID&gt;</code>, or start your app on another port.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A TCP port can only have one listener per address. Your program tried to listen on a port that some other process (often an older copy of the same program) already holds.</p>
+<p>The same problem appears under different names:</p>
+<ul>
+<li>Node.js: <code>EADDRINUSE</code></li>
+<li>Python: <code>OSError: [Errno 98] Address already in use</code></li>
+<li>Java: <code>java.net.BindException: Address already in use</code></li>
+<li>Go: <code>bind: address already in use</code></li>
+</ul>
+<h2 id="find-the-process">Find the process</h2>
+<pre><code class="language-bash">sudo lsof -i :3000
+# or
+sudo ss -ltnp 'sport = :3000'
+</code></pre>
+<p>macOS: <code>lsof -nP -iTCP:3000 -sTCP:LISTEN</code>.
+Windows: <code>netstat -ano | findstr :3000</code>, then <code>taskkill /PID &lt;pid&gt; /F</code>.</p>
+<h2 id="stop-it">Stop it</h2>
+<pre><code class="language-bash">kill &lt;PID&gt;          # polite
+kill -9 &lt;PID&gt;       # if it ignores the first one
+</code></pre>
+<p>One-liner (Linux/macOS): <code>kill $(lsof -t -i :3000)</code>. Or <code>npx kill-port 3000</code>.</p>
+<h2 id="common-causes">Common causes</h2>
+<ul>
+<li>A dev server is still running in another terminal or in the background (check <code>jobs</code>, or a stuck <code>nodemon</code>).</li>
+<li>A crashed process left a child running.</li>
+<li>A system service uses the port (e.g. port 80 → nginx/apache, 5432 → PostgreSQL, 5000 → AirPlay Receiver on macOS).</li>
+<li>A Docker container publishes the port: <code>docker ps</code>.</li>
+</ul>
+<h2 id="use-another-port">Use another port</h2>
+<pre><code class="language-bash">PORT=3001 npm start
+python -m http.server 8001
+</code></pre>
+<h2 id="time_wait-after-restart-python-c">TIME_WAIT after restart (Python, C)</h2>
+<p>If the port is "in use" for a minute after your own server stops, that's TCP <code>TIME_WAIT</code>. Set <code>SO_REUSEADDR</code> before binding:</p>
+<pre><code class="language-python">sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+</code></pre>
+<p><code>socketserver</code>-based servers: set <code>allow_reuse_address = True</code> on the class.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-port-is-already-allocated/">Bind for 0.0.0.0:8080 failed: port is already allocated</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/linux/linux-cannot-execute-binary-file/">cannot execute binary file: Exec format error</a></li><li><a href="/linux/linux-command-not-found/">command not found</a></li><li><a href="/linux/linux-could-not-get-lock-dpkg/">E: Could not get lock /var/lib/dpkg/lock-frontend</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

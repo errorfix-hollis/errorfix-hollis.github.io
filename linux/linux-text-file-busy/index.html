@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Text file busy (Linux) — how to fix</title>
+<meta name="description" content="Linux refuses to overwrite a binary that is currently running (ETXTBSY), or to execute a file that is still open for writing. Stop the process, or replace the file instead of writing into it.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-text-file-busy/">
+<meta property="og:title" content="Text file busy (Linux) — how to fix"><meta property="og:description" content="Linux refuses to overwrite a binary that is currently running (ETXTBSY), or to execute a file that is still open for writing. Stop the process, or replace the file instead of writing into it.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-text-file-busy/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Text file busy (Linux) \u2014 how to fix", "description": "Linux refuses to overwrite a binary that is currently running (ETXTBSY), or to execute a file that is still open for writing. Stop the process, or replace the file instead of writing into it.", "dateModified": "2026-11-06", "url": "https://errorfix-hollis.github.io/linux/linux-text-file-busy/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "Text file busy", "item": "https://errorfix-hollis.github.io/linux/linux-text-file-busy/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>Text file busy (Linux) — how to fix</h1>
+<pre class="err"><code>bash: ./server: Text file busy
+cp: cannot create regular file &#x27;/usr/local/bin/app&#x27;: Text file busy
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find who uses it: <code>fuser -v ./server</code> or <code>lsof ./server</code>. Stop that process, or replace the file atomically instead of overwriting it: <code>cp new-app /usr/local/bin/app.new &amp;&amp; mv /usr/local/bin/app.new /usr/local/bin/app</code> (or <code>install -m 755 new-app /usr/local/bin/app</code>). If you just wrote a script, make sure the writer closed the file before running it.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>ETXTBSY</code> ("text" is the old Unix name for a program's executable code) appears in two situations:</p>
+<ol>
+<li><strong>Writing to an executable that is running.</strong> The kernel maps the binary into memory; letting you modify it in place could crash the running process, so <code>open()</code> for writing fails.</li>
+<li><strong>Executing a file that is open for writing</strong> by some process (including your own). The kernel refuses to run a half-written program.</li>
+</ol>
+<h2 id="find-the-process-using-the-file">Find the process using the file</h2>
+<pre><code class="language-bash">fuser -v /usr/local/bin/app
+lsof /usr/local/bin/app
+</code></pre>
+<p>Output shows the PID and whether it's executing (<code>e</code>) or has the file open (<code>F</code>, writing).</p>
+<h2 id="cause-1-youre-copying-over-a-running-binary">Cause 1: you're copying over a running binary</h2>
+<pre><code class="language-bash">cp ./build/app /usr/local/bin/app
+# cp: cannot create regular file '/usr/local/bin/app': Text file busy
+</code></pre>
+<p><code>cp</code> opens the existing file and truncates it — that's the write that's refused.</p>
+<h3 id="fix-replace-instead-of-overwrite">Fix: replace instead of overwrite</h3>
+<p>Write a new file and rename it over the old one. <code>rename()</code> swaps the directory entry; the running process keeps the old inode until it exits:</p>
+<pre><code class="language-bash">cp ./build/app /usr/local/bin/app.new
+mv /usr/local/bin/app.new /usr/local/bin/app
+</code></pre>
+<p>Or let <code>install</code> do it (it unlinks and creates a new file):</p>
+<pre><code class="language-bash">sudo install -m 755 ./build/app /usr/local/bin/app
+</code></pre>
+<p><code>cp --remove-destination</code> also works. Then restart the service so it runs the new binary:</p>
+<pre><code class="language-bash">sudo systemctl restart app
+</code></pre>
+<h3 id="or-stop-it-first">Or stop it first</h3>
+<pre><code class="language-bash">sudo systemctl stop app       # or: kill &lt;PID&gt;
+cp ./build/app /usr/local/bin/app
+sudo systemctl start app
+</code></pre>
+<h2 id="cause-2-go-build-cargo-build-gcc-o-while-the-program-runs">Cause 2: <code>go build</code> / <code>cargo build</code> / <code>gcc -o</code> while the program runs</h2>
+<p>Compilers write output in place. If the previous build is still running in another terminal, the link step fails with "text file busy". Stop the old process, or with Go, use <code>go run .</code> / a file watcher (air, reflex) that kills the process before rebuilding.</p>
+<h2 id="cause-3-running-a-script-thats-still-open-for-writing">Cause 3: running a script that's still open for writing</h2>
+<p>Common in scripts that generate and immediately run another script, and in Docker builds:</p>
+<pre><code class="language-bash">cat &gt; run.sh &lt;&lt;EOF
+echo hi
+EOF
+./run.sh        # usually fine — the heredoc is closed
+</code></pre>
+<p>The problem appears when a file descriptor is still open, e.g. a Python script that writes a file and calls <code>subprocess.run()</code> before <code>f.close()</code>:</p>
+<pre><code class="language-python">with open(&quot;run.sh&quot;, &quot;w&quot;) as f:
+    f.write(&quot;#!/bin/sh\necho hi\n&quot;)
+os.chmod(&quot;run.sh&quot;, 0o755)
+subprocess.run([&quot;./run.sh&quot;])     # outside the with-block: closed, OK
+</code></pre>
+<p>Also watch for a <em>child process</em> inheriting the writable descriptor (fork while the file is open). In multi-threaded programs this race is a known source of intermittent ETXTBSY; opening with <code>O_CLOEXEC</code> (Python does by default) avoids it. Retrying after a short sleep is a common workaround in build tools.</p>
+<h2 id="cause-4-docker-and-shared-volumes">Cause 4: Docker and shared volumes</h2>
+<p><code>docker cp</code> or a bind-mounted file being replaced while the container executes it gives the same error. Stop the container, or replace via rename as above. On some overlay/NFS setups, check with <code>lsof</code> on the host.</p>
+<h2 id="cause-5-swap-file">Cause 5: swap file</h2>
+<p><code>swapon</code> on a file that's open elsewhere, or trying to write to an active swap file, also returns ETXTBSY. Turn it off first with <code>sudo swapoff /swapfile</code>.</p>
+<p class="upd">Last updated 2026-11-06.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-cannot-execute-binary-file/">cannot execute binary file: Exec format error</a></li><li><a href="/linux/linux-permission-denied-running-script/">bash: ./script.sh: Permission denied</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/linux/linux-command-not-found/">command not found</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

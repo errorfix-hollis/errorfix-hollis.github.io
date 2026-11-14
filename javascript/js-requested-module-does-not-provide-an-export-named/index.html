@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SyntaxError: The requested module does not provide an export named (JavaScript) — how to fix</title>
+<meta name="description" content="An ES module import asked for a name the target module doesn&#x27;t export: a default vs named mismatch, a typo, a type-only export, or a CommonJS package whose exports can&#x27;t be detected as named ESM exports.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-requested-module-does-not-provide-an-export-named/">
+<meta property="og:title" content="SyntaxError: The requested module does not provide an export named (JavaScript) — how to fix"><meta property="og:description" content="An ES module import asked for a name the target module doesn&#x27;t export: a default vs named mismatch, a typo, a type-only export, or a CommonJS package whose exports can&#x27;t be detected as named ESM exports.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-requested-module-does-not-provide-an-export-named/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "SyntaxError: The requested module does not provide an export named (JavaScript) \u2014 how to fix", "description": "An ES module import asked for a name the target module doesn't export: a default vs named mismatch, a typo, a type-only export, or a CommonJS package whose exports can't be detected as named ESM exports.", "dateModified": "2026-11-10", "url": "https://errorfix-hollis.github.io/javascript/js-requested-module-does-not-provide-an-export-named/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "SyntaxError: The requested module does not provide an export named", "item": "https://errorfix-hollis.github.io/javascript/js-requested-module-does-not-provide-an-export-named/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>SyntaxError: The requested module does not provide an export named (JavaScript) — how to fix</h1>
+<pre class="err"><code>Uncaught SyntaxError: The requested module &#x27;/src/utils.js&#x27; does not provide an export named &#x27;default&#x27;
+SyntaxError: Named export &#x27;merge&#x27; not found. The requested module &#x27;lodash&#x27; is a CommonJS module, which may not support all module.exports as named exports.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Match the import to the export: <code>export default x</code> needs <code>import x from</code>, <code>export const x</code> needs <code>import { x } from</code>. For CommonJS packages in Node, use <code>import pkg from 'pkg'; const { merge } = pkg;</code>. For TypeScript types use <code>import type</code>. In Vite, add CJS deps to <code>optimizeDeps.include</code> and restart with <code>--force</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>ES module imports are checked <strong>when the module graph is linked</strong>, before any code runs. If <code>import { x } from './a.js'</code> and <code>a.js</code> has no export named <code>x</code>, the browser or Node throws this <code>SyntaxError</code> and nothing in that module executes.</p>
+<p>The message comes from the browser (and Vite in dev, which serves native ESM) or from Node's ESM loader. Node adds the "is a CommonJS module" hint when the target is CJS.</p>
+<h2 id="cause-1-default-vs-named-mismatch">Cause 1: default vs named mismatch</h2>
+<pre><code class="language-js">// utils.js
+export function slugify(s) { ... }
+
+// app.js
+import slugify from './utils.js';   // no export named 'default'
+</code></pre>
+<p>Fix the import to match the export (or vice versa):</p>
+<pre><code class="language-js">import { slugify } from './utils.js';
+</code></pre>
+<p>And the opposite: <code>export default App</code> must be imported as <code>import App from './App.jsx'</code>, not <code>import { App }</code>. Check spelling and case too — <code>{ useFetch }</code> vs <code>{ UseFetch }</code>.</p>
+<h2 id="cause-2-typescript-types-imported-as-values">Cause 2: TypeScript types imported as values</h2>
+<pre><code class="language-ts">// types.ts
+export interface User { id: string }
+// app.ts
+import { User } from './types';
+</code></pre>
+<p>Interfaces and type aliases are erased at compile time. Tools that transpile file-by-file (Vite/esbuild, swc, Babel) can't always tell it's a type, so the runtime import of <code>User</code> fails. Use type-only imports:</p>
+<pre><code class="language-ts">import type { User } from './types';
+import { type User, createUser } from './users';
+</code></pre>
+<p>Enable <code>"verbatimModuleSyntax": true</code> (or <code>isolatedModules</code>) in <code>tsconfig.json</code> so the compiler flags these for you.</p>
+<h2 id="cause-3-commonjs-package-imported-with-named-imports-node">Cause 3: CommonJS package imported with named imports (Node)</h2>
+<pre><code class="language-js">import { merge } from 'lodash';
+// SyntaxError: Named export 'merge' not found. The requested module 'lodash' is a CommonJS module...
+</code></pre>
+<p>Node detects named exports of CJS modules by static analysis, which fails for packages that build <code>module.exports</code> dynamically. Import the default (which is <code>module.exports</code>) and destructure:</p>
+<pre><code class="language-js">import lodash from 'lodash';
+const { merge } = lodash;
+</code></pre>
+<p>Or use a package with real ESM builds (<code>lodash-es</code>), or <code>createRequire</code>:</p>
+<pre><code class="language-js">import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { merge } = require('lodash');
+</code></pre>
+<h2 id="cause-4-vite-dependency-pre-bundling">Cause 4: Vite dependency pre-bundling</h2>
+<p>In Vite dev, CJS dependencies are converted to ESM by pre-bundling. If a dependency is linked locally, excluded, or imported in a way Vite didn't discover, you can get this error in the browser for a package that works in the production build. Add it to <code>vite.config.js</code>:</p>
+<pre><code class="language-js">export default {
+  optimizeDeps: { include: ['some-cjs-package'] },
+};
+</code></pre>
+<p>Then restart with a fresh cache: <code>npx vite --force</code> (or delete <code>node_modules/.vite</code>).</p>
+<h2 id="cause-5-export-renamed-or-removed-in-a-new-version">Cause 5: export renamed or removed in a new version</h2>
+<p>After upgrading a library, an export may have moved (e.g. from the package root to a subpath like <code>pkg/server</code>). Check the package's changelog, and look at what it actually exports:</p>
+<pre><code class="language-bash">node -e &quot;import('some-pkg').then(m =&gt; console.log(Object.keys(m)))&quot;
+</code></pre>
+<h2 id="cause-6-circular-imports-with-export">Cause 6: circular imports with <code>export *</code></h2>
+<p>Re-export barrels (<code>index.js</code> with <code>export * from './a'</code>) combined with circular imports can make a name unavailable at link time, or two <code>export *</code> sources export the same name (which makes it ambiguous and silently not exported). Import directly from the source file to check, and break the cycle.</p>
+<p class="upd">Last updated 2026-11-10.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-vite-failed-to-resolve-import/">[plugin:vite:import-analysis] Failed to resolve import</a></li><li><a href="/javascript/node-cannot-use-import-statement-outside-a-module/">SyntaxError: Cannot use import statement outside a module</a></li><li><a href="/npm/node-err-require-esm/">Error [ERR_REQUIRE_ESM]: require() of ES Module not supported</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

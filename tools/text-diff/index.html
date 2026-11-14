@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Text Diff Checker — compare two texts side by side online</title>
+<meta name="description" content="Compare two texts or config files line by line. Side-by-side or unified diff view, changed characters highlighted, ignore whitespace or case, copy the result as a patch. Runs in your browser.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/text-diff/">
+<meta property="og:title" content="Text Diff Checker — compare two texts side by side online"><meta property="og:description" content="Compare two texts or config files line by line. Side-by-side or unified diff view, changed characters highlighted, ignore whitespace or case, copy the result as a patch. Runs in your browser.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/text-diff/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "Text diff checker", "url": "https://errorfix-hollis.github.io/tools/text-diff/", "description": "Compare two texts or config files line by line. Side-by-side or unified diff view, changed characters highlighted, ignore whitespace or case, copy the result as a patch. Runs in your browser.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-05", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": "Text diff checker", "item": "https://errorfix-hollis.github.io/tools/text-diff/"}]}</script><script src="/tools.js?v=70df2f10" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>Text diff checker</h1>
+<p class="lead">Paste two versions of a text, config file or code snippet to see exactly which lines were added, removed or changed.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="diff"><div class="row two">
+<div><label for="diff-a">Original text</label><textarea id="diff-a" spellcheck="false" placeholder="Paste the original version"></textarea></div>
+<div><label for="diff-b">Changed text</label><textarea id="diff-b" spellcheck="false" placeholder="Paste the new version"></textarea></div>
+</div>
+<div class="row">
+<label>View <select id="diff-view" class="inline"><option value="side">Side by side</option><option value="unified">Unified (patch)</option></select></label>
+<label><input type="checkbox" id="diff-ws"> Ignore whitespace</label>
+<label><input type="checkbox" id="diff-case"> Ignore case</label>
+<label><input type="checkbox" id="diff-all"> Show all lines</label>
+<button id="diff-sample" class="sec">Example</button><button id="diff-swap" class="sec">Swap</button><button id="diff-copy" class="sec">Copy as patch</button>
+</div>
+<div id="diff-msg" class="msg" hidden></div>
+<div id="diff-out"></div>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<h2 id="how-the-diff-works">How the diff works</h2>
+<p>The tool uses the Myers diff algorithm, the same one <code>git diff</code> uses by default. It finds the smallest set of added and removed lines that turns the original into the changed text. A line that was edited shows up as one removal plus one addition; in the side-by-side view such pairs are shown on the same row, with the changed characters highlighted.</p>
+<ul>
+<li><strong>Side by side</strong> is easiest to read for config files and short documents.</li>
+<li><strong>Unified</strong> is the format of <code>diff -u</code> and <code>git diff</code>: <code>-</code> lines are removed, <code>+</code> lines are added, and <code>@@ -12,7 +12,8 @@</code> headers give the starting line and length of each hunk in the old and new file. <strong>Copy as patch</strong> gives you text that <code>patch</code> or <code>git apply</code> can use.</li>
+</ul>
+<h2 id="ignore-options">Ignore options</h2>
+<p><strong>Ignore whitespace</strong> treats lines as equal when they differ only in spaces or tabs (indentation, trailing spaces, several spaces in a row), similar to <code>git diff -w</code>. Use it to review a re-indented file without noise. <strong>Ignore case</strong> compares lines case-insensitively, useful for SQL and HTML.</p>
+<p>If every line shows as changed although the texts look identical, the cause is almost always invisible: different line endings (CRLF vs LF), a byte order mark, tabs vs spaces or trailing whitespace. Tick <em>Ignore whitespace</em> to confirm, then check the file with the <a href="/tools/line-ending-whitespace-inspector/">line ending &amp; whitespace inspector</a>.</p>
+<h2 id="command-line-equivalents">Command-line equivalents</h2>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Compare two files</td>
+<td><code>diff -u old.txt new.txt</code></td>
+</tr>
+<tr>
+<td>Ignore whitespace</td>
+<td><code>diff -uw old.txt new.txt</code> or <code>git diff -w</code></td>
+</tr>
+<tr>
+<td>Word-level changes</td>
+<td><code>git diff --word-diff</code></td>
+</tr>
+<tr>
+<td>Two files outside a repo</td>
+<td><code>git diff --no-index a.txt b.txt</code></td>
+</tr>
+<tr>
+<td>Apply a patch</td>
+<td><code>patch -p0 &lt; change.diff</code> or <code>git apply change.diff</code></td>
+</tr>
+</tbody>
+</table>
+<p>Both texts stay in your browser. Nothing is uploaded, so you can safely compare private configs, logs and code.</p>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-merge-conflict/">CONFLICT (content): Merge conflict in</a></li><li><a href="/git/git-your-local-changes-would-be-overwritten/">error: Your local changes to the following files would be overwritten by merge</a></li><li><a href="/git/git-lf-will-be-replaced-by-crlf/">warning: LF will be replaced by CRLF the next time Git touches it</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/json-formatter/">JSON formatter &amp; validator</a></li><li><a href="/tools/cron-expression-explainer/">Cron expression explainer</a></li><li><a href="/tools/chmod-calculator/">chmod calculator</a></li><li><a href="/tools/unix-timestamp-converter/">Unix timestamp converter</a></li><li><a href="/tools/base64-encode-decode/">Base64 encode / decode</a></li><li><a href="/tools/url-encode-decode/">URL encode / decode</a></li><li><a href="/tools/jwt-decoder/">JWT decoder</a></li><li><a href="/tools/regex-tester/">Regex tester</a></li><li><a href="/tools/yaml-validator/">YAML validator &amp; YAML ↔ JSON converter</a></li><li><a href="/tools/uuid-generator/">UUID generator &amp; validator (v4, v7)</a></li><li><a href="/tools/http-status-codes/">HTTP status codes reference</a></li><li><a href="/tools/hash-generator/">Hash generator (MD5, SHA-256, SHA-512)</a></li><li><a href="/tools/line-ending-whitespace-inspector/">Line ending &amp; whitespace inspector</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

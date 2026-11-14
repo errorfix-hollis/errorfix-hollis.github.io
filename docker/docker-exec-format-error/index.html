@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>exec format error (Docker) — how to fix</title>
+<meta name="description" content="The container&#x27;s binary was built for a different CPU architecture (arm64 vs amd64), or the script has no valid shebang line.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-exec-format-error/">
+<meta property="og:title" content="exec format error (Docker) — how to fix"><meta property="og:description" content="The container&#x27;s binary was built for a different CPU architecture (arm64 vs amd64), or the script has no valid shebang line.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-exec-format-error/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "exec format error (Docker) \u2014 how to fix", "description": "The container's binary was built for a different CPU architecture (arm64 vs amd64), or the script has no valid shebang line.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/docker/docker-exec-format-error/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "exec format error", "item": "https://errorfix-hollis.github.io/docker/docker-exec-format-error/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>exec format error (Docker) — how to fix</h1>
+<pre class="err"><code>exec /usr/local/bin/docker-entrypoint.sh: exec format error
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Architecture mismatch: build for the target platform with <code>docker buildx build --platform linux/amd64 ...</code> (or arm64). Script: make sure the first line is a shebang like <code>#!/bin/sh</code> and the file uses Unix line endings.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The Linux kernel was asked to run a file it can't execute. Inside containers that almost always means one of two things.</p>
+<h2 id="cause-1-wrong-cpu-architecture">Cause 1: wrong CPU architecture</h2>
+<p>An image built on an Apple Silicon Mac (arm64) won't run on a typical x86-64 server, and an amd64 image won't run on a Raspberry Pi.</p>
+<p>Check the image's architecture:</p>
+<pre><code class="language-bash">docker image inspect myimage --format '{{.Os}}/{{.Architecture}}'
+uname -m        # on the machine that runs it: x86_64 = amd64, aarch64 = arm64
+</code></pre>
+<p>Build for the right platform:</p>
+<pre><code class="language-bash">docker buildx build --platform linux/amd64 -t myimage:latest .
+# or a multi-platform image (requires pushing to a registry):
+docker buildx build --platform linux/amd64,linux/arm64 -t user/myimage:latest --push .
+</code></pre>
+<p>In Compose, add <code>platform: linux/amd64</code> to the service.</p>
+<h2 id="cause-2-a-script-without-a-valid-shebang">Cause 2: a script without a valid shebang</h2>
+<p>If the entrypoint is a shell script, its first line must say which interpreter to use:</p>
+<pre><code class="language-sh">#!/bin/sh
+</code></pre>
+<p>Also check:</p>
+<ul>
+<li><strong>Windows line endings.</strong> A script saved with CRLF makes the shebang <code>#!/bin/sh\r</code>. Convert with <code>sed -i 's/\r$//' docker-entrypoint.sh</code> or <code>dos2unix</code>, and add <code>*.sh text eol=lf</code> to <code>.gitattributes</code>.</li>
+<li><strong>A byte-order mark (BOM)</strong> before <code>#!</code> breaks it too. Save the file as UTF-8 without BOM.</li>
+<li><strong>The interpreter exists in the image.</strong> Alpine has no <code>bash</code> by default; use <code>#!/bin/sh</code> or <code>apk add bash</code>.</li>
+</ul>
+<h2 id="outside-docker">Outside Docker</h2>
+<p>The same error on a normal Linux machine means you downloaded a binary for the wrong architecture (for example an arm64 release on an x86 server). Download the build that matches <code>uname -m</code>.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li><li><a href="/docker/docker-container-name-already-in-use/">Conflict. The container name is already in use by container</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

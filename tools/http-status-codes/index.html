@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HTTP Status Codes List — meaning and common causes (incl. nginx 499, Cloudflare 52x)</title>
+<meta name="description" content="Searchable list of all HTTP status codes from 100 to 599 with plain-English meanings and the usual cause of each, including non-standard nginx (444, 499) and Cloudflare (520-526) codes.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/http-status-codes/">
+<meta property="og:title" content="HTTP Status Codes List — meaning and common causes (incl. nginx 499, Cloudflare 52x)"><meta property="og:description" content="Searchable list of all HTTP status codes from 100 to 599 with plain-English meanings and the usual cause of each, including non-standard nginx (444, 499) and Cloudflare (520-526) codes.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/http-status-codes/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "HTTP status codes reference", "url": "https://errorfix-hollis.github.io/tools/http-status-codes/", "description": "Searchable list of all HTTP status codes from 100 to 599 with plain-English meanings and the usual cause of each, including non-standard nginx (444, 499) and Cloudflare (520-526) codes.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-05", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": "HTTP status codes reference", "item": "https://errorfix-hollis.github.io/tools/http-status-codes/"}]}</script><script src="/tools.js?v=70df2f10" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>HTTP status codes: searchable reference</h1>
+<p class="lead">Every standard HTTP status code plus the common non-standard ones from nginx, Cloudflare and Laravel, each with what it means and what usually causes it. Type a code or a word to filter.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="http"><div class="row"><input type="text" id="http-q" class="big grow" spellcheck="false" autocomplete="off" placeholder="Search: 502, timeout, cookie, nginx…" aria-label="Search status codes"></div>
+<div class="row presets" id="http-f"><button class="sec" data-f="">All</button><button class="sec" data-f="1">1xx</button><button class="sec" data-f="2">2xx</button><button class="sec" data-f="3">3xx</button><button class="sec" data-f="4">4xx</button><button class="sec" data-f="5">5xx</button><button class="sec" data-f="ns">Non-standard</button></div>
+<div id="http-msg" class="msg" hidden></div>
+<table id="http-table" class="http"><thead><tr><th>Code</th><th>Name and meaning</th><th>Common cause / what to check</th></tr></thead>
+<tbody>
+<tr data-c="1" data-ns="0" id="s100"><td><b>100</b></td><td><b>Continue</b><br><span class="small">The server got the request headers and the client may send the body.</span></td><td>Client sent Expect: 100-continue before a large upload (curl does this for bodies over 1 KB).</td></tr>
+<tr data-c="1" data-ns="0" id="s101"><td><b>101</b></td><td><b>Switching Protocols</b><br><span class="small">The server is switching to the protocol the client asked for in Upgrade.</span></td><td>Normal for WebSocket handshakes; if a WebSocket fails, check that your proxy forwards the Upgrade and Connection headers.</td></tr>
+<tr data-c="1" data-ns="0" id="s102"><td><b>102</b></td><td><b>Processing</b><br><span class="small">WebDAV: the request is accepted but still being processed.</span></td><td>Long WebDAV operations; rarely seen today.</td></tr>
+<tr data-c="1" data-ns="0" id="s103"><td><b>103</b></td><td><b>Early Hints</b><br><span class="small">Preliminary headers (usually Link: preload) sent before the final response.</span></td><td>CDN or server sending preload hints; harmless.</td></tr>
+<tr data-c="2" data-ns="0" id="s200"><td><b>200</b></td><td><b>OK</b><br><span class="small">The request succeeded.</span></td><td>Normal success. If an API returns 200 with an error message in the body, the API is just designed that way.</td></tr>
+<tr data-c="2" data-ns="0" id="s201"><td><b>201</b></td><td><b>Created</b><br><span class="small">The request succeeded and a new resource was created.</span></td><td>Successful POST/PUT; the Location header usually points to the new resource.</td></tr>
+<tr data-c="2" data-ns="0" id="s202"><td><b>202</b></td><td><b>Accepted</b><br><span class="small">The request was accepted for processing, but processing is not finished.</span></td><td>Asynchronous jobs and queues; poll the status URL the API gives you.</td></tr>
+<tr data-c="2" data-ns="0" id="s203"><td><b>203</b></td><td><b>Non-Authoritative Information</b><br><span class="small">The response was modified by a transforming proxy.</span></td><td>A proxy changed the original 200 response.</td></tr>
+<tr data-c="2" data-ns="0" id="s204"><td><b>204</b></td><td><b>No Content</b><br><span class="small">Success, with no response body.</span></td><td>Normal for DELETE or PUT. Calling response.json() on it throws &quot;Unexpected end of JSON input&quot;.</td></tr>
+<tr data-c="2" data-ns="0" id="s205"><td><b>205</b></td><td><b>Reset Content</b><br><span class="small">Success; the client should reset the form or view.</span></td><td>Rare.</td></tr>
+<tr data-c="2" data-ns="0" id="s206"><td><b>206</b></td><td><b>Partial Content</b><br><span class="small">Only the byte range asked for in a Range header is returned.</span></td><td>Resumable downloads and video streaming.</td></tr>
+<tr data-c="2" data-ns="0" id="s207"><td><b>207</b></td><td><b>Multi-Status</b><br><span class="small">WebDAV: several status codes for several resources in an XML body.</span></td><td>WebDAV clients (Nextcloud, SharePoint).</td></tr>
+<tr data-c="2" data-ns="0" id="s208"><td><b>208</b></td><td><b>Already Reported</b><br><span class="small">WebDAV: members already listed earlier in the same response.</span></td><td>Rare.</td></tr>
+<tr data-c="2" data-ns="0" id="s226"><td><b>226</b></td><td><b>IM Used</b><br><span class="small">The response is the result of instance manipulations (delta encoding).</span></td><td>Rare.</td></tr>
+<tr data-c="3" data-ns="0" id="s300"><td><b>300</b></td><td><b>Multiple Choices</b><br><span class="small">There are several representations to choose from.</span></td><td>Rare in practice.</td></tr>
+<tr data-c="3" data-ns="0" id="s301"><td><b>301</b></td><td><b>Moved Permanently</b><br><span class="small">The resource has a new permanent URL (in Location). Browsers and search engines remember it.</span></td><td>HTTP→HTTPS or old→new URL redirects. Redirect loops between 301s cause ERR_TOO_MANY_REDIRECTS. <a href="/web/web-err-too-many-redirects/">Fix guide →</a></td></tr>
+<tr data-c="3" data-ns="0" id="s302"><td><b>302</b></td><td><b>Found</b><br><span class="small">Temporary redirect to the URL in Location.</span></td><td>Login redirects; a POST may be changed to GET (use 307 to keep the method). <a href="/web/web-err-too-many-redirects/">Fix guide →</a></td></tr>
+<tr data-c="3" data-ns="0" id="s303"><td><b>303</b></td><td><b>See Other</b><br><span class="small">Go GET the resource at the Location URL.</span></td><td>Post/Redirect/Get pattern after submitting a form.</td></tr>
+<tr data-c="3" data-ns="0" id="s304"><td><b>304</b></td><td><b>Not Modified</b><br><span class="small">The cached copy is still valid; no body is sent.</span></td><td>Conditional request with If-None-Match / If-Modified-Since. Normal; not an error.</td></tr>
+<tr data-c="3" data-ns="0" id="s305"><td><b>305</b></td><td><b>Use Proxy</b><br><span class="small">Deprecated: access the resource through a proxy.</span></td><td>Obsolete; ignored by browsers.</td></tr>
+<tr data-c="3" data-ns="0" id="s307"><td><b>307</b></td><td><b>Temporary Redirect</b><br><span class="small">Temporary redirect that keeps the original method and body.</span></td><td>HSTS internal redirects in Chrome show as 307.</td></tr>
+<tr data-c="3" data-ns="0" id="s308"><td><b>308</b></td><td><b>Permanent Redirect</b><br><span class="small">Permanent redirect that keeps the original method and body.</span></td><td>Like 301 but safe for POST. Next.js and many hosts use it for trailing-slash redirects.</td></tr>
+<tr data-c="4" data-ns="0" id="s400"><td><b>400</b></td><td><b>Bad Request</b><br><span class="small">The server cannot process the request because it is malformed.</span></td><td>Invalid JSON body, wrong Content-Type, a header or cookie that is too large, missing required fields.</td></tr>
+<tr data-c="4" data-ns="0" id="s401"><td><b>401</b></td><td><b>Unauthorized</b><br><span class="small">Authentication is required or the credentials are invalid.</span></td><td>Missing or expired token, wrong API key, Authorization header not sent (often lost on redirects).</td></tr>
+<tr data-c="4" data-ns="0" id="s402"><td><b>402</b></td><td><b>Payment Required</b><br><span class="small">Reserved; used by some APIs for billing problems.</span></td><td>Quota exhausted or unpaid plan on SaaS APIs.</td></tr>
+<tr data-c="4" data-ns="0" id="s403"><td><b>403</b></td><td><b>Forbidden</b><br><span class="small">The server understood the request but refuses it. Logging in again will not help.</span></td><td>File permissions, missing index file with autoindex off, IP/WAF block, wrong IAM permissions, CSRF failure. <a href="/web/web-nginx-403-forbidden/">Fix guide →</a></td></tr>
+<tr data-c="4" data-ns="0" id="s404"><td><b>404</b></td><td><b>Not Found</b><br><span class="small">No resource at this URL.</span></td><td>Typo in the path, missing trailing slash, wrong base path, SPA route without a fallback to index.html.</td></tr>
+<tr data-c="4" data-ns="0" id="s405"><td><b>405</b></td><td><b>Method Not Allowed</b><br><span class="small">The URL exists but does not accept this HTTP method.</span></td><td>POST to a static file, or a route defined only for GET. The Allow header lists valid methods.</td></tr>
+<tr data-c="4" data-ns="0" id="s406"><td><b>406</b></td><td><b>Not Acceptable</b><br><span class="small">No representation matches the Accept headers.</span></td><td>Strict Accept header; send Accept: application/json or */*.</td></tr>
+<tr data-c="4" data-ns="0" id="s407"><td><b>407</b></td><td><b>Proxy Authentication Required</b><br><span class="small">You must authenticate with the proxy first.</span></td><td>Corporate proxy; set credentials in HTTPS_PROXY or the proxy settings.</td></tr>
+<tr data-c="4" data-ns="0" id="s408"><td><b>408</b></td><td><b>Request Timeout</b><br><span class="small">The server timed out waiting for the client to send the request.</span></td><td>Slow or idle client connection; keep-alive connections closed by the server.</td></tr>
+<tr data-c="4" data-ns="0" id="s409"><td><b>409</b></td><td><b>Conflict</b><br><span class="small">The request conflicts with the current state of the resource.</span></td><td>Duplicate resource, version/ETag mismatch, concurrent edits, Kubernetes &quot;the object has been modified&quot;.</td></tr>
+<tr data-c="4" data-ns="0" id="s410"><td><b>410</b></td><td><b>Gone</b><br><span class="small">The resource was removed permanently and will not come back.</span></td><td>Deleted content; search engines drop 410 URLs faster than 404.</td></tr>
+<tr data-c="4" data-ns="0" id="s411"><td><b>411</b></td><td><b>Length Required</b><br><span class="small">The server requires a Content-Length header.</span></td><td>Chunked upload to a server that does not support it.</td></tr>
+<tr data-c="4" data-ns="0" id="s412"><td><b>412</b></td><td><b>Precondition Failed</b><br><span class="small">A condition in If-Match / If-Unmodified-Since was not met.</span></td><td>Optimistic locking: someone else changed the resource first.</td></tr>
+<tr data-c="4" data-ns="0" id="s413"><td><b>413</b></td><td><b>Content Too Large</b><br><span class="small">The request body is larger than the server allows (formerly &quot;Payload Too Large&quot;).</span></td><td>nginx client_max_body_size (default 1 MB), upload limits in PHP, Express body-parser or the load balancer. <a href="/web/web-nginx-413-request-entity-too-large/">Fix guide →</a></td></tr>
+<tr data-c="4" data-ns="0" id="s414"><td><b>414</b></td><td><b>URI Too Long</b><br><span class="small">The URL is longer than the server will accept.</span></td><td>Huge query strings; send the data in a POST body instead.</td></tr>
+<tr data-c="4" data-ns="0" id="s415"><td><b>415</b></td><td><b>Unsupported Media Type</b><br><span class="small">The server does not accept the body&#x27;s Content-Type.</span></td><td>Sending JSON without Content-Type: application/json, or form data to a JSON-only API.</td></tr>
+<tr data-c="4" data-ns="0" id="s416"><td><b>416</b></td><td><b>Range Not Satisfiable</b><br><span class="small">The requested byte range is outside the file.</span></td><td>Resuming a download of a file that changed or is smaller.</td></tr>
+<tr data-c="4" data-ns="0" id="s417"><td><b>417</b></td><td><b>Expectation Failed</b><br><span class="small">The server cannot meet the Expect header.</span></td><td>Server rejects Expect: 100-continue; send the request without it (curl -H &#x27;Expect:&#x27;).</td></tr>
+<tr data-c="4" data-ns="0" id="s418"><td><b>418</b></td><td><b>I&#x27;m a teapot</b><br><span class="small">April Fools&#x27; joke from RFC 2324; the server refuses to brew coffee.</span></td><td>Easter eggs, or used by some services to reject bots.</td></tr>
+<tr data-c="4" data-ns="1" id="s419"><td><b>419</b></td><td><b>Page Expired</b> <span class="ns">Laravel</span><br><span class="small">Laravel: the CSRF token is missing or expired.</span></td><td>Form submitted after the session expired, or the @csrf token is missing.</td></tr>
+<tr data-c="4" data-ns="0" id="s421"><td><b>421</b></td><td><b>Misdirected Request</b><br><span class="small">The request went to a server that cannot answer for this host.</span></td><td>HTTP/2 connection reuse across hosts with different certificates.</td></tr>
+<tr data-c="4" data-ns="0" id="s422"><td><b>422</b></td><td><b>Unprocessable Content</b><br><span class="small">The body is well-formed but has semantic errors (validation failed).</span></td><td>Validation errors in Rails, Laravel, FastAPI (check the response body for field errors).</td></tr>
+<tr data-c="4" data-ns="0" id="s423"><td><b>423</b></td><td><b>Locked</b><br><span class="small">WebDAV: the resource is locked.</span></td><td>A file opened by another WebDAV client.</td></tr>
+<tr data-c="4" data-ns="0" id="s424"><td><b>424</b></td><td><b>Failed Dependency</b><br><span class="small">WebDAV: the request failed because a previous one failed.</span></td><td>Rare.</td></tr>
+<tr data-c="4" data-ns="0" id="s425"><td><b>425</b></td><td><b>Too Early</b><br><span class="small">The server will not process a request that might be replayed (TLS early data).</span></td><td>TLS 1.3 0-RTT requests.</td></tr>
+<tr data-c="4" data-ns="0" id="s426"><td><b>426</b></td><td><b>Upgrade Required</b><br><span class="small">The client must switch to another protocol (given in Upgrade).</span></td><td>Server requires TLS or a newer HTTP version.</td></tr>
+<tr data-c="4" data-ns="0" id="s428"><td><b>428</b></td><td><b>Precondition Required</b><br><span class="small">The server requires a conditional request (If-Match).</span></td><td>APIs that enforce optimistic locking.</td></tr>
+<tr data-c="4" data-ns="0" id="s429"><td><b>429</b></td><td><b>Too Many Requests</b><br><span class="small">Rate limit exceeded.</span></td><td>Too many requests per time window; respect the Retry-After header and add backoff.</td></tr>
+<tr data-c="4" data-ns="0" id="s431"><td><b>431</b></td><td><b>Request Header Fields Too Large</b><br><span class="small">The headers are too big.</span></td><td>Too many or too large cookies (often on localhost shared by many apps); clear cookies for the site.</td></tr>
+<tr data-c="4" data-ns="1" id="s440"><td><b>440</b></td><td><b>Login Time-out</b> <span class="ns">Microsoft IIS</span><br><span class="small">IIS: the session expired.</span></td><td>Re-login required.</td></tr>
+<tr data-c="4" data-ns="1" id="s444"><td><b>444</b></td><td><b>No Response</b> <span class="ns">nginx</span><br><span class="small">nginx closed the connection without sending a response.</span></td><td>An nginx rule with return 444 (used to drop bad bots or unknown hosts).</td></tr>
+<tr data-c="4" data-ns="0" id="s451"><td><b>451</b></td><td><b>Unavailable For Legal Reasons</b><br><span class="small">The resource is blocked for legal reasons.</span></td><td>Government censorship, court orders, or geo-blocking (GDPR).</td></tr>
+<tr data-c="4" data-ns="1" id="s494"><td><b>494</b></td><td><b>Request Header Too Large</b> <span class="ns">nginx</span><br><span class="small">nginx: the request headers are too large.</span></td><td>Large cookies; raise large_client_header_buffers.</td></tr>
+<tr data-c="4" data-ns="1" id="s495"><td><b>495</b></td><td><b>SSL Certificate Error</b> <span class="ns">nginx</span><br><span class="small">nginx: the client certificate is invalid.</span></td><td>Mutual TLS with an invalid client certificate.</td></tr>
+<tr data-c="4" data-ns="1" id="s496"><td><b>496</b></td><td><b>SSL Certificate Required</b> <span class="ns">nginx</span><br><span class="small">nginx: a client certificate is required but was not sent.</span></td><td>Mutual TLS: the client did not present a certificate.</td></tr>
+<tr data-c="4" data-ns="1" id="s497"><td><b>497</b></td><td><b>HTTP Request Sent to HTTPS Port</b> <span class="ns">nginx</span><br><span class="small">nginx: plain HTTP was sent to an HTTPS port.</span></td><td>Using http:// on port 443 or a TLS port; use https://.</td></tr>
+<tr data-c="4" data-ns="1" id="s499"><td><b>499</b></td><td><b>Client Closed Request</b> <span class="ns">nginx</span><br><span class="small">nginx: the client closed the connection before the server answered.</span></td><td>The user, browser or an upstream load balancer gave up waiting (timeouts); look for slow backends. <a href="/web/web-504-gateway-timeout/">Fix guide →</a></td></tr>
+<tr data-c="5" data-ns="0" id="s500"><td><b>500</b></td><td><b>Internal Server Error</b><br><span class="small">Generic server-side failure.</span></td><td>An unhandled exception in the application; the real error is in the application log, not the browser.</td></tr>
+<tr data-c="5" data-ns="0" id="s501"><td><b>501</b></td><td><b>Not Implemented</b><br><span class="small">The server does not support the functionality (usually the method).</span></td><td>Unknown HTTP method, or an endpoint stub.</td></tr>
+<tr data-c="5" data-ns="0" id="s502"><td><b>502</b></td><td><b>Bad Gateway</b><br><span class="small">A proxy or gateway got an invalid response (or no response) from the upstream server.</span></td><td>The app behind nginx/a load balancer is down, crashed, listening on another port or socket, or closed the connection. <a href="/web/web-nginx-502-bad-gateway/">Fix guide →</a></td></tr>
+<tr data-c="5" data-ns="0" id="s503"><td><b>503</b></td><td><b>Service Unavailable</b><br><span class="small">The server is temporarily unable to handle the request.</span></td><td>Overload, maintenance mode, no healthy backends, Kubernetes service with no ready pods.</td></tr>
+<tr data-c="5" data-ns="0" id="s504"><td><b>504</b></td><td><b>Gateway Timeout</b><br><span class="small">A proxy or gateway did not get a response from the upstream server in time.</span></td><td>Slow queries or requests exceeding proxy_read_timeout (nginx default 60 s) or the load balancer idle timeout. <a href="/web/web-504-gateway-timeout/">Fix guide →</a></td></tr>
+<tr data-c="5" data-ns="0" id="s505"><td><b>505</b></td><td><b>HTTP Version Not Supported</b><br><span class="small">The server does not support the HTTP version used.</span></td><td>Very old or misconfigured servers.</td></tr>
+<tr data-c="5" data-ns="0" id="s506"><td><b>506</b></td><td><b>Variant Also Negotiates</b><br><span class="small">Content negotiation configuration error on the server.</span></td><td>Rare.</td></tr>
+<tr data-c="5" data-ns="0" id="s507"><td><b>507</b></td><td><b>Insufficient Storage</b><br><span class="small">WebDAV: the server cannot store the representation.</span></td><td>Disk or quota full on the server.</td></tr>
+<tr data-c="5" data-ns="0" id="s508"><td><b>508</b></td><td><b>Loop Detected</b><br><span class="small">WebDAV: infinite loop while processing.</span></td><td>Rare; some hosts use it for resource limits.</td></tr>
+<tr data-c="5" data-ns="0" id="s510"><td><b>510</b></td><td><b>Not Extended</b><br><span class="small">Further extensions are required (obsolete).</span></td><td>Rare.</td></tr>
+<tr data-c="5" data-ns="0" id="s511"><td><b>511</b></td><td><b>Network Authentication Required</b><br><span class="small">You must log in to the network first.</span></td><td>Captive portal on hotel, airport or café Wi-Fi.</td></tr>
+<tr data-c="5" data-ns="1" id="s520"><td><b>520</b></td><td><b>Web Server Returned an Unknown Error</b> <span class="ns">Cloudflare</span><br><span class="small">Cloudflare: the origin returned an empty, unknown or unexpected response.</span></td><td>Origin crashed, reset the connection or sent headers larger than Cloudflare allows.</td></tr>
+<tr data-c="5" data-ns="1" id="s521"><td><b>521</b></td><td><b>Web Server Is Down</b> <span class="ns">Cloudflare</span><br><span class="small">Cloudflare: the origin refused the connection.</span></td><td>Web server not running, or a firewall blocks Cloudflare IPs. <a href="/web/web-nginx-502-bad-gateway/">Fix guide →</a></td></tr>
+<tr data-c="5" data-ns="1" id="s522"><td><b>522</b></td><td><b>Connection Timed Out</b> <span class="ns">Cloudflare</span><br><span class="small">Cloudflare: the TCP connection to the origin timed out.</span></td><td>Origin overloaded, wrong DNS IP, or firewall dropping Cloudflare traffic.</td></tr>
+<tr data-c="5" data-ns="1" id="s523"><td><b>523</b></td><td><b>Origin Is Unreachable</b> <span class="ns">Cloudflare</span><br><span class="small">Cloudflare: cannot reach the origin.</span></td><td>Wrong DNS record or routing problem to the origin.</td></tr>
+<tr data-c="5" data-ns="1" id="s524"><td><b>524</b></td><td><b>A Timeout Occurred</b> <span class="ns">Cloudflare</span><br><span class="small">Cloudflare: connected to the origin, but it did not respond within 100 seconds.</span></td><td>Long-running requests; move them to background jobs or raise the timeout (Enterprise). <a href="/web/web-504-gateway-timeout/">Fix guide →</a></td></tr>
+<tr data-c="5" data-ns="1" id="s525"><td><b>525</b></td><td><b>SSL Handshake Failed</b> <span class="ns">Cloudflare</span><br><span class="small">Cloudflare: the TLS handshake with the origin failed.</span></td><td>Origin has no valid TLS setup on 443 while SSL mode is Full / Full (strict). <a href="/web/web-err-ssl-protocol-error/">Fix guide →</a></td></tr>
+<tr data-c="5" data-ns="1" id="s526"><td><b>526</b></td><td><b>Invalid SSL Certificate</b> <span class="ns">Cloudflare</span><br><span class="small">Cloudflare: the origin certificate is invalid (Full strict mode).</span></td><td>Expired, self-signed or wrong-host certificate on the origin. <a href="/web/web-net-err-cert-authority-invalid/">Fix guide →</a></td></tr>
+<tr data-c="5" data-ns="1" id="s530"><td><b>530</b></td><td><b>Origin DNS Error</b> <span class="ns">Cloudflare</span><br><span class="small">Cloudflare: usually shown together with a 1xxx error such as 1016.</span></td><td>DNS record for the origin does not resolve.</td></tr>
+</tbody></table>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<h2 id="the-five-classes">The five classes</h2>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Meaning</th>
+<th>Whose problem?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1xx</td>
+<td>Informational, request continues</td>
+<td>nobody</td>
+</tr>
+<tr>
+<td>2xx</td>
+<td>Success</td>
+<td>nobody</td>
+</tr>
+<tr>
+<td>3xx</td>
+<td>Redirect: look at the <code>Location</code> header</td>
+<td>usually configuration</td>
+</tr>
+<tr>
+<td>4xx</td>
+<td>The request was wrong: URL, auth, body, size, rate</td>
+<td>the client (or how the client is configured)</td>
+</tr>
+<tr>
+<td>5xx</td>
+<td>The server or something behind it failed</td>
+<td>the server or proxy</td>
+</tr>
+</tbody>
+</table>
+<h2 id="502-vs-503-vs-504">502 vs 503 vs 504</h2>
+<p>These three come from a <strong>proxy or load balancer</strong> (nginx, Apache, AWS ALB, Cloudflare) in front of your application, not from the application itself:</p>
+<ul>
+<li><strong>502 Bad Gateway</strong>: the proxy reached the backend but got garbage or a dropped connection, or could not connect at all. The app crashed, is not listening, or listens on a different port/socket. See <a href="/web/web-nginx-502-bad-gateway/">fixing 502 Bad Gateway</a>.</li>
+<li><strong>503 Service Unavailable</strong>: no healthy backend is available (all down, overloaded, maintenance mode, Kubernetes pods not ready).</li>
+<li><strong>504 Gateway Timeout</strong>: the backend accepted the connection but did not answer in time. See <a href="/web/web-504-gateway-timeout/">fixing 504 Gateway Timeout</a>.</li>
+</ul>
+<p>Check the proxy's error log first (<code>/var/log/nginx/error.log</code>): it says exactly which upstream failed and why.</p>
+<h2 id="401-vs-403">401 vs 403</h2>
+<p><strong>401 Unauthorized</strong> really means <em>unauthenticated</em>: no credentials, or bad ones. Logging in or sending a valid token fixes it. <strong>403 Forbidden</strong> means the server knows who you are (or does not care) and still refuses: file permissions, IP rules, a WAF, missing directory index. See <a href="/web/web-nginx-403-forbidden/">nginx 403 Forbidden</a>.</p>
+<h2 id="checking-a-status-code">Checking a status code</h2>
+<pre><code class="language-bash">curl -sS -o /dev/null -w '%{http_code}\n' https://example.com/   # just the code
+curl -sSI https://example.com/                                     # headers only
+curl -sSIL https://example.com/                                    # follow redirects
+</code></pre>
+<p>In the browser, open DevTools → Network and look at the <em>Status</em> column. Codes in the 52x range and 499 are not in the HTTP standard; they are generated by Cloudflare and nginx and are marked as non-standard in the table above.</p>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-nginx-502-bad-gateway/">502 Bad Gateway (nginx)</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-nginx-403-forbidden/">403 Forbidden nginx</a></li><li><a href="/web/web-nginx-413-request-entity-too-large/">413 Request Entity Too Large (nginx)</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/json-formatter/">JSON formatter &amp; validator</a></li><li><a href="/tools/cron-expression-explainer/">Cron expression explainer</a></li><li><a href="/tools/chmod-calculator/">chmod calculator</a></li><li><a href="/tools/unix-timestamp-converter/">Unix timestamp converter</a></li><li><a href="/tools/base64-encode-decode/">Base64 encode / decode</a></li><li><a href="/tools/url-encode-decode/">URL encode / decode</a></li><li><a href="/tools/jwt-decoder/">JWT decoder</a></li><li><a href="/tools/regex-tester/">Regex tester</a></li><li><a href="/tools/yaml-validator/">YAML validator &amp; YAML ↔ JSON converter</a></li><li><a href="/tools/uuid-generator/">UUID generator &amp; validator (v4, v7)</a></li><li><a href="/tools/text-diff/">Text diff checker</a></li><li><a href="/tools/hash-generator/">Hash generator (MD5, SHA-256, SHA-512)</a></li><li><a href="/tools/line-ending-whitespace-inspector/">Line ending &amp; whitespace inspector</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

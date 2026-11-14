@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>bs4.FeatureNotFound: Couldn&#x27;t find a tree builder with the features you requested: lxml. Do you need to install a parser library? (Python) — how to fix</title>
+<meta name="description" content="BeautifulSoup doesn&#x27;t parse HTML itself; it uses a parser library. You asked for lxml (or html5lib, or xml) but that library isn&#x27;t installed in the Python environment running your script.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-bs4-featurenotfound-couldnt-find-a-tree-builder/">
+<meta property="og:title" content="bs4.FeatureNotFound: Couldn&#x27;t find a tree builder with the features you requested: lxml. Do you need to install a parser library? (Python) — how to fix"><meta property="og:description" content="BeautifulSoup doesn&#x27;t parse HTML itself; it uses a parser library. You asked for lxml (or html5lib, or xml) but that library isn&#x27;t installed in the Python environment running your script.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-bs4-featurenotfound-couldnt-find-a-tree-builder/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "bs4.FeatureNotFound: Couldn't find a tree builder with the features you requested: lxml. Do you need to install a parser library? (Python) \u2014 how to fix", "description": "BeautifulSoup doesn't parse HTML itself; it uses a parser library. You asked for lxml (or html5lib, or xml) but that library isn't installed in the Python environment running your script.", "dateModified": "2026-11-13", "url": "https://errorfix-hollis.github.io/python/python-bs4-featurenotfound-couldnt-find-a-tree-builder/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "bs4.FeatureNotFound: Couldn't find a tree builder with the features you requested: lxml. Do you need to install a parser library?", "item": "https://errorfix-hollis.github.io/python/python-bs4-featurenotfound-couldnt-find-a-tree-builder/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>bs4.FeatureNotFound: Couldn&#x27;t find a tree builder with the features you requested: lxml. Do you need to install a parser library? (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;scrape.py&quot;, line 6, in &lt;module&gt;
+    soup = BeautifulSoup(html, &quot;lxml&quot;)
+  File &quot;.../site-packages/bs4/__init__.py&quot;, line 250, in __init__
+    raise FeatureNotFound(
+bs4.FeatureNotFound: Couldn&#x27;t find a tree builder with the features you requested: lxml. Do you need to install a parser library?
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install the parser into the same interpreter: <code>python -m pip install lxml</code> (or <code>html5lib</code>). Or switch to the built-in parser, which needs nothing extra: <code>BeautifulSoup(html, "html.parser")</code>. For XML use <code>"xml"</code> / <code>"lxml-xml"</code>, which also requires lxml.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The second argument to <code>BeautifulSoup(markup, features)</code> selects a parser:</p>
+<table>
+<thead>
+<tr>
+<th>features</th>
+<th>Library needed</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"html.parser"</code></td>
+<td>none (standard library)</td>
+<td>decent speed, always available</td>
+</tr>
+<tr>
+<td><code>"lxml"</code></td>
+<td><code>lxml</code></td>
+<td>fastest, lenient</td>
+</tr>
+<tr>
+<td><code>"xml"</code> / <code>"lxml-xml"</code></td>
+<td><code>lxml</code></td>
+<td>the only XML parser bs4 supports</td>
+</tr>
+<tr>
+<td><code>"html5lib"</code></td>
+<td><code>html5lib</code></td>
+<td>parses like a browser, slow</td>
+</tr>
+</tbody>
+</table>
+<p><code>FeatureNotFound</code> means bs4 looked for a builder matching your feature string and none was registered, because the library behind it isn't importable.</p>
+<h2 id="fix-1-install-the-parser-in-the-right-environment">Fix 1: install the parser in the right environment</h2>
+<pre><code class="language-bash">python -m pip install lxml
+# or
+python -m pip install html5lib
+</code></pre>
+<p>Use the same <code>python</code> that runs your script (activate your venv first). In Jupyter, run <code>%pip install lxml</code> in a cell and <strong>restart the kernel</strong> — bs4 checks available builders when it's imported, so an already-running kernel won't see the new parser.</p>
+<p>Check:</p>
+<pre><code class="language-bash">python -c &quot;import lxml, bs4; print(lxml.__version__, bs4.__version__)&quot;
+</code></pre>
+<p>With conda: <code>conda install lxml</code>.</p>
+<h2 id="fix-2-use-the-built-in-parser">Fix 2: use the built-in parser</h2>
+<p>If you don't need lxml specifically:</p>
+<pre><code class="language-python">from bs4 import BeautifulSoup
+soup = BeautifulSoup(html, &quot;html.parser&quot;)
+</code></pre>
+<p>This removes the dependency entirely, which is handy for serverless functions and minimal containers. Results can differ slightly on broken HTML, so pick one parser and use it consistently.</p>
+<h2 id="fix-3-parsing-xml">Fix 3: parsing XML</h2>
+<p><code>BeautifulSoup(data, "xml")</code> needs lxml — <code>html.parser</code> can't do XML properly (it lowercases tags and mishandles namespaces). Install lxml, or use the standard library for simple XML:</p>
+<pre><code class="language-python">import xml.etree.ElementTree as ET
+root = ET.fromstring(data)
+</code></pre>
+<h2 id="fix-4-lxml-fails-to-install">Fix 4: lxml fails to install</h2>
+<p>On new Python versions or unusual platforms (Alpine, ARM), pip may try to build lxml from source and fail with missing <code>libxml2</code> / <code>libxslt</code> headers. Upgrade pip first so it finds a prebuilt wheel:</p>
+<pre><code class="language-bash">python -m pip install --upgrade pip
+python -m pip install lxml
+</code></pre>
+<p>If you must build: Debian/Ubuntu <code>sudo apt install libxml2-dev libxslt1-dev python3-dev</code>; Alpine <code>apk add libxml2-dev libxslt-dev gcc musl-dev</code>. See <a href="/python/python-failed-building-wheel/">failed building wheel</a>.</p>
+<h2 id="fix-5-typo-in-the-feature-string">Fix 5: typo in the feature string</h2>
+<p><code>"lxml "</code>, <code>"html"</code>, <code>"html5"</code> or <code>"parser"</code> don't match any builder and raise the same error. Valid values are exactly those in the table above.</p>
+<h2 id="pandasread_html-variant">pandas.read_html variant</h2>
+<p><code>pandas.read_html</code> raises <code>ImportError: lxml not found, please install it</code> (or asks for html5lib + bs4). Same fix: <code>python -m pip install lxml</code>, or pass <code>flavor="bs4"</code> with bs4 and html5lib installed.</p>
+<p class="upd">Last updated 2026-11-13.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-failed-building-wheel/">error: Failed building wheel for X</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-bs4/">ModuleNotFoundError: No module named &#x27;bs4&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

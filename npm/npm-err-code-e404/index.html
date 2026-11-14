@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>npm ERR! code E404 - Not Found — how to fix</title>
+<meta name="description" content="npm couldn&#x27;t find the package (or version) in the registry it asked. Typo in the name, a private/scoped package without auth, a wrong registry in .npmrc, or a version that was never published.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-err-code-e404/">
+<meta property="og:title" content="npm ERR! code E404 - Not Found — how to fix"><meta property="og:description" content="npm couldn&#x27;t find the package (or version) in the registry it asked. Typo in the name, a private/scoped package without auth, a wrong registry in .npmrc, or a version that was never published.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-err-code-e404/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "npm ERR! code E404 - Not Found \u2014 how to fix", "description": "npm couldn't find the package (or version) in the registry it asked. Typo in the name, a private/scoped package without auth, a wrong registry in .npmrc, or a version that was never published.", "dateModified": "2026-10-29", "url": "https://errorfix-hollis.github.io/npm/npm-err-code-e404/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "npm ERR! code E404 - Not Found", "item": "https://errorfix-hollis.github.io/npm/npm-err-code-e404/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>npm ERR! code E404 - Not Found — how to fix</h1>
+<pre class="err"><code>npm ERR! code E404
+npm ERR! 404 Not Found - GET https://registry.npmjs.org/my-pakage - Not found
+npm ERR! 404  &#x27;my-pakage@*&#x27; is not in this registry.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the exact name on npmjs.com (<code>npm view &lt;name&gt;</code>). For scoped/private packages (<code>@company/pkg</code>) log in or set the token in <code>.npmrc</code>. Check <code>npm config get registry</code> points where you expect.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>npm sent <code>GET &lt;registry&gt;/&lt;package&gt;</code> and got 404. The registry answers 404 both for "doesn't exist" and "exists but you're not allowed to see it" (private packages).</p>
+<h2 id="cause-1-typo-or-wrong-package-name">Cause 1: typo or wrong package name</h2>
+<pre><code class="language-bash">npm view my-pakage          # 404
+npm search my-package
+</code></pre>
+<p>Many packages have unexpected names: <code>@types/node</code>, <code>node-fetch</code>, <code>bcryptjs</code> vs <code>bcrypt</code>. Copy the name from the package's npm page.</p>
+<h2 id="cause-2-the-version-doesnt-exist">Cause 2: the version doesn't exist</h2>
+<p><code>404 'lodash@9.0.0' is not in this registry</code> means the package exists but not that version. List versions:</p>
+<pre><code class="language-bash">npm view lodash versions --json
+</code></pre>
+<p>Fix the version in <code>package.json</code>, or delete <code>package-lock.json</code> if it pins a version that was unpublished.</p>
+<h2 id="cause-3-private-or-scoped-package-without-auth">Cause 3: private or scoped package without auth</h2>
+<p>For <code>@company/pkg</code> hosted on npm privately:</p>
+<pre><code class="language-bash">npm login
+npm whoami
+</code></pre>
+<p>For GitHub Packages, GitLab, Artifactory etc., the scope must point at that registry with a token in <code>.npmrc</code>:</p>
+<pre><code class="language-ini">@company:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${NPM_TOKEN}
+</code></pre>
+<p>In CI, make sure <code>NPM_TOKEN</code> is set as a secret.</p>
+<h2 id="cause-4-wrong-registry-configured">Cause 4: wrong registry configured</h2>
+<pre><code class="language-bash">npm config get registry
+</code></pre>
+<p>Should normally be <code>https://registry.npmjs.org/</code>. A leftover corporate mirror or <code>.npmrc</code> in the project/home folder can send all requests elsewhere:</p>
+<pre><code class="language-bash">npm config set registry https://registry.npmjs.org/
+</code></pre>
+<h2 id="cause-5-npm-err-404-on-npm-publish">Cause 5: <code>npm ERR! 404</code> on <code>npm publish</code></h2>
+<p>Publishing a scoped package you don't own, or to an organization you're not a member of, returns 404. Check the <code>name</code> in <code>package.json</code>, and for a public scoped package use <code>npm publish --access public</code>.</p>
+<p class="upd">Last updated 2026-10-29.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/npm-enoent-package-json/">npm ERR! enoent Could not read package.json</a></li><li><a href="/npm/npm-eresolve-unable-to-resolve-dependency-tree/">npm ERR! code ERESOLVE unable to resolve dependency tree</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li><li><a href="/npm/node-err-require-esm/">Error [ERR_REQUIRE_ESM]: require() of ES Module not supported</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

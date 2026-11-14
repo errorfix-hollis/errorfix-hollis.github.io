@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: string indices must be integers (Python) — how to fix</title>
+<meta name="description" content="You indexed a str with a string (or other non-integer) key, as if it were a dict. Usually the data is still raw JSON text, or you are iterating over a dict&#x27;s keys instead of its values.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-string-indices-must-be-integers/">
+<meta property="og:title" content="TypeError: string indices must be integers (Python) — how to fix"><meta property="og:description" content="You indexed a str with a string (or other non-integer) key, as if it were a dict. Usually the data is still raw JSON text, or you are iterating over a dict&#x27;s keys instead of its values.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-string-indices-must-be-integers/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: string indices must be integers (Python) \u2014 how to fix", "description": "You indexed a str with a string (or other non-integer) key, as if it were a dict. Usually the data is still raw JSON text, or you are iterating over a dict's keys instead of its values.", "dateModified": "2026-11-03", "url": "https://errorfix-hollis.github.io/python/python-typeerror-string-indices-must-be-integers/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: string indices must be integers", "item": "https://errorfix-hollis.github.io/python/python-typeerror-string-indices-must-be-integers/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: string indices must be integers (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 5, in &lt;module&gt;
+    print(user[&quot;name&quot;])
+TypeError: string indices must be integers, not &#x27;str&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check <code>type(x)</code> — it is a <code>str</code>, not a <code>dict</code>. Parse JSON first with <code>data = json.loads(text)</code> (or <code>response.json()</code>), and iterate dicts with <code>for k, v in d.items()</code> instead of <code>for item in d</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Strings can only be indexed by integers (<code>s[0]</code>) or slices (<code>s[1:4]</code>). When you write <code>x["name"]</code> and <code>x</code> turns out to be a <code>str</code>, Python raises this error. Python 3.11+ phrases it as <code>string indices must be integers, not 'str'</code>.</p>
+<p>The fix is almost never in the line that fails — it's in wherever <code>x</code> became a string. Print it first:</p>
+<pre><code class="language-python">print(type(user), repr(user)[:200])
+</code></pre>
+<h2 id="cause-1-json-that-was-never-parsed">Cause 1: JSON that was never parsed</h2>
+<pre><code class="language-python">import requests
+r = requests.get(&quot;https://api.example.com/user/1&quot;)
+user = r.text              # a str!
+print(user[&quot;name&quot;])        # TypeError
+</code></pre>
+<p>Fix: decode the JSON into Python objects.</p>
+<pre><code class="language-python">user = r.json()            # dict
+# or, for text from a file / message queue:
+import json
+user = json.loads(text)
+# from a file:
+with open(&quot;user.json&quot;) as f:
+    user = json.load(f)
+</code></pre>
+<p>A related trap is <strong>double-encoded JSON</strong>: <code>json.loads()</code> returns a <code>str</code> again because the payload was serialized twice (<code>"{\"name\": \"a\"}"</code>). Calling <code>json.loads()</code> a second time works, but fixing the producer (don't <code>json.dumps</code> something that's already a JSON string) is better.</p>
+<h2 id="cause-2-iterating-over-a-dict-gives-keys-not-values">Cause 2: iterating over a dict gives keys, not values</h2>
+<pre><code class="language-python">users = {&quot;alice&quot;: {&quot;age&quot;: 30}, &quot;bob&quot;: {&quot;age&quot;: 25}}
+for u in users:
+    print(u[&quot;age&quot;])        # u is &quot;alice&quot; — a str
+</code></pre>
+<p>Fix:</p>
+<pre><code class="language-python">for name, info in users.items():
+    print(name, info[&quot;age&quot;])
+</code></pre>
+<h2 id="cause-3-iterating-over-a-dict-when-you-expected-a-list">Cause 3: iterating over a dict when you expected a list</h2>
+<p>APIs often return <code>{"results": [...]}</code>. Looping over the top-level object yields its keys:</p>
+<pre><code class="language-python">data = r.json()
+for item in data:          # item == &quot;results&quot;
+    print(item[&quot;id&quot;])
+</code></pre>
+<p>Fix: loop over the list inside it.</p>
+<pre><code class="language-python">for item in data[&quot;results&quot;]:
+    print(item[&quot;id&quot;])
+</code></pre>
+<h2 id="cause-4-a-slice-written-with-commas-or-a-float-index">Cause 4: a slice written with commas or a float index</h2>
+<pre><code class="language-python">s = &quot;hello&quot;
+s[1, 3]      # TypeError: string indices must be integers (tuple)
+s[len(s)/2]  # float index -&gt; &quot;string indices must be integers&quot;
+</code></pre>
+<p>Fix:</p>
+<pre><code class="language-python">s[1:3]
+s[len(s) // 2]   # integer division
+</code></pre>
+<h2 id="cause-5-a-csvform-value-that-is-a-string">Cause 5: a CSV/form value that is a string</h2>
+<p><code>csv.reader</code> rows, <code>input()</code>, <code>sys.argv</code> and <code>request.form</code> values are all strings. If you index into them with a key, you get this error. Use <code>csv.DictReader</code> if you want rows keyed by column name:</p>
+<pre><code class="language-python">import csv
+with open(&quot;users.csv&quot;, newline=&quot;&quot;) as f:
+    for row in csv.DictReader(f):
+        print(row[&quot;name&quot;])
+</code></pre>
+<h2 id="quick-checklist">Quick checklist</h2>
+<ul>
+<li><code>print(type(x))</code> right before the failing line.</li>
+<li>If it's JSON text, <code>json.loads</code> it.</li>
+<li>If you're in a <code>for</code> loop over a dict, use <code>.items()</code> or <code>.values()</code>.</li>
+<li>If you meant a slice, use <code>:</code> not <code>,</code>.</li>
+</ul>
+<p class="upd">Last updated 2026-11-03.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-unexpected-token-in-json/">SyntaxError: Unexpected token &#x27;&lt;&#x27;, &quot;&lt;!DOCTYPE &quot;... is not valid JSON</a></li><li><a href="/python/python-keyerror/">KeyError</a></li><li><a href="/python/python-typeerror-nonetype-object-is-not-subscriptable/">TypeError: &#x27;NoneType&#x27; object is not subscriptable</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

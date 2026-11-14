@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR 1451 (23000): Cannot delete or update a parent row: a foreign key constraint fails (MySQL) — how to fix</title>
+<meta name="description" content="You tried to delete (or change the key of) a row that other rows still reference through a foreign key. MySQL blocks it so the child rows don&#x27;t end up pointing at nothing.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-mysql-error-1451-cannot-delete-or-update-a-parent-row/">
+<meta property="og:title" content="ERROR 1451 (23000): Cannot delete or update a parent row: a foreign key constraint fails (MySQL) — how to fix"><meta property="og:description" content="You tried to delete (or change the key of) a row that other rows still reference through a foreign key. MySQL blocks it so the child rows don&#x27;t end up pointing at nothing.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-mysql-error-1451-cannot-delete-or-update-a-parent-row/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR 1451 (23000): Cannot delete or update a parent row: a foreign key constraint fails (MySQL) \u2014 how to fix", "description": "You tried to delete (or change the key of) a row that other rows still reference through a foreign key. MySQL blocks it so the child rows don't end up pointing at nothing.", "dateModified": "2026-11-06", "url": "https://errorfix-hollis.github.io/database/db-mysql-error-1451-cannot-delete-or-update-a-parent-row/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR 1451 (23000): Cannot delete or update a parent row: a foreign key constraint fails", "item": "https://errorfix-hollis.github.io/database/db-mysql-error-1451-cannot-delete-or-update-a-parent-row/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR 1451 (23000): Cannot delete or update a parent row: a foreign key constraint fails (MySQL) — how to fix</h1>
+<pre class="err"><code>ERROR 1451 (23000): Cannot delete or update a parent row: a foreign key constraint fails (`shop`.`orders`, CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`))
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Delete or re-point the child rows first (<code>DELETE FROM orders WHERE customer_id = 42;</code> then delete the parent), or change the constraint to <code>ON DELETE CASCADE</code> / <code>ON DELETE SET NULL</code>. For DROP/TRUNCATE in a controlled reset only: <code>SET FOREIGN_KEY_CHECKS = 0;</code> ... <code>SET FOREIGN_KEY_CHECKS = 1;</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The message names the <strong>child</strong> table and the constraint:</p>
+<pre><code class="language-text">(`shop`.`orders`, CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`customer_id`)
+ REFERENCES `customers` (`id`))
+</code></pre>
+<p>Read it as: rows in <code>orders.customer_id</code> reference <code>customers.id</code>, and the row you're deleting/updating in <code>customers</code> is one of them. The default foreign key action is <code>RESTRICT</code> (<code>NO ACTION</code> behaves the same in InnoDB), so MySQL refuses.</p>
+<p>Error 1452 is the mirror image: inserting a child that references a parent that doesn't exist.</p>
+<h2 id="find-the-rows-that-block-you">Find the rows that block you</h2>
+<pre><code class="language-sql">SELECT * FROM orders WHERE customer_id = 42;
+</code></pre>
+<p>To see every foreign key that points at a table:</p>
+<pre><code class="language-sql">SELECT TABLE_NAME, COLUMN_NAME, CONSTRAINT_NAME
+FROM information_schema.KEY_COLUMN_USAGE
+WHERE REFERENCED_TABLE_SCHEMA = 'shop'
+  AND REFERENCED_TABLE_NAME = 'customers';
+</code></pre>
+<p><code>SHOW ENGINE INNODB STATUS\G</code> also has a <code>LATEST FOREIGN KEY ERROR</code> section with the exact row.</p>
+<h2 id="fix-1-delete-the-children-first-in-a-transaction">Fix 1: delete the children first (in a transaction)</h2>
+<pre><code class="language-sql">START TRANSACTION;
+DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE customer_id = 42);
+DELETE FROM orders WHERE customer_id = 42;
+DELETE FROM customers WHERE id = 42;
+COMMIT;
+</code></pre>
+<p>Work from the deepest child up. A multi-table delete also works: <code>DELETE o, c FROM orders o JOIN customers c ON c.id = o.customer_id WHERE c.id = 42;</code> — but MySQL doesn't guarantee the order, so it can still hit 1451; separate statements are safer.</p>
+<h2 id="fix-2-re-point-or-detach-the-children">Fix 2: re-point or detach the children</h2>
+<p>If the child rows should survive:</p>
+<pre><code class="language-sql">UPDATE orders SET customer_id = NULL WHERE customer_id = 42;   -- column must be NULLable
+-- or move them to another parent
+UPDATE orders SET customer_id = 7 WHERE customer_id = 42;
+</code></pre>
+<h2 id="fix-3-change-the-constraints-on-delete-action">Fix 3: change the constraint's ON DELETE action</h2>
+<p>If deleting a parent should always remove or detach its children, encode that in the schema. You must drop and re-create the foreign key:</p>
+<pre><code class="language-sql">ALTER TABLE orders DROP FOREIGN KEY orders_ibfk_1;
+ALTER TABLE orders
+  ADD CONSTRAINT orders_customer_fk
+  FOREIGN KEY (customer_id) REFERENCES customers(id)
+  ON DELETE CASCADE        -- or ON DELETE SET NULL
+  ON UPDATE CASCADE;
+</code></pre>
+<p><code>CASCADE</code> deletes children automatically (and their children, if those constraints cascade too) — powerful, and dangerous on important data. <code>SET NULL</code> keeps the children with a NULL key. Consider soft-deleting the parent instead (<code>UPDATE customers SET deleted_at = NOW()</code>).</p>
+<p>In ORMs this is configured on the relation, e.g. Django <code>on_delete=models.CASCADE</code>, Laravel <code>-&gt;cascadeOnDelete()</code>, JPA <code>cascade = CascadeType.REMOVE</code> / <code>orphanRemoval</code> (JPA cascades in the application, not the DB).</p>
+<h2 id="fix-4-updating-a-primary-key">Fix 4: updating a primary key</h2>
+<p><code>UPDATE customers SET id = 100 WHERE id = 42</code> fails the same way. Use <code>ON UPDATE CASCADE</code> on the foreign key, or better, don't change primary keys — use a separate business key column.</p>
+<h2 id="fix-5-truncate-or-drop-table">Fix 5: TRUNCATE or DROP TABLE</h2>
+<p><code>TRUNCATE TABLE customers</code> fails with a related error (1701) whenever <em>any</em> foreign key references the table, even if no rows match. <code>DROP TABLE</code> on a referenced table fails too (error 3730 on MySQL 8, 1217 on older versions). When intentionally resetting data (tests, seed scripts), disable checks for the session:</p>
+<pre><code class="language-sql">SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE order_items;
+TRUNCATE TABLE orders;
+TRUNCATE TABLE customers;
+SET FOREIGN_KEY_CHECKS = 1;
+</code></pre>
+<p>This only affects your session, but it lets you leave orphaned rows behind, so never use it as a workaround in application code. Alternatively drop the tables in child-to-parent order.</p>
+<h2 id="fix-6-mysqldump-imports">Fix 6: mysqldump imports</h2>
+<p>Dumps made with <code>mysqldump</code> already include <code>SET FOREIGN_KEY_CHECKS=0</code> at the top. If you hit 1451 while restoring a hand-edited or partial dump, add that line back or load tables in parent-first order.</p>
+<p class="upd">Last updated 2026-11-06.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li><li><a href="/database/db-mysql-error-1205-lock-wait-timeout-exceeded/">ERROR 1205 (HY000): Lock wait timeout exceeded; try restarting transaction</a></li><li><a href="/database/db-mysql-error-1452-cannot-add-or-update-a-child-row/">ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

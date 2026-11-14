@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>cannot execute binary file: Exec format error (Linux) — how to fix</title>
+<meta name="description" content="The file is a program built for a different CPU architecture or OS (e.g. x86_64 binary on an ARM Raspberry Pi/Apple Silicon VM, or a macOS/Windows binary on Linux), or you&#x27;re running a non-binary file as one.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-cannot-execute-binary-file/">
+<meta property="og:title" content="cannot execute binary file: Exec format error (Linux) — how to fix"><meta property="og:description" content="The file is a program built for a different CPU architecture or OS (e.g. x86_64 binary on an ARM Raspberry Pi/Apple Silicon VM, or a macOS/Windows binary on Linux), or you&#x27;re running a non-binary file as one.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-cannot-execute-binary-file/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "cannot execute binary file: Exec format error (Linux) \u2014 how to fix", "description": "The file is a program built for a different CPU architecture or OS (e.g. x86_64 binary on an ARM Raspberry Pi/Apple Silicon VM, or a macOS/Windows binary on Linux), or you're running a non-binary file as one.", "dateModified": "2026-10-29", "url": "https://errorfix-hollis.github.io/linux/linux-cannot-execute-binary-file/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "cannot execute binary file: Exec format error", "item": "https://errorfix-hollis.github.io/linux/linux-cannot-execute-binary-file/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>cannot execute binary file: Exec format error (Linux) — how to fix</h1>
+<pre class="err"><code>bash: ./app: cannot execute binary file: Exec format error
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Compare <code>file ./app</code> with <code>uname -m</code>. Download the build for your architecture (x86_64/amd64 vs aarch64/arm64), or rebuild from source. Scripts need a shebang line like <code>#!/bin/bash</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The kernel looked at the file's header and couldn't run it on this machine.</p>
+<p>Check both sides:</p>
+<pre><code class="language-bash">uname -m        # x86_64, aarch64, armv7l ...
+file ./app
+</code></pre>
+<p>Examples of <code>file</code> output:</p>
+<ul>
+<li><code>ELF 64-bit LSB executable, x86-64</code> → needs <code>x86_64</code></li>
+<li><code>ELF 64-bit LSB executable, ARM aarch64</code> → needs <code>aarch64</code></li>
+<li><code>Mach-O 64-bit executable arm64</code> → a macOS binary; won't run on Linux at all</li>
+<li><code>PE32+ executable (console) x86-64, for MS Windows</code> → a Windows <code>.exe</code></li>
+</ul>
+<h2 id="fix-1-download-the-right-build">Fix 1: download the right build</h2>
+<p>Release pages usually offer <code>linux-amd64</code> / <code>linux-x86_64</code> and <code>linux-arm64</code> / <code>linux-aarch64</code> variants. Raspberry Pi OS 32-bit needs <code>armv7</code>/<code>armhf</code> builds; 64-bit Pi OS needs <code>arm64</code>.</p>
+<h2 id="fix-2-build-from-source">Fix 2: build from source</h2>
+<pre><code class="language-bash">go build ./...            # Go builds for the current machine
+cargo build --release     # Rust
+</code></pre>
+<p>Cross-compiling for another target: <code>GOOS=linux GOARCH=arm64 go build</code>, or <code>cargo build --target aarch64-unknown-linux-gnu</code>.</p>
+<h2 id="fix-3-run-under-emulation">Fix 3: run under emulation</h2>
+<p>Install QEMU user-mode emulation (slow, but works for occasional use):</p>
+<pre><code class="language-bash">sudo apt install qemu-user-static binfmt-support
+./app
+</code></pre>
+<h2 id="fix-4-its-not-a-binary">Fix 4: it's not a binary</h2>
+<ul>
+<li>Running a text script with <code>./script.sh</code> and no shebang can fail this way under some shells; add <code>#!/bin/bash</code> as the first line.</li>
+<li>A corrupted or incomplete download (an HTML error page saved as <code>app</code>) gives the same error. Check with <code>file</code> and <code>head -c 200 app</code>.</li>
+<li><code>bash ./app</code> on a binary gives <code>cannot execute binary file</code> too — run it directly with <code>./app</code>.</li>
+</ul>
+<p class="upd">Last updated 2026-10-29.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-exec-format-error/">exec format error</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/linux/linux-permission-denied-running-script/">bash: ./script.sh: Permission denied</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-command-not-found/">command not found</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

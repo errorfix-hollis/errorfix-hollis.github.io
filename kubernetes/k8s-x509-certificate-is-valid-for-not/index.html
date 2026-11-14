@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>x509: certificate is valid for X, not Y (Kubernetes) — how to fix</title>
+<meta name="description" content="The API server&#x27;s TLS certificate doesn&#x27;t list the IP or hostname you used in kubeconfig as a Subject Alternative Name (SAN). Common after connecting via a public IP, load balancer or new DNS name.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-x509-certificate-is-valid-for-not/">
+<meta property="og:title" content="x509: certificate is valid for X, not Y (Kubernetes) — how to fix"><meta property="og:description" content="The API server&#x27;s TLS certificate doesn&#x27;t list the IP or hostname you used in kubeconfig as a Subject Alternative Name (SAN). Common after connecting via a public IP, load balancer or new DNS name.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-x509-certificate-is-valid-for-not/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "x509: certificate is valid for X, not Y (Kubernetes) \u2014 how to fix", "description": "The API server's TLS certificate doesn't list the IP or hostname you used in kubeconfig as a Subject Alternative Name (SAN). Common after connecting via a public IP, load balancer or new DNS name.", "dateModified": "2026-11-11", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-x509-certificate-is-valid-for-not/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "x509: certificate is valid for X, not Y", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-x509-certificate-is-valid-for-not/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>x509: certificate is valid for X, not Y (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Unable to connect to the server: x509: certificate is valid for 10.96.0.1, 172.31.5.10, not 54.210.33.12
+tls: failed to verify certificate: x509: certificate is valid for kubernetes, kubernetes.default, not k8s.example.com
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Either connect using a name/IP that's in the cert (check with `openssl s_client -connect HOST:6443 </p>
+<h2 id="what-it-means">What it means</h2>
+<p>TLS verification checks two things: that the certificate is signed by a trusted CA, and that the address you connected to appears in the certificate's SAN list. The CA part passed here; the name check failed. The message lists the names the cert <em>is</em> valid for, then the one you used (<code>not ...</code>).</p>
+<p>Typical situations:</p>
+<ul>
+<li>The cluster was built with private IPs and you now connect through a public IP or NAT (cloud VM, home lab port-forward).</li>
+<li>A load balancer or DNS name (<code>k8s.example.com</code>) was added in front of the control plane later.</li>
+<li>The node's IP changed after the cert was issued.</li>
+</ul>
+<p>See the SANs of the certificate actually served:</p>
+<pre><code class="language-bash">openssl s_client -connect 54.210.33.12:6443 &lt;/dev/null 2&gt;/dev/null \
+  | openssl x509 -noout -ext subjectAltName
+</code></pre>
+<p>And check which address your kubeconfig uses:</p>
+<pre><code class="language-bash">kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'
+</code></pre>
+<h2 id="fix-1-use-an-address-that-is-in-the-certificate">Fix 1: use an address that is in the certificate</h2>
+<p>If the cert includes a DNS name or IP you can reach (e.g. through a VPN), point kubeconfig at it:</p>
+<pre><code class="language-bash">kubectl config set-cluster mycluster --server=https://172.31.5.10:6443
+</code></pre>
+<p>If only the name is wrong but the IP works, you can keep the IP and override the name used for verification:</p>
+<pre><code class="language-bash">kubectl config set-cluster mycluster --tls-server-name=kubernetes
+</code></pre>
+<p><code>tls-server-name</code> (kubectl 1.19+) keeps full verification, unlike skipping TLS.</p>
+<h2 id="fix-2-kubeadm-add-sans-and-regenerate-the-api-server-cert">Fix 2: kubeadm, add SANs and regenerate the API server cert</h2>
+<p>On a control-plane node, add the names to the kubeadm config:</p>
+<pre><code class="language-yaml"># kubeadm-config.yaml (ClusterConfiguration)
+apiServer:
+  certSANs:
+    - &quot;54.210.33.12&quot;
+    - &quot;k8s.example.com&quot;
+</code></pre>
+<p>Then regenerate (back up first):</p>
+<pre><code class="language-bash">sudo mkdir -p /root/pki-backup &amp;&amp; sudo cp -a /etc/kubernetes/pki /root/pki-backup/
+sudo rm /etc/kubernetes/pki/apiserver.{crt,key}
+sudo kubeadm init phase certs apiserver --config kubeadm-config.yaml
+</code></pre>
+<p>The kube-apiserver static pod picks up the new cert after a restart; the simplest way is to move its manifest out and back:</p>
+<pre><code class="language-bash">sudo mv /etc/kubernetes/manifests/kube-apiserver.yaml /tmp/ &amp;&amp; sleep 20
+sudo mv /tmp/kube-apiserver.yaml /etc/kubernetes/manifests/
+</code></pre>
+<p>For a new cluster, pass the SANs up front: <code>kubeadm init --apiserver-cert-extra-sans=54.210.33.12,k8s.example.com</code>. Repeat the cert step on every control-plane node.</p>
+<h2 id="fix-3-k3s-rke2">Fix 3: k3s / RKE2</h2>
+<p>Add the SAN to the config and restart; k3s regenerates the serving cert automatically:</p>
+<pre><code class="language-yaml"># /etc/rancher/k3s/config.yaml
+tls-san:
+  - 54.210.33.12
+  - k8s.example.com
+</code></pre>
+<pre><code class="language-bash">sudo systemctl restart k3s
+</code></pre>
+<p>(RKE2 uses <code>/etc/rancher/rke2/config.yaml</code> and <code>rke2-server</code>.)</p>
+<h2 id="fix-4-managed-clusters-and-minikube">Fix 4: managed clusters and minikube</h2>
+<p>On EKS/GKE/AKS you can't change the API cert; always use the endpoint from <code>aws eks update-kubeconfig</code>, <code>gcloud container clusters get-credentials</code> or <code>az aks get-credentials</code>. For minikube use <code>minikube start --apiserver-ips=... --apiserver-names=...</code>.</p>
+<h2 id="same-error-outside-kubectl">Same error outside kubectl</h2>
+<p><code>x509: certificate is valid for ..., not ...</code> from Docker, Go programs or curl means the same thing for any server: the hostname you use must be in the cert. Fix the cert (e.g. reissue with Let's Encrypt including all names) or connect with the right hostname.</p>
+<p>Avoid <code>insecure-skip-tls-verify: true</code> in kubeconfig: it disables all certificate checks, not just the name.</p>
+<p class="upd">Last updated 2026-11-11.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-unable-to-connect-to-the-server-dial-tcp-i-o-timeout/">Unable to connect to the server: dial tcp: i/o timeout</a></li><li><a href="/kubernetes/k8s-x509-certificate-has-expired-or-is-not-yet-valid/">x509: certificate has expired or is not yet valid</a></li><li><a href="/web/web-x509-certificate-signed-by-unknown-authority/">x509: certificate signed by unknown authority</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

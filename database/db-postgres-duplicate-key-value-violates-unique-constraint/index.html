@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR: duplicate key value violates unique constraint (PostgreSQL) — how to fix</title>
+<meta name="description" content="PostgreSQL rejected an INSERT or UPDATE because a row with the same value already exists in a column with a PRIMARY KEY or UNIQUE constraint. On a _pkey constraint it&#x27;s usually a sequence that fell behind after manual inserts or a data import.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-duplicate-key-value-violates-unique-constraint/">
+<meta property="og:title" content="ERROR: duplicate key value violates unique constraint (PostgreSQL) — how to fix"><meta property="og:description" content="PostgreSQL rejected an INSERT or UPDATE because a row with the same value already exists in a column with a PRIMARY KEY or UNIQUE constraint. On a _pkey constraint it&#x27;s usually a sequence that fell behind after manual inserts or a data import.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-duplicate-key-value-violates-unique-constraint/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR: duplicate key value violates unique constraint (PostgreSQL) \u2014 how to fix", "description": "PostgreSQL rejected an INSERT or UPDATE because a row with the same value already exists in a column with a PRIMARY KEY or UNIQUE constraint. On a _pkey constraint it's usually a sequence that fell behind after manual inserts or a data import.", "dateModified": "2026-10-31", "url": "https://errorfix-hollis.github.io/database/db-postgres-duplicate-key-value-violates-unique-constraint/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR: duplicate key value violates unique constraint", "item": "https://errorfix-hollis.github.io/database/db-postgres-duplicate-key-value-violates-unique-constraint/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR: duplicate key value violates unique constraint (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>ERROR:  duplicate key value violates unique constraint &quot;users_pkey&quot;
+DETAIL:  Key (id)=(1) already exists.
+ERROR:  duplicate key value violates unique constraint &quot;users_email_key&quot;
+DETAIL:  Key (email)=(ada@example.com) already exists.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> If it's <code>&lt;table&gt;_pkey</code> after an import, reset the sequence: <code>SELECT setval(pg_get_serial_sequence('users','id'), COALESCE(MAX(id),0)+1, false) FROM users;</code>. If it's real duplicate data, use <code>INSERT ... ON CONFLICT (email) DO NOTHING</code> or <code>DO UPDATE SET ...</code> for upserts, and don't insert explicit ids.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The constraint name and <code>DETAIL</code> line tell you which column clashed and with what value. The SQLSTATE code is <code>23505</code> (<code>unique_violation</code>), which is what ORMs and drivers check for (<code>IntegrityError</code> in SQLAlchemy/Django, <code>P2002</code> in Prisma).</p>
+<h2 id="cause-1-the-id-sequence-is-out-of-sync-most-common">Cause 1: the id sequence is out of sync (most common)</h2>
+<p><code>serial</code>/<code>identity</code> columns get their next value from a sequence. If rows were inserted <strong>with explicit ids</strong> (a dump, a CSV import, seed scripts, copying data from another DB), the sequence doesn't move, and the next normal insert reuses an existing id: <code>Key (id)=(1) already exists</code>.</p>
+<p>Check:</p>
+<pre><code class="language-sql">SELECT MAX(id) FROM users;
+SELECT last_value FROM users_id_seq;     -- or the name from the query below
+SELECT pg_get_serial_sequence('users', 'id');
+</code></pre>
+<p>Fix by moving the sequence past the highest id:</p>
+<pre><code class="language-sql">SELECT setval(pg_get_serial_sequence('users', 'id'),
+              COALESCE(MAX(id), 0) + 1, false)
+FROM users;
+</code></pre>
+<p>(<code>false</code> means the next <code>nextval</code> returns exactly that value.) Do this for every table you imported into. Then stop sending <code>id</code> in your INSERTs.</p>
+<h2 id="cause-2-genuinely-duplicate-data">Cause 2: genuinely duplicate data</h2>
+<p>For a unique business column like <code>email</code>, decide what should happen.</p>
+<p>Ignore duplicates:</p>
+<pre><code class="language-sql">INSERT INTO users (email, name)
+VALUES ('ada@example.com', 'Ada')
+ON CONFLICT (email) DO NOTHING;
+</code></pre>
+<p>Upsert (update the existing row):</p>
+<pre><code class="language-sql">INSERT INTO users (email, name)
+VALUES ('ada@example.com', 'Ada Lovelace')
+ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name;
+</code></pre>
+<p><code>ON CONFLICT</code> needs a unique index or constraint on exactly those columns. Available since PostgreSQL 9.5.</p>
+<h2 id="cause-3-duplicates-inside-one-statement">Cause 3: duplicates inside one statement</h2>
+<p>A multi-row INSERT or <code>INSERT ... SELECT</code> with the same key twice fails even if the table is empty. With <code>ON CONFLICT DO UPDATE</code> you'll instead get "command cannot affect row a second time". De-duplicate the source:</p>
+<pre><code class="language-sql">INSERT INTO users (email, name)
+SELECT DISTINCT ON (email) email, name FROM staging_users ORDER BY email, updated_at DESC
+ON CONFLICT (email) DO NOTHING;
+</code></pre>
+<h2 id="cause-4-race-conditions">Cause 4: race conditions</h2>
+<p>"Check if it exists, then insert" in application code fails when two requests run at the same time. Don't pre-check; rely on the constraint and use <code>ON CONFLICT</code>, or catch the <code>23505</code> error and handle it (e.g. return HTTP 409).</p>
+<h2 id="cause-5-case-or-whitespace-variants">Cause 5: case or whitespace variants</h2>
+<p><code>Ada@Example.com</code> and <code>ada@example.com</code> are different to a normal unique index. If they should be the same, normalise before inserting, or use a unique index on <code>lower(email)</code> (then <code>ON CONFLICT</code> must target that expression) or the <code>citext</code> type.</p>
+<h2 id="adding-a-unique-constraint-fails">Adding a unique constraint fails</h2>
+<p>When creating a constraint on existing data you get "could not create unique index ... Key (...) is duplicated". Find the duplicates first:</p>
+<pre><code class="language-sql">SELECT email, COUNT(*) FROM users GROUP BY email HAVING COUNT(*) &gt; 1;
+</code></pre>
+<p class="upd">Last updated 2026-10-31.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-postgres-connection-refused/">psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused</a></li><li><a href="/database/db-postgres-relation-does-not-exist/">ERROR: relation does not exist</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

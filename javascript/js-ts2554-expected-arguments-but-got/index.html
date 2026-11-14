@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Expected 1 arguments, but got 0. ts(2554) (TypeScript) — how to fix</title>
+<meta name="description" content="You called a function, method or constructor with a different number of arguments than its TypeScript signature declares. Either pass the right arguments or change the signature (optional, default or rest parameters).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-ts2554-expected-arguments-but-got/">
+<meta property="og:title" content="Expected 1 arguments, but got 0. ts(2554) (TypeScript) — how to fix"><meta property="og:description" content="You called a function, method or constructor with a different number of arguments than its TypeScript signature declares. Either pass the right arguments or change the signature (optional, default or rest parameters).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-ts2554-expected-arguments-but-got/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Expected 1 arguments, but got 0. ts(2554) (TypeScript) \u2014 how to fix", "description": "You called a function, method or constructor with a different number of arguments than its TypeScript signature declares. Either pass the right arguments or change the signature (optional, default or rest parameters).", "dateModified": "2026-11-07", "url": "https://errorfix-hollis.github.io/javascript/js-ts2554-expected-arguments-but-got/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "Expected 1 arguments, but got 0. ts(2554)", "item": "https://errorfix-hollis.github.io/javascript/js-ts2554-expected-arguments-but-got/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>Expected 1 arguments, but got 0. ts(2554) (TypeScript) — how to fix</h1>
+<pre class="err"><code>error TS2554: Expected 1 arguments, but got 0.
+error TS2554: Expected 2 arguments, but got 3.
+error TS2555: Expected at least 1 arguments, but got 0.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Hover the function to see its signature and match it. Make a parameter optional with <code>?</code> (<code>function f(a?: string)</code>) or give it a default (<code>a = ''</code>). For React <code>useRef</code>/<code>useState</code> in React 19 types, pass an initial value: <code>useRef&lt;HTMLDivElement&gt;(null)</code>. For overloaded library functions, update <code>@types/*</code> to match the library version.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Unlike JavaScript, TypeScript checks the argument count. A parameter is required unless it is marked optional (<code>?</code>), has a default value, or is a rest parameter (<code>...args</code>). TS2554 lists how many it expected and how many you passed; TS2555 is the same for functions with a rest or optional tail ("at least N").</p>
+<pre><code class="language-ts">function greet(name: string) { return `hi ${name}`; }
+greet();             // TS2554: Expected 1 arguments, but got 0.
+greet(&quot;a&quot;, &quot;b&quot;);     // TS2554: Expected 1 arguments, but got 2.
+</code></pre>
+<h2 id="fix-1-pass-the-expected-arguments">Fix 1: pass the expected arguments</h2>
+<p>Hover the function in your editor (or Ctrl+click to the definition) to see its signature, then match it. Often an argument was added to a function you own and not every call site was updated; <code>tsc --noEmit</code> lists them all.</p>
+<h2 id="fix-2-make-parameters-optional">Fix 2: make parameters optional</h2>
+<p>If the argument really can be left out, say so in the signature:</p>
+<pre><code class="language-ts">function greet(name?: string) {
+  return `hi ${name ?? &quot;there&quot;}`;
+}
+
+function paginate(page = 1, size = 20) { /* ... */ }
+
+function log(...parts: unknown[]) { console.log(...parts); }
+</code></pre>
+<p>For many optional settings use an options object: <code>function connect(opts: { host?: string; port?: number } = {})</code>.</p>
+<h2 id="fix-3-new-promise-resolve-with-no-value">Fix 3: <code>new Promise</code> resolve with no value</h2>
+<pre><code class="language-ts">await new Promise((resolve) =&gt; setTimeout(() =&gt; resolve(), 100));
+// TS2554: Expected 1 arguments, but got 0.  (Did you forget to include 'void' in your type argument to 'Promise'?)
+</code></pre>
+<p>Fix: declare the promise as <code>Promise&lt;void&gt;</code>:</p>
+<pre><code class="language-ts">await new Promise&lt;void&gt;((resolve) =&gt; setTimeout(resolve, 100));
+</code></pre>
+<h2 id="fix-4-react-19-type-changes">Fix 4: React 19 type changes</h2>
+<p>With <code>@types/react</code> 19, <code>useRef</code> requires an argument:</p>
+<pre><code class="language-tsx">const ref = useRef&lt;HTMLInputElement&gt;();      // TS2554 in React 19 types
+const ref = useRef&lt;HTMLInputElement&gt;(null);  // ok
+const timer = useRef&lt;number | undefined&gt;(undefined);
+</code></pre>
+<p>Also <code>createContext</code> always needs a default value: <code>createContext&lt;User | null&gt;(null)</code>.</p>
+<h2 id="fix-5-event-handlers-and-callbacks">Fix 5: event handlers and callbacks</h2>
+<p>Passing a function that requires an argument where the caller provides none, or calling a handler yourself without the event:</p>
+<pre><code class="language-tsx">function onSave(e: React.MouseEvent) { /* ... */ }
+onSave();                                   // TS2554
+&lt;button onClick={onSave}&gt;Save&lt;/button&gt;       // ok: React passes the event
+&lt;button onClick={() =&gt; onSave()}&gt;Save&lt;/button&gt; // TS2554
+</code></pre>
+<p>If the handler doesn't use the event, drop the parameter.</p>
+<h2 id="fix-6-library-types-out-of-sync">Fix 6: library types out of sync</h2>
+<p>If a library call that matches the docs fails, the installed type definitions are for a different version:</p>
+<pre><code class="language-bash">npm ls @types/node @types/express
+npm install -D @types/express@latest
+</code></pre>
+<p>Libraries that ship their own types are fixed by upgrading the library itself. Check which overloads exist with "Go to Definition". When a function has overloads, TS reports the error against the closest overload, which may not be the one you intended.</p>
+<h2 id="fix-7-class-constructors-and-super">Fix 7: class constructors and <code>super()</code></h2>
+<pre><code class="language-ts">class Base { constructor(public id: string) {} }
+class Child extends Base {
+  constructor() { super(); }   // TS2554
+}
+</code></pre>
+<p>Pass the required arguments to <code>super(...)</code>. Also note that <code>new Child(...)</code> is checked against the subclass constructor, not the base one.</p>
+<p>Avoid silencing it with <code>// @ts-ignore</code> or <code>as any</code>: the runtime call will receive <code>undefined</code> for the missing argument.</p>
+<p class="upd">Last updated 2026-11-07.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-ts2322-type-is-not-assignable-to-type/">TS2322: Type &#x27;X&#x27; is not assignable to type &#x27;Y&#x27;</a></li><li><a href="/javascript/js-ts2339-property-does-not-exist-on-type/">Property &#x27;x&#x27; does not exist on type &#x27;Y&#x27;</a></li><li><a href="/javascript/js-ts2345-argument-of-type-is-not-assignable-to-parameter/">TS2345: Argument of type &#x27;string | undefined&#x27; is not assignable to parameter of type &#x27;string&#x27;.</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

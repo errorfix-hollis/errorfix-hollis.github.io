@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;sklearn&#x27; (Python) — how to fix</title>
+<meta name="description" content="scikit-learn is not installed in the interpreter running your code. The import name is sklearn, but the package is called scikit-learn.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-sklearn/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;sklearn&#x27; (Python) — how to fix"><meta property="og:description" content="scikit-learn is not installed in the interpreter running your code. The import name is sklearn, but the package is called scikit-learn.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-sklearn/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'sklearn' (Python) \u2014 how to fix", "description": "scikit-learn is not installed in the interpreter running your code. The import name is sklearn, but the package is called scikit-learn.", "dateModified": "2026-11-10", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-sklearn/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'sklearn'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-sklearn/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;sklearn&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;train.py&quot;, line 2, in &lt;module&gt;
+    from sklearn.model_selection import train_test_split
+ModuleNotFoundError: No module named &#x27;sklearn&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>python -m pip install scikit-learn</code> (not <code>pip install sklearn</code>, which is a deprecated dummy package that now errors). In conda use <code>conda install scikit-learn</code>; in Jupyter run <code>%pip install scikit-learn</code> and restart the kernel.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>You import <code>sklearn</code>, but the project on PyPI is called <strong>scikit-learn</strong>. Python could not find a <code>sklearn</code> package anywhere on the current interpreter's <code>sys.path</code>.</p>
+<h2 id="cause-1-scikit-learn-is-not-installed">Cause 1: scikit-learn is not installed</h2>
+<pre><code class="language-bash">python -m pip install scikit-learn
+python -c &quot;import sklearn; print(sklearn.__version__)&quot;
+</code></pre>
+<p>Do <strong>not</strong> use <code>pip install sklearn</code>. The <code>sklearn</code> package on PyPI was a placeholder that pulled in scikit-learn; since December 2023 installing it fails on purpose with:</p>
+<pre><code>The 'sklearn' PyPI package is deprecated, use 'scikit-learn' rather than 'sklearn' for pip commands.
+</code></pre>
+<p>If <code>sklearn</code> is listed in your <code>requirements.txt</code>, <code>setup.py</code> or <code>pyproject.toml</code>, replace it with <code>scikit-learn</code>. (Setting <code>SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True</code> bypasses the check, but just fix the name.)</p>
+<h2 id="cause-2-wrong-interpreter-or-environment">Cause 2: wrong interpreter or environment</h2>
+<p><code>pip</code> may install into a different Python than the one running the script:</p>
+<pre><code class="language-bash">which python &amp;&amp; python -m pip --version
+</code></pre>
+<p>Use <code>python -m pip</code> (Windows: <code>py -m pip</code>) so both match. If you use a venv, activate it before installing and running:</p>
+<pre><code class="language-bash">python -m venv .venv
+source .venv/bin/activate
+python -m pip install scikit-learn
+</code></pre>
+<h2 id="cause-3-conda-environments">Cause 3: conda environments</h2>
+<p>Activate the environment first, then install from conda-forge or defaults:</p>
+<pre><code class="language-bash">conda activate myenv
+conda install -c conda-forge scikit-learn
+</code></pre>
+<p>Running <code>python</code> from outside the activated env (e.g. an IDE pointing at base) will still fail.</p>
+<h2 id="cause-4-jupyter-kernel-is-a-different-python">Cause 4: Jupyter kernel is a different Python</h2>
+<pre><code class="language-python">import sys; print(sys.executable)
+%pip install scikit-learn
+</code></pre>
+<p>Restart the kernel afterwards. If the notebook should use a venv, register it: <code>python -m ipykernel install --user --name myenv</code> and pick it in the kernel menu.</p>
+<h2 id="cause-5-install-failed-silently-or-needs-a-build">Cause 5: install failed silently or needs a build</h2>
+<p>On very new Python versions, a wheel may not exist yet for the scikit-learn version pinned, so pip tries to compile from source and fails (see <a href="/python/python-failed-building-wheel/">Failed building wheel</a>). Upgrade pip and allow a newer version:</p>
+<pre><code class="language-bash">python -m pip install --upgrade pip
+python -m pip install --upgrade scikit-learn
+</code></pre>
+<p>Or use a Python version that has wheels available (check the scikit-learn release notes).</p>
+<h2 id="cause-6-a-local-file-shadows-it">Cause 6: a local file shadows it</h2>
+<p>A file named <code>sklearn.py</code> in your project directory gets imported instead of the library. Rename it and remove <code>__pycache__</code>.</p>
+<p class="upd">Last updated 2026-11-10.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-failed-building-wheel/">error: Failed building wheel for X</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-pil/">ModuleNotFoundError: No module named &#x27;PIL&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

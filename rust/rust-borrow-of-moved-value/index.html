@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error[E0382]: borrow of moved value (Rust) — how to fix</title>
+<meta name="description" content="You used a value after ownership moved somewhere else. Borrow it with &amp; instead of moving it, clone it, or reorder the code.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/rust/rust-borrow-of-moved-value/">
+<meta property="og:title" content="error[E0382]: borrow of moved value (Rust) — how to fix"><meta property="og:description" content="You used a value after ownership moved somewhere else. Borrow it with &amp; instead of moving it, clone it, or reorder the code.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/rust/rust-borrow-of-moved-value/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error[E0382]: borrow of moved value (Rust) \u2014 how to fix", "description": "You used a value after ownership moved somewhere else. Borrow it with & instead of moving it, clone it, or reorder the code.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/rust/rust-borrow-of-moved-value/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Rust", "item": "https://errorfix-hollis.github.io/rust/"}, {"@type": "ListItem", "position": 3, "name": "error[E0382]: borrow of moved value", "item": "https://errorfix-hollis.github.io/rust/rust-borrow-of-moved-value/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/rust/">Rust</a></p>
+<article><h1>error[E0382]: borrow of moved value (Rust) — how to fix</h1>
+<pre class="err"><code>error[E0382]: borrow of moved value: `name`
+ --&gt; src/main.rs:5:20
+  |
+2 |     let name = String::from(&quot;ann&quot;);
+  |         ---- move occurs because `name` has type `String`, which does not implement the `Copy` trait
+3 |     let user = User { name };
+  |                       ---- value moved here
+4 |
+5 |     println!(&quot;{}&quot;, name);
+  |                    ^^^^ value borrowed here after move
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Pass a reference (<code>&amp;name</code>) if the receiver doesn't need ownership, call <code>.clone()</code> if both places need their own copy, or use the value before it's moved.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>In Rust, assigning a non-<code>Copy</code> value (like <code>String</code>, <code>Vec</code>, or most structs), passing it to a function, or putting it in a struct <strong>moves</strong> it. The old variable can no longer be used. The compiler shows exactly where the move happened ("value moved here").</p>
+<h2 id="fix-1-borrow-instead-of-moving">Fix 1: borrow instead of moving</h2>
+<p>If the function only needs to read the value, take a reference:</p>
+<pre><code class="language-rust">fn greet(name: &amp;str) { println!(&quot;hi {name}&quot;); }
+
+let name = String::from(&quot;ann&quot;);
+greet(&amp;name);
+println!(&quot;{name}&quot;);   // still usable
+</code></pre>
+<h2 id="fix-2-clone">Fix 2: clone</h2>
+<p>When both places really need their own copy:</p>
+<pre><code class="language-rust">let user = User { name: name.clone() };
+println!(&quot;{name}&quot;);
+</code></pre>
+<p>Cloning is fine for small values; for big data or hot loops, prefer references or <code>Rc</code>/<code>Arc</code>.</p>
+<h2 id="fix-3-use-it-before-the-move">Fix 3: use it before the move</h2>
+<pre><code class="language-rust">println!(&quot;{name}&quot;);
+let user = User { name };
+</code></pre>
+<h2 id="in-loops">In loops</h2>
+<pre><code class="language-rust">for item in items { ... }      // moves `items`
+for item in &amp;items { ... }     // borrows; items is still usable afterwards
+for item in &amp;mut items { ... } // mutable borrow
+</code></pre>
+<h2 id="in-closures-and-threads">In closures and threads</h2>
+<p><code>move</code> closures take ownership of captured variables. Clone before the closure if you need the value afterwards, or share it with <code>Arc</code>:</p>
+<pre><code class="language-rust">let data = Arc::new(data);
+let d = Arc::clone(&amp;data);
+thread::spawn(move || use_data(&amp;d));
+</code></pre>
+<h2 id="make-small-types-copy">Make small types Copy</h2>
+<p>Plain structs made only of <code>Copy</code> fields (numbers, <code>bool</code>, <code>char</code>) can derive it, and then they're copied instead of moved:</p>
+<pre><code class="language-rust">#[derive(Clone, Copy)]
+struct Point { x: f64, y: f64 }
+</code></pre>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/rust/rust-cannot-borrow-as-mutable/">error[E0502]: cannot borrow as mutable because it is also borrowed as immutable</a></li><li><a href="/rust/rust-e0106-missing-lifetime-specifier/">error[E0106]: missing lifetime specifier</a></li><li><a href="/rust/rust-e0277-trait-bound-not-satisfied/">error[E0277]: the trait bound is not satisfied</a></li><li><a href="/rust/rust-e0308-mismatched-types/">error[E0308]: mismatched types</a></li><li><a href="/rust/rust-e0412-cannot-find-type-in-this-scope/">error[E0412]: cannot find type `X` in this scope</a></li><li><a href="/rust/rust-e0425-cannot-find-value-in-this-scope/">error[E0425]: cannot find value `x` in this scope</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: object file .git/objects/xx/... is empty — how to fix</title>
+<meta name="description" content="A loose object file in .git/objects was truncated to zero bytes, usually by a crash, power loss, full disk or a sync tool (Dropbox, OneDrive) touching the repo. Git can&#x27;t read that commit, tree or blob.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-object-file-is-empty/">
+<meta property="og:title" content="error: object file .git/objects/xx/... is empty — how to fix"><meta property="og:description" content="A loose object file in .git/objects was truncated to zero bytes, usually by a crash, power loss, full disk or a sync tool (Dropbox, OneDrive) touching the repo. Git can&#x27;t read that commit, tree or blob.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-object-file-is-empty/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: object file .git/objects/xx/... is empty \u2014 how to fix", "description": "A loose object file in .git/objects was truncated to zero bytes, usually by a crash, power loss, full disk or a sync tool (Dropbox, OneDrive) touching the repo. Git can't read that commit, tree or blob.", "dateModified": "2026-11-11", "url": "https://errorfix-hollis.github.io/git/git-object-file-is-empty/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "error: object file .git/objects/xx/... is empty", "item": "https://errorfix-hollis.github.io/git/git-object-file-is-empty/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>error: object file .git/objects/xx/... is empty — how to fix</h1>
+<pre class="err"><code>error: object file .git/objects/3a/8f2c41e0b7d9a5c6e1f4b2d8a7c3e9f0b1d2a4 is empty
+error: object file .git/objects/3a/8f2c41e0b7d9a5c6e1f4b2d8a7c3e9f0b1d2a4 is empty
+fatal: loose object 3a8f2c41e0b7d9a5c6e1f4b2d8a7c3e9f0b1d2a4 (stored in .git/objects/3a/8f2c41...) is corrupt
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Back up first (<code>cp -r .git ../git-backup</code>). Delete the empty object files: <code>find .git/objects -type f -empty -delete</code>, then <code>git fetch -p</code> to re-download missing objects from the remote and run <code>git fsck --full</code> to check. If only local commits are lost, recover them from <code>git reflog</code> or re-clone and copy your working files over.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Git stores each commit, tree and file version as a compressed <em>object</em> under <code>.git/objects/&lt;2 chars&gt;/&lt;38 chars&gt;</code>. Writing an object is normally atomic, but if the machine crashed, the disk filled up, or a VM/filesystem didn't flush in time, you can end up with a file that exists but has 0 bytes. Any command that needs it (<code>status</code>, <code>log</code>, <code>commit</code>, <code>pull</code>) fails with this error.</p>
+<p>The good news: if you have a remote, almost everything is recoverable, because the remote has the same objects.</p>
+<h2 id="step-0-back-up-the-repository">Step 0: back up the repository</h2>
+<p>Repairs delete files. Copy first:</p>
+<pre><code class="language-bash">cp -a .git ../repo-git-backup
+</code></pre>
+<p>Also make sure the disk isn't full (<code>df -h .</code>). If it is, free space before anything else, or the repair will corrupt more objects.</p>
+<h2 id="fix-1-remove-empty-objects-and-re-fetch">Fix 1: remove empty objects and re-fetch</h2>
+<pre><code class="language-bash">find .git/objects -type f -empty -delete    # remove the 0-byte objects
+git fetch -p                                # re-download objects the remote has
+git fsck --full                             # list what is still broken
+</code></pre>
+<p>If <code>git fsck</code> reports only <code>dangling</code> objects, the repo is fine. If <code>git status</code> still fails with <code>bad object HEAD</code> or <code>missing tree</code>, continue below.</p>
+<h2 id="fix-2-repair-a-broken-head-or-branch-ref">Fix 2: repair a broken HEAD or branch ref</h2>
+<p>If the corrupted object was the commit your branch points to, the ref now points at nothing. Look at the reflog to find the previous good commit:</p>
+<pre><code class="language-bash">tail -n 5 .git/logs/HEAD          # works even when git commands fail
+git reflog                        # if git itself still runs
+</code></pre>
+<p>Point the branch at a known good commit (either from the reflog or the remote):</p>
+<pre><code class="language-bash">git update-ref refs/heads/main origin/main      # or a hash from the reflog
+git reset                                       # rebuild the index from HEAD, keeps working files
+</code></pre>
+<p>The empty index (<code>.git/index</code>) can also be the problem (<code>error: bad signature</code>, <code>index file corrupt</code>). Rebuild it:</p>
+<pre><code class="language-bash">rm .git/index
+git reset
+</code></pre>
+<p><code>git reset</code> without <code>--hard</code> keeps your working directory untouched.</p>
+<h2 id="fix-3-commits-that-were-never-pushed">Fix 3: commits that were never pushed</h2>
+<p>Objects that only existed locally can't be fetched. Check what you'd lose:</p>
+<pre><code class="language-bash">git fsck --full 2&gt;&amp;1 | grep -E 'missing|broken'
+</code></pre>
+<p>If the missing objects are blobs of files you still have in your working tree, re-add them: <code>git hash-object -w path/to/file</code> recreates the blob if the content is identical. Missing commits or trees usually mean recreating those commits.</p>
+<h2 id="fix-4-re-clone-fastest-when-you-have-a-remote">Fix 4: re-clone (fastest when you have a remote)</h2>
+<p>When the repair gets messy, start fresh and keep your uncommitted work:</p>
+<pre><code class="language-bash">cd ..
+git clone git@github.com:me/repo.git repo-fresh
+rsync -a --exclude .git repo/ repo-fresh/     # copy your working files over
+cd repo-fresh &amp;&amp; git status                   # review and commit your changes
+</code></pre>
+<h2 id="preventing-it">Preventing it</h2>
+<ul>
+<li>Don't keep repos in Dropbox/OneDrive/iCloud-synced folders; sync clients rewrite files mid-operation.</li>
+<li>On VMs and WSL, shut down cleanly rather than killing the VM.</li>
+<li>Push often, so the remote always holds a full copy of your objects.</li>
+</ul>
+<p class="upd">Last updated 2026-11-11.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-fatal-bad-object/">fatal: bad object</a></li><li><a href="/git/git-index-lock-file-exists/">fatal: Unable to create &#x27;.git/index.lock&#x27;: File exists.</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

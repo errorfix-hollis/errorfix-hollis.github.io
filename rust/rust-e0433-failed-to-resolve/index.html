@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error[E0433]: failed to resolve: use of undeclared crate or module (Rust) — how to fix</title>
+<meta name="description" content="The compiler can&#x27;t find the first segment of a path like foo::bar. Either the crate isn&#x27;t in Cargo.toml, the module isn&#x27;t declared with mod, or the name or path is spelled differently.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/rust/rust-e0433-failed-to-resolve/">
+<meta property="og:title" content="error[E0433]: failed to resolve: use of undeclared crate or module (Rust) — how to fix"><meta property="og:description" content="The compiler can&#x27;t find the first segment of a path like foo::bar. Either the crate isn&#x27;t in Cargo.toml, the module isn&#x27;t declared with mod, or the name or path is spelled differently.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/rust/rust-e0433-failed-to-resolve/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error[E0433]: failed to resolve: use of undeclared crate or module (Rust) \u2014 how to fix", "description": "The compiler can't find the first segment of a path like foo::bar. Either the crate isn't in Cargo.toml, the module isn't declared with mod, or the name or path is spelled differently.", "dateModified": "2026-11-09", "url": "https://errorfix-hollis.github.io/rust/rust-e0433-failed-to-resolve/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Rust", "item": "https://errorfix-hollis.github.io/rust/"}, {"@type": "ListItem", "position": 3, "name": "error[E0433]: failed to resolve: use of undeclared crate or module", "item": "https://errorfix-hollis.github.io/rust/rust-e0433-failed-to-resolve/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/rust/">Rust</a></p>
+<article><h1>error[E0433]: failed to resolve: use of undeclared crate or module (Rust) — how to fix</h1>
+<pre class="err"><code>error[E0433]: failed to resolve: use of undeclared crate or module `serde_json`
+ --&gt; src/main.rs:4:16
+  |
+4 |     let v = serde_json::from_str(&amp;data)?;
+  |             ^^^^^^^^^^ use of undeclared crate or module `serde_json`
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> For external crates add them: <code>cargo add serde_json</code> (note: hyphens in crate names become underscores in code). For your own modules declare them with <code>mod utils;</code> in main.rs/lib.rs and reference them as <code>crate::utils::...</code>. For std types, import them: <code>use std::collections::HashMap;</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>In a path like <code>a::b::c</code>, rustc resolves <code>a</code> first. E0433 means <code>a</code> is not a known crate, module or type in this scope. Related messages:</p>
+<ul>
+<li><code>use of undeclared crate or module `foo`</code></li>
+<li><code>use of undeclared type `HashMap`</code></li>
+<li><code>could not find `bar` in `foo`</code></li>
+<li><code>use of unresolved module or unlinked crate `foo`</code> (wording in newer Rust versions)</li>
+</ul>
+<h2 id="cause-1-crate-not-added-to-cargotoml">Cause 1: crate not added to Cargo.toml</h2>
+<p>Extern crates only exist if they're dependencies:</p>
+<pre><code class="language-bash">cargo add serde_json
+cargo add tokio --features full
+</code></pre>
+<p>or by hand:</p>
+<pre><code class="language-toml">[dependencies]
+serde_json = &quot;1&quot;
+</code></pre>
+<p>If it's only in <code>[dev-dependencies]</code>, it's available in tests and examples, not in <code>src/</code>. In a workspace, add it to the member crate's <code>Cargo.toml</code>, not just the root.</p>
+<h2 id="cause-2-hyphen-vs-underscore">Cause 2: hyphen vs underscore</h2>
+<p>Crate names with hyphens are referenced with underscores in code:</p>
+<pre><code class="language-toml">[dependencies]
+rand-core = &quot;0.6&quot;
+</code></pre>
+<pre><code class="language-rust">use rand_core::RngCore;     // not rand-core
+</code></pre>
+<p>A few packages also set a different library name via <code>[lib] name</code>; the crate's docs.rs page shows the name to use in code. You can also rename a dependency yourself: <code>foo = { package = "real-name", version = "1" }</code>.</p>
+<h2 id="cause-3-your-own-module-isnt-declared">Cause 3: your own module isn't declared</h2>
+<p>Creating <code>src/utils.rs</code> is not enough. Declare it in the crate root (<code>main.rs</code> or <code>lib.rs</code>):</p>
+<pre><code class="language-rust">mod utils;
+
+fn main() {
+    utils::helper();
+}
+</code></pre>
+<p>From another module, refer to it from the crate root:</p>
+<pre><code class="language-rust">use crate::utils::helper;      // absolute
+use super::utils::helper;      // relative to parent module
+</code></pre>
+<p>In a binary + library package, code in <code>main.rs</code> must use the library crate's name: <code>use my_package::utils;</code> (with hyphens converted to underscores), not <code>crate::utils</code>.</p>
+<h2 id="cause-4-std-types-used-without-import">Cause 4: std types used without import</h2>
+<pre><code class="language-rust">let mut m = HashMap::new();    // E0433: use of undeclared type `HashMap`
+</code></pre>
+<p>Only a few items are in the prelude. Import the rest:</p>
+<pre><code class="language-rust">use std::collections::HashMap;
+use std::fs;
+use std::sync::Arc;
+</code></pre>
+<h2 id="cause-5-feature-gated-items">Cause 5: feature-gated items</h2>
+<p>Many crates hide modules behind features. <code>tokio::fs</code>, <code>tokio::net</code> and <code>#[tokio::main]</code> need features (<code>full</code>, <code>fs</code>, <code>macros</code>, <code>rt-multi-thread</code>); <code>serde::Deserialize</code> derive needs <code>features = ["derive"]</code>. Check the crate's docs.rs page — gated items are labelled "Available on crate feature X only".</p>
+<pre><code class="language-bash">cargo add tokio --features macros,rt-multi-thread
+</code></pre>
+<h2 id="cause-6-edition-2015-paths">Cause 6: edition 2015 paths</h2>
+<p>In edition 2015, paths in <code>use</code> were relative to the crate root and extern crates needed <code>extern crate foo;</code>. Make sure <code>Cargo.toml</code> has <code>edition = "2021"</code> (or <code>"2024"</code>) so modern path rules apply.</p>
+<h2 id="cause-7-wrong-module-visibility">Cause 7: wrong module visibility</h2>
+<p>If the module exists but isn't <code>pub</code>, you'll usually get E0603 ("module is private") instead. Make it <code>pub mod utils;</code> when using it from another crate.</p>
+<p>After fixing, <code>cargo check</code> is the fastest way to confirm.</p>
+<p class="upd">Last updated 2026-11-09.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/rust/rust-e0425-cannot-find-value-in-this-scope/">error[E0425]: cannot find value `x` in this scope</a></li><li><a href="/rust/rust-e0463-cant-find-crate/">error[E0463]: can&#x27;t find crate for `std`</a></li><li><a href="/rust/rust-e0599-no-method-named-found/">error[E0599]: no method named `x` found for struct `T` in the current scope</a></li><li><a href="/rust/rust-borrow-of-moved-value/">error[E0382]: borrow of moved value</a></li><li><a href="/rust/rust-cannot-borrow-as-mutable/">error[E0502]: cannot borrow as mutable because it is also borrowed as immutable</a></li><li><a href="/rust/rust-e0106-missing-lifetime-specifier/">error[E0106]: missing lifetime specifier</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

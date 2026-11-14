@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>React Hook useEffect has a missing dependency (JavaScript) — how to fix</title>
+<meta name="description" content="The ESLint rule react-hooks/exhaustive-deps found a value used inside useEffect (or useCallback/useMemo) that isn&#x27;t listed in the dependency array, which can make the effect run with stale values.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-react-hook-useeffect-has-a-missing-dependency/">
+<meta property="og:title" content="React Hook useEffect has a missing dependency (JavaScript) — how to fix"><meta property="og:description" content="The ESLint rule react-hooks/exhaustive-deps found a value used inside useEffect (or useCallback/useMemo) that isn&#x27;t listed in the dependency array, which can make the effect run with stale values.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-react-hook-useeffect-has-a-missing-dependency/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "React Hook useEffect has a missing dependency (JavaScript) \u2014 how to fix", "description": "The ESLint rule react-hooks/exhaustive-deps found a value used inside useEffect (or useCallback/useMemo) that isn't listed in the dependency array, which can make the effect run with stale values.", "dateModified": "2026-11-06", "url": "https://errorfix-hollis.github.io/javascript/js-react-hook-useeffect-has-a-missing-dependency/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "React Hook useEffect has a missing dependency", "item": "https://errorfix-hollis.github.io/javascript/js-react-hook-useeffect-has-a-missing-dependency/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>React Hook useEffect has a missing dependency (JavaScript) — how to fix</h1>
+<pre class="err"><code>Warning: React Hook useEffect has a missing dependency: &#x27;fetchData&#x27;. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Add the value to the array if the effect should re-run when it changes. If that causes a loop, move the function inside the effect, wrap it in <code>useCallback</code>, use a functional state update (<code>setCount(c =&gt; c + 1)</code>), or keep a value in a <code>useRef</code>. Don't just disable the rule.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>An effect "captures" the props, state and functions it uses from the render it was created in. The dependency array tells React when to recreate the effect. If you use <code>userId</code> inside but don't list it, the effect keeps using the first <code>userId</code> forever — a <em>stale closure</em> bug. The lint rule warns about every value from the component scope used in the effect that's missing from the array.</p>
+<pre><code class="language-jsx">useEffect(() =&gt; {
+  fetch(`/api/users/${userId}`).then(r =&gt; r.json()).then(setUser);
+}, []);   // warning: missing dependency 'userId'
+</code></pre>
+<h2 id="fix-1-add-the-dependency-usually-correct">Fix 1: add the dependency (usually correct)</h2>
+<pre><code class="language-jsx">useEffect(() =&gt; {
+  fetch(`/api/users/${userId}`).then(r =&gt; r.json()).then(setUser);
+}, [userId]);
+</code></pre>
+<p>Now the effect re-runs when <code>userId</code> changes, which is what you want. Add cleanup to ignore responses from an outdated request:</p>
+<pre><code class="language-jsx">useEffect(() =&gt; {
+  let ignore = false;
+  fetch(`/api/users/${userId}`)
+    .then(r =&gt; r.json())
+    .then(data =&gt; { if (!ignore) setUser(data); });
+  return () =&gt; { ignore = true; };
+}, [userId]);
+</code></pre>
+<p>State setters from <code>useState</code> and <code>dispatch</code> from <code>useReducer</code> are stable, so the rule doesn't require them.</p>
+<h2 id="fix-2-the-missing-dependency-is-a-function-move-it-inside">Fix 2: the missing dependency is a function — move it inside</h2>
+<pre><code class="language-jsx">function Profile({ userId }) {
+  async function fetchData() {
+    const r = await fetch(`/api/users/${userId}`);
+    setUser(await r.json());
+  }
+  useEffect(() =&gt; { fetchData(); }, []);   // missing 'fetchData'
+}
+</code></pre>
+<p>Adding <code>fetchData</code> to the array would re-run the effect on <em>every</em> render, because the function is recreated each time. Move it into the effect so only its real inputs are dependencies:</p>
+<pre><code class="language-jsx">useEffect(() =&gt; {
+  async function fetchData() {
+    const r = await fetch(`/api/users/${userId}`);
+    setUser(await r.json());
+  }
+  fetchData();
+}, [userId]);
+</code></pre>
+<p>If the function doesn't use props or state at all, move it outside the component.</p>
+<h2 id="fix-3-the-function-is-shared-use-usecallback">Fix 3: the function is shared — use useCallback</h2>
+<pre><code class="language-jsx">const fetchData = useCallback(async () =&gt; {
+  const r = await fetch(`/api/users/${userId}`);
+  setUser(await r.json());
+}, [userId]);
+
+useEffect(() =&gt; { fetchData(); }, [fetchData]);
+</code></pre>
+<p><code>fetchData</code> now only changes when <code>userId</code> changes.</p>
+<h2 id="fix-4-state-used-only-to-compute-the-next-state">Fix 4: state used only to compute the next state</h2>
+<pre><code class="language-jsx">useEffect(() =&gt; {
+  const id = setInterval(() =&gt; setCount(count + 1), 1000);
+  return () =&gt; clearInterval(id);
+}, []);   // missing 'count', and the counter gets stuck at 1
+</code></pre>
+<p>Use the updater form so you don't read <code>count</code> at all:</p>
+<pre><code class="language-jsx">useEffect(() =&gt; {
+  const id = setInterval(() =&gt; setCount(c =&gt; c + 1), 1000);
+  return () =&gt; clearInterval(id);
+}, []);
+</code></pre>
+<h2 id="fix-5-objects-and-arrays-recreated-every-render">Fix 5: objects and arrays recreated every render</h2>
+<pre><code class="language-jsx">const options = { method: &quot;POST&quot;, body };   // new object each render
+useEffect(() =&gt; { send(options); }, [options]);   // runs every render
+</code></pre>
+<p>Depend on the primitives instead (<code>[body]</code>) and build the object inside the effect, or memoise it with <code>useMemo(() =&gt; ({ method: "POST", body }), [body])</code>.</p>
+<h2 id="fix-6-you-really-want-the-latest-value-without-re-running">Fix 6: you really want the latest value without re-running</h2>
+<p>For values you want to read but that shouldn't trigger the effect (e.g. an <code>onChange</code> callback prop), keep them in a ref:</p>
+<pre><code class="language-jsx">const onChangeRef = useRef(onChange);
+useEffect(() =&gt; { onChangeRef.current = onChange; });
+
+useEffect(() =&gt; {
+  const ws = new WebSocket(url);
+  ws.onmessage = e =&gt; onChangeRef.current(e.data);
+  return () =&gt; ws.close();
+}, [url]);
+</code></pre>
+<p>(React's experimental <code>useEffectEvent</code> is meant for this case.)</p>
+<h2 id="about-disabling-the-rule">About disabling the rule</h2>
+<p><code>// eslint-disable-next-line react-hooks/exhaustive-deps</code> hides the warning and usually hides a real bug. If adding a dependency causes an infinite loop, that's a sign the effect sets state that's also a dependency — see <a href="/javascript/js-maximum-update-depth-exceeded/">Maximum update depth exceeded</a>.</p>
+<p class="upd">Last updated 2026-11-06.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-maximum-update-depth-exceeded/">Maximum update depth exceeded</a></li><li><a href="/javascript/js-too-many-re-renders/">Too many re-renders. React limits the number of renders to prevent an infinite loop.</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li><li><a href="/javascript/js-hydration-failed-initial-ui-does-not-match/">Hydration failed because the initial UI does not match what was rendered on the server</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

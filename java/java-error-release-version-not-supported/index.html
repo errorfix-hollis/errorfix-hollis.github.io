@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: release version 17 not supported (Java) — how to fix</title>
+<meta name="description" content="The javac doing the compile is older than the Java version the project targets (e.g. JDK 11 compiling with --release 17). Maven, Gradle or the IDE is using a different JDK than you think.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-error-release-version-not-supported/">
+<meta property="og:title" content="error: release version 17 not supported (Java) — how to fix"><meta property="og:description" content="The javac doing the compile is older than the Java version the project targets (e.g. JDK 11 compiling with --release 17). Maven, Gradle or the IDE is using a different JDK than you think.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-error-release-version-not-supported/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: release version 17 not supported (Java) \u2014 how to fix", "description": "The javac doing the compile is older than the Java version the project targets (e.g. JDK 11 compiling with --release 17). Maven, Gradle or the IDE is using a different JDK than you think.", "dateModified": "2026-11-08", "url": "https://errorfix-hollis.github.io/java/java-error-release-version-not-supported/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "error: release version 17 not supported", "item": "https://errorfix-hollis.github.io/java/java-error-release-version-not-supported/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>error: release version 17 not supported (Java) — how to fix</h1>
+<pre class="err"><code>[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.11.0:compile (default-compile) on project app: Fatal error compiling: error: release version 17 not supported
+error: invalid target release: 17
+error: invalid source release: 21
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check which JDK the build really uses: <code>mvn -v</code> (look at 'Java version') or <code>./gradlew -version</code>. Point <code>JAVA_HOME</code> at a JDK &gt;= the target (e.g. <code>export JAVA_HOME=$(/usr/libexec/java_home -v 17)</code> on macOS, <code>sudo update-alternatives --config java</code> on Linux), or lower <code>maven.compiler.release</code> to match. In IntelliJ set Project SDK and Maven/Gradle JVM.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>javac --release N</code> (or <code>-source</code>/<code>-target N</code>) can only produce code for Java versions up to its own version. A JDK 11 compiler doesn't know Java 17, so it fails with <code>release version 17 not supported</code> (with <code>--release</code>) or <code>invalid target release: 17</code> (with <code>-target</code>).</p>
+<p>The project's configured version is usually correct; the problem is <strong>which JDK runs the build</strong>. Note that <code>java -version</code> on your PATH may differ from what Maven, Gradle or the IDE uses.</p>
+<p>This is the compile-time sibling of <a href="/java/java-unsupportedclassversionerror/">UnsupportedClassVersionError</a>, which happens at runtime when a JRE is too old for compiled classes.</p>
+<h2 id="step-1-find-the-jdk-the-build-uses">Step 1: find the JDK the build uses</h2>
+<pre><code class="language-bash">mvn -v                  # &quot;Java version: 11.0.21, vendor..., runtime: /usr/lib/jvm/...&quot;
+./gradlew -version      # &quot;Launcher JVM&quot; / &quot;Daemon JVM&quot;
+echo $JAVA_HOME
+javac -version
+</code></pre>
+<h2 id="fix-1-point-java_home-at-a-newer-jdk">Fix 1: point JAVA_HOME at a newer JDK</h2>
+<p>Install a JDK at least as new as the target (Temurin, Zulu, Oracle, distro <code>openjdk-17-jdk</code>), then:</p>
+<p><strong>Linux</strong></p>
+<pre><code class="language-bash">sudo apt install openjdk-17-jdk
+sudo update-alternatives --config java
+sudo update-alternatives --config javac
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+</code></pre>
+<p><strong>macOS</strong></p>
+<pre><code class="language-bash">/usr/libexec/java_home -V                       # list installed JDKs
+export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+</code></pre>
+<p><strong>Windows</strong>: set the <code>JAVA_HOME</code> environment variable to e.g. <code>C:\Program Files\Eclipse Adoptium\jdk-17...</code> and put <code>%JAVA_HOME%\bin</code> first in <code>Path</code>, then open a new terminal.</p>
+<p>Add the export to <code>~/.bashrc</code>/<code>~/.zshrc</code> to keep it. SDKMAN (<code>sdk use java 17.0.9-tem</code>) also works well for switching.</p>
+<h2 id="fix-2-lower-the-target-instead">Fix 2: lower the target instead</h2>
+<p>If you must build with the older JDK and don't use newer language features, set the target to match it.</p>
+<p>Maven:</p>
+<pre><code class="language-xml">&lt;properties&gt;
+  &lt;maven.compiler.release&gt;11&lt;/maven.compiler.release&gt;
+&lt;/properties&gt;
+</code></pre>
+<p>Gradle (Kotlin DSL):</p>
+<pre><code class="language-kotlin">java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    }
+}
+</code></pre>
+<p>The Gradle toolchain approach is usually better than lowering the version: Gradle finds (or, with the foojay resolver plugin, downloads) a JDK 17 regardless of the JDK it runs on.</p>
+<h2 id="fix-3-ide-settings">Fix 3: IDE settings</h2>
+<p>IntelliJ IDEA uses several separate JDK settings:</p>
+<ul>
+<li><strong>File → Project Structure → Project → SDK</strong> and language level.</li>
+<li><strong>Settings → Build, Execution, Deployment → Build Tools → Maven → Runner → JRE</strong>.</li>
+<li><strong>Settings → Build Tools → Gradle → Gradle JVM</strong>.</li>
+<li><strong>Settings → Java Compiler → Per-module bytecode version</strong>.</li>
+</ul>
+<p>In VS Code, set <code>java.configuration.runtimes</code> or <code>java.jdt.ls.java.home</code>. In Eclipse, <strong>Window → Preferences → Java → Installed JREs</strong> and the project's compiler compliance level.</p>
+<h2 id="fix-4-ci-and-docker">Fix 4: CI and Docker</h2>
+<p>In GitHub Actions, match <code>java-version</code> to the target:</p>
+<pre><code class="language-yaml">- uses: actions/setup-java@v4
+  with:
+    distribution: temurin
+    java-version: '17'
+</code></pre>
+<p>In Docker, use a build image with the right JDK, e.g. <code>FROM maven:3.9-eclipse-temurin-17</code> rather than an image based on JDK 11.</p>
+<h2 id="old-maven-compiler-plugin">Old Maven compiler plugin</h2>
+<p>Very old <code>maven-compiler-plugin</code> versions (before 3.6) don't support <code>&lt;release&gt;</code>. Upgrade to a current 3.x version.</p>
+<p class="upd">Last updated 2026-11-08.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-home-is-not-set/">ERROR: JAVA_HOME is not set and no &#x27;java&#x27; command could be found in your PATH.</a></li><li><a href="/java/java-unable-to-locate-a-java-runtime/">The operation couldn&#x27;t be completed. Unable to locate a Java Runtime.</a></li><li><a href="/java/java-unsupportedclassversionerror/">java.lang.UnsupportedClassVersionError: has been compiled by a more recent version of the Java Runtime</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-comparison-method-violates-its-general-contract/">java.lang.IllegalArgumentException: Comparison method violates its general contract!</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>npm ERR! code ENOTEMPTY — how to fix</title>
+<meta name="description" content="npm tried to rename a folder inside node_modules (or the global prefix) but the target was not empty, usually leftovers from an interrupted install. Deleting node_modules and reinstalling fixes it.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-err-code-enotempty/">
+<meta property="og:title" content="npm ERR! code ENOTEMPTY — how to fix"><meta property="og:description" content="npm tried to rename a folder inside node_modules (or the global prefix) but the target was not empty, usually leftovers from an interrupted install. Deleting node_modules and reinstalling fixes it.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-err-code-enotempty/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "npm ERR! code ENOTEMPTY \u2014 how to fix", "description": "npm tried to rename a folder inside node_modules (or the global prefix) but the target was not empty, usually leftovers from an interrupted install. Deleting node_modules and reinstalling fixes it.", "dateModified": "2026-11-08", "url": "https://errorfix-hollis.github.io/npm/npm-err-code-enotempty/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "npm ERR! code ENOTEMPTY", "item": "https://errorfix-hollis.github.io/npm/npm-err-code-enotempty/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>npm ERR! code ENOTEMPTY — how to fix</h1>
+<pre class="err"><code>npm ERR! code ENOTEMPTY
+npm ERR! syscall rename
+npm ERR! path /home/me/app/node_modules/webpack
+npm ERR! dest /home/me/app/node_modules/.webpack-Xa3bC9d1
+npm ERR! errno -39
+npm ERR! ENOTEMPTY: directory not empty, rename &#x27;/home/me/app/node_modules/webpack&#x27; -&gt; &#x27;/home/me/app/node_modules/.webpack-Xa3bC9d1&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Delete the leftovers and reinstall: <code>rm -rf node_modules</code> (and any <code>node_modules/.&lt;name&gt;-*</code> temp folders), then <code>npm install</code> (or <code>npm ci</code>). For global installs, remove the folder named in the error under <code>$(npm root -g)</code> and run <code>npm install -g &lt;pkg&gt;</code> again.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When npm replaces a package it first renames the existing folder to a temporary hidden name such as <code>node_modules/.webpack-Xa3bC9d1</code>, writes the new version, then removes the old one. If an earlier install was interrupted (Ctrl+C, crash, full disk, editor locking files), that temporary folder is left behind. The next rename hits a destination that already exists and is not empty, and the OS returns <code>ENOTEMPTY</code> (errno 39 on Linux, 66 on macOS).</p>
+<h2 id="fix-1-clean-reinstall-project">Fix 1: clean reinstall (project)</h2>
+<pre><code class="language-bash">rm -rf node_modules
+npm install
+</code></pre>
+<p>If you have a lockfile and want an exact reproduction, use <code>npm ci</code>, which always deletes <code>node_modules</code> first.</p>
+<p>You can also remove just the leftovers named in the error:</p>
+<pre><code class="language-bash">rm -rf node_modules/.webpack-*
+npm install
+</code></pre>
+<p>On Windows (PowerShell):</p>
+<pre><code class="language-powershell">Remove-Item -Recurse -Force node_modules
+npm install
+</code></pre>
+<p>Keep <code>package-lock.json</code> unless you intend to re-resolve versions. Deleting it is not needed for this error.</p>
+<h2 id="fix-2-global-installs-npm-install-g-npm-update-g">Fix 2: global installs (<code>npm install -g</code>, <code>npm update -g</code>)</h2>
+<p>Same problem in the global prefix, often when updating npm itself or a CLI:</p>
+<pre><code class="language-bash">npm root -g                      # e.g. /usr/local/lib/node_modules
+rm -rf &quot;$(npm root -g)/.npm-&quot;*   # leftovers named in the error
+rm -rf &quot;$(npm root -g)/npm&quot;      # only if npm itself is the broken package
+</code></pre>
+<p>If you removed npm itself, reinstall Node (or use <code>corepack</code>/your version manager) to get npm back. With nvm:</p>
+<pre><code class="language-bash">nvm install --reinstall-packages-from=current node
+</code></pre>
+<p>If the global prefix needs <code>sudo</code>, see <a href="/npm/npm-eacces-permission-denied/">EACCES permission denied</a> and switch to a user-owned prefix or nvm instead.</p>
+<h2 id="fix-3-something-keeps-the-folder-busy">Fix 3: something keeps the folder busy</h2>
+<p>On Windows and in synced folders, another process can hold files open so the old directory can't be cleaned up:</p>
+<ul>
+<li>Stop dev servers, watchers (<code>npm run dev</code>, <code>jest --watch</code>), and close the editor.</li>
+<li>Exclude the project from OneDrive/Dropbox sync and antivirus real-time scanning.</li>
+<li>In Docker with a bind-mounted <code>node_modules</code>, run the install inside the container only, or use a named volume for <code>node_modules</code>.</li>
+</ul>
+<p>Then repeat Fix 1.</p>
+<h2 id="fix-4-corrupted-cache">Fix 4: corrupted cache</h2>
+<p>If the error comes back immediately after a clean reinstall:</p>
+<pre><code class="language-bash">npm cache verify
+# or, more drastic
+npm cache clean --force
+npm install
+</code></pre>
+<p>Also check free disk space (<code>df -h</code>); a full disk mid-install is a common way to end up with half-written folders.</p>
+<p class="upd">Last updated 2026-11-08.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/npm-eacces-permission-denied/">npm ERR! code EACCES</a></li><li><a href="/npm/npm-eperm-operation-not-permitted/">npm ERR! code EPERM operation not permitted</a></li><li><a href="/npm/npm-eresolve-unable-to-resolve-dependency-tree/">npm ERR! code ERESOLVE unable to resolve dependency tree</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

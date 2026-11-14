@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hash Generator — MD5, SHA-1, SHA-256, SHA-512 of text or files, verify checksums</title>
+<meta name="description" content="Calculate MD5, SHA-1, SHA-256, SHA-384 and SHA-512 hashes of text or a file and compare against an expected checksum. Files are hashed locally and never uploaded.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/hash-generator/">
+<meta property="og:title" content="Hash Generator — MD5, SHA-1, SHA-256, SHA-512 of text or files, verify checksums"><meta property="og:description" content="Calculate MD5, SHA-1, SHA-256, SHA-384 and SHA-512 hashes of text or a file and compare against an expected checksum. Files are hashed locally and never uploaded.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/hash-generator/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "Hash generator (MD5, SHA-256, SHA-512)", "url": "https://errorfix-hollis.github.io/tools/hash-generator/", "description": "Calculate MD5, SHA-1, SHA-256, SHA-384 and SHA-512 hashes of text or a file and compare against an expected checksum. Files are hashed locally and never uploaded.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-05", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": "Hash generator (MD5, SHA-256, SHA-512)", "item": "https://errorfix-hollis.github.io/tools/hash-generator/"}]}</script><script src="/tools.js?v=70df2f10" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>Hash generator: MD5, SHA-1, SHA-256, SHA-384, SHA-512</h1>
+<p class="lead">Type text or pick a file to get its MD5, SHA-1, SHA-256, SHA-384 and SHA-512 hashes at once, then paste an expected checksum to verify a download.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="hash"><label for="hash-in">Text to hash</label>
+<textarea id="hash-in" class="short" spellcheck="false" placeholder="Type or paste text"></textarea>
+<div class="row">
+<label>…or a file <input type="file" id="hash-file"></label>
+<button id="hash-text" class="sec">Hash the text instead</button>
+<label>Output <select id="hash-fmt" class="inline"><option value="hex">hex (lowercase)</option><option value="HEX">HEX (uppercase)</option><option value="b64">Base64</option></select></label>
+</div>
+<p class="small" id="hash-src"></p>
+<table id="hash-out" class="kv hash"></table>
+<label for="hash-exp">Compare with expected checksum <small>(paste from the download page, sha256sum output, or an SRI value)</small></label>
+<input type="text" id="hash-exp" class="big" spellcheck="false" autocomplete="off" placeholder="e.g. ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad">
+<div id="hash-msg" class="msg" hidden></div>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<h2 id="verifying-a-download">Verifying a download</h2>
+<p>Download pages publish a checksum so you can confirm the file is complete and unmodified. Pick the file above and paste the published value into <em>Compare</em>: the matching algorithm turns green. The comparison accepts plain hex, <code>sha256sum</code> output (<code>hash  filename</code>), BSD style (<code>SHA256 (file) = hash</code>), <code>sha256:</code> prefixes and Base64 SRI values. A mismatch means the download is corrupted or incomplete, or you have a different version than the one the checksum is for.</p>
+<p>The same check on the command line:</p>
+<table>
+<thead>
+<tr>
+<th>OS</th>
+<th>SHA-256</th>
+<th>MD5</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Linux</td>
+<td><code>sha256sum file</code></td>
+<td><code>md5sum file</code></td>
+</tr>
+<tr>
+<td>macOS</td>
+<td><code>shasum -a 256 file</code></td>
+<td><code>md5 file</code></td>
+</tr>
+<tr>
+<td>Windows PowerShell</td>
+<td><code>Get-FileHash file</code></td>
+<td><code>Get-FileHash file -Algorithm MD5</code></td>
+</tr>
+</tbody>
+</table>
+<p>On Linux you can verify a whole list with <code>sha256sum -c SHA256SUMS</code>.</p>
+<h2 id="why-text-hashes-do-not-match">Why text hashes do not match</h2>
+<p>A hash changes completely if a single byte changes. When your hash of a string differs from someone else's, it is usually:</p>
+<ul>
+<li><strong>A trailing newline.</strong> <code>echo "abc" | sha256sum</code> hashes <code>abc\n</code>. Use <code>printf '%s' abc | sha256sum</code> or <code>echo -n</code>.</li>
+<li><strong>Encoding.</strong> This tool hashes text as UTF-8; Windows tools sometimes use UTF-16.</li>
+<li><strong>Line endings.</strong> CRLF and LF files have different hashes.</li>
+<li><strong>Hex case or format.</strong> <code>ABC1...</code> and <code>abc1...</code> are the same hash; Base64 is a different spelling of the same bytes.</li>
+</ul>
+<h2 id="which-algorithm">Which algorithm?</h2>
+<p><strong>MD5</strong> and <strong>SHA-1</strong> are broken for security: attackers can create collisions. They are still fine for detecting accidental corruption and are used by ETags and Git object IDs. Use <strong>SHA-256</strong> or <strong>SHA-512</strong> for anything security-related, and never use plain hashes for passwords (use bcrypt, scrypt or Argon2). For Subresource Integrity, choose <em>Base64</em> output and prefix it: <code>integrity="sha384-…"</code>.</p>
+<p>SHA hashes are computed with your browser's built-in Web Crypto API; MD5 is computed in JavaScript. Files are read locally and are never uploaded.</p>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/ssh/ssh-remote-host-identification-has-changed/">WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!</a></li><li><a href="/docker/docker-manifest-unknown/">manifest unknown</a></li><li><a href="/git/git-rpc-failed-curl-92-early-eof/">error: RPC failed; curl 92 HTTP/2 stream 0 was not closed cleanly</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/json-formatter/">JSON formatter &amp; validator</a></li><li><a href="/tools/cron-expression-explainer/">Cron expression explainer</a></li><li><a href="/tools/chmod-calculator/">chmod calculator</a></li><li><a href="/tools/unix-timestamp-converter/">Unix timestamp converter</a></li><li><a href="/tools/base64-encode-decode/">Base64 encode / decode</a></li><li><a href="/tools/url-encode-decode/">URL encode / decode</a></li><li><a href="/tools/jwt-decoder/">JWT decoder</a></li><li><a href="/tools/regex-tester/">Regex tester</a></li><li><a href="/tools/yaml-validator/">YAML validator &amp; YAML ↔ JSON converter</a></li><li><a href="/tools/uuid-generator/">UUID generator &amp; validator (v4, v7)</a></li><li><a href="/tools/text-diff/">Text diff checker</a></li><li><a href="/tools/http-status-codes/">HTTP status codes reference</a></li><li><a href="/tools/line-ending-whitespace-inspector/">Line ending &amp; whitespace inspector</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

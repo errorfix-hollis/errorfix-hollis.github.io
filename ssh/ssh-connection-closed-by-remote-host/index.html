@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Connection closed by remote host (SSH) — how to fix</title>
+<meta name="description" content="The SSH server (or something in between) dropped the TCP connection. Before login it usually means sshd rejected you (MaxStartups, fail2ban, hosts.deny, crashed sshd); after login it usually means an idle timeout or the server rebooting.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/ssh/ssh-connection-closed-by-remote-host/">
+<meta property="og:title" content="Connection closed by remote host (SSH) — how to fix"><meta property="og:description" content="The SSH server (or something in between) dropped the TCP connection. Before login it usually means sshd rejected you (MaxStartups, fail2ban, hosts.deny, crashed sshd); after login it usually means an idle timeout or the server rebooting.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/ssh/ssh-connection-closed-by-remote-host/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Connection closed by remote host (SSH) \u2014 how to fix", "description": "The SSH server (or something in between) dropped the TCP connection. Before login it usually means sshd rejected you (MaxStartups, fail2ban, hosts.deny, crashed sshd); after login it usually means an idle timeout or the server rebooting.", "dateModified": "2026-11-09", "url": "https://errorfix-hollis.github.io/ssh/ssh-connection-closed-by-remote-host/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "SSH", "item": "https://errorfix-hollis.github.io/ssh/"}, {"@type": "ListItem", "position": 3, "name": "Connection closed by remote host", "item": "https://errorfix-hollis.github.io/ssh/ssh-connection-closed-by-remote-host/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/ssh/">SSH</a></p>
+<article><h1>Connection closed by remote host (SSH) — how to fix</h1>
+<pre class="err"><code>Connection closed by 203.0.113.10 port 22
+ssh_exchange_identification: Connection closed by remote host
+Connection to 203.0.113.10 closed by remote host.
+client_loop: send disconnect: Broken pipe
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>ssh -vvv user@host</code> to see where it drops. Before authentication: check <code>sudo journalctl -u ssh -n 50</code> on the server, fail2ban bans (<code>sudo fail2ban-client status sshd</code>) and <code>MaxStartups</code>. During an idle session: add <code>ServerAliveInterval 60</code> to <code>~/.ssh/config</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The TCP connection was established, then the other side closed it. <em>When</em> it closes tells you the cause:</p>
+<ul>
+<li><strong>Immediately, before any key exchange</strong> (<code>ssh_exchange_identification</code> / <code>kex_exchange_identification</code>) — sshd or a firewall refused the session.</li>
+<li><strong>After authentication</strong> — the server ended the session: idle timeout, <code>sshd</code> restart, reboot, or a forced command exiting.</li>
+<li><strong>Mid-session after a while idle</strong> (<code>Connection to host closed by remote host</code>, <code>Broken pipe</code>) — a NAT/firewall/load balancer dropped the idle connection.</li>
+</ul>
+<p>Get details first:</p>
+<pre><code class="language-bash">ssh -vvv user@host
+</code></pre>
+<p>On the server (via console if needed):</p>
+<pre><code class="language-bash">sudo journalctl -u ssh -u sshd -n 100 --no-pager
+sudo tail -n 50 /var/log/auth.log      # Debian/Ubuntu
+</code></pre>
+<h2 id="cause-1-banned-by-fail2ban-or-similar">Cause 1: banned by fail2ban or similar</h2>
+<p>Several failed logins get your IP banned; the connection is then closed or reset immediately.</p>
+<pre><code class="language-bash">sudo fail2ban-client status sshd
+sudo fail2ban-client set sshd unbanip 198.51.100.7
+</code></pre>
+<p>Also check <code>/etc/hosts.deny</code> for <code>sshd: ALL</code> entries and cloud security groups.</p>
+<h2 id="cause-2-maxstartups-throttling">Cause 2: MaxStartups throttling</h2>
+<p>sshd drops new unauthenticated connections when too many are pending (default <code>MaxStartups 10:30:100</code>). Scanners and CI jobs opening many parallel connections hit this. The server log shows <code>drop connection #10 from ... past MaxStartups</code>. Raise it in <code>/etc/ssh/sshd_config</code>:</p>
+<pre><code>MaxStartups 30:30:100
+</code></pre>
+<pre><code class="language-bash">sudo sshd -t &amp;&amp; sudo systemctl restart ssh
+</code></pre>
+<h2 id="cause-3-sshd-is-broken-or-misconfigured">Cause 3: sshd is broken or misconfigured</h2>
+<p>A bad config or missing host keys make sshd's per-connection child exit at once. Test the config and keys:</p>
+<pre><code class="language-bash">sudo sshd -t
+ls -l /etc/ssh/ssh_host_*
+sudo ssh-keygen -A          # regenerate missing host keys
+sudo systemctl restart ssh
+</code></pre>
+<h2 id="cause-4-idle-connection-dropped">Cause 4: idle connection dropped</h2>
+<p>Home routers, corporate firewalls and cloud load balancers silently drop idle TCP flows (often after 5-15 minutes). Send keepalives from the client in <code>~/.ssh/config</code>:</p>
+<pre><code>Host *
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+</code></pre>
+<p>Or on the server, in <code>sshd_config</code>:</p>
+<pre><code>ClientAliveInterval 60
+ClientAliveCountMax 3
+</code></pre>
+<p>For long-running jobs, use <code>tmux</code> or <code>screen</code> so the work survives a disconnect.</p>
+<h2 id="cause-5-the-account-cant-get-a-session">Cause 5: the account can't get a session</h2>
+<p>Logins accepted then immediately closed usually mean the user's shell is invalid (<code>/usr/sbin/nologin</code>, deleted shell), a <code>ForceCommand</code>/<code>command=</code> in <code>authorized_keys</code> exits, or the account is expired. Check:</p>
+<pre><code class="language-bash">getent passwd username
+sudo chage -l username
+</code></pre>
+<p>Git hosts behave like this on purpose: <code>ssh git@github.com</code> prints a greeting and closes.</p>
+<h2 id="cause-6-the-server-rebooted-or-ran-out-of-resources">Cause 6: the server rebooted or ran out of resources</h2>
+<p><code>Connection to host closed by remote host</code> with no other symptom can simply be a reboot or the OOM killer hitting sshd. Check <code>last reboot</code> and <code>journalctl -k | grep -i oom</code> on the server.</p>
+<p class="upd">Last updated 2026-11-09.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/ssh/ssh-connection-timed-out/">ssh: connect to host port 22: Connection timed out</a></li><li><a href="/ssh/ssh-kex-exchange-identification-connection-closed/">kex_exchange_identification: Connection closed by remote host</a></li><li><a href="/ssh/ssh-too-many-authentication-failures/">Received disconnect: Too many authentication failures</a></li><li><a href="/ssh/ssh-connect-to-host-port-22-connection-refused/">ssh: connect to host port 22: Connection refused</a></li><li><a href="/ssh/ssh-host-key-verification-failed/">Host key verification failed.</a></li><li><a href="/ssh/ssh-load-key-invalid-format/">Load key &quot;id_rsa&quot;: invalid format</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error [ERR_REQUIRE_ESM]: require() of ES Module not supported (Node.js) — how to fix</title>
+<meta name="description" content="Your CommonJS code calls `require()` on a package that is ESM-only (node-fetch 3, chalk 5, nanoid 4, got 12, p-limit 4 and others). Use `import`, a dynamic `import()`, the last CommonJS version of the package, or Node 22.12+ which can require most ES modules.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/node-err-require-esm/">
+<meta property="og:title" content="Error [ERR_REQUIRE_ESM]: require() of ES Module not supported (Node.js) — how to fix"><meta property="og:description" content="Your CommonJS code calls `require()` on a package that is ESM-only (node-fetch 3, chalk 5, nanoid 4, got 12, p-limit 4 and others). Use `import`, a dynamic `import()`, the last CommonJS version of the package, or Node 22.12+ which can require most ES modules.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/node-err-require-esm/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error [ERR_REQUIRE_ESM]: require() of ES Module not supported (Node.js) \u2014 how to fix", "description": "Your CommonJS code calls `require()` on a package that is ESM-only (node-fetch 3, chalk 5, nanoid 4, got 12, p-limit 4 and others). Use `import`, a dynamic `import()`, the last CommonJS version of the package, or Node 22.12+ which can require most ES modules.", "dateModified": "2026-11-04", "url": "https://errorfix-hollis.github.io/npm/node-err-require-esm/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "Error [ERR_REQUIRE_ESM]: require() of ES Module not supported", "item": "https://errorfix-hollis.github.io/npm/node-err-require-esm/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>Error [ERR_REQUIRE_ESM]: require() of ES Module not supported (Node.js) — how to fix</h1>
+<pre class="err"><code>Error [ERR_REQUIRE_ESM]: require() of ES Module /app/node_modules/node-fetch/src/index.js from /app/index.js not supported.
+Instead change the require of index.js in /app/index.js to a dynamic import() which is available in all CommonJS modules.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Quickest: install the last CommonJS version (<code>npm i node-fetch@2</code>, <code>chalk@4</code>, <code>nanoid@3</code>). Proper fix: switch your project to ESM (<code>"type": "module"</code> in package.json and <code>import x from 'pkg'</code>), or use <code>const { default: fetch } = await import('node-fetch')</code> inside an async function. Node 22.12+ / 20.19+ supports <code>require()</code> of ESM without top-level await.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Node has two module systems: CommonJS (<code>require</code>, <code>module.exports</code>) and ES modules (<code>import</code>, <code>export</code>). Many popular packages dropped CommonJS in recent major versions. Older Node versions can't load an ES module with <code>require()</code>, so they throw <code>ERR_REQUIRE_ESM</code>.</p>
+<p>The path in the message tells you which package is ESM-only and which of your files is requiring it.</p>
+<h2 id="fix-1-pin-the-last-commonjs-version">Fix 1: pin the last CommonJS version</h2>
+<p>Fastest if you don't want to touch your module setup:</p>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Last CJS version</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>node-fetch</td>
+<td>2.x (<code>npm i node-fetch@2</code>)</td>
+</tr>
+<tr>
+<td>chalk</td>
+<td>4.x</td>
+</tr>
+<tr>
+<td>nanoid</td>
+<td>3.x</td>
+</tr>
+<tr>
+<td>got</td>
+<td>11.x</td>
+</tr>
+<tr>
+<td>p-limit</td>
+<td>3.x</td>
+</tr>
+<tr>
+<td>ora</td>
+<td>5.x</td>
+</tr>
+<tr>
+<td>inquirer</td>
+<td>8.x</td>
+</tr>
+</tbody>
+</table>
+<p>For <code>node-fetch</code>, on Node 18+ you can drop the package entirely and use the built-in global <code>fetch</code>.</p>
+<h2 id="fix-2-use-dynamic-import-from-commonjs">Fix 2: use dynamic <code>import()</code> from CommonJS</h2>
+<p><code>import()</code> works in CommonJS files and returns a promise:</p>
+<pre><code class="language-js">// index.js (CommonJS)
+async function main() {
+  const { default: chalk } = await import('chalk');
+  console.log(chalk.green('ok'));
+}
+main();
+</code></pre>
+<p>Note the <code>default</code> for packages with a default export.</p>
+<h2 id="fix-3-convert-your-project-to-esm">Fix 3: convert your project to ESM</h2>
+<p>In <code>package.json</code>:</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;module&quot;
+}
+</code></pre>
+<p>Then replace <code>require</code>/<code>module.exports</code>:</p>
+<pre><code class="language-js">import fetch from 'node-fetch';
+import { readFile } from 'node:fs/promises';
+import config from './config.js';     // relative imports need the extension
+export function handler() {}
+</code></pre>
+<p><code>__dirname</code> isn't defined in ESM; use <code>import.meta.dirname</code> (Node 20.11+) or <code>path.dirname(fileURLToPath(import.meta.url))</code>. Alternatively rename only some files to <code>.mjs</code>.</p>
+<h2 id="fix-4-upgrade-node">Fix 4: upgrade Node</h2>
+<p>Node 22.12+ and 20.19+ allow <code>require()</code> of ES modules by default, as long as the module doesn't use top-level <code>await</code>. Check with <code>node -v</code>. On older 22.x you could enable it with <code>--experimental-require-module</code>.</p>
+<h2 id="typescript-compiles-imports-to-require">TypeScript compiles imports to require()</h2>
+<p>If you write <code>import chalk from 'chalk'</code> in TypeScript but get <code>ERR_REQUIRE_ESM</code> at runtime, <code>tsc</code> is emitting CommonJS. Either:</p>
+<ul>
+<li>emit ESM: set <code>"module": "NodeNext"</code>, <code>"moduleResolution": "NodeNext"</code> in <code>tsconfig.json</code> and <code>"type": "module"</code> in package.json, or</li>
+<li>keep CommonJS and pin the CJS version of the dependency.</li>
+</ul>
+<p>With <code>ts-node</code>, use <code>node --loader ts-node/esm</code> or switch to <code>tsx</code>, which handles both formats.</p>
+<h2 id="jest">Jest</h2>
+<p>Jest's default CommonJS transform can't load ESM-only packages in <code>node_modules</code>. Options: pin the CJS version, add the package to <code>transformIgnorePatterns</code> exceptions so Babel transforms it, e.g. <code>"transformIgnorePatterns": ["node_modules/(?!(chalk|nanoid)/)"]</code>, or move to Vitest which is ESM-native.</p>
+<p class="upd">Last updated 2026-11-04.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-require-is-not-defined/">ReferenceError: require is not defined</a></li><li><a href="/javascript/node-cannot-use-import-statement-outside-a-module/">SyntaxError: Cannot use import statement outside a module</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-error-listen-eaddrinuse-address-already-in-use/">Error: listen EADDRINUSE: address already in use :::3000</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

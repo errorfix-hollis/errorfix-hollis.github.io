@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR 1130 (HY000): Host is not allowed to connect to this MySQL server — how to fix</title>
+<meta name="description" content="MySQL accepted the TCP connection but found no user account whose host part matches your client&#x27;s address. Accounts are user@host pairs, and the default root account only allows localhost.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-mysql-error-1130-host-is-not-allowed-to-connect/">
+<meta property="og:title" content="ERROR 1130 (HY000): Host is not allowed to connect to this MySQL server — how to fix"><meta property="og:description" content="MySQL accepted the TCP connection but found no user account whose host part matches your client&#x27;s address. Accounts are user@host pairs, and the default root account only allows localhost.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-mysql-error-1130-host-is-not-allowed-to-connect/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR 1130 (HY000): Host is not allowed to connect to this MySQL server \u2014 how to fix", "description": "MySQL accepted the TCP connection but found no user account whose host part matches your client's address. Accounts are user@host pairs, and the default root account only allows localhost.", "dateModified": "2026-11-11", "url": "https://errorfix-hollis.github.io/database/db-mysql-error-1130-host-is-not-allowed-to-connect/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR 1130 (HY000): Host is not allowed to connect to this MySQL server", "item": "https://errorfix-hollis.github.io/database/db-mysql-error-1130-host-is-not-allowed-to-connect/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR 1130 (HY000): Host is not allowed to connect to this MySQL server — how to fix</h1>
+<pre class="err"><code>ERROR 1130 (HY000): Host &#x27;192.168.1.50&#x27; is not allowed to connect to this MySQL server
+java.sql.SQLException: null, message from server: &quot;Host &#x27;172.17.0.1&#x27; is not allowed to connect to this MySQL server&quot;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> On the server, create an account for your client host: <code>CREATE USER 'app'@'192.168.1.%' IDENTIFIED BY 'secret'; GRANT ALL ON mydb.* TO 'app'@'192.168.1.%';</code>. Check existing hosts with <code>SELECT user, host FROM mysql.user;</code>. Don't open root to <code>%</code> on a public server.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>In MySQL and MariaDB an account is <code>'user'@'host'</code>, not just a user name. When a client connects, the server compares the client's IP (or resolved hostname) with the <code>host</code> column of <code>mysql.user</code>. If no row matches, it rejects the connection with error 1130 <em>before</em> checking the password.</p>
+<p>So the network path works (otherwise you'd get error 2003), but the account doesn't allow your address. Typical triggers:</p>
+<ul>
+<li>Connecting remotely as <code>root</code>, which by default is <code>root@localhost</code> only.</li>
+<li>Connecting from a Docker container or another VM, so the server sees <code>172.17.0.1</code> or similar instead of <code>localhost</code>.</li>
+<li>An account created for a specific IP, and the client's IP changed.</li>
+</ul>
+<p>See which accounts exist (run on the server itself, where localhost works):</p>
+<pre><code class="language-sql">SELECT user, host FROM mysql.user;
+</code></pre>
+<h2 id="fix-1-create-an-account-for-the-clients-host">Fix 1: create an account for the client's host</h2>
+<p>Log in locally (<code>sudo mysql</code> or <code>mysql -u root -p</code> on the server) and create a dedicated user:</p>
+<pre><code class="language-sql">CREATE USER 'app'@'192.168.1.%' IDENTIFIED BY 'a-strong-password';
+GRANT ALL PRIVILEGES ON mydb.* TO 'app'@'192.168.1.%';
+</code></pre>
+<p><code>%</code> is a wildcard: <code>'192.168.1.%'</code> allows a subnet, <code>'%'</code> allows any host. Use the narrowest pattern that works. On MySQL 8 you can't create a user implicitly with <code>GRANT ... IDENTIFIED BY</code>; run <code>CREATE USER</code> first.</p>
+<p><code>FLUSH PRIVILEGES</code> is not needed after <code>CREATE USER</code>/<code>GRANT</code>, only after editing the grant tables directly.</p>
+<h2 id="fix-2-allow-an-existing-user-from-another-host">Fix 2: allow an existing user from another host</h2>
+<p>To let an existing account in from elsewhere, create the same user name with a new host (it's a separate account with its own password and grants):</p>
+<pre><code class="language-sql">CREATE USER 'root'@'10.0.0.5' IDENTIFIED BY 'a-strong-password';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'10.0.0.5' WITH GRANT OPTION;
+</code></pre>
+<p>Or change the host of an existing account:</p>
+<pre><code class="language-sql">RENAME USER 'app'@'localhost' TO 'app'@'%';
+</code></pre>
+<p>Avoid <code>'root'@'%'</code> on any server reachable from the internet; bots scan port 3306 constantly.</p>
+<h2 id="fix-3-docker-containers">Fix 3: Docker containers</h2>
+<p>With the official <code>mysql</code> image, the root host is controlled by <code>MYSQL_ROOT_HOST</code> (default <code>%</code>), but if you created users yourself as <code>@localhost</code>, connections from other containers arrive from the bridge network IP. Either create the user with <code>'%'</code> or a subnet like <code>'172.18.%'</code>, or use the image's variables, which create <code>'user'@'%'</code>:</p>
+<pre><code class="language-yaml">services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpw
+      MYSQL_DATABASE: mydb
+      MYSQL_USER: app
+      MYSQL_PASSWORD: apppw
+</code></pre>
+<p>These variables only take effect on first start with an empty data volume. If the volume already exists, run the SQL from Fix 1 or remove the volume (<code>docker compose down -v</code>, which deletes the data).</p>
+<h2 id="fix-4-hostname-vs-ip-matching">Fix 4: hostname vs IP matching</h2>
+<p>If the account is <code>'app'@'myhost.example.com'</code>, the server must reverse-resolve your IP to exactly that name. With <code>skip_name_resolve=ON</code> (common in production configs) hostnames in grants never match. Use IP addresses or subnets in the host column instead.</p>
+<p>Find the address the server actually sees: the error message shows it (<code>Host '192.168.1.50'</code>), and that's the value your account's host must match.</p>
+<h2 id="still-failing-after-it-matches">Still failing after it matches?</h2>
+<p>Once the host matches you'll get a different error if something else is wrong: <code>1045 Access denied</code> for a bad password, or <code>2003</code> if <code>bind-address = 127.0.0.1</code> in <code>mysqld.cnf</code> stops remote connections entirely. Set <code>bind-address = 0.0.0.0</code> (and firewall port 3306) to listen on all interfaces, then restart MySQL.</p>
+<p class="upd">Last updated 2026-11-11.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-error-2003-cant-connect-to-mysql-server/">ERROR 2003 (HY000): Can&#x27;t connect to MySQL server on &#x27;host&#x27; (111)</a></li><li><a href="/database/db-mysql-public-key-retrieval-is-not-allowed/">Public Key Retrieval is not allowed</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

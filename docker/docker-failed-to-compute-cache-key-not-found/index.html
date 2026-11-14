@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>failed to compute cache key: failed to calculate checksum of ref: not found (Docker) — how to fix</title>
+<meta name="description" content="BuildKit could not find a file named in a COPY or ADD instruction inside the build context. The path is wrong, outside the context, or excluded by .dockerignore.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-failed-to-compute-cache-key-not-found/">
+<meta property="og:title" content="failed to compute cache key: failed to calculate checksum of ref: not found (Docker) — how to fix"><meta property="og:description" content="BuildKit could not find a file named in a COPY or ADD instruction inside the build context. The path is wrong, outside the context, or excluded by .dockerignore.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-failed-to-compute-cache-key-not-found/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "failed to compute cache key: failed to calculate checksum of ref: not found (Docker) \u2014 how to fix", "description": "BuildKit could not find a file named in a COPY or ADD instruction inside the build context. The path is wrong, outside the context, or excluded by .dockerignore.", "dateModified": "2026-11-10", "url": "https://errorfix-hollis.github.io/docker/docker-failed-to-compute-cache-key-not-found/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "failed to compute cache key: failed to calculate checksum of ref: not found", "item": "https://errorfix-hollis.github.io/docker/docker-failed-to-compute-cache-key-not-found/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>failed to compute cache key: failed to calculate checksum of ref: not found (Docker) — how to fix</h1>
+<pre class="err"><code>ERROR: failed to solve: failed to compute cache key: failed to calculate checksum of ref 4c1a2b3c-...::xyz: &quot;/app/package.json&quot;: not found
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Paths in <code>COPY</code> are relative to the build context (the <code>.</code> in <code>docker build .</code>), not the Dockerfile. Check the file exists there, isn't excluded by <code>.dockerignore</code>, and the case matches. In Compose, set <code>build.context</code> to the folder that contains the files. For <code>COPY --from=stage</code>, check the path exists in that stage.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>With BuildKit (the default builder since Docker 23), each <code>COPY</code>/<code>ADD</code> source is checksummed for the layer cache. If the source path doesn't exist in what BuildKit received as the <strong>build context</strong>, checksum calculation fails with <code>not found</code>. The legacy builder reported the same problem as <a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found</a>.</p>
+<p>The path in quotes (e.g. <code>"/app/package.json"</code>) is the path as BuildKit looked it up inside the context.</p>
+<h2 id="cause-1-path-is-relative-to-the-dockerfile-instead-of-the-context">Cause 1: path is relative to the Dockerfile instead of the context</h2>
+<pre><code class="language-bash">docker build -f docker/Dockerfile .
+</code></pre>
+<p>Here the context is the repository root (<code>.</code>), so <code>COPY package.json .</code> looks for <code>./package.json</code>, <strong>not</strong> <code>docker/package.json</code>. Either fix the path in <code>COPY</code>, or pass a different context:</p>
+<pre><code class="language-bash">docker build -f docker/Dockerfile docker/
+</code></pre>
+<p>You can't copy files from outside the context: <code>COPY ../shared ./shared</code> fails. Move the context up a level and adjust paths, or use a named extra context:</p>
+<pre><code class="language-bash">docker buildx build --build-context shared=../shared .
+</code></pre>
+<pre><code class="language-dockerfile">COPY --from=shared . ./shared
+</code></pre>
+<h2 id="cause-2-excluded-by-dockerignore">Cause 2: excluded by .dockerignore</h2>
+<p>Files listed in <code>.dockerignore</code> are never sent to the builder. Common culprits: <code>*</code>, <code>build</code>, <code>dist</code>, <code>*.json</code>, or an allow-list pattern that forgets a file.</p>
+<pre><code># .dockerignore allow-list style
+*
+!package.json
+!package-lock.json
+!src
+</code></pre>
+<p>To see exactly what's in the context:</p>
+<pre><code class="language-dockerfile"># throwaway debug Dockerfile
+FROM busybox
+COPY . /ctx
+RUN find /ctx -maxdepth 2
+</code></pre>
+<pre><code class="language-bash">docker build --no-cache --progress=plain -f Dockerfile.debug .
+</code></pre>
+<h2 id="cause-3-docker-compose-context">Cause 3: Docker Compose context</h2>
+<pre><code class="language-yaml">services:
+  web:
+    build:
+      context: ./frontend       # COPY paths are relative to this
+      dockerfile: Dockerfile    # relative to context
+</code></pre>
+<p>If <code>context</code> is <code>.</code> but the files live in <code>./frontend</code>, every <code>COPY</code> fails. Note that <code>dockerfile</code> is resolved relative to <code>context</code>.</p>
+<h2 id="cause-4-copy-from-a-stage-that-doesnt-have-the-file">Cause 4: <code>COPY --from</code> a stage that doesn't have the file</h2>
+<pre><code class="language-dockerfile">FROM node:22 AS build
+WORKDIR /app
+RUN npm run build          # outputs /app/dist
+FROM nginx:alpine
+COPY --from=build /app/build /usr/share/nginx/html   # wrong: it's /app/dist
+</code></pre>
+<p>Check the real output path (Vite: <code>dist</code>, Create React App: <code>build</code>, Next.js standalone: <code>.next/standalone</code>) and the stage's <code>WORKDIR</code>. Absolute paths are safer here.</p>
+<h2 id="cause-5-case-sensitivity-and-generated-files">Cause 5: case sensitivity and generated files</h2>
+<p>Linux builders are case-sensitive: <code>COPY Requirements.txt .</code> fails if the file is <code>requirements.txt</code>, even if it works on macOS/Windows. And files that are generated locally (e.g. <code>dist/</code>, <code>.env</code>) won't exist in CI checkouts unless they're committed or built inside the image.</p>
+<h2 id="cause-6-wrong-context-in-ci">Cause 6: wrong context in CI</h2>
+<p>In GitHub Actions <code>docker/build-push-action</code>, the default context is the Git checkout of the repo; set <code>context: ./subdir</code> if needed. Make sure <code>actions/checkout</code> ran first and Git LFS files are pulled if you copy them.</p>
+<p class="upd">Last updated 2026-11-10.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-exec-format-error/">exec format error</a></li><li><a href="/docker/docker-failed-to-solve-did-not-complete-successfully/">failed to solve: process &quot;/bin/sh -c ...&quot; did not complete successfully: exit code: 1</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>warning: LF will be replaced by CRLF the next time Git touches it — how to fix</title>
+<meta name="description" content="A harmless line-ending notice on Windows. Git converts line endings because core.autocrlf is on. Use .gitattributes to control it per project.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-lf-will-be-replaced-by-crlf/">
+<meta property="og:title" content="warning: LF will be replaced by CRLF the next time Git touches it — how to fix"><meta property="og:description" content="A harmless line-ending notice on Windows. Git converts line endings because core.autocrlf is on. Use .gitattributes to control it per project.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-lf-will-be-replaced-by-crlf/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "warning: LF will be replaced by CRLF the next time Git touches it \u2014 how to fix", "description": "A harmless line-ending notice on Windows. Git converts line endings because core.autocrlf is on. Use .gitattributes to control it per project.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/git/git-lf-will-be-replaced-by-crlf/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "warning: LF will be replaced by CRLF the next time Git touches it", "item": "https://errorfix-hollis.github.io/git/git-lf-will-be-replaced-by-crlf/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>warning: LF will be replaced by CRLF the next time Git touches it — how to fix</h1>
+<pre class="err"><code>warning: in the working copy of &#x27;index.js&#x27;, LF will be replaced by CRLF the next time Git touches it</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> It's only a warning. To make line endings consistent, add a <code>.gitattributes</code> with <code>* text=auto eol=lf</code>, then run <code>git add --renormalize .</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Windows uses CRLF (<code>\r\n</code>) line endings, Linux and macOS use LF (<code>\n</code>). With <code>core.autocrlf=true</code> (the Git for Windows default), Git stores LF in the repository and converts to CRLF in your working folder. The warning just tells you a file will be converted. Nothing is broken.</p>
+<h2 id="make-it-consistent-for-everyone-recommended">Make it consistent for everyone (recommended)</h2>
+<p>Add a <code>.gitattributes</code> file at the repository root:</p>
+<pre><code class="language-gitattributes">* text=auto eol=lf
+*.bat text eol=crlf
+*.png binary
+</code></pre>
+<p>Then renormalise once and commit:</p>
+<pre><code class="language-bash">git add --renormalize .
+git commit -m &quot;Normalize line endings&quot;
+</code></pre>
+<p><code>.gitattributes</code> is committed, so every clone gets the same behaviour, unlike <code>core.autocrlf</code> which is a per-machine setting.</p>
+<h2 id="just-silence-it">Just silence it</h2>
+<p>Choose your preference globally:</p>
+<pre><code class="language-bash">git config --global core.autocrlf input   # store LF, don't convert to CRLF on checkout
+git config --global core.safecrlf false   # don't warn
+</code></pre>
+<h2 id="when-it-matters">When it matters</h2>
+<p>Shell scripts with CRLF fail on Linux with <code>bad interpreter: ^M</code> errors, so files that run on Linux or in Docker should be LF. Most modern Windows editors handle LF without problems.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li><li><a href="/git/git-could-not-resolve-host/">fatal: unable to access ... Could not resolve host: github.com</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

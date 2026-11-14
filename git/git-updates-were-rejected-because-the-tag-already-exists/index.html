@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Updates were rejected because the tag already exists in the remote (Git) — how to fix</title>
+<meta name="description" content="You pushed a tag whose name already exists on the remote but points to a different commit. Git refuses to move tags on push unless forced, because others may already have fetched the old tag.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-updates-were-rejected-because-the-tag-already-exists/">
+<meta property="og:title" content="Updates were rejected because the tag already exists in the remote (Git) — how to fix"><meta property="og:description" content="You pushed a tag whose name already exists on the remote but points to a different commit. Git refuses to move tags on push unless forced, because others may already have fetched the old tag.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-updates-were-rejected-because-the-tag-already-exists/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Updates were rejected because the tag already exists in the remote (Git) \u2014 how to fix", "description": "You pushed a tag whose name already exists on the remote but points to a different commit. Git refuses to move tags on push unless forced, because others may already have fetched the old tag.", "dateModified": "2026-11-07", "url": "https://errorfix-hollis.github.io/git/git-updates-were-rejected-because-the-tag-already-exists/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "Updates were rejected because the tag already exists in the remote", "item": "https://errorfix-hollis.github.io/git/git-updates-were-rejected-because-the-tag-already-exists/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>Updates were rejected because the tag already exists in the remote (Git) — how to fix</h1>
+<pre class="err"><code>To github.com:me/app.git
+ ! [rejected]        v1.2.0 -&gt; v1.2.0 (already exists)
+error: failed to push some refs to &#x27;github.com:me/app.git&#x27;
+hint: Updates were rejected because the tag already exists in the remote.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> If the remote tag is correct, release under a new name (<code>git tag v1.2.1 &amp;&amp; git push origin v1.2.1</code>). To move it deliberately: <code>git tag -f v1.2.0 &lt;commit&gt;</code> then <code>git push origin v1.2.0 --force</code> (or delete with <code>git push origin :refs/tags/v1.2.0</code> and push again). If your local tag is stale, <code>git fetch --tags --force</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Branches are expected to move; tags are not. When you push a tag that exists on the remote with a different target commit, Git rejects it with <code>(already exists)</code>. You hit this after re-creating a tag locally (<code>git tag -f</code>, or delete + recreate), or when two people tagged the same version.</p>
+<p>The reverse problem on fetch looks like <code>! [rejected] v1.2.0 -&gt; v1.2.0 (would clobber existing tag)</code>: the remote tag moved and your local copy is different.</p>
+<p>Compare both sides:</p>
+<pre><code class="language-bash">git rev-parse v1.2.0^{commit}            # local target
+git ls-remote --tags origin v1.2.0       # remote target (lines ending ^{} are the commit for annotated tags)
+</code></pre>
+<h2 id="fix-1-use-a-new-version-number-safest">Fix 1: use a new version number (safest)</h2>
+<p>If the tag was already published (a release, a package registry, CI deployed it), don't rewrite it. Tag the new commit with the next version:</p>
+<pre><code class="language-bash">git tag -a v1.2.1 -m &quot;v1.2.1&quot;
+git push origin v1.2.1
+</code></pre>
+<p>Package registries (npm, PyPI, crates.io, Go module proxy) cache versions permanently; moving a Git tag won't change what users download. The Go proxy in particular keeps the original commit for a tag forever.</p>
+<h2 id="fix-2-move-the-tag-on-purpose">Fix 2: move the tag on purpose</h2>
+<p>If nobody depends on it yet (e.g. you tagged the wrong commit a minute ago):</p>
+<pre><code class="language-bash">git tag -f v1.2.0 &lt;correct-commit&gt;       # add -a -m &quot;...&quot; for an annotated tag
+git push origin v1.2.0 --force
+</code></pre>
+<p>Or delete the remote tag and push again:</p>
+<pre><code class="language-bash">git push origin --delete v1.2.0           # same as: git push origin :refs/tags/v1.2.0
+git push origin v1.2.0
+</code></pre>
+<p>On GitHub, a tag attached to a published Release may be protected by a tag ruleset; deleting it then fails with <code>GH013</code> — change the rule or create a new tag. Deleting the tag also turns the GitHub Release into a draft.</p>
+<p>Everyone else who fetched the old tag must update:</p>
+<pre><code class="language-bash">git fetch origin --tags --force
+</code></pre>
+<h2 id="fix-3-your-local-tag-is-the-stale-one">Fix 3: your local tag is the stale one</h2>
+<p>If <code>git push --tags</code> fails because your local tags differ from the remote (you never meant to change them), sync from the remote instead:</p>
+<pre><code class="language-bash">git fetch origin --tags --force          # overwrite local tags with remote ones
+git push origin --tags
+</code></pre>
+<p>To drop a single local tag: <code>git tag -d v1.2.0 &amp;&amp; git fetch origin tag v1.2.0</code>.</p>
+<h2 id="fix-4-avoid-git-push-tags-in-scripts">Fix 4: avoid <code>git push --tags</code> in scripts</h2>
+<p><code>--tags</code> pushes every local tag, including old or experimental ones, so one mismatched tag breaks the whole push. Push the specific tag (<code>git push origin v1.2.0</code>) or use <code>git push --follow-tags</code>, which only pushes annotated tags reachable from the commits being pushed.</p>
+<p>In CI, a job that re-runs on the same commit and tries to create the same tag will hit this every time. Make the step idempotent:</p>
+<pre><code class="language-bash">git ls-remote --exit-code --tags origin &quot;refs/tags/$TAG&quot; &gt;/dev/null || {
+  git tag &quot;$TAG&quot; &amp;&amp; git push origin &quot;$TAG&quot;
+}
+</code></pre>
+<h2 id="name-clash-between-a-branch-and-a-tag">Name clash between a branch and a tag</h2>
+<p>If a branch and a tag share a name, plain <code>git push origin v1.2.0</code> can be ambiguous. Spell out the ref: <code>git push origin refs/tags/v1.2.0</code>.</p>
+<p class="upd">Last updated 2026-11-07.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-src-refspec-main-does-not-match-any/">error: src refspec main does not match any</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

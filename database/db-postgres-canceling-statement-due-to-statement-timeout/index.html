@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR: canceling statement due to statement timeout (PostgreSQL) — how to fix</title>
+<meta name="description" content="The query ran longer than the statement_timeout configured for the session, user, database or connection pool, so PostgreSQL cancelled it (SQLSTATE 57014).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-canceling-statement-due-to-statement-timeout/">
+<meta property="og:title" content="ERROR: canceling statement due to statement timeout (PostgreSQL) — how to fix"><meta property="og:description" content="The query ran longer than the statement_timeout configured for the session, user, database or connection pool, so PostgreSQL cancelled it (SQLSTATE 57014).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-canceling-statement-due-to-statement-timeout/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR: canceling statement due to statement timeout (PostgreSQL) \u2014 how to fix", "description": "The query ran longer than the statement_timeout configured for the session, user, database or connection pool, so PostgreSQL cancelled it (SQLSTATE 57014).", "dateModified": "2026-11-10", "url": "https://errorfix-hollis.github.io/database/db-postgres-canceling-statement-due-to-statement-timeout/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR: canceling statement due to statement timeout", "item": "https://errorfix-hollis.github.io/database/db-postgres-canceling-statement-due-to-statement-timeout/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR: canceling statement due to statement timeout (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>ERROR:  canceling statement due to statement timeout
+SQL state: 57014
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find where the timeout is set (<code>SHOW statement_timeout;</code>) and either make the query faster (check <code>EXPLAIN (ANALYZE, BUFFERS)</code>, add indexes, avoid lock waits) or raise the limit just for that work: <code>SET LOCAL statement_timeout = '5min';</code> inside the transaction.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>statement_timeout</code> is a per-statement time limit (default <code>0</code> = off). When a statement exceeds it, Postgres cancels it and the surrounding transaction is aborted. Someone set it: in <code>postgresql.conf</code>, on the role/database, on the connection string, or in your framework/ORM.</p>
+<p>Similar messages with different causes:</p>
+<ul>
+<li><code>canceling statement due to lock timeout</code> — <code>lock_timeout</code> hit while <em>waiting for a lock</em>.</li>
+<li><code>canceling statement due to user request</code> — something called <code>pg_cancel_backend()</code> or the client cancelled (e.g. Ctrl+C, driver query timeout).</li>
+<li><code>canceling statement due to conflict with recovery</code> — on a hot standby replica.</li>
+</ul>
+<h2 id="find-where-the-timeout-comes-from">Find where the timeout comes from</h2>
+<pre><code class="language-sql">SHOW statement_timeout;
+
+SELECT name, setting, source, sourcefile
+FROM pg_settings WHERE name = 'statement_timeout';
+
+-- role/database level overrides
+SELECT coalesce(r.rolname, 'ALL') AS role, coalesce(d.datname, 'ALL') AS db, s.setconfig
+FROM pg_db_role_setting s
+LEFT JOIN pg_roles r ON r.oid = s.setrole
+LEFT JOIN pg_database d ON d.oid = s.setdatabase;
+</code></pre>
+<p>Managed services (RDS parameter groups, Supabase, Heroku) and poolers often set it too. Supabase, for example, sets short timeouts on the <code>anon</code> and <code>authenticated</code> roles.</p>
+<h2 id="cause-1-fix-1-the-query-is-slow">Cause 1 / Fix 1: the query is slow</h2>
+<p>Run it with timing data (on a copy or with the timeout raised):</p>
+<pre><code class="language-sql">SET statement_timeout = 0;
+EXPLAIN (ANALYZE, BUFFERS) SELECT ...;
+</code></pre>
+<p>Look for <code>Seq Scan</code> on large tables with a selective filter and add the missing index:</p>
+<pre><code class="language-sql">CREATE INDEX CONCURRENTLY idx_orders_customer ON orders (customer_id);
+ANALYZE orders;
+</code></pre>
+<p>Other common fixes: keyset pagination instead of huge <code>OFFSET</code>, avoiding functions on indexed columns in <code>WHERE</code> (<code>lower(email)</code> needs an expression index), and running <code>VACUUM ANALYZE</code> when statistics are stale.</p>
+<h2 id="cause-2-fix-2-waiting-on-locks">Cause 2 / Fix 2: waiting on locks</h2>
+<p>The statement may be fast but blocked by another transaction (time spent waiting counts toward <code>statement_timeout</code>). Check:</p>
+<pre><code class="language-sql">SELECT pid, pg_blocking_pids(pid) AS blocked_by, now() - query_start AS waiting, query
+FROM pg_stat_activity
+WHERE cardinality(pg_blocking_pids(pid)) &gt; 0;
+</code></pre>
+<p>Often the blocker is an <code>idle in transaction</code> session. Fix the app so it commits, and set <code>idle_in_transaction_session_timeout</code> to kill stragglers.</p>
+<h2 id="cause-3-fix-3-legitimate-long-work-migrations-reports-backfills">Cause 3 / Fix 3: legitimate long work (migrations, reports, backfills)</h2>
+<p>Raise the limit only for that transaction instead of globally:</p>
+<pre><code class="language-sql">BEGIN;
+SET LOCAL statement_timeout = '30min';
+UPDATE big_table SET ...;
+COMMIT;
+</code></pre>
+<p>Or for one role: <code>ALTER ROLE reporting SET statement_timeout = '10min';</code> (applies to new sessions). For bulk updates, batch them (<code>WHERE id BETWEEN ...</code>) so each statement stays short.</p>
+<p>Note: with PgBouncer in transaction mode, a plain <code>SET</code> may leak to other clients or be lost; use <code>SET LOCAL</code> inside a transaction, or set it on the role.</p>
+<h2 id="cause-4-fix-4-client-side-timeouts">Cause 4 / Fix 4: client-side timeouts</h2>
+<p>Some drivers send a cancel themselves, which shows up as <code>canceling statement due to user request</code>, e.g. JDBC <code>setQueryTimeout</code>, Django <code>OPTIONS: {"options": "-c statement_timeout=5000"}</code>, or Node <code>pg</code>'s <code>statement_timeout</code> / <code>query_timeout</code> config. Check your connection settings before changing the server.</p>
+<p>After any of these errors inside a transaction, you must <code>ROLLBACK</code> before the connection can be used again (otherwise: <code>current transaction is aborted</code>).</p>
+<p class="upd">Last updated 2026-11-10.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-postgres-could-not-serialize-access/">ERROR: could not serialize access due to concurrent update</a></li><li><a href="/database/db-postgres-deadlock-detected/">ERROR: deadlock detected</a></li><li><a href="/database/db-postgres-sorry-too-many-clients-already/">FATAL: sorry, too many clients already</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: object of type &#x27;NoneType&#x27; has no len() (Python) — how to fix</title>
+<meta name="description" content="You called len() on a variable that is None. Something that should have returned a list, string or dict returned None instead, often an in-place method like list.sort() or a function with no return.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-object-of-type-nonetype-has-no-len/">
+<meta property="og:title" content="TypeError: object of type &#x27;NoneType&#x27; has no len() (Python) — how to fix"><meta property="og:description" content="You called len() on a variable that is None. Something that should have returned a list, string or dict returned None instead, often an in-place method like list.sort() or a function with no return.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-object-of-type-nonetype-has-no-len/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: object of type 'NoneType' has no len() (Python) \u2014 how to fix", "description": "You called len() on a variable that is None. Something that should have returned a list, string or dict returned None instead, often an in-place method like list.sort() or a function with no return.", "dateModified": "2026-11-14", "url": "https://errorfix-hollis.github.io/python/python-typeerror-object-of-type-nonetype-has-no-len/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: object of type 'NoneType' has no len()", "item": "https://errorfix-hollis.github.io/python/python-typeerror-object-of-type-nonetype-has-no-len/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: object of type &#x27;NoneType&#x27; has no len() (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 9, in &lt;module&gt;
+    print(len(items))
+TypeError: object of type &#x27;NoneType&#x27; has no len()
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find where the variable was assigned. Don't assign the result of in-place methods (<code>items.sort()</code> returns None; use <code>items = sorted(items)</code>). Make sure your function ends with <code>return value</code>. Guard optional values: <code>len(items or [])</code> or <code>if items is not None:</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>len(x)</code> only works on objects with a length (str, list, tuple, dict, set, ...). Here <code>x</code> is <code>None</code>. The <code>len()</code> line is just where it blows up; the real bug is wherever <code>None</code> was assigned. Trace the variable back:</p>
+<pre><code class="language-python">print(repr(items))   # None
+</code></pre>
+<h2 id="cause-1-assigning-the-result-of-an-in-place-method">Cause 1: assigning the result of an in-place method</h2>
+<p><code>list.sort()</code>, <code>list.append()</code>, <code>list.extend()</code>, <code>list.reverse()</code>, <code>dict.update()</code>, <code>random.shuffle()</code> change the object in place and return <code>None</code>:</p>
+<pre><code class="language-python">items = [3, 1, 2]
+items = items.sort()     # items is now None
+len(items)               # TypeError
+</code></pre>
+<p>Fix: don't reassign, or use the function that returns a new object:</p>
+<pre><code class="language-python">items.sort()             # in place
+items = sorted(items)    # new list
+</code></pre>
+<h2 id="cause-2-a-function-without-return">Cause 2: a function without <code>return</code></h2>
+<p>A function that reaches its end without <code>return</code> returns <code>None</code>:</p>
+<pre><code class="language-python">def load_users(path):
+    with open(path) as f:
+        users = f.read().splitlines()
+    # forgot: return users
+
+users = load_users(&quot;users.txt&quot;)
+len(users)               # TypeError
+</code></pre>
+<p>Also check every branch. If <code>return</code> is inside an <code>if</code>, the other path returns <code>None</code>:</p>
+<pre><code class="language-python">def find(items, key):
+    if key in items:
+        return items[key]
+    return []            # explicit fallback
+</code></pre>
+<h2 id="cause-3-lookups-that-return-none-on-a-miss">Cause 3: lookups that return None on a miss</h2>
+<p><code>dict.get()</code>, <code>re.match()</code>, <code>re.search()</code>, <code>os.environ.get()</code>, ORM <code>.first()</code> and BeautifulSoup <code>.find()</code> return <code>None</code> when nothing is found:</p>
+<pre><code class="language-python">tags = config.get(&quot;tags&quot;)            # None if the key is missing
+tags = config.get(&quot;tags&quot;, [])        # default instead
+
+m = re.search(r&quot;\d+&quot;, text)
+if m:
+    print(len(m.group()))
+</code></pre>
+<h2 id="cause-4-optional-parameters">Cause 4: optional parameters</h2>
+<pre><code class="language-python">def process(rows=None):
+    for i in range(len(rows)):       # TypeError when called as process()
+        ...
+</code></pre>
+<p>Normalise at the top:</p>
+<pre><code class="language-python">def process(rows=None):
+    rows = rows or []
+</code></pre>
+<p>Use <code>if rows is None: rows = []</code> if an empty-but-valid value must be kept distinct.</p>
+<h2 id="cause-5-api-or-json-fields-that-can-be-null">Cause 5: API or JSON fields that can be null</h2>
+<p><code>null</code> in JSON becomes <code>None</code> in Python:</p>
+<pre><code class="language-python">data = r.json()
+len(data[&quot;results&quot;])                 # fails if &quot;results&quot;: null
+
+results = data.get(&quot;results&quot;) or []
+</code></pre>
+<h2 id="cause-6-pandas-numpy">Cause 6: pandas / numpy</h2>
+<p><code>df.dropna(inplace=True)</code>, <code>df.drop(..., inplace=True)</code>, <code>df.sort_values(..., inplace=True)</code> return <code>None</code>. Don't combine <code>inplace=True</code> with assignment:</p>
+<pre><code class="language-python">df = df.dropna()            # right
+df = df.dropna(inplace=True)   # df is now None
+</code></pre>
+<h2 id="safe-pattern">Safe pattern</h2>
+<pre><code class="language-python">count = len(items) if items is not None else 0
+</code></pre>
+<p>But prefer fixing the source of <code>None</code>, so bugs don't get hidden. Type hints plus <code>mypy</code> catch many of these: a function annotated <code>-&gt; list[str]</code> with a missing <code>return</code> is flagged before you run it.</p>
+<p class="upd">Last updated 2026-11-14.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li><li><a href="/python/python-typeerror-nonetype-object-is-not-iterable/">TypeError: &#x27;NoneType&#x27; object is not iterable</a></li><li><a href="/python/python-typeerror-nonetype-object-is-not-subscriptable/">TypeError: &#x27;NoneType&#x27; object is not subscriptable</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

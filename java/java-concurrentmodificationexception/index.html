@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>java.util.ConcurrentModificationException — how to fix</title>
+<meta name="description" content="A collection was structurally modified (add/remove) while it was being iterated, so the iterator detected the change and failed fast. It happens in single-threaded code too — usually a remove() inside a for-each loop.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-concurrentmodificationexception/">
+<meta property="og:title" content="java.util.ConcurrentModificationException — how to fix"><meta property="og:description" content="A collection was structurally modified (add/remove) while it was being iterated, so the iterator detected the change and failed fast. It happens in single-threaded code too — usually a remove() inside a for-each loop.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-concurrentmodificationexception/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "java.util.ConcurrentModificationException \u2014 how to fix", "description": "A collection was structurally modified (add/remove) while it was being iterated, so the iterator detected the change and failed fast. It happens in single-threaded code too \u2014 usually a remove() inside a for-each loop.", "dateModified": "2026-11-06", "url": "https://errorfix-hollis.github.io/java/java-concurrentmodificationexception/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "java.util.ConcurrentModificationException", "item": "https://errorfix-hollis.github.io/java/java-concurrentmodificationexception/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>java.util.ConcurrentModificationException — how to fix</h1>
+<pre class="err"><code>Exception in thread &quot;main&quot; java.util.ConcurrentModificationException
+	at java.base/java.util.ArrayList$Itr.checkForComodification(ArrayList.java:1013)
+	at java.base/java.util.ArrayList$Itr.next(ArrayList.java:967)
+	at com.example.Main.main(Main.java:12)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Don't call <code>list.remove()</code> inside a for-each loop. Use <code>list.removeIf(x -&gt; cond)</code>, or an explicit <code>Iterator</code> with <code>it.remove()</code>, or collect changes and apply them after the loop. For maps use <code>map.entrySet().removeIf(...)</code>. For multi-threaded access use <code>ConcurrentHashMap</code> / <code>CopyOnWriteArrayList</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Iterators of <code>ArrayList</code>, <code>HashMap</code>, <code>HashSet</code> and most other <code>java.util</code> collections are <em>fail-fast</em>. Each collection keeps a <code>modCount</code> that increments on every structural change (add, remove, clear). The iterator remembers the value when it was created and checks it on each <code>next()</code>. If it changed by any means other than the iterator's own methods, it throws <code>ConcurrentModificationException</code>.</p>
+<p>Despite the name, threads are usually not involved.</p>
+<h2 id="cause-1-removing-inside-an-enhanced-for-loop">Cause 1: removing inside an enhanced for loop</h2>
+<pre><code class="language-java">List&lt;String&gt; names = new ArrayList&lt;&gt;(List.of(&quot;ann&quot;, &quot;bob&quot;, &quot;cid&quot;));
+for (String n : names) {
+    if (n.startsWith(&quot;b&quot;)) {
+        names.remove(n);      // CME on the next iteration
+    }
+}
+</code></pre>
+<p>The for-each loop uses a hidden iterator; <code>names.remove()</code> bypasses it.</p>
+<p>(Removing the second-to-last element sometimes "works" because the loop ends before <code>next()</code> checks again — don't rely on that.)</p>
+<h2 id="fix-1-removeif-java-8">Fix 1: <code>removeIf</code> (Java 8+)</h2>
+<pre><code class="language-java">names.removeIf(n -&gt; n.startsWith(&quot;b&quot;));
+</code></pre>
+<p>Clear, fast (one pass for <code>ArrayList</code>), and safe.</p>
+<h2 id="fix-2-use-the-iterators-own-remove">Fix 2: use the iterator's own <code>remove()</code></h2>
+<p>When the logic doesn't fit in a lambda:</p>
+<pre><code class="language-java">Iterator&lt;String&gt; it = names.iterator();
+while (it.hasNext()) {
+    String n = it.next();
+    if (shouldDrop(n)) {
+        it.remove();          // allowed
+    }
+}
+</code></pre>
+<p>For lists, <code>ListIterator</code> also supports <code>set()</code> and <code>add()</code> during iteration.</p>
+<h2 id="fix-3-build-a-new-collection-with-streams">Fix 3: build a new collection with streams</h2>
+<pre><code class="language-java">List&lt;String&gt; kept = names.stream()
+        .filter(n -&gt; !n.startsWith(&quot;b&quot;))
+        .collect(Collectors.toList());    // or .toList() on Java 16+
+</code></pre>
+<h2 id="fix-4-collect-then-modify-after-the-loop">Fix 4: collect, then modify after the loop</h2>
+<pre><code class="language-java">List&lt;String&gt; toAdd = new ArrayList&lt;&gt;();
+for (String n : names) {
+    if (n.length() == 3) toAdd.add(n.toUpperCase());
+}
+names.addAll(toAdd);
+</code></pre>
+<p>Adding inside a for-each loop throws CME just like removing.</p>
+<h2 id="cause-2-maps">Cause 2: maps</h2>
+<pre><code class="language-java">for (String key : map.keySet()) {
+    if (map.get(key) == 0) map.remove(key);   // CME
+}
+</code></pre>
+<p>Fix:</p>
+<pre><code class="language-java">map.entrySet().removeIf(e -&gt; e.getValue() == 0);
+// or
+map.values().removeIf(v -&gt; v == 0);
+</code></pre>
+<p>Updating the <em>value</em> of an existing key (<code>map.put(existingKey, v)</code> or <code>entry.setValue(v)</code>) is not a structural change and is fine. <code>map.computeIfAbsent(...)</code> inside iteration of the same <code>HashMap</code> is a structural change if it adds a key.</p>
+<h2 id="cause-3-modifying-a-list-in-a-callback-or-nested-loop">Cause 3: modifying a list in a callback or nested loop</h2>
+<p>The modification is often hidden: an event listener that unregisters itself while listeners are being notified, or a method called from the loop body that adds to the same list. Look at the stack trace's last line in your code (<code>Main.java:12</code>) — that's the loop; then find who modifies the collection during it.</p>
+<p>For listener lists, <code>CopyOnWriteArrayList</code> is the standard solution: iteration works on a snapshot, so modifications during iteration are allowed.</p>
+<h2 id="cause-4-sublist-and-views">Cause 4: subList and views</h2>
+<p><code>list.subList(0, 5)</code> is a view. If you modify the original list structurally, then use the sublist, you get CME. Copy it if you need it independently: <code>new ArrayList&lt;&gt;(list.subList(0, 5))</code>.</p>
+<h2 id="cause-5-real-multi-threaded-access">Cause 5: real multi-threaded access</h2>
+<p>If one thread iterates while another modifies, use a concurrent collection instead of a plain one:</p>
+<pre><code class="language-java">Map&lt;String, Integer&gt; counts = new ConcurrentHashMap&lt;&gt;();
+List&lt;Event&gt; events = new CopyOnWriteArrayList&lt;&gt;();   // many reads, few writes
+</code></pre>
+<p>Their iterators are weakly consistent and never throw CME. <code>Collections.synchronizedList(...)</code> is <em>not</em> enough on its own: you must still hold the lock while iterating:</p>
+<pre><code class="language-java">synchronized (syncList) {
+    for (Item i : syncList) { ... }
+}
+</code></pre>
+<p>Note that without proper synchronisation, CME is detected only on a best-effort basis — the absence of the exception doesn't prove the code is thread-safe.</p>
+<p class="upd">Last updated 2026-11-06.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-noclassdeffounderror/">java.lang.NoClassDefFoundError</a></li><li><a href="/java/java-nullpointerexception/">java.lang.NullPointerException: Cannot invoke &quot;String.length()&quot; because &quot;&lt;local1&gt;&quot; is null</a></li><li><a href="/java/java-outofmemoryerror-java-heap-space/">java.lang.OutOfMemoryError: Java heap space</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-comparison-method-violates-its-general-contract/">java.lang.IllegalArgumentException: Comparison method violates its general contract!</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

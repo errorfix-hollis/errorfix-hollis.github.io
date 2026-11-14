@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ImportError: DLL load failed while importing (Python) — how to fix</title>
+<meta name="description" content="On Windows, a compiled Python extension (.pyd) or one of the DLLs it depends on could not be loaded. Usually a missing Visual C++ runtime, a broken or mixed install, or a 32/64-bit or Python-version mismatch.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-importerror-dll-load-failed/">
+<meta property="og:title" content="ImportError: DLL load failed while importing (Python) — how to fix"><meta property="og:description" content="On Windows, a compiled Python extension (.pyd) or one of the DLLs it depends on could not be loaded. Usually a missing Visual C++ runtime, a broken or mixed install, or a 32/64-bit or Python-version mismatch.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-importerror-dll-load-failed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ImportError: DLL load failed while importing (Python) \u2014 how to fix", "description": "On Windows, a compiled Python extension (.pyd) or one of the DLLs it depends on could not be loaded. Usually a missing Visual C++ runtime, a broken or mixed install, or a 32/64-bit or Python-version mismatch.", "dateModified": "2026-11-08", "url": "https://errorfix-hollis.github.io/python/python-importerror-dll-load-failed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ImportError: DLL load failed while importing", "item": "https://errorfix-hollis.github.io/python/python-importerror-dll-load-failed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ImportError: DLL load failed while importing (Python) — how to fix</h1>
+<pre class="err"><code>ImportError: DLL load failed while importing _multiarray_umath: The specified module could not be found.
+ImportError: DLL load failed while importing QtCore: The specified procedure could not be found.
+OSError: [WinError 126] The specified module could not be found. Error loading &quot;...\torch\lib\c10.dll&quot; or one of its dependencies.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install the latest Microsoft Visual C++ Redistributable (x64), then reinstall the package in a clean virtual environment: <code>python -m venv .venv</code>, <code>.venv\Scripts\activate</code>, <code>pip install --force-reinstall --no-cache-dir &lt;package&gt;</code>. Don't mix conda and pip installs of the same package.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Python found the module (so it is <em>not</em> <code>ModuleNotFoundError</code>), but Windows refused to load the native <code>.pyd</code> file behind it. The message "The specified module could not be found" is misleading: the <code>.pyd</code> itself exists, but a <strong>DLL it depends on</strong> is missing or incompatible. "The specified procedure could not be found" means a DLL was found but it is the wrong version.</p>
+<p>Typical victims: numpy, scipy, pandas, torch, PyQt5/PySide, opencv (<code>cv2</code>), psycopg2, lxml.</p>
+<h2 id="cause-1-visual-c-runtime-missing">Cause 1: Visual C++ runtime missing</h2>
+<p>Most wheels are built with MSVC and need <code>vcruntime140.dll</code>, <code>msvcp140.dll</code> and friends. Fresh Windows installs and slim VMs often lack them.</p>
+<p><strong>Fix:</strong> install the latest "Microsoft Visual C++ Redistributable for Visual Studio 2015-2022" (x64) from Microsoft's site, or:</p>
+<pre><code class="language-powershell">winget install Microsoft.VCRedist.2015+.x64
+</code></pre>
+<p>Restart the terminal and try again. For PyTorch this fixes most <code>WinError 126 ... c10.dll</code> errors.</p>
+<h2 id="cause-2-broken-or-mixed-installation">Cause 2: broken or mixed installation</h2>
+<p>Upgrading one package with pip while another was installed by conda (or a different pip) leaves DLLs from different builds side by side.</p>
+<p><strong>Fix:</strong> reinstall cleanly, ideally in a fresh venv:</p>
+<pre><code class="language-powershell">python -m venv .venv
+.venv\Scripts\activate
+pip install --upgrade pip
+pip install --force-reinstall --no-cache-dir numpy
+</code></pre>
+<p>In conda, install with one tool only:</p>
+<pre><code class="language-powershell">conda install numpy pandas      # not pip for the same packages
+conda update --all
+</code></pre>
+<p>If you must use pip inside conda, install the native packages with conda first and only pure-Python ones with pip.</p>
+<h2 id="cause-3-wrong-architecture-or-python-version">Cause 3: wrong architecture or Python version</h2>
+<p>A 32-bit Python cannot load 64-bit DLLs and vice versa, and wheels are built per Python minor version. Check:</p>
+<pre><code class="language-powershell">python -c &quot;import sys, platform; print(sys.version); print(platform.architecture())&quot;
+pip debug --verbose | findstr cp3
+</code></pre>
+<p><strong>Fix:</strong> use 64-bit Python and a package version that ships wheels for your Python (very new Python releases often don't have them yet; use the previous minor version).</p>
+<h2 id="cause-4-a-conflicting-dll-earlier-on-path">Cause 4: a conflicting DLL earlier on PATH</h2>
+<p>Another program (an old Qt, Anaconda, Intel MKL, a GPU toolkit) puts its own copy of a DLL on <code>PATH</code>, and Windows loads that one instead.</p>
+<p><strong>Fix:</strong> run from a clean shell with a minimal <code>PATH</code>, or find the conflict:</p>
+<pre><code class="language-powershell">where Qt5Core.dll
+where libiomp5md.dll
+</code></pre>
+<p>Remove the stray directory from <code>PATH</code>. Since Python 3.8, <code>PATH</code> is no longer searched for extension dependencies by default; packages call <code>os.add_dll_directory()</code> instead, so old advice to "add the folder to PATH" often doesn't help. In your own code:</p>
+<pre><code class="language-python">import os
+os.add_dll_directory(r&quot;C:\path\to\dlls&quot;)
+import mymodule
+</code></pre>
+<h2 id="cause-5-cpu-or-gpu-runtime-issues">Cause 5: CPU or GPU runtime issues</h2>
+<ul>
+<li>Very old CPUs without AVX can't load recent numpy/tensorflow builds.</li>
+<li>CUDA builds of torch/tensorflow need a matching NVIDIA driver. Install the CPU build to confirm: <code>pip install torch --index-url https://download.pytorch.org/whl/cpu</code>.</li>
+</ul>
+<p>To see exactly which dependency is missing, run the "Dependencies" tool (open-source successor of Dependency Walker) on the <code>.pyd</code> file named in the traceback.</p>
+<p class="upd">Last updated 2026-11-08.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-importerror-libgl-so-1-cannot-open-shared-object-file/">ImportError: libGL.so.1: cannot open shared object file: No such file or directory</a></li><li><a href="/python/python-microsoft-visual-cpp-required/">error: Microsoft Visual C++ 14.0 or greater is required.</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

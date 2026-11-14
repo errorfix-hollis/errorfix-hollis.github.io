@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>chmod Calculator — convert 755, 644, rwxr-xr-x permissions</title>
+<meta name="description" content="Convert Linux file permissions between checkboxes, octal (755, 644) and symbolic (rwxr-xr-x) notation, including setuid, setgid and sticky bits, and get the chmod command.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/chmod-calculator/">
+<meta property="og:title" content="chmod Calculator — convert 755, 644, rwxr-xr-x permissions"><meta property="og:description" content="Convert Linux file permissions between checkboxes, octal (755, 644) and symbolic (rwxr-xr-x) notation, including setuid, setgid and sticky bits, and get the chmod command.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/chmod-calculator/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "chmod calculator", "url": "https://errorfix-hollis.github.io/tools/chmod-calculator/", "description": "Convert Linux file permissions between checkboxes, octal (755, 644) and symbolic (rwxr-xr-x) notation, including setuid, setgid and sticky bits, and get the chmod command.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-01", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": "chmod calculator", "item": "https://errorfix-hollis.github.io/tools/chmod-calculator/"}]}</script><script src="/tools.js?v=70df2f10" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>chmod calculator</h1>
+<p class="lead">Tick the permissions you want, or type an octal or symbolic mode, and get the matching chmod command.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="chmod"><table class="chmod">
+<tr><th></th><th>Read (4)</th><th>Write (2)</th><th>Execute (1)</th></tr>
+<tr><th>Owner (u)</th><td><input type="checkbox" data-i="1" data-v="4" aria-label="owner read"></td><td><input type="checkbox" data-i="1" data-v="2" aria-label="owner write"></td><td><input type="checkbox" data-i="1" data-v="1" aria-label="owner execute"></td></tr>
+<tr><th>Group (g)</th><td><input type="checkbox" data-i="2" data-v="4" aria-label="group read"></td><td><input type="checkbox" data-i="2" data-v="2" aria-label="group write"></td><td><input type="checkbox" data-i="2" data-v="1" aria-label="group execute"></td></tr>
+<tr><th>Others (o)</th><td><input type="checkbox" data-i="3" data-v="4" aria-label="others read"></td><td><input type="checkbox" data-i="3" data-v="2" aria-label="others write"></td><td><input type="checkbox" data-i="3" data-v="1" aria-label="others execute"></td></tr>
+<tr><th>Special</th><td><label><input type="checkbox" data-i="0" data-v="4"> setuid</label></td><td><label><input type="checkbox" data-i="0" data-v="2"> setgid</label></td><td><label><input type="checkbox" data-i="0" data-v="1"> sticky</label></td></tr>
+</table>
+<div class="row two">
+<label>Octal<input type="text" id="chmod-oct" class="big" spellcheck="false" autocomplete="off" inputmode="numeric"></label>
+<label>Symbolic<input type="text" id="chmod-sym" class="big" spellcheck="false" autocomplete="off"></label>
+</div>
+<div id="chmod-msg" class="msg" hidden></div>
+<pre class="out"><code id="chmod-cmd"></code></pre>
+<pre class="out"><code id="chmod-cmd2"></code></pre>
+<p class="small">As shown by <code>ls -l</code>: <code id="chmod-ls"></code> <button id="chmod-copy" class="sec">Copy command</button></p>
+<div class="row presets"><button class="sec" data-mode="644">644</button><button class="sec" data-mode="755">755</button><button class="sec" data-mode="600">600</button><button class="sec" data-mode="700">700</button><button class="sec" data-mode="400">400</button><button class="sec" data-mode="775">775</button><button class="sec" data-mode="777">777</button><button class="sec" data-mode="1777">1777</button></div>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<h2 id="how-octal-permissions-work">How octal permissions work</h2>
+<p>Each digit is the sum of <strong>read = 4</strong>, <strong>write = 2</strong> and <strong>execute = 1</strong>, for owner, group and others in that order. So <code>7 = 4+2+1 = rwx</code>, <code>5 = 4+1 = r-x</code>, <code>4 = r--</code>, <code>0 = ---</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Octal</th>
+<th>Symbolic</th>
+<th>Typical use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>644</code></td>
+<td><code>rw-r--r--</code></td>
+<td>normal files, web content, configs</td>
+</tr>
+<tr>
+<td><code>755</code></td>
+<td><code>rwxr-xr-x</code></td>
+<td>directories, scripts and binaries</td>
+</tr>
+<tr>
+<td><code>600</code></td>
+<td><code>rw-------</code></td>
+<td>private files: SSH keys, <code>.env</code>, credentials</td>
+</tr>
+<tr>
+<td><code>700</code></td>
+<td><code>rwx------</code></td>
+<td>private directories such as <code>~/.ssh</code></td>
+</tr>
+<tr>
+<td><code>400</code></td>
+<td><code>r--------</code></td>
+<td>read-only secrets, AWS <code>.pem</code> keys</td>
+</tr>
+<tr>
+<td><code>775</code></td>
+<td><code>rwxrwxr-x</code></td>
+<td>shared project directories for a group</td>
+</tr>
+<tr>
+<td><code>777</code></td>
+<td><code>rwxrwxrwx</code></td>
+<td>everyone can write: almost always a mistake</td>
+</tr>
+<tr>
+<td><code>1777</code></td>
+<td><code>rwxrwxrwt</code></td>
+<td><code>/tmp</code>: sticky bit, users can only delete their own files</td>
+</tr>
+</tbody>
+</table>
+<p>For <strong>directories</strong>, <code>r</code> lets you list names, <code>w</code> lets you create and delete entries, and <code>x</code> lets you enter the directory and reach files inside it. A directory without <code>x</code> is effectively closed even if its files are readable.</p>
+<h2 id="special-bits">Special bits</h2>
+<p>The optional fourth (leading) digit holds <strong>setuid = 4</strong> (run as the file owner, e.g. <code>passwd</code>), <strong>setgid = 2</strong> (run as the group; on directories new files inherit the group) and <strong>sticky = 1</strong> (on directories only the owner can delete files). In <code>ls -l</code> they appear as <code>s</code>/<code>t</code> in the execute position, or capital <code>S</code>/<code>T</code> when execute is not set.</p>
+<h2 id="common-fixes">Common fixes</h2>
+<ul>
+<li><code>Permission denied</code> running a script: <code>chmod +x script.sh</code> (or <code>chmod 755</code>). See <a href="/linux/linux-permission-denied-running-script/">permission denied running a script</a>.</li>
+<li>SSH refuses a key with <em>UNPROTECTED PRIVATE KEY FILE</em>: <code>chmod 600 ~/.ssh/id_ed25519</code> and <code>chmod 700 ~/.ssh</code>. See <a href="/ssh/ssh-unprotected-private-key-file/">unprotected private key file</a>.</li>
+<li>Recursive changes: use <code>find . -type d -exec chmod 755 {} +</code> and <code>find . -type f -exec chmod 644 {} +</code> instead of <code>chmod -R 777</code>.</li>
+<li>If the real problem is <em>ownership</em>, <code>chown</code> is the fix, not chmod: see <a href="/npm/npm-eacces-permission-denied/">npm EACCES</a> and <a href="/docker/docker-permission-denied-docker-sock/">docker.sock permission denied</a>.</li>
+</ul>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-permission-denied-running-script/">bash: ./script.sh: Permission denied</a></li><li><a href="/ssh/ssh-unprotected-private-key-file/">WARNING: UNPROTECTED PRIVATE KEY FILE!</a></li><li><a href="/npm/npm-eacces-permission-denied/">npm ERR! code EACCES</a></li><li><a href="/docker/docker-permission-denied-docker-sock/">permission denied while trying to connect to the Docker daemon socket</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/json-formatter/">JSON formatter &amp; validator</a></li><li><a href="/tools/cron-expression-explainer/">Cron expression explainer</a></li><li><a href="/tools/unix-timestamp-converter/">Unix timestamp converter</a></li><li><a href="/tools/base64-encode-decode/">Base64 encode / decode</a></li><li><a href="/tools/url-encode-decode/">URL encode / decode</a></li><li><a href="/tools/jwt-decoder/">JWT decoder</a></li><li><a href="/tools/regex-tester/">Regex tester</a></li><li><a href="/tools/yaml-validator/">YAML validator &amp; YAML ↔ JSON converter</a></li><li><a href="/tools/uuid-generator/">UUID generator &amp; validator (v4, v7)</a></li><li><a href="/tools/text-diff/">Text diff checker</a></li><li><a href="/tools/http-status-codes/">HTTP status codes reference</a></li><li><a href="/tools/hash-generator/">Hash generator (MD5, SHA-256, SHA-512)</a></li><li><a href="/tools/line-ending-whitespace-inspector/">Line ending &amp; whitespace inspector</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

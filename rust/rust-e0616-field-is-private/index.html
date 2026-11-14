@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error[E0616]: field `x` of struct `Y` is private (Rust) — how to fix</title>
+<meta name="description" content="Struct fields are private to the module that defines the struct by default. Code in another module (or crate) tried to read or write a field that isn&#x27;t marked pub.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/rust/rust-e0616-field-is-private/">
+<meta property="og:title" content="error[E0616]: field `x` of struct `Y` is private (Rust) — how to fix"><meta property="og:description" content="Struct fields are private to the module that defines the struct by default. Code in another module (or crate) tried to read or write a field that isn&#x27;t marked pub.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/rust/rust-e0616-field-is-private/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error[E0616]: field `x` of struct `Y` is private (Rust) \u2014 how to fix", "description": "Struct fields are private to the module that defines the struct by default. Code in another module (or crate) tried to read or write a field that isn't marked pub.", "dateModified": "2026-11-13", "url": "https://errorfix-hollis.github.io/rust/rust-e0616-field-is-private/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Rust", "item": "https://errorfix-hollis.github.io/rust/"}, {"@type": "ListItem", "position": 3, "name": "error[E0616]: field `x` of struct `Y` is private", "item": "https://errorfix-hollis.github.io/rust/rust-e0616-field-is-private/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/rust/">Rust</a></p>
+<article><h1>error[E0616]: field `x` of struct `Y` is private (Rust) — how to fix</h1>
+<pre class="err"><code>error[E0616]: field `balance` of struct `Account` is private
+  --&gt; src/main.rs:5:24
+   |
+5 |     println!(&quot;{}&quot;, acct.balance);
+   |                         ^^^^^^^ private field
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Either make the field public (<code>pub balance: u64</code>, or <code>pub(crate)</code> for the same crate only) or, better, add a getter in the defining module: <code>pub fn balance(&amp;self) -&gt; u64 { self.balance }</code>. For external crates, use the provided methods; if the compiler suggests a method with the same name, call it with <code>()</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>In Rust, visibility is per <em>module</em>, and every item — including each struct field — is private unless marked <code>pub</code>. A field is visible in the module where the struct is defined and in that module's child modules, but nowhere else. Making the struct <code>pub</code> does <strong>not</strong> make its fields public.</p>
+<pre><code class="language-rust">mod bank {
+    pub struct Account {
+        balance: u64,          // private
+    }
+    impl Account {
+        pub fn new() -&gt; Self { Account { balance: 0 } }
+    }
+}
+
+fn main() {
+    let acct = bank::Account::new();
+    println!(&quot;{}&quot;, acct.balance);   // E0616
+}
+</code></pre>
+<h2 id="fix-1-add-an-accessor-method-usually-best">Fix 1: add an accessor method (usually best)</h2>
+<p>Keep the field private and expose what callers need:</p>
+<pre><code class="language-rust">impl Account {
+    pub fn balance(&amp;self) -&gt; u64 {
+        self.balance
+    }
+    pub fn deposit(&amp;mut self, amount: u64) {
+        self.balance += amount;
+    }
+}
+
+println!(&quot;{}&quot;, acct.balance());
+</code></pre>
+<p>This lets you keep invariants (e.g. balance can't be set arbitrarily) and change the internal representation later. Return <code>&amp;T</code> for non-<code>Copy</code> fields: <code>pub fn name(&amp;self) -&gt; &amp;str { &amp;self.name }</code>.</p>
+<h2 id="fix-2-make-the-field-public">Fix 2: make the field public</h2>
+<p>If the struct is plain data with no invariants:</p>
+<pre><code class="language-rust">pub struct Point {
+    pub x: f64,
+    pub y: f64,
+}
+</code></pre>
+<p>Narrower options:</p>
+<pre><code class="language-rust">pub(crate) balance: u64,        // visible anywhere in this crate
+pub(super) balance: u64,        // visible in the parent module
+pub(in crate::bank) balance: u64,
+</code></pre>
+<p>Note that if <em>any</em> field stays private, code outside the module can't construct the struct with a literal (<code>Account { balance: 0 }</code>) — that gives <code>E0451</code>. Provide a constructor like <code>new()</code>.</p>
+<h2 id="fix-3-its-a-field-on-a-struct-from-another-crate">Fix 3: it's a field on a struct from another crate</h2>
+<p>You can't change visibility of a dependency's fields. Look for methods in the crate's docs (<code>cargo doc --open</code>). Often the compiler hints:</p>
+<pre><code class="language-text">help: a method `len` also exists, call it with parentheses: `len()`
+</code></pre>
+<p>So <code>v.len</code> → <code>v.len()</code>, <code>s.status</code> → <code>s.status()</code>. Tuple-struct newtypes like <code>struct Meters(f64)</code> with a private <code>.0</code> usually offer <code>into_inner()</code>, <code>as_ref()</code>, <code>Deref</code> or a getter.</p>
+<h2 id="fix-4-the-code-is-in-the-wrong-module">Fix 4: the code is in the wrong module</h2>
+<p>Moving the struct into a separate file (<code>mod models;</code>) makes everything in <code>main.rs</code> "outside" the module. Either add <code>pub</code> / getters as above, or put the code that needs raw field access inside the module (an <code>impl</code> block in <code>models.rs</code>).</p>
+<p>Child modules can see private fields of a parent, which is why a <code>mod tests</code> declared inside the defining module (e.g. at the bottom of <code>bank.rs</code>) can read private fields:</p>
+<pre><code class="language-rust">#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn starts_empty() {
+        assert_eq!(Account::new().balance, 0); // allowed: child module
+    }
+}
+</code></pre>
+<p>Integration tests in <code>tests/</code> are a separate crate and only see <code>pub</code> items.</p>
+<h2 id="related">Related</h2>
+<ul>
+<li><a href="/rust/rust-e0603-struct-is-private/">E0603: struct is private</a> — the type itself (not a field) isn't <code>pub</code> or isn't re-exported.</li>
+<li><code>E0624: method is private</code> — same rule for methods: add <code>pub fn</code>.</li>
+</ul>
+<p class="upd">Last updated 2026-11-13.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/rust/rust-e0433-failed-to-resolve/">error[E0433]: failed to resolve: use of undeclared crate or module</a></li><li><a href="/rust/rust-e0599-no-method-named-found/">error[E0599]: no method named `x` found for struct `T` in the current scope</a></li><li><a href="/rust/rust-e0603-struct-is-private/">error[E0603]: struct is private</a></li><li><a href="/rust/rust-borrow-of-moved-value/">error[E0382]: borrow of moved value</a></li><li><a href="/rust/rust-cannot-borrow-as-mutable/">error[E0502]: cannot borrow as mutable because it is also borrowed as immutable</a></li><li><a href="/rust/rust-e0106-missing-lifetime-specifier/">error[E0106]: missing lifetime specifier</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR: permission denied for schema public (PostgreSQL) — how to fix</title>
+<meta name="description" content="The connecting role is not allowed to create objects (or use objects) in the public schema. Since PostgreSQL 15, ordinary users no longer get CREATE on public by default, so migrations fail on fresh databases.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-permission-denied-for-schema-public/">
+<meta property="og:title" content="ERROR: permission denied for schema public (PostgreSQL) — how to fix"><meta property="og:description" content="The connecting role is not allowed to create objects (or use objects) in the public schema. Since PostgreSQL 15, ordinary users no longer get CREATE on public by default, so migrations fail on fresh databases.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-permission-denied-for-schema-public/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR: permission denied for schema public (PostgreSQL) \u2014 how to fix", "description": "The connecting role is not allowed to create objects (or use objects) in the public schema. Since PostgreSQL 15, ordinary users no longer get CREATE on public by default, so migrations fail on fresh databases.", "dateModified": "2026-11-02", "url": "https://errorfix-hollis.github.io/database/db-postgres-permission-denied-for-schema-public/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR: permission denied for schema public", "item": "https://errorfix-hollis.github.io/database/db-postgres-permission-denied-for-schema-public/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR: permission denied for schema public (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>ERROR:  permission denied for schema public
+LINE 1: CREATE TABLE users (id serial primary key);
+                     ^
+django.db.utils.ProgrammingError: permission denied for schema public
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> As a superuser, connected to the right database: <code>GRANT USAGE, CREATE ON SCHEMA public TO myuser;</code> — or make the role own the database and schema: <code>ALTER DATABASE mydb OWNER TO myuser; ALTER SCHEMA public OWNER TO myuser;</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>To create a table you need <code>CREATE</code> on the schema; to read objects in it you need <code>USAGE</code> on the schema (plus privileges on the tables themselves). The role you connect as lacks one of those on <code>public</code>.</p>
+<p>The common trigger is <strong>PostgreSQL 15+</strong>. Older versions granted <code>CREATE</code> on <code>public</code> to every role (<code>PUBLIC</code>). From 15 onward, the <code>public</code> schema is owned by <code>pg_database_owner</code> and only the <strong>database owner</strong> can create objects there. So this classic setup now breaks migrations:</p>
+<pre><code class="language-sql">CREATE DATABASE mydb;
+CREATE USER myuser WITH PASSWORD 'secret';
+GRANT ALL PRIVILEGES ON DATABASE mydb TO myuser;   -- does NOT cover schemas
+</code></pre>
+<p><code>GRANT ALL ON DATABASE</code> only gives <code>CONNECT</code>, <code>CREATE</code> (schemas) and <code>TEMPORARY</code> on the database itself — nothing inside the <code>public</code> schema.</p>
+<h2 id="fix-1-make-the-app-role-the-database-owner-recommended">Fix 1: make the app role the database owner (recommended)</h2>
+<p>Connect as a superuser (e.g. <code>sudo -u postgres psql</code>):</p>
+<pre><code class="language-sql">ALTER DATABASE mydb OWNER TO myuser;
+</code></pre>
+<p>Because <code>public</code> is owned by <code>pg_database_owner</code> on PG 15+, the database owner automatically gets full rights on it. On older versions, also run:</p>
+<pre><code class="language-sql">\c mydb
+ALTER SCHEMA public OWNER TO myuser;
+</code></pre>
+<p>For new databases, do it at creation time:</p>
+<pre><code class="language-sql">CREATE DATABASE mydb OWNER myuser;
+</code></pre>
+<h2 id="fix-2-grant-privileges-on-the-schema">Fix 2: grant privileges on the schema</h2>
+<p>If the role shouldn't own the database, grant explicitly. <strong>Connect to the target database first</strong> — schema grants are per database, and running them while connected to <code>postgres</code> changes the wrong database.</p>
+<pre><code class="language-sql">\c mydb
+GRANT USAGE, CREATE ON SCHEMA public TO myuser;
+</code></pre>
+<p>For a read-only or app role that only uses existing tables:</p>
+<pre><code class="language-sql">GRANT USAGE ON SCHEMA public TO app_reader;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO app_reader;
+ALTER DEFAULT PRIVILEGES FOR ROLE myuser IN SCHEMA public
+  GRANT SELECT ON TABLES TO app_reader;
+</code></pre>
+<p><code>ALTER DEFAULT PRIVILEGES</code> covers tables created later by <code>myuser</code>.</p>
+<h2 id="fix-3-use-a-dedicated-schema">Fix 3: use a dedicated schema</h2>
+<p>A clean pattern for shared databases:</p>
+<pre><code class="language-sql">CREATE SCHEMA app AUTHORIZATION myuser;
+ALTER ROLE myuser SET search_path = app, public;
+</code></pre>
+<p>The role owns its schema and needs nothing on <code>public</code>.</p>
+<h2 id="check-whats-going-on">Check what's going on</h2>
+<pre><code class="language-sql">SELECT current_user, current_database();
+\dn+ public                      -- owner and access privileges
+SELECT has_schema_privilege('myuser', 'public', 'CREATE');
+</code></pre>
+<p>In <code>\dn+</code>, an ACL entry like <code>myuser=UC/postgres</code> means USAGE (U) and CREATE (C).</p>
+<h2 id="docker-and-managed-databases">Docker and managed databases</h2>
+<ul>
+<li>The official <code>postgres</code> image creates <code>POSTGRES_DB</code> owned by <code>POSTGRES_USER</code>, so it works out of the box — the error appears when you create an extra user later.</li>
+<li>On AWS RDS, Azure or Cloud SQL there's no true superuser; log in as the admin/master user, which can still run <code>ALTER DATABASE ... OWNER TO</code> (it must be a member of the target role: <code>GRANT myuser TO admin_user;</code> first).</li>
+</ul>
+<h2 id="related-permission-denied-for-table-x">Related: <code>permission denied for table x</code></h2>
+<p>That's a table-level privilege, not the schema. Grant it on the table, or change ownership:</p>
+<pre><code class="language-sql">GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO myuser;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO myuser;
+</code></pre>
+<p>Sequence privileges are needed for <code>serial</code> / identity inserts (<code>permission denied for sequence users_id_seq</code>).</p>
+<p class="upd">Last updated 2026-11-02.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-postgres-password-authentication-failed/">FATAL: password authentication failed for user &quot;postgres&quot;</a></li><li><a href="/database/db-postgres-relation-does-not-exist/">ERROR: relation does not exist</a></li><li><a href="/database/db-postgres-role-does-not-exist/">FATAL: role &quot;username&quot; does not exist</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

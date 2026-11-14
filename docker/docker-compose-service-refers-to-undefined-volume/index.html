@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>service &quot;app&quot; refers to undefined volume data: invalid compose project (Docker) — how to fix</title>
+<meta name="description" content="A service uses a named volume or network that isn&#x27;t declared in the top-level volumes: or networks: section of the Compose file, often because of indentation or a missing ./ on a bind-mount path.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-compose-service-refers-to-undefined-volume/">
+<meta property="og:title" content="service &quot;app&quot; refers to undefined volume data: invalid compose project (Docker) — how to fix"><meta property="og:description" content="A service uses a named volume or network that isn&#x27;t declared in the top-level volumes: or networks: section of the Compose file, often because of indentation or a missing ./ on a bind-mount path.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-compose-service-refers-to-undefined-volume/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "service \"app\" refers to undefined volume data: invalid compose project (Docker) \u2014 how to fix", "description": "A service uses a named volume or network that isn't declared in the top-level volumes: or networks: section of the Compose file, often because of indentation or a missing ./ on a bind-mount path.", "dateModified": "2026-11-13", "url": "https://errorfix-hollis.github.io/docker/docker-compose-service-refers-to-undefined-volume/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "service \"app\" refers to undefined volume data: invalid compose project", "item": "https://errorfix-hollis.github.io/docker/docker-compose-service-refers-to-undefined-volume/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>service &quot;app&quot; refers to undefined volume data: invalid compose project (Docker) — how to fix</h1>
+<pre class="err"><code>service &quot;app&quot; refers to undefined volume data: invalid compose project
+service &quot;web&quot; refers to undefined network backend: invalid compose project
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Declare it in a top-level <code>volumes:</code> (or <code>networks:</code>) section at zero indentation, e.g. <code>volumes:</code> followed by <code>data:</code>. If you meant a host folder, write it as a path: <code>./data:/var/lib/data</code> — a bare name like <code>data:/path</code> is a named volume. Validate with <code>docker compose config</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>In Compose, a volume entry <code>NAME:/container/path</code> where <code>NAME</code> has no <code>/</code> or <code>.</code> prefix is a <strong>named volume</strong>. Named volumes and custom networks must be declared at the top level of the file. Compose v2 validates this before starting anything and stops with <code>invalid compose project</code>.</p>
+<h2 id="cause-1-the-top-level-declaration-is-missing">Cause 1: the top-level declaration is missing</h2>
+<pre><code class="language-yaml">services:
+  db:
+    image: postgres:16
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+# pgdata is never declared -&gt; error
+</code></pre>
+<p>Fix:</p>
+<pre><code class="language-yaml">services:
+  db:
+    image: postgres:16
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+</code></pre>
+<p>Same for networks:</p>
+<pre><code class="language-yaml">services:
+  web:
+    networks: [backend]
+
+networks:
+  backend:
+</code></pre>
+<h2 id="cause-2-you-meant-a-host-directory-bind-mount">Cause 2: you meant a host directory (bind mount)</h2>
+<pre><code class="language-yaml">volumes:
+  - data:/app/data        # named volume &quot;data&quot;
+  - ./data:/app/data      # host folder ./data
+  - /srv/data:/app/data   # absolute host path
+</code></pre>
+<p>A host path must start with <code>.</code>, <code>/</code> or <code>~</code>. On Windows, use <code>./data</code> or <code>C:/path/data</code>.</p>
+<h2 id="cause-3-indentation-puts-it-in-the-wrong-place">Cause 3: indentation puts it in the wrong place</h2>
+<p>YAML indentation decides where a key belongs. Here <code>volumes:</code> is nested inside the <code>db</code> service, so it's a service-level setting, not a declaration:</p>
+<pre><code class="language-yaml">services:
+  db:
+    image: postgres:16
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  volumes:          # wrong: indented under services, looks like a service named &quot;volumes&quot;
+    pgdata:
+</code></pre>
+<p>Top-level <code>volumes:</code> and <code>networks:</code> must start at column 0, same as <code>services:</code>. Use spaces, not tabs. A <a href="/tools/yaml-validator/">YAML validator</a> shows the structure.</p>
+<h2 id="cause-4-multiple-compose-files-or-profiles">Cause 4: multiple compose files or profiles</h2>
+<p>With <code>-f docker-compose.yml -f docker-compose.override.yml</code>, the volume may be used in one file but declared only in a file you didn't pass. Check the merged result:</p>
+<pre><code class="language-bash">docker compose -f docker-compose.yml -f docker-compose.prod.yml config
+</code></pre>
+<p><code>docker compose config</code> prints the fully resolved file, or the exact validation error.</p>
+<h2 id="cause-5-using-an-existing-volumenetwork-created-outside-compose">Cause 5: using an existing volume/network created outside Compose</h2>
+<p>If the volume or network already exists (created by <code>docker volume create</code> or another project), declare it as external so Compose doesn't create or rename it:</p>
+<pre><code class="language-yaml">volumes:
+  pgdata:
+    external: true
+    name: my_existing_volume
+
+networks:
+  shared:
+    external: true
+    name: proxy_network
+</code></pre>
+<p>If it doesn't exist yet: <code>docker network create proxy_network</code>. Otherwise you'll get <a href="/docker/docker-network-not-found/">network not found</a>.</p>
+<h2 id="cause-6-variable-substitution-produced-an-unexpected-name">Cause 6: variable substitution produced an unexpected name</h2>
+<pre><code class="language-yaml">volumes:
+  - ${DATA_DIR}:/data
+</code></pre>
+<p>If <code>DATA_DIR</code> is unset, it becomes <code>:/data</code> (error), and if it's <code>data</code> without <code>./</code>, it becomes a named volume. Set it in <code>.env</code> as <code>DATA_DIR=./data</code>, or use a default: <code>${DATA_DIR:-./data}:/data</code>.</p>
+<h2 id="verify">Verify</h2>
+<pre><code class="language-bash">docker compose config --volumes
+docker compose up -d
+docker volume ls
+</code></pre>
+<p class="upd">Last updated 2026-11-13.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/docker/docker-found-orphan-containers/">Found orphan containers for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.</a></li><li><a href="/docker/docker-network-not-found/">Error response from daemon: network not found</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-container-name-already-in-use/">Conflict. The container name is already in use by container</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

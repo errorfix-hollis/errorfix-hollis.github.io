@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal: the remote end hung up unexpectedly (Git) — how to fix</title>
+<meta name="description" content="The connection to the Git server closed in the middle of a push, pull or clone. Usually the push is too large for the HTTP buffer or the host&#x27;s size limit, the network is unstable, or the server rejected the request.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-remote-end-hung-up-unexpectedly/">
+<meta property="og:title" content="fatal: the remote end hung up unexpectedly (Git) — how to fix"><meta property="og:description" content="The connection to the Git server closed in the middle of a push, pull or clone. Usually the push is too large for the HTTP buffer or the host&#x27;s size limit, the network is unstable, or the server rejected the request.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-remote-end-hung-up-unexpectedly/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal: the remote end hung up unexpectedly (Git) \u2014 how to fix", "description": "The connection to the Git server closed in the middle of a push, pull or clone. Usually the push is too large for the HTTP buffer or the host's size limit, the network is unstable, or the server rejected the request.", "dateModified": "2026-11-05", "url": "https://errorfix-hollis.github.io/git/git-remote-end-hung-up-unexpectedly/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "fatal: the remote end hung up unexpectedly", "item": "https://errorfix-hollis.github.io/git/git-remote-end-hung-up-unexpectedly/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>fatal: the remote end hung up unexpectedly (Git) — how to fix</h1>
+<pre class="err"><code>error: RPC failed; HTTP 400 curl 22 The requested URL returned error: 400
+send-pack: unexpected disconnect while reading sideband packet
+fatal: the remote end hung up unexpectedly
+Everything up-to-date
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Read the line above it. For big HTTPS pushes run <code>git config http.postBuffer 524288000</code> and retry, or push in smaller chunks. For files over the host limit (100 MB on GitHub), remove them from history or use Git LFS. For flaky networks, use SSH instead of HTTPS, or clone shallow with <code>git clone --depth 1</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Git was exchanging pack data with the server and the other side closed the connection. The message itself is generic: the real cause is usually in the lines just before it (<code>RPC failed; HTTP 413</code>, <code>curl 55</code>, <code>pack exceeds maximum allowed size</code>, <code>Connection reset by peer</code>).</p>
+<p>Get more detail:</p>
+<pre><code class="language-bash">GIT_TRACE=1 GIT_CURL_VERBOSE=1 git push 2&gt;&amp;1 | tail -40     # HTTPS
+GIT_SSH_COMMAND=&quot;ssh -v&quot; git push                          # SSH
+</code></pre>
+<h2 id="cause-1-the-push-is-too-big-for-gits-http-buffer">Cause 1: the push is too big for Git's HTTP buffer</h2>
+<p>With <code>RPC failed; HTTP 400</code> or <code>curl 22</code>, Git's default post buffer (1 MiB) caused a chunked upload some proxies/servers reject. Raise it:</p>
+<pre><code class="language-bash">git config http.postBuffer 524288000   # 500 MB, for this repo
+git push
+</code></pre>
+<p>Only raise it as much as needed; it allocates that much memory for large pushes.</p>
+<h2 id="cause-2-the-push-exceeds-the-hosts-limits">Cause 2: the push exceeds the host's limits</h2>
+<p>GitHub rejects files over 100 MB and pushes over 2 GB; GitLab and Bitbucket have their own limits, and a reverse proxy may return <code>HTTP 413</code>. Find large files:</p>
+<pre><code class="language-bash">git rev-list --objects --all | git cat-file --batch-check='%(objecttype) %(objectname) %(objectsize) %(rest)' \
+  | awk '$1==&quot;blob&quot; &amp;&amp; $3 &gt; 50000000 {print $3, $4}' | sort -n
+</code></pre>
+<p>Remove them from history (<code>git filter-repo --path big.zip --invert-paths</code>) or track them with Git LFS. See <a href="/git/git-gh001-large-files-detected/">GH001: Large files detected</a>.</p>
+<p>For a huge first push, push history in pieces:</p>
+<pre><code class="language-bash">git push origin HEAD~500:refs/heads/main
+git push origin HEAD~250:refs/heads/main
+git push origin HEAD:main
+</code></pre>
+<p>If your own nginx sits in front of the Git server, raise <code>client_max_body_size</code> (see <a href="/web/web-nginx-413-request-entity-too-large/">413 Request Entity Too Large</a>).</p>
+<h2 id="cause-3-unstable-network-or-a-proxyvpn-cutting-long-transfers">Cause 3: unstable network or a proxy/VPN cutting long transfers</h2>
+<p>Retry on a stable connection, or switch to SSH, which is often more robust than HTTPS through corporate proxies:</p>
+<pre><code class="language-bash">git remote set-url origin git@github.com:user/repo.git
+</code></pre>
+<p>Keep idle SSH connections alive in <code>~/.ssh/config</code>:</p>
+<pre><code>Host github.com
+  ServerAliveInterval 30
+  ServerAliveCountMax 10
+</code></pre>
+<h2 id="cause-4-cloning-a-very-large-repository">Cause 4: cloning a very large repository</h2>
+<p>Clone less data, then fetch the rest:</p>
+<pre><code class="language-bash">git clone --depth 1 https://github.com/user/repo.git
+cd repo
+git fetch --unshallow        # optional, later
+</code></pre>
+<p>Or <code>git clone --filter=blob:none</code> (partial clone) to download file contents on demand.</p>
+<h2 id="cause-5-authentication-or-permission-failure-over-ssh">Cause 5: authentication or permission failure over SSH</h2>
+<p>If <code>ssh -v</code> shows the connection closing right after authentication, the key has no access to the repo or the server rejected it. Test with <code>ssh -T git@github.com</code>, and see <a href="/git/git-permission-denied-publickey/">Permission denied (publickey)</a>.</p>
+<h2 id="cause-6-server-side-hook-or-repository-problem">Cause 6: server-side hook or repository problem</h2>
+<p>A pre-receive hook that crashes, a full disk, or a corrupted repo on a self-hosted server can close the connection. Check the server logs (<code>/var/log/gitlab/</code>, Gitea logs) and run <code>git fsck</code> on the server-side repository.</p>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-gh001-large-files-detected/">remote: error: GH001: Large files detected. You may want to try Git Large File Storage</a></li><li><a href="/git/git-rpc-failed-curl-92-early-eof/">error: RPC failed; curl 92 HTTP/2 stream 0 was not closed cleanly</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

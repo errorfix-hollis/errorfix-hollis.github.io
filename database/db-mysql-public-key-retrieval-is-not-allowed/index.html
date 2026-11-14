@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Public Key Retrieval is not allowed (MySQL) — how to fix</title>
+<meta name="description" content="MySQL Connector/J refuses to fetch the server&#x27;s RSA public key to encrypt the password over a non-TLS connection. It happens with the caching_sha2_password (MySQL 8 default) or sha256_password auth plugins when SSL is disabled.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-mysql-public-key-retrieval-is-not-allowed/">
+<meta property="og:title" content="Public Key Retrieval is not allowed (MySQL) — how to fix"><meta property="og:description" content="MySQL Connector/J refuses to fetch the server&#x27;s RSA public key to encrypt the password over a non-TLS connection. It happens with the caching_sha2_password (MySQL 8 default) or sha256_password auth plugins when SSL is disabled.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-mysql-public-key-retrieval-is-not-allowed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Public Key Retrieval is not allowed (MySQL) \u2014 how to fix", "description": "MySQL Connector/J refuses to fetch the server's RSA public key to encrypt the password over a non-TLS connection. It happens with the caching_sha2_password (MySQL 8 default) or sha256_password auth plugins when SSL is disabled.", "dateModified": "2026-11-02", "url": "https://errorfix-hollis.github.io/database/db-mysql-public-key-retrieval-is-not-allowed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "Public Key Retrieval is not allowed", "item": "https://errorfix-hollis.github.io/database/db-mysql-public-key-retrieval-is-not-allowed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>Public Key Retrieval is not allowed (MySQL) — how to fix</h1>
+<pre class="err"><code>java.sql.SQLNonTransientConnectionException: Public Key Retrieval is not allowed
+    at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:110)
+Caused by: com.mysql.cj.exceptions.UnableToConnectException: Public Key Retrieval is not allowed
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Add <code>allowPublicKeyRetrieval=true</code> to the JDBC URL together with <code>useSSL=false</code> for local development: <code>jdbc:mysql://localhost:3306/mydb?allowPublicKeyRetrieval=true&amp;useSSL=false</code>. In production keep TLS on (<code>sslMode=REQUIRED</code>) instead, which avoids the key exchange.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>MySQL 8 authenticates users with <code>caching_sha2_password</code> by default. The client must send the password either over TLS, or encrypted with the server's RSA public key. With SSL disabled (<code>useSSL=false</code>) and no public key configured, Connector/J would have to ask the server for the key. Because that request could be intercepted (a man-in-the-middle could hand out its own key), Connector/J blocks it unless you opt in — hence this error.</p>
+<p>It often appears "randomly": once a user has logged in successfully, the server caches the auth and later connections succeed; after a server restart, the cache is empty and the error returns.</p>
+<h2 id="fix-1-allow-public-key-retrieval-localdev">Fix 1: allow public key retrieval (local/dev)</h2>
+<p>Add <code>allowPublicKeyRetrieval=true</code> to the URL:</p>
+<pre><code>jdbc:mysql://localhost:3306/mydb?allowPublicKeyRetrieval=true&amp;useSSL=false
+</code></pre>
+<p>Spring Boot <code>application.properties</code>:</p>
+<pre><code class="language-properties">spring.datasource.url=jdbc:mysql://localhost:3306/mydb?allowPublicKeyRetrieval=true&amp;useSSL=false&amp;serverTimezone=UTC
+spring.datasource.username=app
+spring.datasource.password=secret
+</code></pre>
+<p>In YAML, quote the URL because of the <code>&amp;</code> and <code>?</code> characters:</p>
+<pre><code class="language-yaml">spring:
+  datasource:
+    url: &quot;jdbc:mysql://localhost:3306/mydb?allowPublicKeyRetrieval=true&amp;useSSL=false&quot;
+</code></pre>
+<p><strong>DBeaver / IntelliJ:</strong> edit the connection → <em>Driver properties</em> → set <code>allowPublicKeyRetrieval</code> to <code>true</code> (and <code>useSSL</code> to <code>false</code> for a local server without TLS).</p>
+<h2 id="fix-2-use-tls-instead-production">Fix 2: use TLS instead (production)</h2>
+<p>When the connection is encrypted, the password travels inside TLS and no public key is needed. MySQL 8 generates self-signed certificates automatically, so TLS usually works out of the box:</p>
+<pre><code>jdbc:mysql://db.example.com:3306/mydb?sslMode=REQUIRED
+</code></pre>
+<p>For full protection against MITM, verify the certificate with <code>sslMode=VERIFY_IDENTITY</code> plus a truststore (<code>trustCertificateKeyStoreUrl=file:/path/truststore.jks&amp;trustCertificateKeyStorePassword=...</code>).</p>
+<p>In Connector/J 8.0.13+ <code>sslMode</code> replaces the older <code>useSSL</code>/<code>requireSSL</code>/<code>verifyServerCertificate</code> properties.</p>
+<h2 id="fix-3-give-the-client-the-servers-public-key">Fix 3: give the client the server's public key</h2>
+<p>Safer than retrieval without TLS: copy the key and point the driver at it.</p>
+<pre><code class="language-sql">SHOW STATUS LIKE 'Caching_sha2_password_rsa_public_key';
+</code></pre>
+<p>Save the PEM to a file, then:</p>
+<pre><code>jdbc:mysql://host:3306/mydb?useSSL=false&amp;serverRSAPublicKeyFile=/etc/app/mysql_pub.pem
+</code></pre>
+<h2 id="fix-4-switch-the-user-to-mysql_native_password-legacy">Fix 4: switch the user to mysql_native_password (legacy)</h2>
+<p>Only if you can't change the client (very old drivers):</p>
+<pre><code class="language-sql">ALTER USER 'app'@'%' IDENTIFIED WITH mysql_native_password BY 'secret';
+</code></pre>
+<p><code>mysql_native_password</code> is deprecated in MySQL 8.0 and disabled by default from 8.4, removed in 9.0 — prefer Fixes 1–3.</p>
+<h2 id="docker-tip">Docker tip</h2>
+<p>With the <code>mysql:8</code> image, a fresh container has an empty auth cache, so the first JDBC connection after every <code>docker compose up</code> hits this error. Put <code>allowPublicKeyRetrieval=true</code> in the URL for the dev profile, or enable TLS.</p>
+<p class="upd">Last updated 2026-11-02.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li><li><a href="/database/db-mysql-error-1130-host-is-not-allowed-to-connect/">ERROR 1130 (HY000): Host is not allowed to connect to this MySQL server</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use) — how to fix</title>
+<meta name="description" content="Another process (Apache, another nginx, a Docker container, a dev server) already listens on port 80 or 443, or nginx is already running and you started a second copy. Find the owner of the port and stop it or move it.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-nginx-bind-address-already-in-use/">
+<meta property="og:title" content="nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use) — how to fix"><meta property="og:description" content="Another process (Apache, another nginx, a Docker container, a dev server) already listens on port 80 or 443, or nginx is already running and you started a second copy. Find the owner of the port and stop it or move it.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-nginx-bind-address-already-in-use/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use) \u2014 how to fix", "description": "Another process (Apache, another nginx, a Docker container, a dev server) already listens on port 80 or 443, or nginx is already running and you started a second copy. Find the owner of the port and stop it or move it.", "dateModified": "2026-11-01", "url": "https://errorfix-hollis.github.io/web/web-nginx-bind-address-already-in-use/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use)", "item": "https://errorfix-hollis.github.io/web/web-nginx-bind-address-already-in-use/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use) — how to fix</h1>
+<pre class="err"><code>nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use)
+nginx: [emerg] bind() to [::]:80 failed (98: Address already in use)
+nginx: [emerg] still could not bind()
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> See who has the port: <code>sudo ss -ltnp 'sport = :80'</code>. If it's Apache: <code>sudo systemctl disable --now apache2</code>. If it's an old nginx: <code>sudo systemctl stop nginx; sudo pkill nginx; sudo systemctl start nginx</code>. If it's a container, stop it or change its <code>-p</code> mapping. Use <code>nginx -s reload</code> (or <code>systemctl reload nginx</code>) after config changes instead of starting nginx again.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>nginx tries to open a listening socket for every <code>listen</code> directive. Error 98 (<code>EADDRINUSE</code>) means something already holds that address and port. After a few retries nginx gives up with <code>still could not bind()</code>.</p>
+<p>Find the process:</p>
+<pre><code class="language-bash">sudo ss -ltnp 'sport = :80'
+sudo ss -ltnp 'sport = :443'
+# alternative
+sudo lsof -i :80 -sTCP:LISTEN
+</code></pre>
+<p>Look at the <code>users:(("name",pid=...))</code> part.</p>
+<h2 id="cause-1-nginx-is-already-running">Cause 1: nginx is already running</h2>
+<p>Very common: nginx was started by systemd, then you ran <code>sudo nginx</code> by hand (or the other way round). The second copy can't bind.</p>
+<pre><code class="language-bash">ps aux | grep [n]ginx
+</code></pre>
+<p>To apply config changes, reload the running instance instead of starting another:</p>
+<pre><code class="language-bash">sudo nginx -t &amp;&amp; sudo systemctl reload nginx
+</code></pre>
+<p>If an orphaned nginx (not managed by systemd) holds the port:</p>
+<pre><code class="language-bash">sudo systemctl stop nginx
+sudo pkill -x nginx        # or: sudo nginx -s quit
+sudo systemctl start nginx
+</code></pre>
+<h2 id="cause-2-apache-or-another-web-server-is-installed">Cause 2: Apache (or another web server) is installed</h2>
+<p>On Ubuntu/Debian, installing a package can pull in <code>apache2</code>, which starts on port 80.</p>
+<pre><code class="language-bash">sudo systemctl disable --now apache2     # RHEL/Fedora: httpd
+sudo systemctl restart nginx
+</code></pre>
+<p>Or keep both and run one on a different port (change <code>Listen 80</code> in <code>/etc/apache2/ports.conf</code>, or <code>listen 8080;</code> in nginx).</p>
+<p>Other usual suspects: Caddy, Traefik, lighttpd, HAProxy, Varnish, a control panel, or <code>snap</code> services.</p>
+<h2 id="cause-3-a-docker-container-publishes-the-port">Cause 3: a Docker container publishes the port</h2>
+<p><code>docker-proxy</code> in the <code>ss</code> output means a container mapped <code>-p 80:80</code>:</p>
+<pre><code class="language-bash">docker ps --format '{{.Names}}\t{{.Ports}}' | grep ':80-&gt;'
+docker stop &lt;name&gt;
+</code></pre>
+<p>Or change the mapping (e.g. <code>-p 8080:80</code>) and proxy to it from host nginx.</p>
+<h2 id="cause-4-duplicate-listen-in-your-own-config">Cause 4: duplicate listen in your own config</h2>
+<p>nginx can conflict with itself. The classic case is <code>listen [::]:80 ipv6only=off;</code> (a dual-stack socket that also takes IPv4) together with <code>listen 80;</code> in another server block: both want IPv4 port 80, so the second bind fails with error 98. Show the full config and search for listens:</p>
+<pre><code class="language-bash">sudo nginx -T 2&gt;/dev/null | grep -n &quot;listen&quot;
+</code></pre>
+<p>Typical clean setup for each server block: <code>listen 80;</code> and <code>listen [::]:80;</code>. Options like <code>default_server</code>, <code>reuseport</code> or <code>ipv6only</code> may appear only once per address:port. Check for leftover files in <code>/etc/nginx/sites-enabled/</code> and <code>/etc/nginx/conf.d/</code> too.</p>
+<h2 id="cause-5-port-443-held-by-something-else">Cause 5: port 443 held by something else</h2>
+<p>Same commands with <code>:443</code>. If a VPN, Skype, or another proxy uses 443, stop it or move it.</p>
+<h2 id="after-fixing">After fixing</h2>
+<pre><code class="language-bash">sudo nginx -t
+sudo systemctl restart nginx
+systemctl status nginx
+curl -I http://localhost
+</code></pre>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-port-is-already-allocated/">Bind for 0.0.0.0:8080 failed: port is already allocated</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/web/web-nginx-502-bad-gateway/">502 Bad Gateway (nginx)</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

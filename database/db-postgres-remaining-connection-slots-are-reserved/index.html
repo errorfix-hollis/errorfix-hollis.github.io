@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FATAL: remaining connection slots are reserved for non-replication superuser connections (PostgreSQL) — how to fix</title>
+<meta name="description" content="PostgreSQL is at max_connections minus superuser_reserved_connections, so only superusers can still log in. Something is opening too many connections, usually app instances without pooling or leaked/idle connections.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-remaining-connection-slots-are-reserved/">
+<meta property="og:title" content="FATAL: remaining connection slots are reserved for non-replication superuser connections (PostgreSQL) — how to fix"><meta property="og:description" content="PostgreSQL is at max_connections minus superuser_reserved_connections, so only superusers can still log in. Something is opening too many connections, usually app instances without pooling or leaked/idle connections.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-remaining-connection-slots-are-reserved/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "FATAL: remaining connection slots are reserved for non-replication superuser connections (PostgreSQL) \u2014 how to fix", "description": "PostgreSQL is at max_connections minus superuser_reserved_connections, so only superusers can still log in. Something is opening too many connections, usually app instances without pooling or leaked/idle connections.", "dateModified": "2026-11-08", "url": "https://errorfix-hollis.github.io/database/db-postgres-remaining-connection-slots-are-reserved/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "FATAL: remaining connection slots are reserved for non-replication superuser connections", "item": "https://errorfix-hollis.github.io/database/db-postgres-remaining-connection-slots-are-reserved/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>FATAL: remaining connection slots are reserved for non-replication superuser connections (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>FATAL:  remaining connection slots are reserved for non-replication superuser connections
+FATAL:  remaining connection slots are reserved for roles with the SUPERUSER attribute
+FATAL:  remaining connection slots are reserved for roles with privileges of the &quot;pg_use_reserved_connections&quot; role
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Connect as a superuser and see who holds connections: <code>SELECT usename, application_name, state, count(*) FROM pg_stat_activity GROUP BY 1,2,3 ORDER BY 4 DESC;</code>. Kill idle ones with <code>pg_terminate_backend</code>, set <code>idle_in_transaction_session_timeout</code>, lower app pool sizes, and put PgBouncer in front instead of just raising max_connections.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>PostgreSQL keeps <code>superuser_reserved_connections</code> (default 3) of its <code>max_connections</code> (default 100) for superusers so an admin can always get in. Once ordinary roles have used the rest, new non-superuser logins get this error. PostgreSQL 16+ also has <code>reserved_connections</code> for members of <code>pg_use_reserved_connections</code>, which is why the wording varies by version.</p>
+<p>When even the reserved slots are gone you get the related <a href="/database/db-postgres-sorry-too-many-clients-already/">sorry, too many clients already</a>.</p>
+<p>On managed services (RDS, Cloud SQL, Azure, Supabase, Heroku) <code>max_connections</code> is set from the instance size, and the provider itself reserves some slots, so small plans hit this quickly.</p>
+<h2 id="step-1-see-who-is-using-the-connections">Step 1: see who is using the connections</h2>
+<p>Connect as a superuser (<code>psql -U postgres</code>), then:</p>
+<pre><code class="language-sql">SHOW max_connections;
+SELECT count(*) FROM pg_stat_activity;
+
+SELECT usename, application_name, client_addr, state, count(*)
+FROM pg_stat_activity
+GROUP BY 1, 2, 3, 4
+ORDER BY 5 DESC;
+</code></pre>
+<p>Many rows with <code>state = 'idle'</code> mean connections are opened and kept but not used. <code>idle in transaction</code> means code began a transaction and never committed.</p>
+<h2 id="fix-1-terminate-idle-or-stuck-connections-immediate-relief">Fix 1: terminate idle or stuck connections (immediate relief)</h2>
+<pre><code class="language-sql">SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE state IN ('idle', 'idle in transaction')
+  AND state_change &lt; now() - interval '10 minutes'
+  AND pid &lt;&gt; pg_backend_pid();
+</code></pre>
+<p>Prevent stuck transactions automatically:</p>
+<pre><code class="language-sql">ALTER SYSTEM SET idle_in_transaction_session_timeout = '5min';
+ALTER SYSTEM SET idle_session_timeout = '30min';   -- PostgreSQL 14+
+SELECT pg_reload_conf();
+</code></pre>
+<p>(<code>idle_session_timeout</code> will also close pooled connections your app expects to reuse; set it longer than the pool's idle timeout.)</p>
+<h2 id="fix-2-size-application-pools-correctly">Fix 2: size application pools correctly</h2>
+<p>Total connections = instances × workers × pool size. Ten pods × 4 workers × pool of 10 is already 400. Reduce the per-process pool:</p>
+<ul>
+<li>SQLAlchemy: <code>create_engine(url, pool_size=5, max_overflow=5)</code></li>
+<li>Node <code>pg</code>: <code>new Pool({ max: 5 })</code></li>
+<li>Spring/HikariCP: <code>spring.datasource.hikari.maximum-pool-size=5</code></li>
+<li>Django: keep <code>CONN_MAX_AGE</code> modest; each thread holds its own connection.</li>
+</ul>
+<p>Also make sure code returns connections (closes clients, uses context managers) rather than creating a new pool per request. Serverless functions are a classic source of connection storms.</p>
+<h2 id="fix-3-put-a-connection-pooler-in-front">Fix 3: put a connection pooler in front</h2>
+<p>PgBouncer in <code>transaction</code> mode lets thousands of client connections share a few dozen server connections:</p>
+<pre><code class="language-ini">; pgbouncer.ini
+[databases]
+app = host=127.0.0.1 port=5432 dbname=app
+
+[pgbouncer]
+listen_port = 6432
+pool_mode = transaction
+max_client_conn = 1000
+default_pool_size = 20
+</code></pre>
+<p>Point the app at port 6432. Managed equivalents: RDS Proxy, Supabase's pooler, Azure's built-in PgBouncer.</p>
+<h2 id="fix-4-raise-max_connections-last">Fix 4: raise max_connections (last)</h2>
+<p>Each connection is a process using several MB of RAM, so raising it blindly hurts performance.</p>
+<pre><code class="language-sql">ALTER SYSTEM SET max_connections = 200;
+</code></pre>
+<p>This requires a <strong>restart</strong> (<code>sudo systemctl restart postgresql</code>), not just a reload. On managed services change the parameter group / flags instead.</p>
+<p class="upd">Last updated 2026-11-08.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-too-many-connections/">ERROR 1040 (HY000): Too many connections</a></li><li><a href="/database/db-postgres-connection-refused/">psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused</a></li><li><a href="/database/db-postgres-sorry-too-many-clients-already/">FATAL: sorry, too many clients already</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

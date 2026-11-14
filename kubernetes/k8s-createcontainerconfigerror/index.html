@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CreateContainerConfigError (Kubernetes) — how to fix</title>
+<meta name="description" content="The image pulled fine, but the kubelet couldn&#x27;t build the container&#x27;s configuration. Almost always a ConfigMap or Secret (or a key inside one) referenced by env/envFrom doesn&#x27;t exist in the pod&#x27;s namespace, or a securityContext rule can&#x27;t be satisfied.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-createcontainerconfigerror/">
+<meta property="og:title" content="CreateContainerConfigError (Kubernetes) — how to fix"><meta property="og:description" content="The image pulled fine, but the kubelet couldn&#x27;t build the container&#x27;s configuration. Almost always a ConfigMap or Secret (or a key inside one) referenced by env/envFrom doesn&#x27;t exist in the pod&#x27;s namespace, or a securityContext rule can&#x27;t be satisfied.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-createcontainerconfigerror/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "CreateContainerConfigError (Kubernetes) \u2014 how to fix", "description": "The image pulled fine, but the kubelet couldn't build the container's configuration. Almost always a ConfigMap or Secret (or a key inside one) referenced by env/envFrom doesn't exist in the pod's namespace, or a securityContext rule can't be satisfied.", "dateModified": "2026-11-01", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-createcontainerconfigerror/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "CreateContainerConfigError", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-createcontainerconfigerror/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>CreateContainerConfigError (Kubernetes) — how to fix</h1>
+<pre class="err"><code>NAME                     READY   STATUS                       RESTARTS   AGE
+api-7d9f8c6b5-x2kq4      0/1     CreateContainerConfigError   0          45s
+
+Warning  Failed  kubelet  Error: secret &quot;db-credentials&quot; not found
+Warning  Failed  kubelet  Error: couldn&#x27;t find key password in Secret default/db-credentials
+Warning  Failed  kubelet  Error: container has runAsNonRoot and image will run as root
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>kubectl describe pod &lt;pod&gt;</code> and read the Events at the bottom. Create the missing Secret/ConfigMap in the same namespace (<code>kubectl create secret generic db-credentials --from-literal=password=... -n &lt;ns&gt;</code>), fix the key name, or mark the reference <code>optional: true</code>. For <code>runAsNonRoot</code> errors set <code>runAsUser</code> to a non-zero UID or use a non-root image.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Before starting a container, the kubelet assembles its config: environment variables from <code>env</code>/<code>envFrom</code>, ConfigMap and Secret values, security settings. If any of that fails, the container is never created and the pod sits in <code>CreateContainerConfigError</code> (the kubelet keeps retrying, so it fixes itself once the missing object appears).</p>
+<p>The exact reason is in the events:</p>
+<pre><code class="language-bash">kubectl describe pod &lt;pod-name&gt; -n &lt;namespace&gt;
+# or just the events
+kubectl get events -n &lt;namespace&gt; --field-selector involvedObject.name=&lt;pod-name&gt;
+</code></pre>
+<h2 id="cause-1-secret-or-configmap-not-found">Cause 1: Secret or ConfigMap not found</h2>
+<p><code>Error: secret "db-credentials" not found</code> / <code>configmap "app-config" not found</code>.</p>
+<p>Secrets and ConfigMaps are namespaced; the pod can only use ones in its <strong>own</strong> namespace.</p>
+<pre><code class="language-bash">kubectl get secret,configmap -n &lt;namespace&gt;
+</code></pre>
+<p>Create it in the right namespace:</p>
+<pre><code class="language-bash">kubectl create secret generic db-credentials \
+  --from-literal=username=app --from-literal=password='s3cret' -n &lt;namespace&gt;
+
+kubectl create configmap app-config --from-env-file=app.env -n &lt;namespace&gt;
+</code></pre>
+<p>If it's created by Helm, a SealedSecret/ExternalSecret operator or a CI step, check that resource (<code>kubectl get externalsecret -n &lt;ns&gt;</code>, <code>kubectl describe sealedsecret ...</code>) - the operator may have failed to produce it.</p>
+<h2 id="cause-2-the-key-doesnt-exist-in-the-secretconfigmap">Cause 2: the key doesn't exist in the Secret/ConfigMap</h2>
+<p><code>Error: couldn't find key password in Secret default/db-credentials</code>.</p>
+<p>Compare the keys the pod asks for with the keys that exist:</p>
+<pre><code class="language-bash">kubectl get secret db-credentials -n default -o jsonpath='{.data}'; echo
+</code></pre>
+<pre><code class="language-yaml">env:
+  - name: DB_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: db-credentials
+        key: password        # must match a key under data:
+</code></pre>
+<p>Keys are case-sensitive; <code>--from-file=./password.txt</code> creates a key named <code>password.txt</code>, not <code>password</code>.</p>
+<h2 id="cause-3-its-genuinely-optional">Cause 3: it's genuinely optional</h2>
+<p>If the app runs fine without it, mark the reference optional so a missing object doesn't block startup:</p>
+<pre><code class="language-yaml">envFrom:
+  - configMapRef:
+      name: app-config
+      optional: true
+env:
+  - name: SENTRY_DSN
+    valueFrom:
+      secretKeyRef:
+        name: sentry
+        key: dsn
+        optional: true
+</code></pre>
+<h2 id="cause-4-runasnonroot-with-a-root-image">Cause 4: runAsNonRoot with a root image</h2>
+<p><code>Error: container has runAsNonRoot and image will run as root</code> means the pod (or a Pod Security admission policy) requires non-root, but the image's default user is root (UID 0) or a non-numeric username the kubelet can't verify.</p>
+<p>Set a numeric non-root user:</p>
+<pre><code class="language-yaml">securityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+</code></pre>
+<p>Or build the image with <code>USER 10001</code> (numeric). Make sure the app can still write where it needs to (mount an <code>emptyDir</code> for writable paths).</p>
+<h2 id="cause-5-other-config-problems">Cause 5: other config problems</h2>
+<p>Less common messages in the same state:</p>
+<ul>
+<li><code>failed to prepare subPath for volumeMount</code> - a <code>subPath</code> points at something that doesn't exist or can't be created.</li>
+<li>invalid environment variable references or a malformed <code>fieldRef</code>.</li>
+</ul>
+<h2 id="after-fixing">After fixing</h2>
+<p>The kubelet retries automatically. To speed it up, restart the rollout:</p>
+<pre><code class="language-bash">kubectl rollout restart deployment/&lt;name&gt; -n &lt;namespace&gt;
+kubectl get pods -n &lt;namespace&gt; -w
+</code></pre>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-error-from-server-forbidden/">Error from server (Forbidden): User cannot list resource in API group at the cluster scope</a></li><li><a href="/kubernetes/k8s-imagepullbackoff/">ImagePullBackOff / ErrImagePull</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-error-converting-yaml-to-json-mapping-values-are-not-allowed/">error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: &#x27;module&#x27; object is not callable (Python) — how to fix</title>
+<meta name="description" content="You called a module as if it were a function or class. The module and the thing inside it often share a name (datetime.datetime, tqdm.tqdm, glob.glob, socket.socket), so you imported the module when you meant the object.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-module-object-is-not-callable/">
+<meta property="og:title" content="TypeError: &#x27;module&#x27; object is not callable (Python) — how to fix"><meta property="og:description" content="You called a module as if it were a function or class. The module and the thing inside it often share a name (datetime.datetime, tqdm.tqdm, glob.glob, socket.socket), so you imported the module when you meant the object.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-module-object-is-not-callable/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: 'module' object is not callable (Python) \u2014 how to fix", "description": "You called a module as if it were a function or class. The module and the thing inside it often share a name (datetime.datetime, tqdm.tqdm, glob.glob, socket.socket), so you imported the module when you meant the object.", "dateModified": "2026-11-01", "url": "https://errorfix-hollis.github.io/python/python-typeerror-module-object-is-not-callable/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: 'module' object is not callable", "item": "https://errorfix-hollis.github.io/python/python-typeerror-module-object-is-not-callable/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: &#x27;module&#x27; object is not callable (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 3, in &lt;module&gt;
+    now = datetime()
+TypeError: &#x27;module&#x27; object is not callable
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Call the object inside the module: <code>datetime.datetime.now()</code> or <code>from datetime import datetime</code>; <code>from tqdm import tqdm</code>; <code>glob.glob('*.txt')</code>. If it's your own file, <code>import mymodule</code> then <code>mymodule.MyClass()</code>, or <code>from mymodule import MyClass</code>. Check you didn't name a file the same as the package.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>import x</code> binds the name <code>x</code> to a <strong>module</strong> object. Modules are containers; you can't call them with <code>()</code>. When you write <code>x()</code>, Python raises this error. Since Python 3.12 the message often adds a hint, e.g. <code>Did you mean: 'datetime.datetime(...)'?</code>.</p>
+<p>Check what a name refers to:</p>
+<pre><code class="language-python">print(type(datetime), datetime)
+# &lt;class 'module'&gt; &lt;module 'datetime' from '...'&gt;
+</code></pre>
+<h2 id="cause-1-module-and-classfunction-have-the-same-name">Cause 1: module and class/function have the same name</h2>
+<p>Very common in the standard library and popular packages:</p>
+<pre><code class="language-python">import datetime
+datetime.now()          # AttributeError
+datetime()              # TypeError: 'module' object is not callable
+</code></pre>
+<p>Either import the object:</p>
+<pre><code class="language-python">from datetime import datetime
+now = datetime.now()
+</code></pre>
+<p>or qualify it:</p>
+<pre><code class="language-python">import datetime
+now = datetime.datetime.now()
+</code></pre>
+<p>Other pairs that trip people up:</p>
+<table>
+<thead>
+<tr>
+<th>Wrong</th>
+<th>Right</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>import tqdm; tqdm(items)</code></td>
+<td><code>from tqdm import tqdm</code></td>
+</tr>
+<tr>
+<td><code>import glob; glob("*.csv")</code></td>
+<td><code>glob.glob("*.csv")</code></td>
+</tr>
+<tr>
+<td><code>import socket; socket()</code></td>
+<td><code>socket.socket()</code></td>
+</tr>
+<tr>
+<td><code>import pprint; pprint(obj)</code></td>
+<td><code>pprint.pprint(obj)</code> or <code>from pprint import pprint</code></td>
+</tr>
+<tr>
+<td><code>import random; random()</code></td>
+<td><code>random.random()</code></td>
+</tr>
+<tr>
+<td><code>import copy; copy(x)</code></td>
+<td><code>copy.copy(x)</code></td>
+</tr>
+<tr>
+<td><code>import decimal; decimal("1.1")</code></td>
+<td><code>decimal.Decimal("1.1")</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="cause-2-your-own-module-and-class">Cause 2: your own module and class</h2>
+<p>You have <code>user.py</code> containing <code>class User</code>, and wrote:</p>
+<pre><code class="language-python">import user
+u = user()          # TypeError
+</code></pre>
+<p>Fix:</p>
+<pre><code class="language-python">from user import User
+u = User()
+# or
+import user
+u = user.User()
+</code></pre>
+<p>Same in packages: if <code>models/__init__.py</code> doesn't import <code>Model</code>, then <code>from models import Model</code> won't work and <code>models()</code> fails. Import from the submodule: <code>from models.model import Model</code>.</p>
+<h2 id="cause-3-a-name-got-shadowed-by-an-import-later-on">Cause 3: a name got shadowed by an import later on</h2>
+<pre><code class="language-python">from tqdm import tqdm
+...
+import tqdm           # rebinds tqdm to the module
+for x in tqdm(rows):  # TypeError
+</code></pre>
+<p>Search the file for a second import (or <code>import *</code>) that reuses the name. Keep one style per module.</p>
+<h2 id="cause-4-your-file-has-the-same-name-as-the-library">Cause 4: your file has the same name as the library</h2>
+<p>If your script is called <code>tqdm.py</code>, <code>requests.py</code> or <code>random.py</code>, <code>import tqdm</code> imports <strong>your file</strong>, not the library. Rename it (and delete any <code>__pycache__</code> folder next to it). Check with:</p>
+<pre><code class="language-python">import tqdm
+print(tqdm.__file__)
+</code></pre>
+<h2 id="cause-5-callable-expected-by-a-framework">Cause 5: callable expected by a framework</h2>
+<p>Passing a module where a function or class is expected gives the same error from deep inside a library, e.g. <code>Thread(target=mytask)</code> where <code>mytask</code> is a module, or a Django URL pattern pointing at <code>views</code> instead of <code>views.home</code>. Pass the function: <code>path("", views.home)</code>.</p>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-cannot-import-name-partially-initialized-module/">ImportError: cannot import name &#x27;X&#x27; from partially initialized module &#x27;Y&#x27; (most likely due to a circular import)</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-nameerror-name-is-not-defined/">NameError: name &#x27;x&#x27; is not defined</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

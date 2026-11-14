@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>npm ERR! code SELF_SIGNED_CERT_IN_CHAIN — how to fix</title>
+<meta name="description" content="npm&#x27;s TLS check found a certificate in the chain that isn&#x27;t signed by a CA Node trusts. Almost always a corporate proxy or antivirus intercepting HTTPS with its own root certificate.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-self-signed-cert-in-chain/">
+<meta property="og:title" content="npm ERR! code SELF_SIGNED_CERT_IN_CHAIN — how to fix"><meta property="og:description" content="npm&#x27;s TLS check found a certificate in the chain that isn&#x27;t signed by a CA Node trusts. Almost always a corporate proxy or antivirus intercepting HTTPS with its own root certificate.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-self-signed-cert-in-chain/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "npm ERR! code SELF_SIGNED_CERT_IN_CHAIN \u2014 how to fix", "description": "npm's TLS check found a certificate in the chain that isn't signed by a CA Node trusts. Almost always a corporate proxy or antivirus intercepting HTTPS with its own root certificate.", "dateModified": "2026-11-10", "url": "https://errorfix-hollis.github.io/npm/npm-self-signed-cert-in-chain/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "npm ERR! code SELF_SIGNED_CERT_IN_CHAIN", "item": "https://errorfix-hollis.github.io/npm/npm-self-signed-cert-in-chain/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>npm ERR! code SELF_SIGNED_CERT_IN_CHAIN — how to fix</h1>
+<pre class="err"><code>npm ERR! code SELF_SIGNED_CERT_IN_CHAIN
+npm ERR! errno SELF_SIGNED_CERT_IN_CHAIN
+npm ERR! request to https://registry.npmjs.org/express failed, reason: self signed certificate in certificate chain
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Get your company's root CA certificate (PEM) and trust it: <code>npm config set cafile /path/to/corp-ca.pem</code>, or for all Node tools <code>export NODE_EXTRA_CA_CERTS=/path/to/corp-ca.pem</code>. Avoid <code>npm config set strict-ssl false</code> except as a short-lived test.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When npm connects to <code>https://registry.npmjs.org</code>, Node verifies the certificate chain against its built-in list of root CAs. <code>SELF_SIGNED_CERT_IN_CHAIN</code> means the chain ends in a root that's not on that list.</p>
+<p>The public npm registry uses a normal, publicly trusted certificate, so the cause is almost always something between you and the registry that re-signs traffic:</p>
+<ul>
+<li>a corporate TLS-inspecting proxy (Zscaler, Netskope, Palo Alto, Blue Coat, Fortinet)</li>
+<li>antivirus "HTTPS scanning" (Avast, Kaspersky, ESET)</li>
+<li>a private registry (Nexus, Artifactory, Verdaccio) with an internal CA</li>
+</ul>
+<p>Confirm by looking at who issued the certificate you actually receive:</p>
+<pre><code class="language-bash">openssl s_client -connect registry.npmjs.org:443 -servername registry.npmjs.org &lt;/dev/null 2&gt;/dev/null | grep -E &quot;^(subject|issuer)&quot;
+</code></pre>
+<p>If the issuer is your company or antivirus vendor, that's the interception.</p>
+<h2 id="fix-1-trust-the-corporate-ca-in-npm-recommended">Fix 1: trust the corporate CA in npm (recommended)</h2>
+<p>Get the root CA certificate in PEM format from IT, or export it from your OS/browser certificate store (Windows: <code>certmgr.msc</code> → Trusted Root → export as Base-64 X.509; macOS: Keychain Access → export <code>.pem</code>).</p>
+<pre><code class="language-bash">npm config set cafile /path/to/corp-root-ca.pem
+npm install
+</code></pre>
+<p><code>cafile</code> replaces npm's CA list for registry requests. If you use multiple CAs, concatenate them into one PEM file.</p>
+<h2 id="fix-2-trust-it-for-all-nodejs-tools">Fix 2: trust it for all Node.js tools</h2>
+<p>npm's <code>cafile</code> doesn't cover <code>node-gyp</code> downloads, postinstall scripts (e.g. Puppeteer, Cypress, esbuild binaries) or your own code. <code>NODE_EXTRA_CA_CERTS</code> <em>adds</em> certificates to Node's built-in list:</p>
+<pre><code class="language-bash">export NODE_EXTRA_CA_CERTS=/path/to/corp-root-ca.pem     # add to ~/.bashrc
+# Windows (PowerShell, persistent):
+setx NODE_EXTRA_CA_CERTS &quot;C:\certs\corp-root-ca.pem&quot;
+</code></pre>
+<p>It's read only at process start, so open a new terminal. On Node 22.15+/23.8+ you can also run with <code>--use-system-ca</code> (or <code>NODE_OPTIONS=--use-system-ca</code>) to trust the OS certificate store directly.</p>
+<h2 id="fix-3-yarn-and-pnpm">Fix 3: Yarn and pnpm</h2>
+<pre><code class="language-bash">yarn config set cafile /path/to/corp-root-ca.pem          # Yarn 1
+yarn config set httpsCaFilePath /path/to/corp-root-ca.pem # Yarn 2+
+pnpm config set cafile /path/to/corp-root-ca.pem
+</code></pre>
+<h2 id="fix-4-docker-builds-behind-the-proxy">Fix 4: Docker builds behind the proxy</h2>
+<p>Copy the cert into the image before <code>npm ci</code>:</p>
+<pre><code class="language-dockerfile">COPY corp-root-ca.pem /usr/local/share/ca-certificates/corp-root-ca.crt
+RUN update-ca-certificates
+ENV NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/corp-root-ca.crt
+RUN npm ci
+</code></pre>
+<h2 id="not-recommended-disabling-verification">Not recommended: disabling verification</h2>
+<pre><code class="language-bash">npm config set strict-ssl false        # npm only
+NODE_TLS_REJECT_UNAUTHORIZED=0 npm i  # everything in Node
+</code></pre>
+<p>This makes npm accept <em>any</em> certificate, so anyone on the network path can serve you malicious packages. Use it only to confirm the diagnosis, then revert with <code>npm config delete strict-ssl</code>.</p>
+<p>Also check for an old <code>ca=""</code> or stale <code>cafile</code> in <code>~/.npmrc</code> or the project <code>.npmrc</code> — <code>npm config list</code> shows what's active.</p>
+<p class="upd">Last updated 2026-11-10.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/npm-err-code-etimedout/">npm ERR! code ETIMEDOUT</a></li><li><a href="/python/python-ssl-certificate-verify-failed/">ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

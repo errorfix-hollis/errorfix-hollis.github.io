@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR 2013 (HY000): Lost connection to MySQL server during query — how to fix</title>
+<meta name="description" content="The client&#x27;s connection to MySQL/MariaDB dropped while a query was running. Common causes: a timeout (client, server or proxy), a packet larger than max_allowed_packet, the server crashing or being OOM-killed, or an idle connection closed by wait_timeout.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-mysql-lost-connection-to-mysql-server-during-query/">
+<meta property="og:title" content="ERROR 2013 (HY000): Lost connection to MySQL server during query — how to fix"><meta property="og:description" content="The client&#x27;s connection to MySQL/MariaDB dropped while a query was running. Common causes: a timeout (client, server or proxy), a packet larger than max_allowed_packet, the server crashing or being OOM-killed, or an idle connection closed by wait_timeout.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-mysql-lost-connection-to-mysql-server-during-query/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR 2013 (HY000): Lost connection to MySQL server during query \u2014 how to fix", "description": "The client's connection to MySQL/MariaDB dropped while a query was running. Common causes: a timeout (client, server or proxy), a packet larger than max_allowed_packet, the server crashing or being OOM-killed, or an idle connection closed by wait_timeout.", "dateModified": "2026-11-08", "url": "https://errorfix-hollis.github.io/database/db-mysql-lost-connection-to-mysql-server-during-query/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR 2013 (HY000): Lost connection to MySQL server during query", "item": "https://errorfix-hollis.github.io/database/db-mysql-lost-connection-to-mysql-server-during-query/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR 2013 (HY000): Lost connection to MySQL server during query — how to fix</h1>
+<pre class="err"><code>ERROR 2013 (HY000): Lost connection to MySQL server during query
+ERROR 2006 (HY000): MySQL server has gone away
+pymysql.err.OperationalError: (2013, &#x27;Lost connection to MySQL server during query&#x27;)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the server error log first (<code>sudo tail -100 /var/log/mysql/error.log</code>) for a crash/OOM. For big imports raise <code>max_allowed_packet</code> (e.g. <code>SET GLOBAL max_allowed_packet=1073741824;</code>) and <code>net_read_timeout</code>/<code>net_write_timeout</code>. For long queries raise the client read timeout. For pooled apps enable pre-ping/recycle connections below <code>wait_timeout</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Error 2013 means the TCP connection broke <strong>while a query was in progress</strong>. Its sibling 2006 (<code>MySQL server has gone away</code>) means it was already broken when the client tried to send the next query. Both are symptoms; the cause is on the server, the network path, or a client timeout.</p>
+<p>Variants: <code>Lost connection to MySQL server at 'reading initial communication packet'</code> happens at connect time and usually means a firewall, <code>bind-address</code>, or <code>skip-name-resolve</code> issue rather than the causes below.</p>
+<h2 id="step-1-did-the-server-crash">Step 1: did the server crash?</h2>
+<pre><code class="language-bash">sudo tail -100 /var/log/mysql/error.log      # or journalctl -u mysql / mariadb
+sudo dmesg -T | grep -i -E &quot;oom|killed process&quot;
+mysql -e &quot;SHOW GLOBAL STATUS LIKE 'Uptime';&quot;
+</code></pre>
+<p>A small <code>Uptime</code> or "Killed process ... mysqld" means the server restarted. Fix the root cause: give it more RAM, lower <code>innodb_buffer_pool_size</code>, or fix the query that triggers the crash.</p>
+<h2 id="cause-1-packet-bigger-than-max_allowed_packet">Cause 1: packet bigger than max_allowed_packet</h2>
+<p>Large <code>INSERT</code> statements from dumps, big BLOBs, or long <code>IN (...)</code> lists exceed the limit (default 64 MB in MySQL 8, smaller on older versions/MariaDB), and the server drops the connection.</p>
+<pre><code class="language-sql">SHOW VARIABLES LIKE 'max_allowed_packet';
+SET GLOBAL max_allowed_packet = 1073741824;   -- 1 GB, new connections only
+</code></pre>
+<p>Persist it in <code>my.cnf</code> under <code>[mysqld]</code>: <code>max_allowed_packet=1G</code>. The client has its own limit too:</p>
+<pre><code class="language-bash">mysql --max_allowed_packet=1G mydb &lt; dump.sql
+</code></pre>
+<h2 id="cause-2-query-runs-longer-than-a-timeout">Cause 2: query runs longer than a timeout</h2>
+<p>Several timeouts can cut a long query:</p>
+<ul>
+<li><strong>Client read timeout</strong>: e.g. PyMySQL <code>read_timeout</code>, JDBC <code>socketTimeout</code>, MySQL Workbench "DBMS connection read timeout" (Preferences → SQL Editor, default 30 s — a very common source of 2013 in Workbench).</li>
+<li><strong>Server network timeouts</strong> during big imports/exports:</li>
+</ul>
+<pre><code class="language-sql">SET GLOBAL net_read_timeout = 600;
+SET GLOBAL net_write_timeout = 600;
+</code></pre>
+<ul>
+<li><strong>Proxies/load balancers</strong> (HAProxy, ProxySQL, cloud LB idle timeouts, Kubernetes port-forward) closing quiet connections.</li>
+<li><code>max_execution_time</code> (MySQL) / <code>max_statement_time</code> (MariaDB) killing long <code>SELECT</code>s.</li>
+</ul>
+<p>Better long-term fix: make the query faster (<code>EXPLAIN</code>, add indexes) or batch the work.</p>
+<h2 id="cause-3-idle-connection-closed-by-wait_timeout">Cause 3: idle connection closed by wait_timeout</h2>
+<p>The server closes connections idle longer than <code>wait_timeout</code> (default 28800 s = 8 h; often set much lower on hosting). An app pool then reuses a dead connection and gets 2006/2013.</p>
+<p><strong>Fix:</strong> recycle or test connections before use:</p>
+<pre><code class="language-python"># SQLAlchemy
+engine = create_engine(url, pool_pre_ping=True, pool_recycle=1800)
+</code></pre>
+<pre><code class="language-properties"># HikariCP: keep below wait_timeout
+spring.datasource.hikari.max-lifetime=1500000
+</code></pre>
+<h2 id="cause-4-dumprestore-over-a-slow-link">Cause 4: dump/restore over a slow link</h2>
+<p>For <code>mysqldump</code> of big tables use <code>--quick</code> (streams rows) and <code>--single-transaction</code>; for restores, split huge files or restore on the server host instead of over the network.</p>
+<p class="upd">Last updated 2026-11-08.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1205-lock-wait-timeout-exceeded/">ERROR 1205 (HY000): Lock wait timeout exceeded; try restarting transaction</a></li><li><a href="/database/db-mysql-too-many-connections/">ERROR 1040 (HY000): Too many connections</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

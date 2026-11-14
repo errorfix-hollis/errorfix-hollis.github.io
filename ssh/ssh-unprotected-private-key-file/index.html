@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WARNING: UNPROTECTED PRIVATE KEY FILE! (SSH) — how to fix</title>
+<meta name="description" content="SSH refuses to use a private key that other users can read. Restrict it with chmod 600 (or 400).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/ssh/ssh-unprotected-private-key-file/">
+<meta property="og:title" content="WARNING: UNPROTECTED PRIVATE KEY FILE! (SSH) — how to fix"><meta property="og:description" content="SSH refuses to use a private key that other users can read. Restrict it with chmod 600 (or 400).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/ssh/ssh-unprotected-private-key-file/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "WARNING: UNPROTECTED PRIVATE KEY FILE! (SSH) \u2014 how to fix", "description": "SSH refuses to use a private key that other users can read. Restrict it with chmod 600 (or 400).", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/ssh/ssh-unprotected-private-key-file/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "SSH", "item": "https://errorfix-hollis.github.io/ssh/"}, {"@type": "ListItem", "position": 3, "name": "WARNING: UNPROTECTED PRIVATE KEY FILE!", "item": "https://errorfix-hollis.github.io/ssh/ssh-unprotected-private-key-file/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/ssh/">SSH</a></p>
+<article><h1>WARNING: UNPROTECTED PRIVATE KEY FILE! (SSH) — how to fix</h1>
+<pre class="err"><code>@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@         WARNING: UNPROTECTED PRIVATE KEY FILE!          @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+Permissions 0644 for &#x27;key.pem&#x27; are too open.
+It is required that your private key files are NOT accessible by others.
+This private key will be ignored.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>chmod 600 key.pem</code> (or <code>chmod 400 key.pem</code>). On Windows, remove inherited permissions so only your user can read the file.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Your private key file is readable by other users. SSH treats it as compromised and <strong>ignores it</strong>, which then usually leads to <code>Permission denied (publickey)</code>.</p>
+<h2 id="fix-on-linux-and-macos">Fix on Linux and macOS</h2>
+<pre><code class="language-bash">chmod 600 ~/.ssh/key.pem      # or 400 for read-only
+</code></pre>
+<p>The <code>.ssh</code> folder itself should be <code>700</code>:</p>
+<pre><code class="language-bash">chmod 700 ~/.ssh
+</code></pre>
+<h2 id="fix-on-windows-openssh-in-powershell">Fix on Windows (OpenSSH in PowerShell)</h2>
+<p><code>chmod</code> doesn't apply to NTFS. Remove inherited access and grant only yourself read access:</p>
+<pre><code class="language-powershell">icacls .\key.pem /inheritance:r
+icacls .\key.pem /grant:r &quot;$($env:USERNAME):(R)&quot;
+</code></pre>
+<p>Or in Explorer: <em>Properties → Security → Advanced → Disable inheritance → Remove all inherited permissions</em>, then add only your user with Read.</p>
+<h2 id="wsl-with-keys-on-mntc">WSL with keys on /mnt/c</h2>
+<p>Files on Windows drives show up with permissions like <code>0777</code>, and <code>chmod</code> has no effect by default. Copy the key into your Linux home:</p>
+<pre><code class="language-bash">cp /mnt/c/Users/you/Downloads/key.pem ~/.ssh/
+chmod 600 ~/.ssh/key.pem
+</code></pre>
+<p>(Or enable metadata for drvfs mounts in <code>/etc/wsl.conf</code>.)</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/ssh/ssh-permission-denied-publickey/">Permission denied (publickey)</a></li><li><a href="/ssh/ssh-connect-to-host-port-22-connection-refused/">ssh: connect to host port 22: Connection refused</a></li><li><a href="/ssh/ssh-connection-closed-by-remote-host/">Connection closed by remote host</a></li><li><a href="/ssh/ssh-connection-timed-out/">ssh: connect to host port 22: Connection timed out</a></li><li><a href="/ssh/ssh-host-key-verification-failed/">Host key verification failed.</a></li><li><a href="/ssh/ssh-kex-exchange-identification-connection-closed/">kex_exchange_identification: Connection closed by remote host</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

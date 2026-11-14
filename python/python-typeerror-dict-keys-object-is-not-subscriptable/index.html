@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: &#x27;dict_keys&#x27; object is not subscriptable (Python) — how to fix</title>
+<meta name="description" content="In Python 3, dict.keys(), .values() and .items() return view objects, not lists, so you can&#x27;t index them with [0]. Convert to a list or use next(iter(...)).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-dict-keys-object-is-not-subscriptable/">
+<meta property="og:title" content="TypeError: &#x27;dict_keys&#x27; object is not subscriptable (Python) — how to fix"><meta property="og:description" content="In Python 3, dict.keys(), .values() and .items() return view objects, not lists, so you can&#x27;t index them with [0]. Convert to a list or use next(iter(...)).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-dict-keys-object-is-not-subscriptable/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: 'dict_keys' object is not subscriptable (Python) \u2014 how to fix", "description": "In Python 3, dict.keys(), .values() and .items() return view objects, not lists, so you can't index them with [0]. Convert to a list or use next(iter(...)).", "dateModified": "2026-11-12", "url": "https://errorfix-hollis.github.io/python/python-typeerror-dict-keys-object-is-not-subscriptable/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: 'dict_keys' object is not subscriptable", "item": "https://errorfix-hollis.github.io/python/python-typeerror-dict-keys-object-is-not-subscriptable/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: &#x27;dict_keys&#x27; object is not subscriptable (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 4, in &lt;module&gt;
+    first = d.keys()[0]
+TypeError: &#x27;dict_keys&#x27; object is not subscriptable
+TypeError: &#x27;dict_values&#x27; object is not subscriptable
+TypeError: &#x27;dict_items&#x27; object is not subscriptable
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Wrap the view in <code>list()</code> before indexing: <code>list(d.keys())[0]</code>, or get the first key without building a list: <code>next(iter(d))</code>. For values use <code>next(iter(d.values()))</code>. If you only need to check membership, use <code>key in d</code> instead of indexing.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>In Python 2, <code>d.keys()</code> returned a list. In Python 3 it returns a <strong>view</strong> (<code>dict_keys</code>), a live, set-like window onto the dictionary. Views support iteration, <code>len()</code>, <code>in</code>, and set operations (<code>&amp;</code>, <code>|</code>, <code>-</code>), but <strong>not indexing or slicing</strong>. So code like this fails:</p>
+<pre><code class="language-python">d = {&quot;a&quot;: 1, &quot;b&quot;: 2}
+d.keys()[0]        # TypeError: 'dict_keys' object is not subscriptable
+d.values()[-1]     # TypeError: 'dict_values' object is not subscriptable
+d.items()[:2]      # TypeError: 'dict_items' object is not subscriptable
+</code></pre>
+<p>This is very common when running old Python 2 code or tutorials on Python 3.</p>
+<h2 id="fix-1-convert-the-view-to-a-list">Fix 1: convert the view to a list</h2>
+<pre><code class="language-python">keys = list(d.keys())
+keys[0]           # 'a'
+list(d.values())[-1]
+list(d.items())[:2]
+</code></pre>
+<p><code>list(d)</code> is the same as <code>list(d.keys())</code>. Since Python 3.7, dicts keep insertion order, so index <code>0</code> is the first key you inserted.</p>
+<h2 id="fix-2-get-just-the-first-item-without-copying">Fix 2: get just the first item without copying</h2>
+<p>Building a list of a huge dict just to read one element is wasteful. Use an iterator:</p>
+<pre><code class="language-python">first_key = next(iter(d))
+first_value = next(iter(d.values()))
+first_key, first_value = next(iter(d.items()))
+</code></pre>
+<p>On an empty dict <code>next()</code> raises <code>StopIteration</code>; pass a default to avoid that:</p>
+<pre><code class="language-python">first_key = next(iter(d), None)
+</code></pre>
+<p>For the first N items, use <code>itertools.islice</code>:</p>
+<pre><code class="language-python">from itertools import islice
+first_three = list(islice(d.items(), 3))
+</code></pre>
+<h2 id="fix-3-you-didnt-actually-need-an-index">Fix 3: you didn't actually need an index</h2>
+<p>Often the index was only used to loop or test membership. Use the view directly:</p>
+<pre><code class="language-python">for key, value in d.items():
+    print(key, value)
+
+if &quot;a&quot; in d:          # fast, no .keys() needed
+    ...
+
+common = d.keys() &amp; other.keys()   # set operations work on views
+</code></pre>
+<h2 id="fix-4-random-or-sorted-access">Fix 4: random or sorted access</h2>
+<pre><code class="language-python">import random
+random.choice(list(d))          # random key
+
+sorted(d)[0]                    # alphabetically first key
+max(d, key=d.get)               # key with the largest value
+</code></pre>
+<h2 id="related-libraries-that-return-views">Related: libraries that return views</h2>
+<p>The same error appears with anything dict-like, e.g. <code>json.load(...)</code>.keys(), <code>os.environ.keys()</code>, or <code>collections.OrderedDict</code>. The fix is the same: <code>list(...)</code> or <code>next(iter(...))</code>.</p>
+<p>If you're porting Python 2 code, also watch for <code>iteritems()</code> (see <a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: 'dict' object has no attribute 'iteritems'</a>) and <code>print</code> statements.</p>
+<p class="upd">Last updated 2026-11-12.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-typeerror-int-object-is-not-subscriptable/">TypeError: &#x27;int&#x27; object is not subscriptable</a></li><li><a href="/python/python-typeerror-nonetype-object-is-not-subscriptable/">TypeError: &#x27;NoneType&#x27; object is not subscriptable</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

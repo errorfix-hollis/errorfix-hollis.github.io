@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Each child in a list should have a unique &quot;key&quot; prop. (JavaScript) — how to fix</title>
+<meta name="description" content="You rendered an array of elements in React (usually with .map) without giving each element a stable, unique key prop, or two elements share the same key.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">
+<meta property="og:title" content="Each child in a list should have a unique &quot;key&quot; prop. (JavaScript) — how to fix"><meta property="og:description" content="You rendered an array of elements in React (usually with .map) without giving each element a stable, unique key prop, or two elements share the same key.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Each child in a list should have a unique \"key\" prop. (JavaScript) \u2014 how to fix", "description": "You rendered an array of elements in React (usually with .map) without giving each element a stable, unique key prop, or two elements share the same key.", "dateModified": "2026-10-31", "url": "https://errorfix-hollis.github.io/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "Each child in a list should have a unique \"key\" prop.", "item": "https://errorfix-hollis.github.io/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>Each child in a list should have a unique &quot;key&quot; prop. (JavaScript) — how to fix</h1>
+<pre class="err"><code>Warning: Each child in a list should have a unique &quot;key&quot; prop.
+Check the render method of `TodoList`. See https://react.dev/link/warning-keys for more information.
+Warning: Encountered two children with the same key, `1`. Keys should be unique so that components maintain their identity across updates.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Add a <code>key</code> to the outermost element returned from <code>.map()</code>, using a stable unique id from your data: <code>items.map(item =&gt; &lt;li key={item.id}&gt;{item.name}&lt;/li&gt;)</code>. Use <code>&lt;Fragment key={...}&gt;</code> when returning fragments. Avoid array indexes as keys if the list can be reordered, filtered or edited.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When React re-renders a list, it uses <code>key</code> to match old elements to new ones. Without keys (or with duplicates) it can't tell which item moved, was added or was removed, so it may reuse the wrong component state — e.g. a checkbox or text input "jumping" to another row. It's a warning, not a crash, but it points at real bugs.</p>
+<h2 id="fix-1-add-a-key-to-the-element-returned-by-map">Fix 1: add a key to the element returned by map</h2>
+<pre><code class="language-jsx">// Wrong
+{todos.map(todo =&gt; &lt;li&gt;{todo.text}&lt;/li&gt;)}
+
+// Right
+{todos.map(todo =&gt; &lt;li key={todo.id}&gt;{todo.text}&lt;/li&gt;)}
+</code></pre>
+<p>The key must be on the <strong>outermost</strong> element in the callback, not on a child inside it:</p>
+<pre><code class="language-jsx">// Wrong: key is on the inner element
+{todos.map(todo =&gt; (
+  &lt;div className=&quot;row&quot;&gt;
+    &lt;TodoItem key={todo.id} todo={todo} /&gt;
+  &lt;/div&gt;
+))}
+
+// Right
+{todos.map(todo =&gt; (
+  &lt;div className=&quot;row&quot; key={todo.id}&gt;
+    &lt;TodoItem todo={todo} /&gt;
+  &lt;/div&gt;
+))}
+</code></pre>
+<h2 id="fix-2-fragments-need-an-explicit-fragment">Fix 2: fragments need an explicit Fragment</h2>
+<p>The short syntax <code>&lt;&gt;...</code> can't take a key. Use <code>Fragment</code>:</p>
+<pre><code class="language-jsx">import { Fragment } from 'react';
+
+{terms.map(t =&gt; (
+  &lt;Fragment key={t.id}&gt;
+    &lt;dt&gt;{t.term}&lt;/dt&gt;
+    &lt;dd&gt;{t.definition}&lt;/dd&gt;
+  &lt;/Fragment&gt;
+))}
+</code></pre>
+<h2 id="fix-3-duplicate-keys">Fix 3: duplicate keys</h2>
+<p>"Encountered two children with the same key" means your ids aren't unique (duplicate rows from an API, or keying by a non-unique field like <code>name</code>). Fix the data, or combine fields:</p>
+<pre><code class="language-jsx">&lt;Row key={`${row.userId}-${row.date}`} row={row} /&gt;
+</code></pre>
+<p>Keys only need to be unique among siblings, not globally.</p>
+<h2 id="fix-4-no-id-in-the-data">Fix 4: no id in the data</h2>
+<p>Generate ids <strong>when the data is created</strong>, not during render:</p>
+<pre><code class="language-jsx">const addTodo = text =&gt;
+  setTodos(t =&gt; [...t, { id: crypto.randomUUID(), text }]);
+</code></pre>
+<p>Never do <code>key={Math.random()}</code> or <code>key={crypto.randomUUID()}</code> inside render: every render gets new keys, so React remounts every item and loses input focus and state.</p>
+<h2 id="when-is-the-index-ok">When is the index OK?</h2>
+<p><code>key={index}</code> silences the warning and is fine if the list is static: never reordered, filtered, or inserted into except at the end. For editable or sortable lists it causes state to stick to the wrong row, so use real ids.</p>
+<h2 id="finding-it">Finding it</h2>
+<p>The warning names the component ("Check the render method of <code>TodoList</code>"). Look there for <code>.map(</code>, <code>Array.from(</code>, or any array of JSX. Arrays built manually (<code>const cells = []; cells.push(&lt;td&gt;...)</code>) need keys too.</p>
+<p class="upd">Last updated 2026-10-31.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-is-not-a-function/">TypeError: x is not a function</a></li><li><a href="/javascript/js-objects-are-not-valid-as-a-react-child/">Objects are not valid as a React child</a></li><li><a href="/javascript/js-too-many-re-renders/">Too many re-renders. React limits the number of renders to prevent an infinite loop.</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-hydration-failed-initial-ui-does-not-match/">Hydration failed because the initial UI does not match what was rendered on the server</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

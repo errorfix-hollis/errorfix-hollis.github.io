@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FATAL: database &quot;myapp&quot; does not exist (PostgreSQL) — how to fix</title>
+<meta name="description" content="The PostgreSQL server is running and you authenticated, but there is no database with that name on that server. Often psql is defaulting the database name to your username, or the app points at a different server than you think.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-database-does-not-exist/">
+<meta property="og:title" content="FATAL: database &quot;myapp&quot; does not exist (PostgreSQL) — how to fix"><meta property="og:description" content="The PostgreSQL server is running and you authenticated, but there is no database with that name on that server. Often psql is defaulting the database name to your username, or the app points at a different server than you think.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-database-does-not-exist/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "FATAL: database \"myapp\" does not exist (PostgreSQL) \u2014 how to fix", "description": "The PostgreSQL server is running and you authenticated, but there is no database with that name on that server. Often psql is defaulting the database name to your username, or the app points at a different server than you think.", "dateModified": "2026-11-01", "url": "https://errorfix-hollis.github.io/database/db-postgres-database-does-not-exist/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "FATAL: database \"myapp\" does not exist", "item": "https://errorfix-hollis.github.io/database/db-postgres-database-does-not-exist/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>FATAL: database &quot;myapp&quot; does not exist (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>psql: error: connection to server on socket &quot;/var/run/postgresql/.s.PGSQL.5432&quot; failed: FATAL:  database &quot;myapp&quot; does not exist
+django.db.utils.OperationalError: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: FATAL:  database &quot;myapp&quot; does not exist
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Create it: <code>createdb myapp</code> or <code>sudo -u postgres createdb -O myuser myapp</code> (or <code>CREATE DATABASE myapp OWNER myuser;</code> in psql). If psql says the database named after your user doesn't exist, connect to an existing one: <code>psql -d postgres</code>. List databases with <code>psql -l</code>. Names are case-sensitive if created with quotes.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>PostgreSQL connections always target one database. The server accepted the connection and the login, then couldn't find the database named in the connection string. Databases are per server (cluster), so the same name may exist on one host/port and not another.</p>
+<p>List what exists on the server you're connecting to:</p>
+<pre><code class="language-bash">psql -h localhost -U myuser -d postgres -l
+# or inside psql
+\l
+</code></pre>
+<h2 id="cause-1-the-database-was-never-created">Cause 1: the database was never created</h2>
+<p>Create it, owned by the role your app uses:</p>
+<pre><code class="language-bash">sudo -u postgres createdb -O myuser myapp
+</code></pre>
+<p>or in SQL:</p>
+<pre><code class="language-sql">CREATE DATABASE myapp OWNER myuser;
+</code></pre>
+<p>Frameworks generally don't create the database for you on first connect: Rails has <code>bin/rails db:create</code>, Django and most others expect it to exist.</p>
+<h2 id="cause-2-psql-defaults-to-your-username-as-the-database">Cause 2: psql defaults to your username as the database</h2>
+<p>Running plain <code>psql</code> as user <code>alice</code> tries to connect to database <code>alice</code>:</p>
+<pre><code>psql: error: ... FATAL:  database &quot;alice&quot; does not exist
+</code></pre>
+<p>Connect to the default <code>postgres</code> database instead (it always exists on a fresh install):</p>
+<pre><code class="language-bash">psql -d postgres
+</code></pre>
+<p>Or create a database named after yourself so plain <code>psql</code> works: <code>createdb alice</code>. You can also set <code>PGDATABASE=postgres</code> in your environment.</p>
+<h2 id="cause-3-dockers-postgres_db-only-applies-on-first-start">Cause 3: Docker's POSTGRES_DB only applies on first start</h2>
+<p>The official image creates <code>POSTGRES_DB</code> (default: the value of <code>POSTGRES_USER</code>) only when the data directory is empty. If the volume already existed, changing <code>POSTGRES_DB</code> later does nothing.</p>
+<pre><code class="language-bash"># create it in the running container
+docker exec -it db psql -U postgres -c &quot;CREATE DATABASE myapp;&quot;
+
+# or, if the data is disposable, recreate the volume
+docker compose down -v
+docker compose up -d
+</code></pre>
+<p><code>down -v</code> deletes the database volume and all data in it.</p>
+<h2 id="cause-4-wrong-server-port-or-container">Cause 4: wrong server, port or container</h2>
+<p>You may have two PostgreSQL instances (a local install on 5432 and a Docker one, or two versions on 5432 and 5433). The database exists on one, your app connects to the other. Check:</p>
+<pre><code class="language-bash">sudo ss -ltnp | grep 543
+psql &quot;postgresql://myuser@localhost:5432/postgres&quot; -c &quot;select version(), inet_server_port();&quot;
+</code></pre>
+<p>From inside a Docker Compose service, <code>localhost</code> is the container itself; use the service name (<code>host=db</code>).</p>
+<h2 id="cause-5-case-and-quoting">Cause 5: case and quoting</h2>
+<p>Unquoted identifiers are folded to lowercase. <code>CREATE DATABASE MyApp;</code> creates <code>myapp</code>. But a tool that created <code>"MyApp"</code> with quotes made a mixed-case name, and connecting to <code>myapp</code> fails. Use the exact name shown by <code>\l</code>, and prefer lowercase names.</p>
+<h2 id="cause-6-typo-in-the-connection-url">Cause 6: typo in the connection URL</h2>
+<p>Check the path part of the URL: in <code>postgresql://user:pass@host:5432/myapp?sslmode=require</code>, the database is <code>myapp</code>. A trailing space or a missing <code>/dbname</code> (which makes it default to the username) is a common mistake in <code>.env</code> files.</p>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-postgres-connection-refused/">psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused</a></li><li><a href="/database/db-postgres-relation-does-not-exist/">ERROR: relation does not exist</a></li><li><a href="/database/db-postgres-role-does-not-exist/">FATAL: role &quot;username&quot; does not exist</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

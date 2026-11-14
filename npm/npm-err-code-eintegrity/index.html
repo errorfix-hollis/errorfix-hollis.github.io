@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>npm ERR! code EINTEGRITY — how to fix</title>
+<meta name="description" content="The tarball npm downloaded (or found in its cache) doesn&#x27;t match the integrity hash recorded in package-lock.json. Usually a corrupted cache, a lock file created against a different registry, or a proxy altering downloads.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-err-code-eintegrity/">
+<meta property="og:title" content="npm ERR! code EINTEGRITY — how to fix"><meta property="og:description" content="The tarball npm downloaded (or found in its cache) doesn&#x27;t match the integrity hash recorded in package-lock.json. Usually a corrupted cache, a lock file created against a different registry, or a proxy altering downloads.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-err-code-eintegrity/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "npm ERR! code EINTEGRITY \u2014 how to fix", "description": "The tarball npm downloaded (or found in its cache) doesn't match the integrity hash recorded in package-lock.json. Usually a corrupted cache, a lock file created against a different registry, or a proxy altering downloads.", "dateModified": "2026-11-09", "url": "https://errorfix-hollis.github.io/npm/npm-err-code-eintegrity/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "npm ERR! code EINTEGRITY", "item": "https://errorfix-hollis.github.io/npm/npm-err-code-eintegrity/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>npm ERR! code EINTEGRITY — how to fix</h1>
+<pre class="err"><code>npm ERR! code EINTEGRITY
+npm ERR! sha512-AbC...== integrity checksum failed when using sha512: wanted sha512-AbC...== but got sha512-XyZ...==. (12345 bytes)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Verify/clean the cache: <code>npm cache verify</code> (or <code>npm cache clean --force</code>), then <code>npm install</code>. If it persists, the lock file hash is from another registry/mirror: delete <code>node_modules</code> and <code>package-lock.json</code> and run <code>npm install</code> to regenerate it, then commit the new lock file.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Every package in <code>package-lock.json</code> has an <code>integrity</code> field — a Subresource Integrity hash (<code>sha512-...</code>, sometimes <code>sha1-...</code> in old lock files) of the exact tarball. When npm installs, it hashes what it got and compares. A mismatch means the bytes differ from what the lock file expects, and npm refuses to install them. This is a security feature, so don't bypass it blindly.</p>
+<h2 id="cause-1-corrupted-npm-cache">Cause 1: corrupted npm cache</h2>
+<p>An interrupted download or disk problem leaves a bad entry in <code>~/.npm/_cacache</code>. Check and repair:</p>
+<pre><code class="language-bash">npm cache verify
+npm install
+</code></pre>
+<p>If that doesn't help, wipe the cache:</p>
+<pre><code class="language-bash">npm cache clean --force
+npm install
+</code></pre>
+<p>On Windows the cache is in <code>%LocalAppData%\npm-cache</code>.</p>
+<h2 id="cause-2-lock-file-made-against-a-different-registry">Cause 2: lock file made against a different registry</h2>
+<p>Private registries and mirrors (Artifactory, Nexus, Verdaccio, a regional mirror) sometimes repackage tarballs, producing different hashes from registry.npmjs.org. If a teammate generated the lock file on one registry and you install from another, every affected package fails.</p>
+<p>Check where the lock file points versus your config:</p>
+<pre><code class="language-bash">npm config get registry
+grep -m3 '&quot;resolved&quot;' package-lock.json
+</code></pre>
+<p>Use the same registry as the team (project <code>.npmrc</code>), or regenerate the lock file:</p>
+<pre><code class="language-bash">rm -rf node_modules package-lock.json
+npm install
+git add package-lock.json
+</code></pre>
+<p>Regenerating may update dependency versions within your semver ranges; run your tests afterwards.</p>
+<h2 id="cause-3-a-single-stale-entry-in-the-lock-file">Cause 3: a single stale entry in the lock file</h2>
+<p>When only one package fails, you can refresh just that entry instead of the whole lock file:</p>
+<pre><code class="language-bash">npm install &lt;package&gt;@&lt;version&gt;
+</code></pre>
+<p>Or remove its <code>integrity</code> line (and the matching <code>resolved</code> line) in <code>package-lock.json</code> and run <code>npm install</code> — npm recomputes and writes it back.</p>
+<h2 id="cause-4-proxy-or-firewall-altering-downloads">Cause 4: proxy or firewall altering downloads</h2>
+<p>TLS-inspecting proxies or antivirus software that rewrite or truncate responses cause hash mismatches, often with a byte count far smaller than expected (an HTML error page instead of a tarball). Try another network, or configure the proxy correctly (see <a href="/npm/npm-err-code-etimedout/">npm ETIMEDOUT</a>). Look at the bytes number in the error — if it's tiny, you received an error page.</p>
+<h2 id="cause-5-the-published-package-changed">Cause 5: the published package changed</h2>
+<p>Rarely, a package version was unpublished and republished, or a registry served a wrong file. If the hash in the lock file matches what <code>npm view &lt;pkg&gt;@&lt;version&gt; dist.integrity</code> returns, the problem is your download path; if it doesn't, the lock file is wrong — regenerate it.</p>
+<p>You can compare a hash yourself with the <a href="/tools/hash-generator/">hash generator</a> or:</p>
+<pre><code class="language-bash">npm pack &lt;pkg&gt;@&lt;version&gt;
+openssl dgst -sha512 -binary &lt;pkg&gt;-&lt;version&gt;.tgz | openssl base64 -A
+</code></pre>
+<h2 id="ci">CI</h2>
+<p>In CI, <code>npm ci</code> fails the same way. Cache <code>~/.npm</code> keyed on the hash of <code>package-lock.json</code> so a corrupted cache isn't restored forever; if it is, bump the cache key.</p>
+<p class="upd">Last updated 2026-11-09.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/npm-eresolve-unable-to-resolve-dependency-tree/">npm ERR! code ERESOLVE unable to resolve dependency tree</a></li><li><a href="/npm/npm-err-code-enotempty/">npm ERR! code ENOTEMPTY</a></li><li><a href="/npm/npm-err-code-etimedout/">npm ERR! code ETIMEDOUT</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

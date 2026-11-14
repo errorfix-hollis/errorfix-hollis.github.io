@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ValueError: too many values to unpack (expected 2) (Python) — how to fix</title>
+<meta name="description" content="You assigned a sequence to a fixed number of variables but it contained more items. Most often from looping over a dict without .items() or splitting a string into the wrong number of parts.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-valueerror-too-many-values-to-unpack/">
+<meta property="og:title" content="ValueError: too many values to unpack (expected 2) (Python) — how to fix"><meta property="og:description" content="You assigned a sequence to a fixed number of variables but it contained more items. Most often from looping over a dict without .items() or splitting a string into the wrong number of parts.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-valueerror-too-many-values-to-unpack/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ValueError: too many values to unpack (expected 2) (Python) \u2014 how to fix", "description": "You assigned a sequence to a fixed number of variables but it contained more items. Most often from looping over a dict without .items() or splitting a string into the wrong number of parts.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/python/python-valueerror-too-many-values-to-unpack/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ValueError: too many values to unpack (expected 2)", "item": "https://errorfix-hollis.github.io/python/python-valueerror-too-many-values-to-unpack/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ValueError: too many values to unpack (expected 2) (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 3, in &lt;module&gt;
+    for key, value in data:
+ValueError: too many values to unpack (expected 2)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Make the left side match the number of items. Looping over a dict? Use <code>for key, value in d.items():</code>. Splitting a string? Use <code>a, b = s.split(',', 1)</code> or <code>first, *rest = s.split(',')</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Unpacking like <code>a, b = something</code> requires <code>something</code> to have exactly two items. Python found more (<code>too many</code>) or fewer (<code>not enough values to unpack (expected 2, got 1)</code>).</p>
+<h2 id="cause-1-iterating-over-a-dict-directly">Cause 1: iterating over a dict directly</h2>
+<pre><code class="language-python">data = {&quot;a&quot;: 1, &quot;b&quot;: 2}
+for key, value in data:          # iterates over keys: &quot;a&quot;, &quot;b&quot;
+</code></pre>
+<p>Each key is a string, and Python tries to unpack its characters. Use <code>.items()</code>:</p>
+<pre><code class="language-python">for key, value in data.items():
+</code></pre>
+<h2 id="cause-2-string-split-produces-more-parts">Cause 2: string split produces more parts</h2>
+<pre><code class="language-python">line = &quot;name,city,country&quot;
+name, city = line.split(&quot;,&quot;)     # 3 parts
+</code></pre>
+<p>Options:</p>
+<pre><code class="language-python">name, city = line.split(&quot;,&quot;, 1)          # split only once
+name, city, *_ = line.split(&quot;,&quot;)         # ignore the rest
+name, *rest = line.split(&quot;,&quot;)            # rest is a list
+</code></pre>
+<p>For CSV data use the <code>csv</code> module; it handles quoted commas correctly.</p>
+<h2 id="cause-3-a-function-returns-more-than-you-expect">Cause 3: a function returns more than you expect</h2>
+<pre><code class="language-python">def stats(xs):
+    return min(xs), max(xs), sum(xs)
+
+lo, hi = stats([1, 2, 3])        # returns 3 values
+</code></pre>
+<p>Print what you're unpacking to check its shape:</p>
+<pre><code class="language-python">result = stats([1, 2, 3])
+print(type(result), len(result), result)
+</code></pre>
+<h2 id="cause-4-rows-with-different-lengths">Cause 4: rows with different lengths</h2>
+<p>When looping over rows (<code>for x, y in points:</code>), one malformed row breaks the loop. Find it:</p>
+<pre><code class="language-python">for i, row in enumerate(points):
+    if len(row) != 2:
+        print(i, row)
+</code></pre>
+<h2 id="numpy-pandas">NumPy / pandas</h2>
+<p><code>for a, b in df:</code> iterates column names, not rows. Use <code>df.itertuples()</code> or <code>df.iterrows()</code>; for arrays check <code>arr.shape</code> before unpacking.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-keyerror/">KeyError</a></li><li><a href="/python/python-typeerror-nonetype-object-is-not-subscriptable/">TypeError: &#x27;NoneType&#x27; object is not subscriptable</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

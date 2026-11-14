@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2) — how to fix</title>
+<meta name="description" content="The MySQL client tried to connect via a Unix socket file that doesn&#x27;t exist. Either the MySQL/MariaDB server isn&#x27;t running, or the client and server disagree on the socket path. Error (2) is ENOENT, (13) is permission denied.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">
+<meta property="og:title" content="ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2) — how to fix"><meta property="og:description" content="The MySQL client tried to connect via a Unix socket file that doesn&#x27;t exist. Either the MySQL/MariaDB server isn&#x27;t running, or the client and server disagree on the socket path. Error (2) is ENOENT, (13) is permission denied.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR 2002 (HY000): Can't connect to local MySQL server through socket '/var/run/mysqld/mysqld.sock' (2) \u2014 how to fix", "description": "The MySQL client tried to connect via a Unix socket file that doesn't exist. Either the MySQL/MariaDB server isn't running, or the client and server disagree on the socket path. Error (2) is ENOENT, (13) is permission denied.", "dateModified": "2026-10-30", "url": "https://errorfix-hollis.github.io/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR 2002 (HY000): Can't connect to local MySQL server through socket '/var/run/mysqld/mysqld.sock' (2)", "item": "https://errorfix-hollis.github.io/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2) — how to fix</h1>
+<pre class="err"><code>ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)
+ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/tmp/mysql.sock&#x27; (2)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Start the server: <code>sudo systemctl start mysql</code> (or <code>mariadb</code>; macOS <code>brew services start mysql</code>) and check <code>sudo systemctl status mysql</code> / the error log if it won't start. If it is running, find the real socket with <code>sudo ss -xlp | grep mysql</code> and pass it with <code>--socket</code>, or connect over TCP: <code>mysql -h 127.0.0.1 -P 3306 -u root -p</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When you connect to host <code>localhost</code>, the MySQL client doesn't use TCP — it uses a Unix socket file (default <code>/var/run/mysqld/mysqld.sock</code> on Debian/Ubuntu, <code>/var/lib/mysql/mysql.sock</code> on RHEL, <code>/tmp/mysql.sock</code> on macOS Homebrew). The number in parentheses is the OS error:</p>
+<ul>
+<li><code>(2)</code> — the socket file doesn't exist: server not running, or a different path.</li>
+<li><code>(13)</code> — permission denied on the socket or its directory.</li>
+<li><code>(111)</code> — connection refused: the file exists but nothing is listening (stale socket).</li>
+</ul>
+<h2 id="cause-1-the-server-isnt-running">Cause 1: the server isn't running</h2>
+<p>The most common case. Check and start it:</p>
+<pre><code class="language-bash">sudo systemctl status mysql        # or: mariadb, mysqld
+sudo systemctl start mysql
+sudo systemctl enable mysql        # start on boot
+</code></pre>
+<p>macOS (Homebrew):</p>
+<pre><code class="language-bash">brew services list
+brew services start mysql
+</code></pre>
+<p>WSL without systemd: <code>sudo service mysql start</code>.</p>
+<p>If it isn't installed at all, <code>systemctl status</code> says <code>Unit mysql.service could not be found</code> — install <code>mysql-server</code> or <code>mariadb-server</code>.</p>
+<h2 id="cause-2-the-server-fails-to-start">Cause 2: the server fails to start</h2>
+<p>If <code>start</code> fails or the service stops right away, read the log:</p>
+<pre><code class="language-bash">sudo journalctl -u mysql -n 50 --no-pager
+sudo tail -n 50 /var/log/mysql/error.log
+</code></pre>
+<p>Frequent reasons:</p>
+<ul>
+<li><strong>Disk full</strong> — check <code>df -h</code>; MySQL can't write its files.</li>
+<li><strong>Port 3306 already in use</strong> by another MySQL/MariaDB instance or container: <code>sudo ss -tlnp | grep 3306</code>.</li>
+<li><strong>Bad config</strong> after an edit in <code>/etc/mysql/</code> — the log names the unknown option.</li>
+<li><strong>Permissions</strong> on the data dir after copying/restoring: <code>sudo chown -R mysql:mysql /var/lib/mysql</code>.</li>
+<li><strong>Missing socket directory</strong> <code>/var/run/mysqld</code> (it's on tmpfs): <code>sudo mkdir -p /var/run/mysqld &amp;&amp; sudo chown mysql:mysql /var/run/mysqld</code>.</li>
+</ul>
+<h2 id="cause-3-client-and-server-use-different-socket-paths">Cause 3: client and server use different socket paths</h2>
+<p>If the server is running, find where its socket actually is:</p>
+<pre><code class="language-bash">sudo ss -xlp | grep -i mysql
+mysqladmin -u root -p variables | grep socket   # if you can connect another way
+</code></pre>
+<p>Then point the client at it:</p>
+<pre><code class="language-bash">mysql -u root -p --socket=/var/lib/mysql/mysql.sock
+</code></pre>
+<p>To make it permanent, set the same path for client and server in <code>my.cnf</code>:</p>
+<pre><code class="language-ini">[mysqld]
+socket=/var/run/mysqld/mysqld.sock
+
+[client]
+socket=/var/run/mysqld/mysqld.sock
+</code></pre>
+<p>For PHP, set <code>pdo_mysql.default_socket</code> / <code>mysqli.default_socket</code> in php.ini to the same path.</p>
+<h2 id="cause-4-mysql-is-in-docker-client-on-the-host">Cause 4: MySQL is in Docker, client on the host</h2>
+<p>A container's socket isn't visible on the host. <code>localhost</code> makes the client look for a local socket file and fail. Force TCP to the published port:</p>
+<pre><code class="language-bash">mysql -h 127.0.0.1 -P 3306 -u root -p
+mysql --protocol=TCP -u root -p
+</code></pre>
+<p>From another container in the same compose network, use the service name as host (e.g. <code>-h db</code>).</p>
+<h2 id="cause-5-permission-denied-13">Cause 5: permission denied (13)</h2>
+<p>The user running the client (e.g. a web server) can't access the socket directory. Check:</p>
+<pre><code class="language-bash">ls -ld /var/run/mysqld /var/run/mysqld/mysqld.sock
+</code></pre>
+<p>The directory should be traversable (<code>drwxr-xr-x mysql mysql</code>). On SELinux systems, a non-standard socket path also needs the right context.</p>
+<p class="upd">Last updated 2026-10-30.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-postgres-connection-refused/">psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused</a></li><li><a href="/linux/linux-no-space-left-on-device/">No space left on device</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li><li><a href="/database/db-mysql-error-1130-host-is-not-allowed-to-connect/">ERROR 1130 (HY000): Host is not allowed to connect to this MySQL server</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

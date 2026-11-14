@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>java.lang.IllegalStateException: Failed to load ApplicationContext — how to fix</title>
+<meta name="description" content="A Spring test could not start the application context. The real reason is never in this line: scroll to the last &#x27;Caused by:&#x27; in the stack trace — usually a missing bean, a database that can&#x27;t be reached, or a bad property.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-failed-to-load-applicationcontext/">
+<meta property="og:title" content="java.lang.IllegalStateException: Failed to load ApplicationContext — how to fix"><meta property="og:description" content="A Spring test could not start the application context. The real reason is never in this line: scroll to the last &#x27;Caused by:&#x27; in the stack trace — usually a missing bean, a database that can&#x27;t be reached, or a bad property.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-failed-to-load-applicationcontext/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "java.lang.IllegalStateException: Failed to load ApplicationContext \u2014 how to fix", "description": "A Spring test could not start the application context. The real reason is never in this line: scroll to the last 'Caused by:' in the stack trace \u2014 usually a missing bean, a database that can't be reached, or a bad property.", "dateModified": "2026-11-09", "url": "https://errorfix-hollis.github.io/java/java-failed-to-load-applicationcontext/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "java.lang.IllegalStateException: Failed to load ApplicationContext", "item": "https://errorfix-hollis.github.io/java/java-failed-to-load-applicationcontext/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>java.lang.IllegalStateException: Failed to load ApplicationContext — how to fix</h1>
+<pre class="err"><code>java.lang.IllegalStateException: Failed to load ApplicationContext for [WebMergedContextConfiguration@1a2b3c testClass = com.example.UserControllerTest, ...]
+    at org.springframework.test.context.cache.DefaultCacheAwareContextLoaderDelegate.loadContext(DefaultCacheAwareContextLoaderDelegate.java:180)
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name &#x27;userController&#x27; ...
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Scroll to the innermost <code>Caused by:</code>. Typical fixes: add a <code>@MockBean</code>/<code>@MockitoBean</code> for dependencies not loaded by a slice test (<code>@WebMvcTest</code>), provide test properties or an in-memory DB (H2/Testcontainers) for DataSource errors, and make sure the test class is in a package under your <code>@SpringBootApplication</code> class.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The Spring TestContext framework tried to build the application context for your test and something threw during startup. <code>Failed to load ApplicationContext</code> is just the wrapper. Every other test sharing the same context also fails with it (Spring caches the failure — newer versions say "ApplicationContext failure threshold (1) exceeded").</p>
+<p><strong>Scroll down to the last <code>Caused by:</code></strong>. In Maven, the full trace is in <code>target/surefire-reports/*.txt</code>; in Gradle, run <code>./gradlew test --info</code> or open <code>build/reports/tests</code>.</p>
+<h2 id="cause-1-missing-bean-in-a-slice-test">Cause 1: missing bean in a slice test</h2>
+<p><code>@WebMvcTest</code>, <code>@DataJpaTest</code> and other slices load only part of the app. A controller that needs a <code>UserService</code> fails with:</p>
+<pre><code>NoSuchBeanDefinitionException: No qualifying bean of type 'com.example.UserService' available
+</code></pre>
+<p>Mock it:</p>
+<pre><code class="language-java">@WebMvcTest(UserController.class)
+class UserControllerTest {
+    @MockitoBean            // Spring Boot 3.4+; older: @MockBean
+    UserService userService;
+
+    @Autowired MockMvc mvc;
+}
+</code></pre>
+<p>Or use <code>@SpringBootTest</code> if you want the full context.</p>
+<h2 id="cause-2-database-datasource-cant-be-configured">Cause 2: database / DataSource can't be configured</h2>
+<pre><code>Failed to configure a DataSource: 'url' attribute is not specified
+Connection refused ... Communications link failure
+</code></pre>
+<p>Tests start the real datasource config. Options:</p>
+<ul>
+<li>Add H2 as a test dependency so Boot auto-configures an embedded DB:</li>
+</ul>
+<pre><code class="language-xml">&lt;dependency&gt;
+  &lt;groupId&gt;com.h2database&lt;/groupId&gt;
+  &lt;artifactId&gt;h2&lt;/artifactId&gt;
+  &lt;scope&gt;test&lt;/scope&gt;
+&lt;/dependency&gt;
+</code></pre>
+<ul>
+<li>Use Testcontainers with <code>@ServiceConnection</code> for a real Postgres/MySQL.</li>
+<li>Provide <code>src/test/resources/application.properties</code> (or a <code>test</code> profile with <code>@ActiveProfiles("test")</code>) with valid connection settings.</li>
+</ul>
+<h2 id="cause-3-unresolved-property-placeholder">Cause 3: unresolved property placeholder</h2>
+<pre><code>Could not resolve placeholder 'api.key' in value &quot;${api.key}&quot;
+</code></pre>
+<p>The property exists only in an environment variable or a profile that tests don't load. Add it to test properties, or inline it:</p>
+<pre><code class="language-java">@SpringBootTest(properties = &quot;api.key=test&quot;)
+</code></pre>
+<p>Or give it a default: <code>@Value("${api.key:}")</code>.</p>
+<h2 id="cause-4-test-class-cant-find-the-configuration">Cause 4: test class can't find the configuration</h2>
+<pre><code>Unable to find a @SpringBootConfiguration, you need to use @ContextConfiguration or @SpringBootTest(classes=...)
+</code></pre>
+<p>Spring searches <strong>up</strong> the package tree from the test's package. Put tests in the same package (or a sub-package) as the <code>@SpringBootApplication</code> class, or point to it: <code>@SpringBootTest(classes = MyApplication.class)</code>.</p>
+<h2 id="cause-5-port-already-in-use">Cause 5: port already in use</h2>
+<p>With <code>@SpringBootTest(webEnvironment = DEFINED_PORT)</code>, a running app on 8080 makes the test context fail. Use <code>RANDOM_PORT</code> instead. See <a href="/java/java-spring-port-8080-was-already-in-use/">Port 8080 was already in use</a>.</p>
+<h2 id="cause-6-dependencyversion-mismatch">Cause 6: dependency/version mismatch</h2>
+<p><code>NoSuchMethodError</code>, <code>ClassNotFoundException</code> or <code>NoClassDefFoundError</code> in the cause chain mean incompatible library versions — e.g. a Spring Boot 2 library on Boot 3 (<code>javax.*</code> vs <code>jakarta.*</code>). Check with <code>./mvnw dependency:tree</code> or <code>./gradlew dependencies</code> and let the Spring Boot BOM manage versions instead of pinning them.</p>
+<h2 id="cause-7-circular-dependency">Cause 7: circular dependency</h2>
+<pre><code>The dependencies of some of the beans in the application context form a cycle
+</code></pre>
+<p>Since Boot 2.6 cycles are rejected. Break it by moving shared logic to a third bean, or use constructor injection with <code>@Lazy</code> on one side.</p>
+<p class="upd">Last updated 2026-11-09.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-noclassdeffounderror/">java.lang.NoClassDefFoundError</a></li><li><a href="/java/java-spring-port-8080-was-already-in-use/">Web server failed to start. Port 8080 was already in use.</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-comparison-method-violates-its-general-contract/">java.lang.IllegalArgumentException: Comparison method violates its general contract!</a></li><li><a href="/java/java-concurrentmodificationexception/">java.util.ConcurrentModificationException</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

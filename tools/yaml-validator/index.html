@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>YAML Validator &amp; YAML to JSON Converter — exact error line and column</title>
+<meta name="description" content="Validate YAML (Docker Compose, Kubernetes, GitHub Actions) and convert YAML to JSON or JSON to YAML. Shows the exact line and column of errors, catches tabs in indentation. Runs in your browser.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/yaml-validator/">
+<meta property="og:title" content="YAML Validator &amp; YAML to JSON Converter — exact error line and column"><meta property="og:description" content="Validate YAML (Docker Compose, Kubernetes, GitHub Actions) and convert YAML to JSON or JSON to YAML. Shows the exact line and column of errors, catches tabs in indentation. Runs in your browser.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/yaml-validator/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "YAML validator & YAML \u2194 JSON converter", "url": "https://errorfix-hollis.github.io/tools/yaml-validator/", "description": "Validate YAML (Docker Compose, Kubernetes, GitHub Actions) and convert YAML to JSON or JSON to YAML. Shows the exact line and column of errors, catches tabs in indentation. Runs in your browser.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-05", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": "YAML validator & YAML \u2194 JSON converter", "item": "https://errorfix-hollis.github.io/tools/yaml-validator/"}]}</script><script src="/tools.js?v=70df2f10" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>YAML validator and YAML ↔ JSON converter</h1>
+<p class="lead">Paste YAML to validate it and convert it to JSON, or paste JSON to turn it into YAML. Errors show the line, the column and what is wrong.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="yaml"><label for="yaml-in">Paste YAML (or JSON to convert to YAML)</label>
+<textarea id="yaml-in" spellcheck="false" placeholder="key: value&#10;list:&#10;  - a&#10;  - b"></textarea>
+<div class="row">
+<button id="yaml-tojson">YAML → JSON</button><button id="yaml-toyaml">JSON → YAML</button>
+<label>Indent <select id="yaml-indent" class="inline"><option value="2">2 spaces</option><option value="4">4 spaces</option></select></label>
+<button id="yaml-sample" class="sec">Broken example</button><button id="yaml-swap" class="sec">Swap</button><button id="yaml-clear" class="sec">Clear</button>
+</div>
+<div id="yaml-msg" class="msg" hidden></div>
+<pre id="yaml-ctx" class="out ctx" hidden></pre>
+<ul id="yaml-warn" class="warn" hidden></ul>
+<label for="yaml-out">Output</label>
+<textarea id="yaml-out" spellcheck="false" readonly></textarea>
+<div class="row"><button id="yaml-copy" class="sec">Copy output</button></div>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<h2 id="the-yaml-errors-you-will-actually-hit">The YAML errors you will actually hit</h2>
+<table>
+<thead>
+<tr>
+<th>Error (PyYAML / Go / js-yaml wording)</th>
+<th>Usual cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>found character '\t' that cannot start any token</code> / <code>tab characters must not be used in indentation</code></td>
+<td>A tab in the indentation</td>
+<td>Indent with spaces only</td>
+</tr>
+<tr>
+<td><code>mapping values are not allowed here</code></td>
+<td>A value contains <code>:</code> (<code>title: Note: read me</code>), or a line is indented under a plain value</td>
+<td>Quote the value, or fix the indentation</td>
+</tr>
+<tr>
+<td><code>did not find expected key</code> / <code>bad indentation of a mapping entry</code></td>
+<td>A key is indented one space too far or too little</td>
+<td>Line keys up with their siblings</td>
+</tr>
+<tr>
+<td><code>did not find expected '-' indicator</code></td>
+<td>List items not aligned</td>
+<td>Put every <code>-</code> at the same column</td>
+</tr>
+<tr>
+<td><code>found undefined alias</code></td>
+<td><code>*name</code> used before <code>&amp;name</code> is defined</td>
+<td>Define the anchor above the alias</td>
+</tr>
+<tr>
+<td><code>could not find expected ':'</code></td>
+<td><code>key:value</code> with no space</td>
+<td>Always write <code>key: value</code></td>
+</tr>
+</tbody>
+</table>
+<p>The tool reports the position where the parser got stuck. For indentation errors, the real mistake is often the line <strong>above</strong> the highlighted one.</p>
+<h2 id="values-that-change-type-silently">Values that change type silently</h2>
+<p>YAML guesses types for unquoted values, and YAML 1.1 parsers (PyYAML, docker-compose v1, many Ruby tools) guess differently from YAML 1.2 ones:</p>
+<ul>
+<li><code>yes</code>, <code>no</code>, <code>on</code>, <code>off</code> become booleans in YAML 1.1 — the "Norway problem" (<code>country: NO</code> turns into <code>false</code>).</li>
+<li><code>0755</code> is octal 493 in YAML 1.1 but 755 in YAML 1.2; <code>22:22</code> is a base-60 number in YAML 1.1. Always quote port mappings in Compose files: <code>- "8080:80"</code>.</li>
+<li>Version numbers like <code>1.10</code> become the float <code>1.1</code>; long numeric IDs lose precision.</li>
+</ul>
+<p>The validator flags these as warnings. When in doubt, quote strings.</p>
+<h2 id="block-scalars-vs">Block scalars: <code>|</code> vs <code>&gt;</code></h2>
+<p><code>|</code> keeps line breaks exactly (scripts, certificates, config files). <code>&gt;</code> folds lines into one paragraph. A trailing <code>-</code> (<code>|-</code>, <code>&gt;-</code>) removes the final newline, <code>+</code> keeps all trailing blank lines.</p>
+<h2 id="what-is-supported">What is supported</h2>
+<p>Block mappings and sequences, flow <code>[ ]</code> and <code>{ }</code> collections, single- and double-quoted strings with escapes, comments, <code>|</code> and <code>&gt;</code> block scalars, anchors, aliases and <code>&lt;&lt;</code> merge keys, tags like <code>!!str</code>, and multiple <code>---</code> documents (converted to a JSON array). Complex <code>?</code> keys are not supported. Everything is parsed by JavaScript in your own browser; nothing is uploaded.</p>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/python/python-indentationerror-unexpected-indent/">IndentationError: unexpected indent</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/json-formatter/">JSON formatter &amp; validator</a></li><li><a href="/tools/cron-expression-explainer/">Cron expression explainer</a></li><li><a href="/tools/chmod-calculator/">chmod calculator</a></li><li><a href="/tools/unix-timestamp-converter/">Unix timestamp converter</a></li><li><a href="/tools/base64-encode-decode/">Base64 encode / decode</a></li><li><a href="/tools/url-encode-decode/">URL encode / decode</a></li><li><a href="/tools/jwt-decoder/">JWT decoder</a></li><li><a href="/tools/regex-tester/">Regex tester</a></li><li><a href="/tools/uuid-generator/">UUID generator &amp; validator (v4, v7)</a></li><li><a href="/tools/text-diff/">Text diff checker</a></li><li><a href="/tools/http-status-codes/">HTTP status codes reference</a></li><li><a href="/tools/hash-generator/">Hash generator (MD5, SHA-256, SHA-512)</a></li><li><a href="/tools/line-ending-whitespace-inspector/">Line ending &amp; whitespace inspector</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

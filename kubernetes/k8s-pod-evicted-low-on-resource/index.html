@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The node was low on resource: ephemeral-storage (Kubernetes) — how to fix</title>
+<meta name="description" content="The kubelet killed the pod to protect the node because disk (ephemeral-storage, DiskPressure) or memory (MemoryPressure) dropped below an eviction threshold. Free node resources and set requests/limits so the pod stops exceeding them.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-pod-evicted-low-on-resource/">
+<meta property="og:title" content="The node was low on resource: ephemeral-storage (Kubernetes) — how to fix"><meta property="og:description" content="The kubelet killed the pod to protect the node because disk (ephemeral-storage, DiskPressure) or memory (MemoryPressure) dropped below an eviction threshold. Free node resources and set requests/limits so the pod stops exceeding them.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-pod-evicted-low-on-resource/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The node was low on resource: ephemeral-storage (Kubernetes) \u2014 how to fix", "description": "The kubelet killed the pod to protect the node because disk (ephemeral-storage, DiskPressure) or memory (MemoryPressure) dropped below an eviction threshold. Free node resources and set requests/limits so the pod stops exceeding them.", "dateModified": "2026-11-08", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-pod-evicted-low-on-resource/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "The node was low on resource: ephemeral-storage", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-pod-evicted-low-on-resource/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>The node was low on resource: ephemeral-storage (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Status:   Failed
+Reason:   Evicted
+Message:  The node was low on resource: ephemeral-storage. Threshold quantity: 10Gi, available: 8Gi. Container app was using 12Gi, request is 0, has larger consumption of ephemeral-storage.
+Warning  Evicted  kubelet  The node was low on resource: memory. Container app was using 1500Mi, request is 256Mi, has larger consumption of memory.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find out which resource: <code>kubectl describe pod &lt;pod&gt;</code> and <code>kubectl describe node &lt;node&gt;</code> (Conditions). For disk, stop writing logs/temp files to the container filesystem, set <code>resources.requests/limits.ephemeral-storage</code>, and clean the node (<code>crictl rmi --prune</code>). For memory, set realistic memory requests. Delete old evicted pods: <code>kubectl delete pod --field-selector=status.phase=Failed -A</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The kubelet watches node resources. When free memory, disk (<code>nodefs</code>/<code>imagefs</code>) or inodes cross an <strong>eviction threshold</strong> (defaults: <code>memory.available&lt;100Mi</code>, <code>nodefs.available&lt;10%</code>, <code>imagefs.available&lt;15%</code>, <code>nodefs.inodesFree&lt;5%</code>), it sets a node condition (<code>MemoryPressure</code> or <code>DiskPressure</code>), adds a taint so new pods aren't scheduled there, and evicts pods until it's healthy again. Pods using the most resource <strong>above their requests</strong> go first.</p>
+<p>Evicted pods stay in <code>Failed</code> status (they aren't restarted in place); their Deployment/ReplicaSet creates replacements elsewhere.</p>
+<p>Unlike <a href="/kubernetes/k8s-oomkilled/">OOMKilled</a>, which is a container exceeding its own memory limit, eviction is about the whole node running short.</p>
+<h2 id="step-1-which-resource-and-which-node">Step 1: which resource and which node</h2>
+<pre><code class="language-bash">kubectl get pods -A --field-selector=status.phase=Failed
+kubectl describe pod &lt;pod&gt; -n &lt;ns&gt; | grep -A3 -i reason
+kubectl describe node &lt;node&gt; | grep -A8 Conditions
+kubectl top node; kubectl top pod -A --sort-by=memory
+</code></pre>
+<h2 id="cause-1-ephemeral-storage-diskpressure">Cause 1: ephemeral-storage / DiskPressure</h2>
+<p>Ephemeral storage = the container's writable layer + <code>emptyDir</code> volumes + container logs. Common culprits: apps writing large logs or temp files to the container filesystem, caches in <code>emptyDir</code>, and nodes full of old images.</p>
+<p><strong>Fixes:</strong></p>
+<ul>
+<li>Log to stdout and let the runtime rotate it, instead of writing files inside the container.</li>
+<li>Put large data on a PersistentVolume, not the container filesystem.</li>
+<li>Bound <code>emptyDir</code> volumes: <code>emptyDir: { sizeLimit: 2Gi }</code>.</li>
+<li>Declare storage needs so the scheduler accounts for them:</li>
+</ul>
+<pre><code class="language-yaml">resources:
+  requests:
+    ephemeral-storage: &quot;1Gi&quot;
+  limits:
+    ephemeral-storage: &quot;4Gi&quot;
+</code></pre>
+<ul>
+<li>Clean the node:</li>
+</ul>
+<pre><code class="language-bash">sudo crictl rmi --prune          # containerd/CRI-O: remove unused images
+docker system prune -a           # Docker-based nodes
+sudo journalctl --vacuum-size=500M
+df -h /var/lib/kubelet /var/lib/containerd
+</code></pre>
+<p>On managed clusters, increase the node disk size in the node pool settings.</p>
+<h2 id="cause-2-memorypressure">Cause 2: MemoryPressure</h2>
+<p>Pods without memory requests (or with requests far below real usage) are evicted first.</p>
+<p><strong>Fix:</strong> set requests close to real usage and a limit:</p>
+<pre><code class="language-yaml">resources:
+  requests:
+    memory: &quot;512Mi&quot;
+  limits:
+    memory: &quot;1Gi&quot;
+</code></pre>
+<p>Pods where requests equal limits for every container get the <code>Guaranteed</code> QoS class and are the last to be evicted. Also add nodes or use larger nodes if the cluster is simply overcommitted.</p>
+<h2 id="cause-3-pid-pressure">Cause 3: PID pressure</h2>
+<p><code>The node was low on resource: pids</code> means processes are leaking (zombie children, fork bombs). Fix the app, or set <code>podPidsLimit</code> in the kubelet config.</p>
+<h2 id="clean-up-the-evicted-pods">Clean up the evicted pods</h2>
+<p>They're harmless but clutter output:</p>
+<pre><code class="language-bash">kubectl delete pod -A --field-selector=status.phase=Failed
+</code></pre>
+<p>The pod garbage collector only removes them once the cluster has more terminated pods than <code>--terminated-pod-gc-threshold</code> (kube-controller-manager, default 12500), so on most clusters they linger.</p>
+<p class="upd">Last updated 2026-11-08.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-oomkilled/">OOMKilled (exit code 137)</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li><li><a href="/kubernetes/k8s-error-converting-yaml-to-json-mapping-values-are-not-allowed/">error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

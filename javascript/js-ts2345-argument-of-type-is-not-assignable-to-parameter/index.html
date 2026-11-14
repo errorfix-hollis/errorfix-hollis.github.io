@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TS2345: Argument of type &#x27;string | undefined&#x27; is not assignable to parameter of type &#x27;string&#x27;. (TypeScript) — how to fix</title>
+<meta name="description" content="TypeScript found a function call whose argument type doesn&#x27;t match the parameter type. Most often a possibly-undefined or possibly-null value is passed where a definite value is required, or a wide type (string) is passed where a narrow one (a union of literals) is expected.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-ts2345-argument-of-type-is-not-assignable-to-parameter/">
+<meta property="og:title" content="TS2345: Argument of type &#x27;string | undefined&#x27; is not assignable to parameter of type &#x27;string&#x27;. (TypeScript) — how to fix"><meta property="og:description" content="TypeScript found a function call whose argument type doesn&#x27;t match the parameter type. Most often a possibly-undefined or possibly-null value is passed where a definite value is required, or a wide type (string) is passed where a narrow one (a union of literals) is expected.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-ts2345-argument-of-type-is-not-assignable-to-parameter/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'. (TypeScript) \u2014 how to fix", "description": "TypeScript found a function call whose argument type doesn't match the parameter type. Most often a possibly-undefined or possibly-null value is passed where a definite value is required, or a wide type (string) is passed where a narrow one (a union of literals) is expected.", "dateModified": "2026-11-05", "url": "https://errorfix-hollis.github.io/javascript/js-ts2345-argument-of-type-is-not-assignable-to-parameter/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.", "item": "https://errorfix-hollis.github.io/javascript/js-ts2345-argument-of-type-is-not-assignable-to-parameter/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>TS2345: Argument of type &#x27;string | undefined&#x27; is not assignable to parameter of type &#x27;string&#x27;. (TypeScript) — how to fix</h1>
+<pre class="err"><code>error TS2345: Argument of type &#x27;string | undefined&#x27; is not assignable to parameter of type &#x27;string&#x27;.
+  Type &#x27;undefined&#x27; is not assignable to type &#x27;string&#x27;.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Narrow the value before the call: <code>if (id) fetchUser(id)</code> or <code>fetchUser(id ?? 'default')</code>. Use <code>as const</code> for literal arrays/objects, give <code>useState</code>/empty arrays an explicit type (<code>useState&lt;User | null&gt;(null)</code>, <code>const xs: string[] = []</code>), and only use the non-null assertion <code>id!</code> when you are certain. Read the second line of the error: it says which part doesn't match.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A function declares what it accepts; you passed something TypeScript can't prove fits. The indented lines under the error explain the specific mismatch — read those first, they often point to one property deep inside an object.</p>
+<pre><code class="language-ts">function fetchUser(id: string) { /* ... */ }
+
+const id = new URLSearchParams(location.search).get(&quot;id&quot;); // string | null
+fetchUser(id);   // TS2345: 'string | null' is not assignable to 'string'
+</code></pre>
+<h2 id="cause-1-the-value-may-be-undefined-or-null">Cause 1: the value may be <code>undefined</code> or <code>null</code></h2>
+<p>With <code>strictNullChecks</code> (part of <code>strict</code>), optional properties, <code>Map.get</code>, <code>Array.find</code>, <code>process.env.X</code>, <code>searchParams.get</code> and <code>document.querySelector</code> all include <code>undefined</code>/<code>null</code>.</p>
+<p>Narrow it:</p>
+<pre><code class="language-ts">if (id) {
+  fetchUser(id);          // id: string here
+}
+
+if (!id) throw new Error(&quot;id is required&quot;);
+fetchUser(id);
+</code></pre>
+<p>Or supply a default:</p>
+<pre><code class="language-ts">fetchUser(id ?? &quot;anonymous&quot;);
+const port = Number(process.env.PORT ?? 3000);
+</code></pre>
+<p>The non-null assertion <code>fetchUser(id!)</code> silences the error but crashes at runtime if you're wrong — use it only when you've checked by other means.</p>
+<h2 id="cause-2-a-wide-string-where-a-literal-union-is-expected">Cause 2: a wide <code>string</code> where a literal union is expected</h2>
+<pre><code class="language-ts">type Method = &quot;GET&quot; | &quot;POST&quot;;
+function request(method: Method) {}
+
+const opts = { method: &quot;GET&quot; };    // inferred as { method: string }
+request(opts.method);              // string is not assignable to Method
+</code></pre>
+<p>Fix by keeping the literal type:</p>
+<pre><code class="language-ts">const opts = { method: &quot;GET&quot; } as const;
+// or
+const opts: { method: Method } = { method: &quot;GET&quot; };
+// or
+const opts = { method: &quot;GET&quot; } satisfies { method: Method };
+</code></pre>
+<h2 id="cause-3-never-from-an-empty-array-or-usestate">Cause 3: <code>never[]</code> from an empty array or <code>useState([])</code></h2>
+<pre><code class="language-ts">const [items, setItems] = useState([]);   // never[]
+setItems([{ id: 1 }]);                    // Argument of type '{ id: number }[]' is not assignable to 'SetStateAction&lt;never[]&gt;'
+</code></pre>
+<p>Give it a type:</p>
+<pre><code class="language-ts">const [items, setItems] = useState&lt;Item[]&gt;([]);
+const [user, setUser] = useState&lt;User | null&gt;(null);
+const ids: string[] = [];
+</code></pre>
+<h2 id="cause-4-event-and-dom-types">Cause 4: event and DOM types</h2>
+<pre><code class="language-ts">function onChange(e: React.ChangeEvent&lt;HTMLInputElement&gt;) {}
+&lt;select onChange={onChange} /&gt;   // HTMLSelectElement vs HTMLInputElement
+</code></pre>
+<p>Use the matching element type, or a union: <code>React.ChangeEvent&lt;HTMLInputElement | HTMLSelectElement&gt;</code>. For <code>addEventListener</code>, TypeScript infers the event type from the event name — don't annotate it with a different type.</p>
+<h2 id="cause-5-object-is-missing-or-has-extra-properties">Cause 5: object is missing or has extra properties</h2>
+<pre><code class="language-ts">interface User { id: number; name: string }
+save({ id: 1 });   // Property 'name' is missing in type '{ id: number; }'
+</code></pre>
+<p>Add the property, make it optional in the interface (<code>name?: string</code>), or pass a <code>Partial&lt;User&gt;</code> to a function that accepts one. API responses typed as <code>any</code>/<code>unknown</code> should be validated (e.g. with zod) and given a real type before passing them on.</p>
+<h2 id="cause-6-string-number-from-mixed-sources">Cause 6: <code>string | number</code> from mixed sources</h2>
+<p>Form values and <code>JSON.parse</code> results often aren't the type you assume. Convert explicitly: <code>Number(value)</code>, <code>String(value)</code>, <code>parseInt(value, 10)</code>. For <code>unknown</code>, narrow with <code>typeof value === "string"</code> first.</p>
+<h2 id="cause-7-duplicate-or-mismatched-library-types">Cause 7: duplicate or mismatched library types</h2>
+<p><code>Argument of type 'X' is not assignable to parameter of type 'X'</code> (same name on both sides) means two copies of a package's types are installed. Check with <code>npm ls @types/react</code> and dedupe (<code>npm dedupe</code>, or align versions/<code>overrides</code> in package.json).</p>
+<p class="upd">Last updated 2026-11-05.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-ts2307-cannot-find-module-or-its-corresponding-type-declarations/">TS2307: Cannot find module or its corresponding type declarations.</a></li><li><a href="/javascript/js-ts2339-property-does-not-exist-on-type/">Property &#x27;x&#x27; does not exist on type &#x27;Y&#x27;</a></li><li><a href="/javascript/js-ts2532-object-is-possibly-undefined/">Object is possibly &#x27;undefined&#x27;. ts(2532)</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

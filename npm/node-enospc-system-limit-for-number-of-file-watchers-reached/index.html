@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error: ENOSPC: System limit for number of file watchers reached (Node.js) — how to fix</title>
+<meta name="description" content="On Linux, your dev server (webpack, Vite, Jest, nodemon, VS Code) ran out of inotify watches. It&#x27;s not about disk space — raise fs.inotify.max_user_watches or watch fewer files.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">
+<meta property="og:title" content="Error: ENOSPC: System limit for number of file watchers reached (Node.js) — how to fix"><meta property="og:description" content="On Linux, your dev server (webpack, Vite, Jest, nodemon, VS Code) ran out of inotify watches. It&#x27;s not about disk space — raise fs.inotify.max_user_watches or watch fewer files.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error: ENOSPC: System limit for number of file watchers reached (Node.js) \u2014 how to fix", "description": "On Linux, your dev server (webpack, Vite, Jest, nodemon, VS Code) ran out of inotify watches. It's not about disk space \u2014 raise fs.inotify.max_user_watches or watch fewer files.", "dateModified": "2026-11-03", "url": "https://errorfix-hollis.github.io/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "Error: ENOSPC: System limit for number of file watchers reached", "item": "https://errorfix-hollis.github.io/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>Error: ENOSPC: System limit for number of file watchers reached (Node.js) — how to fix</h1>
+<pre class="err"><code>Error: ENOSPC: System limit for number of file watchers reached, watch &#x27;/home/me/app/src&#x27;
+    at FSWatcher.&lt;computed&gt; (node:internal/fs/watchers:247:19)
+    at Object.watch (node:fs:2343:34)
+  errno: -28,
+  syscall: &#x27;watch&#x27;,
+  code: &#x27;ENOSPC&#x27;,
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Raise the inotify limit permanently: <code>echo fs.inotify.max_user_watches=524288 | sudo tee /etc/sysctl.d/60-inotify.conf &amp;&amp; sudo sysctl --system</code>. Also exclude <code>node_modules</code> from watchers, and close other watchers (extra IDE windows, old dev servers).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Linux tools watch files for changes using <strong>inotify</strong>. Each watched file or directory costs one watch, and there's a per-user limit, <code>fs.inotify.max_user_watches</code>. Older kernels default to 8192; newer ones scale it with RAM, but big JavaScript projects (<code>node_modules</code> can be 100,000+ files) still blow past it. When the limit is hit, the <code>inotify_add_watch</code> syscall returns <code>ENOSPC</code> — the "no space" refers to the watch table, <strong>not your disk</strong>.</p>
+<p>Check the current values:</p>
+<pre><code class="language-bash">cat /proc/sys/fs/inotify/max_user_watches
+cat /proc/sys/fs/inotify/max_user_instances
+</code></pre>
+<h2 id="fix-1-raise-the-limit-permanent">Fix 1: raise the limit (permanent)</h2>
+<pre><code class="language-bash">echo fs.inotify.max_user_watches=524288 | sudo tee /etc/sysctl.d/60-inotify.conf
+sudo sysctl --system
+</code></pre>
+<p>Each watch uses roughly 1 KB of kernel memory on 64-bit systems, so 524288 is about 0.5 GB worst case — only used if actually allocated. Restart your dev server afterwards.</p>
+<p>Temporary (until reboot):</p>
+<pre><code class="language-bash">sudo sysctl fs.inotify.max_user_watches=524288
+</code></pre>
+<p>If the error mentions <code>inotify_init</code> or "too many instances", raise <code>fs.inotify.max_user_instances</code> the same way (e.g. 512).</p>
+<h2 id="fix-2-stop-watching-node_modules">Fix 2: stop watching node_modules</h2>
+<p>Most tools ignore it by default, but custom configs sometimes don't.</p>
+<p><strong>webpack:</strong></p>
+<pre><code class="language-js">module.exports = {
+  watchOptions: { ignored: /node_modules/ },
+};
+</code></pre>
+<p><strong>Vite</strong> (<code>vite.config.js</code>):</p>
+<pre><code class="language-js">export default {
+  server: { watch: { ignored: ['**/node_modules/**', '**/dist/**'] } },
+};
+</code></pre>
+<p><strong>nodemon</strong> (<code>nodemon.json</code>):</p>
+<pre><code class="language-json">{ &quot;watch&quot;: [&quot;src&quot;], &quot;ignore&quot;: [&quot;node_modules&quot;, &quot;dist&quot;] }
+</code></pre>
+<p><strong>VS Code</strong> (<code>settings.json</code>):</p>
+<pre><code class="language-json">&quot;files.watcherExclude&quot;: {
+  &quot;**/node_modules/**&quot;: true,
+  &quot;**/.git/objects/**&quot;: true,
+  &quot;**/dist/**&quot;: true
+}
+</code></pre>
+<h2 id="fix-3-find-who-is-using-the-watches">Fix 3: find who is using the watches</h2>
+<p>The limit is per user, so other programs count too: extra VS Code windows, JetBrains IDEs, Dropbox, old <code>npm start</code> processes. List inotify users:</p>
+<pre><code class="language-bash">for p in /proc/[0-9]*; do
+  n=$(find &quot;$p/fd&quot; -lname 'anon_inode:inotify' 2&gt;/dev/null | wc -l)
+  [ &quot;$n&quot; -gt 0 ] &amp;&amp; echo &quot;$n $(cat $p/comm 2&gt;/dev/null) ${p#/proc/}&quot;
+done | sort -rn | head
+</code></pre>
+<p>(That counts inotify <em>instances</em> per process; closing the top offenders frees their watches.)</p>
+<h2 id="fix-4-use-polling-last-resort">Fix 4: use polling (last resort)</h2>
+<p>In containers or on network filesystems where you can't change sysctl, switch to polling. It uses more CPU but no inotify watches:</p>
+<pre><code class="language-bash">CHOKIDAR_USEPOLLING=true npm start      # create-react-app, chokidar-based tools
+WATCHPACK_POLLING=true npm start        # webpack 5 / Next.js
+</code></pre>
+<p>Vite: <code>server: { watch: { usePolling: true } }</code>.</p>
+<h2 id="docker-and-wsl">Docker and WSL</h2>
+<p>In Docker, <code>max_user_watches</code> is a host kernel setting — set it on the host (or Docker Desktop VM), not in the container. In WSL 2, run the <code>sysctl</code> commands inside the distro; to make it stick, add the line to <code>/etc/sysctl.conf</code> there.</p>
+<p class="upd">Last updated 2026-11-03.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-no-space-left-on-device/">No space left on device</a></li><li><a href="/linux/linux-too-many-open-files/">Too many open files</a></li><li><a href="/npm/node-javascript-heap-out-of-memory/">FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li><li><a href="/npm/node-err-require-esm/">Error [ERR_REQUIRE_ESM]: require() of ES Module not supported</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

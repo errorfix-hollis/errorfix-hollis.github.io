@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NameError: name &#x27;x&#x27; is not defined (Python) — how to fix</title>
+<meta name="description" content="Python looked up a name (variable, function, module or class) and found it in no enclosing scope. Typos, missing imports, using a name before it&#x27;s assigned, and scope problems are the usual causes.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-nameerror-name-is-not-defined/">
+<meta property="og:title" content="NameError: name &#x27;x&#x27; is not defined (Python) — how to fix"><meta property="og:description" content="Python looked up a name (variable, function, module or class) and found it in no enclosing scope. Typos, missing imports, using a name before it&#x27;s assigned, and scope problems are the usual causes.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-nameerror-name-is-not-defined/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "NameError: name 'x' is not defined (Python) \u2014 how to fix", "description": "Python looked up a name (variable, function, module or class) and found it in no enclosing scope. Typos, missing imports, using a name before it's assigned, and scope problems are the usual causes.", "dateModified": "2026-11-01", "url": "https://errorfix-hollis.github.io/python/python-nameerror-name-is-not-defined/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "NameError: name 'x' is not defined", "item": "https://errorfix-hollis.github.io/python/python-nameerror-name-is-not-defined/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>NameError: name &#x27;x&#x27; is not defined (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;main.py&quot;, line 3, in &lt;module&gt;
+    print(total)
+NameError: name &#x27;total&#x27; is not defined
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check spelling and case, add the missing import (<code>import os</code>, <code>from datetime import datetime</code>), make sure the variable is assigned before the line that uses it (and on every branch), and in notebooks re-run the cell that defines it. Quote strings: <code>input('yes')</code> not <code>input(yes)</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When Python executes a name, it searches local scope, then enclosing functions, then module globals, then builtins (the LEGB rule). If the name isn't found anywhere, you get <code>NameError</code>. Python 3.10+ often adds a hint like <code>Did you mean: 'totals'?</code> or <code>Did you forget to import 'os'?</code>.</p>
+<h2 id="cause-1-typo-or-wrong-case">Cause 1: typo or wrong case</h2>
+<p>Names are case-sensitive: <code>Total</code>, <code>total</code> and <code>totla</code> are different.</p>
+<pre><code class="language-python">count = 5
+print(Count)    # NameError: name 'Count' is not defined. Did you mean: 'count'?
+</code></pre>
+<p>Also common: <code>true</code>/<code>false</code>/<code>null</code> from other languages. Python uses <code>True</code>, <code>False</code>, <code>None</code>.</p>
+<h2 id="cause-2-missing-import">Cause 2: missing import</h2>
+<pre><code class="language-python">print(os.getcwd())        # NameError: name 'os' is not defined
+</code></pre>
+<pre><code class="language-python">import os
+from datetime import datetime
+import numpy as np        # then use np, not numpy
+import pandas as pd
+</code></pre>
+<p>If you wrote <code>from math import sqrt</code>, then <code>math.pi</code> is undefined; only <code>sqrt</code> was imported.</p>
+<h2 id="cause-3-used-before-its-assigned">Cause 3: used before it's assigned</h2>
+<p>Code runs top to bottom. A function or variable defined later in the file doesn't exist yet:</p>
+<pre><code class="language-python">greet()          # NameError
+def greet():
+    print(&quot;hi&quot;)
+</code></pre>
+<p>Move the definition above the call, or put the calling code in a <code>main()</code> called at the bottom:</p>
+<pre><code class="language-python">def main():
+    greet()
+
+def greet():
+    print(&quot;hi&quot;)
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<h2 id="cause-4-assigned-only-on-some-branches">Cause 4: assigned only on some branches</h2>
+<pre><code class="language-python">if score &gt; 50:
+    result = &quot;pass&quot;
+print(result)     # NameError if score &lt;= 50 (at module level)
+</code></pre>
+<p>Initialise before the branch: <code>result = None</code> (or <code>"fail"</code>). Inside a function the same bug raises <code>UnboundLocalError</code>, a subclass of <code>NameError</code>.</p>
+<p>Same with <code>try</code>:</p>
+<pre><code class="language-python">try:
+    data = load()
+except IOError:
+    pass
+print(data)       # NameError if load() failed
+</code></pre>
+<h2 id="cause-5-scope-the-name-lives-in-another-function">Cause 5: scope - the name lives in another function</h2>
+<p>Variables created inside a function are local to it:</p>
+<pre><code class="language-python">def setup():
+    config = {&quot;debug&quot;: True}
+
+setup()
+print(config)     # NameError
+</code></pre>
+<p>Return the value instead: <code>config = setup()</code> with <code>return config</code> in the function.</p>
+<p>List comprehension variables and <code>except ... as e</code> names also don't exist after the block (<code>e</code> is deleted when the <code>except</code> block ends).</p>
+<h2 id="cause-6-a-string-without-quotes">Cause 6: a string without quotes</h2>
+<pre><code class="language-python">name = input(Enter your name)      # SyntaxError
+choice = input(&quot;y/n: &quot;)
+if choice == yes:                  # NameError: name 'yes' is not defined
+</code></pre>
+<p>Should be <code>choice == "yes"</code>. In Python 2, <code>input()</code> evaluated what was typed, so typing a word caused this error; run the script with <code>python3</code>.</p>
+<h2 id="cause-7-jupyter-interactive-sessions">Cause 7: Jupyter / interactive sessions</h2>
+<p>Notebook cells share state only if they've been run. After a kernel restart, every name is gone. Use "Run All" or re-run the cell that defines the variable/import. Running cells out of order is the usual reason code "works on my machine" but fails on a fresh run.</p>
+<h2 id="cause-8-class-attributes-and-self">Cause 8: class attributes and <code>self</code></h2>
+<p>Inside a method, instance and class attributes must be accessed through <code>self</code> (or the class name):</p>
+<pre><code class="language-python">class Cart:
+    tax = 0.2
+    def total(self, price):
+        return price * (1 + tax)       # NameError
+        # fix: return price * (1 + self.tax)
+</code></pre>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li><li><a href="/python/python-keyerror/">KeyError</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

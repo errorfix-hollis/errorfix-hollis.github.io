@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>! [remote rejected] main -&gt; main (protected branch hook declined) (Git) — how to fix</title>
+<meta name="description" content="The server refused the push because the target branch is protected (no direct pushes, no force pushes, or required reviews/status checks). Push to a new branch and open a pull/merge request instead.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-remote-rejected-protected-branch/">
+<meta property="og:title" content="! [remote rejected] main -&gt; main (protected branch hook declined) (Git) — how to fix"><meta property="og:description" content="The server refused the push because the target branch is protected (no direct pushes, no force pushes, or required reviews/status checks). Push to a new branch and open a pull/merge request instead.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-remote-rejected-protected-branch/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "! [remote rejected] main -> main (protected branch hook declined) (Git) \u2014 how to fix", "description": "The server refused the push because the target branch is protected (no direct pushes, no force pushes, or required reviews/status checks). Push to a new branch and open a pull/merge request instead.", "dateModified": "2026-11-08", "url": "https://errorfix-hollis.github.io/git/git-remote-rejected-protected-branch/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "! [remote rejected] main -> main (protected branch hook declined)", "item": "https://errorfix-hollis.github.io/git/git-remote-rejected-protected-branch/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>! [remote rejected] main -&gt; main (protected branch hook declined) (Git) — how to fix</h1>
+<pre class="err"><code>remote: GitLab: You are not allowed to push code to protected branches on this project.
+To gitlab.com:team/app.git
+ ! [remote rejected] main -&gt; main (pre-receive hook declined)
+error: failed to push some refs to &#x27;gitlab.com:team/app.git&#x27;
+remote: error: GH006: Protected branch update failed for refs/heads/main.
+ ! [remote rejected] main -&gt; main (protected branch hook declined)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Move your commits to a feature branch and open a PR: <code>git switch -c my-fix</code>, <code>git push -u origin my-fix</code>. Then reset local main: <code>git switch main &amp;&amp; git reset --hard origin/main</code>. Only change the protection rules if you own the repo and really want direct pushes.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Authentication worked (you reached the server), but a server-side hook rejected the ref update. On GitHub this is <code>GH006: Protected branch update failed</code>; on GitLab and Bitbucket it shows as <code>pre-receive hook declined</code>. Branch protection typically forbids one or more of:</p>
+<ul>
+<li>pushing directly (changes must arrive via pull/merge request),</li>
+<li>force-pushing or deleting the branch,</li>
+<li>commits without required status checks, reviews, signatures or linear history.</li>
+</ul>
+<p>The rest of the remote output usually says which rule you hit. Read the lines starting with <code>remote:</code>.</p>
+<h2 id="fix-1-push-to-a-branch-and-open-a-pull-request">Fix 1: push to a branch and open a pull request</h2>
+<p>This is the intended workflow. Your local commits are safe; just move them:</p>
+<pre><code class="language-bash">git switch -c fix/login-timeout      # new branch at your current commit
+git push -u origin fix/login-timeout
+</code></pre>
+<p>Open the PR/MR from the link Git prints. Then make local <code>main</code> match the server again so the next pull is clean:</p>
+<pre><code class="language-bash">git switch main
+git fetch origin
+git reset --hard origin/main         # discards local-only commits on main (they're on your branch now)
+</code></pre>
+<h2 id="fix-2-you-tried-to-force-push">Fix 2: you tried to force-push</h2>
+<p>Rewriting history (<code>git push --force</code> after rebase or amend) on a protected branch is blocked even for admins in many setups. Options:</p>
+<ul>
+<li>Don't rewrite: <code>git pull --rebase origin main</code> then a normal <code>git push</code>, or revert with <code>git revert &lt;sha&gt;</code> instead of resetting.</li>
+<li>On your own feature branch, force pushes are usually allowed. Use <code>git push --force-with-lease</code>.</li>
+</ul>
+<h2 id="fix-3-required-signatures-checks-or-linear-history">Fix 3: required signatures, checks or linear history</h2>
+<ul>
+<li><strong>Signed commits required:</strong> set up signing (<code>git config commit.gpgsign true</code>, or SSH signing with <code>git config gpg.format ssh</code> and <code>user.signingkey</code>), then re-sign: <code>git rebase --exec 'git commit --amend --no-edit -S' origin/main</code>.</li>
+<li><strong>Linear history:</strong> no merge commits allowed. Rebase instead of merge: <code>git rebase origin/main</code>.</li>
+<li><strong>Status checks/reviews:</strong> these only pass through a PR, so use Fix 1.</li>
+</ul>
+<h2 id="fix-4-gitlab-not-allowed-to-push-code-to-protected-branches">Fix 4: GitLab "not allowed to push code to protected branches"</h2>
+<p>Your role (e.g. Developer) is below the "Allowed to push" level for that branch. Push a branch and open a merge request, or ask a Maintainer to change <strong>Settings → Repository → Protected branches</strong>. New empty GitLab projects protect the default branch on first push, so the initial push may need Maintainer rights.</p>
+<h2 id="fix-5-you-own-the-repo-and-want-to-push-directly">Fix 5: you own the repo and want to push directly</h2>
+<p>On GitHub: <strong>Settings → Branches</strong> (or <strong>Rules → Rulesets</strong>) and edit the rule for <code>main</code>: allow bypass for admins, disable "Require a pull request before merging", or allow force pushes. On GitLab: <strong>Settings → Repository → Protected branches</strong> and set "Allowed to push and merge". Prefer giving yourself bypass rights over removing protection completely.</p>
+<h2 id="other-remote-rejected-reasons">Other "remote rejected" reasons</h2>
+<ul>
+<li><code>(shallow update not allowed)</code>: you pushed from a shallow clone; run <code>git fetch --unshallow</code> first.</li>
+<li><code>(refusing to delete the current branch)</code>: change the default branch on the server first.</li>
+<li><a href="/git/git-gh001-large-files-detected/">GH001 large files detected</a>: a file over 100 MB is in your history.</li>
+</ul>
+<p class="upd">Last updated 2026-11-08.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-no-upstream-branch/">fatal: The current branch has no upstream branch.</a></li><li><a href="/git/git-permission-denied-publickey/">git@github.com: Permission denied (publickey).</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

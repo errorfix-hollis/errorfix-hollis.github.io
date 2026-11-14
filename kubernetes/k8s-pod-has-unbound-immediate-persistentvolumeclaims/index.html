@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>pod has unbound immediate PersistentVolumeClaims (Kubernetes) — how to fix</title>
+<meta name="description" content="The pod references a PersistentVolumeClaim that is still Pending — no PersistentVolume has been bound to it — so the scheduler can&#x27;t place the pod. Usually there&#x27;s no default StorageClass, no provisioner, or no matching PV.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-pod-has-unbound-immediate-persistentvolumeclaims/">
+<meta property="og:title" content="pod has unbound immediate PersistentVolumeClaims (Kubernetes) — how to fix"><meta property="og:description" content="The pod references a PersistentVolumeClaim that is still Pending — no PersistentVolume has been bound to it — so the scheduler can&#x27;t place the pod. Usually there&#x27;s no default StorageClass, no provisioner, or no matching PV.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-pod-has-unbound-immediate-persistentvolumeclaims/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "pod has unbound immediate PersistentVolumeClaims (Kubernetes) \u2014 how to fix", "description": "The pod references a PersistentVolumeClaim that is still Pending \u2014 no PersistentVolume has been bound to it \u2014 so the scheduler can't place the pod. Usually there's no default StorageClass, no provisioner, or no matching PV.", "dateModified": "2026-10-30", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-pod-has-unbound-immediate-persistentvolumeclaims/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "pod has unbound immediate PersistentVolumeClaims", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-pod-has-unbound-immediate-persistentvolumeclaims/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>pod has unbound immediate PersistentVolumeClaims (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Warning  FailedScheduling  default-scheduler  0/3 nodes are available: pod has unbound immediate PersistentVolumeClaims. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>kubectl get pvc</code> and <code>kubectl describe pvc &lt;name&gt;</code> to see why it's Pending. Check <code>kubectl get storageclass</code> for a <code>(default)</code> class; set <code>storageClassName</code> on the PVC or mark one default with <code>kubectl patch storageclass &lt;sc&gt; -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'</code>. With static PVs, make sure size, accessModes and storageClassName match.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A PVC with <code>volumeBindingMode: Immediate</code> (the default for many StorageClasses, and for PVCs without one) must be bound to a PersistentVolume before any pod using it can be scheduled. The pod stays <code>Pending</code> with this message until the claim binds. The fix is never on the pod — find out why the PVC is stuck.</p>
+<pre><code class="language-bash">kubectl get pvc -n myns
+kubectl describe pvc data-myapp-0 -n myns     # read the Events at the bottom
+</code></pre>
+<h2 id="cause-1-no-default-storageclass">Cause 1: no default StorageClass</h2>
+<p>If the PVC has no <code>storageClassName</code> and the cluster has no default class, nothing provisions a volume. Events show <code>no persistent volumes available for this claim and no storage class is set</code>.</p>
+<pre><code class="language-bash">kubectl get storageclass
+</code></pre>
+<p>A default one is marked <code>(default)</code>. Either set it on the PVC:</p>
+<pre><code class="language-yaml">apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data
+spec:
+  storageClassName: standard     # a name from kubectl get storageclass
+  accessModes: [&quot;ReadWriteOnce&quot;]
+  resources:
+    requests:
+      storage: 5Gi
+</code></pre>
+<p>or make an existing class the default:</p>
+<pre><code class="language-bash">kubectl patch storageclass standard \
+  -p '{&quot;metadata&quot;:{&quot;annotations&quot;:{&quot;storageclass.kubernetes.io/is-default-class&quot;:&quot;true&quot;}}}'
+</code></pre>
+<p>Note: <code>storageClassName</code> can't be changed on an existing PVC — delete and recreate it (for StatefulSets, delete the PVC so it's recreated from <code>volumeClaimTemplates</code>).</p>
+<h2 id="cause-2-no-provisioner-on-a-bare-metal-local-cluster">Cause 2: no provisioner on a bare-metal / local cluster</h2>
+<p>kubeadm and bare-metal clusters ship no dynamic provisioner. Install one, for example the Rancher local-path provisioner (k3s includes it as <code>local-path</code>), an NFS provisioner, or your storage vendor's CSI driver. Minikube and kind include a default <code>standard</code> class; on minikube make sure the addons are on:</p>
+<pre><code class="language-bash">minikube addons enable storage-provisioner
+minikube addons enable default-storageclass
+</code></pre>
+<h2 id="cause-3-the-provisioner-is-failing">Cause 3: the provisioner is failing</h2>
+<p>If a StorageClass exists, <code>kubectl describe pvc</code> shows provisioner events such as <code>waiting for a volume to be created, either by external provisioner "ebs.csi.aws.com"</code> or <code>ProvisioningFailed</code>. Check the CSI driver pods:</p>
+<pre><code class="language-bash">kubectl get pods -n kube-system | grep -i csi
+kubectl logs -n kube-system &lt;csi-controller-pod&gt; -c csi-provisioner
+</code></pre>
+<p>On EKS, the EBS CSI driver add-on must be installed (it's required since Kubernetes 1.23) and its IAM role must have EBS permissions. Quota or zone problems also appear here.</p>
+<h2 id="cause-4-static-pv-doesnt-match-the-claim">Cause 4: static PV doesn't match the claim</h2>
+<p>With manually created PVs, a PVC binds only to a PV that satisfies all of:</p>
+<ul>
+<li>capacity ≥ requested storage</li>
+<li>the same <code>accessModes</code> (e.g. <code>ReadWriteOnce</code>)</li>
+<li>the same <code>storageClassName</code> (both empty <code>""</code> counts as a match)</li>
+<li><code>volumeMode</code> and any <code>selector</code> labels</li>
+</ul>
+<pre><code class="language-bash">kubectl get pv
+</code></pre>
+<p>A PV in <code>Released</code> status was bound to a deleted claim and won't rebind automatically. Remove its <code>claimRef</code> to make it <code>Available</code> again (only if you're sure the data can be reused):</p>
+<pre><code class="language-bash">kubectl patch pv my-pv --type json -p '[{&quot;op&quot;:&quot;remove&quot;,&quot;path&quot;:&quot;/spec/claimRef&quot;}]'
+</code></pre>
+<h2 id="cause-5-pvc-in-the-wrong-namespace-or-misnamed">Cause 5: PVC in the wrong namespace or misnamed</h2>
+<p>PVCs are namespaced. A pod in <code>prod</code> can't use a claim in <code>default</code>. Check that <code>claimName</code> in the pod matches exactly:</p>
+<pre><code class="language-bash">kubectl get pod mypod -o jsonpath='{.spec.volumes[*].persistentVolumeClaim.claimName}'
+</code></pre>
+<h2 id="tip-waitforfirstconsumer">Tip: WaitForFirstConsumer</h2>
+<p>For zonal storage, use a StorageClass with <code>volumeBindingMode: WaitForFirstConsumer</code> so the volume is created in the zone where the pod is scheduled. With it, the PVC stays Pending until a pod uses it — that's normal.</p>
+<p class="upd">Last updated 2026-10-30.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-imagepullbackoff/">ImagePullBackOff / ErrImagePull</a></li><li><a href="/kubernetes/k8s-oomkilled/">OOMKilled (exit code 137)</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

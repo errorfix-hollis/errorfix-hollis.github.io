@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: fetch failed (Node.js) — how to fix</title>
+<meta name="description" content="Node&#x27;s built-in fetch (undici) couldn&#x27;t complete the request at the network level. The real reason is in the error&#x27;s cause: ECONNREFUSED, ENOTFOUND, a timeout, a TLS certificate error, or localhost resolving to IPv6.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/node-typeerror-fetch-failed/">
+<meta property="og:title" content="TypeError: fetch failed (Node.js) — how to fix"><meta property="og:description" content="Node&#x27;s built-in fetch (undici) couldn&#x27;t complete the request at the network level. The real reason is in the error&#x27;s cause: ECONNREFUSED, ENOTFOUND, a timeout, a TLS certificate error, or localhost resolving to IPv6.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/node-typeerror-fetch-failed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: fetch failed (Node.js) \u2014 how to fix", "description": "Node's built-in fetch (undici) couldn't complete the request at the network level. The real reason is in the error's cause: ECONNREFUSED, ENOTFOUND, a timeout, a TLS certificate error, or localhost resolving to IPv6.", "dateModified": "2026-11-14", "url": "https://errorfix-hollis.github.io/npm/node-typeerror-fetch-failed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: fetch failed", "item": "https://errorfix-hollis.github.io/npm/node-typeerror-fetch-failed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>TypeError: fetch failed (Node.js) — how to fix</h1>
+<pre class="err"><code>TypeError: fetch failed
+    at node:internal/deps/undici/undici:13502:13
+    at async main (/app/index.js:3:15) {
+  [cause]: Error: connect ECONNREFUSED 127.0.0.1:3000
+      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1607:16) {
+    errno: -111,
+    code: &#x27;ECONNREFUSED&#x27;,
+    syscall: &#x27;connect&#x27;,
+    address: &#x27;127.0.0.1&#x27;,
+    port: 3000
+  }
+}
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Log the cause: <code>catch (e) { console.error(e.cause) }</code>. ECONNREFUSED on localhost: use <code>http://127.0.0.1:PORT</code> instead of <code>localhost</code> (Node 17+ may resolve it to ::1). ENOTFOUND: fix the hostname/DNS. Certificate errors: set <code>NODE_EXTRA_CA_CERTS=/path/ca.pem</code>. Behind a proxy, use undici's ProxyAgent (<code>setGlobalDispatcher(new ProxyAgent(url))</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Since Node 18, <code>fetch()</code> is built in (implemented by undici). When the request fails <em>before</em> any HTTP response arrives, it rejects with a generic <code>TypeError: fetch failed</code>. HTTP errors like 404 or 500 do <strong>not</strong> cause this; they resolve normally with <code>res.ok === false</code>.</p>
+<p>The useful information is in <code>error.cause</code>, which many loggers and frameworks (Next.js, Remix, Nuxt) hide. Print it:</p>
+<pre><code class="language-js">try {
+  const res = await fetch(url);
+} catch (err) {
+  console.error(err.cause ?? err);
+}
+</code></pre>
+<p>Then match the cause code below.</p>
+<h2 id="cause-1-econnrefused-nothing-listening-or-localhost-ipv6">Cause 1: <code>ECONNREFUSED</code> — nothing listening, or <code>localhost</code> → IPv6</h2>
+<p>Node 17+ no longer reorders DNS results to prefer IPv4, so <code>localhost</code> can resolve to <code>::1</code>. If your API only listens on <code>127.0.0.1</code>, the connection is refused:</p>
+<pre><code>[cause]: Error: connect ECONNREFUSED ::1:3000
+</code></pre>
+<p>Fixes:</p>
+<pre><code class="language-js">await fetch(&quot;http://127.0.0.1:3000/api&quot;);     // explicit IPv4
+</code></pre>
+<p>or make the server listen on all interfaces (<code>app.listen(3000, "0.0.0.0")</code> or <code>"::"</code>), or run Node with <code>--dns-result-order=ipv4first</code>.</p>
+<p>If the address is IPv4 and still refused, the server isn't running on that port. Check with <code>curl -v http://127.0.0.1:3000</code> or <code>ss -ltnp | grep 3000</code>.</p>
+<p><strong>In Docker</strong>, <code>localhost</code> is the container itself. Call the other service by its Compose service name (<code>http://api:3000</code>), or <code>host.docker.internal</code> to reach the host.</p>
+<h2 id="cause-2-enotfound-eai_again-dns-lookup-failed">Cause 2: <code>ENOTFOUND</code> / <code>EAI_AGAIN</code> — DNS lookup failed</h2>
+<pre><code>[cause]: Error: getaddrinfo ENOTFOUND api.exmaple.com
+</code></pre>
+<p>Check for typos and that the URL has a scheme (<code>https://</code>). Then test DNS from the same machine: <code>nslookup api.example.com</code>. <code>EAI_AGAIN</code> is a temporary DNS failure; see <a href="/linux/linux-temporary-failure-in-name-resolution/">Temporary failure in name resolution</a>.</p>
+<h2 id="cause-3-und_err_connect_timeout-und_err_headers_timeout">Cause 3: <code>UND_ERR_CONNECT_TIMEOUT</code> / <code>UND_ERR_HEADERS_TIMEOUT</code></h2>
+<p>undici's default connect timeout is 10 s and headers/body timeouts are 300 s. A firewall dropping packets, or an IPv6 route that doesn't work, produces a connect timeout. Node 20+ tries addresses in turn ("happy eyeballs", <code>autoSelectFamily</code>); on older versions try <code>--dns-result-order=ipv4first</code>.</p>
+<p>Set your own timeout to fail fast:</p>
+<pre><code class="language-js">await fetch(url, { signal: AbortSignal.timeout(5000) });
+</code></pre>
+<h2 id="cause-4-tls-certificate-errors">Cause 4: TLS certificate errors</h2>
+<pre><code>[cause]: Error: unable to get local issuer certificate
+  code: 'UNABLE_TO_GET_ISSUER_CERT_LOCALLY'
+</code></pre>
+<p>Common behind corporate proxies that re-sign HTTPS. Give Node the company CA:</p>
+<pre><code class="language-bash">export NODE_EXTRA_CA_CERTS=/path/to/corp-ca.pem
+node app.js
+</code></pre>
+<p>Other codes: <code>SELF_SIGNED_CERT_IN_CHAIN</code>, <code>CERT_HAS_EXPIRED</code>, <code>ERR_TLS_CERT_ALTNAME_INVALID</code>. See <a href="/npm/node-unable-to-get-issuer-cert-locally/">unable to get local issuer certificate</a>. Avoid <code>NODE_TLS_REJECT_UNAUTHORIZED=0</code> outside quick local tests.</p>
+<h2 id="cause-5-an-http-proxy-is-required">Cause 5: an HTTP proxy is required</h2>
+<p>Built-in fetch ignores <code>HTTP_PROXY</code>/<code>HTTPS_PROXY</code> by default. Use undici's proxy agent:</p>
+<pre><code class="language-js">import { setGlobalDispatcher, ProxyAgent } from &quot;undici&quot;;
+setGlobalDispatcher(new ProxyAgent(process.env.HTTPS_PROXY));
+</code></pre>
+<p>Newer Node versions (24+, and 22.21+) honour the variables when started with <code>NODE_USE_ENV_PROXY=1</code>.</p>
+<h2 id="cause-6-other-side-closed-econnreset">Cause 6: <code>other side closed</code> / <code>ECONNRESET</code></h2>
+<p><code>[cause]: SocketError: other side closed</code> means the server or a load balancer closed the connection, often a keep-alive socket that timed out on the server side. Retry idempotent requests, or check the server's logs and keep-alive timeout.</p>
+<h2 id="nextjs-and-server-components">Next.js and server components</h2>
+<p>During <code>next build</code>, server-side <code>fetch</code> to your own API route (<code>http://localhost:3000/api/...</code>) fails because no server is running at build time. Call the data function directly instead of fetching your own API, or make the page dynamic.</p>
+<p class="upd">Last updated 2026-11-14.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-typeerror-failed-to-fetch/">TypeError: Failed to fetch</a></li><li><a href="/npm/node-unable-to-get-issuer-cert-locally/">Error: unable to get local issuer certificate (UNABLE_TO_GET_ISSUER_CERT_LOCALLY)</a></li><li><a href="/web/web-err-connection-refused/">ERR_CONNECTION_REFUSED</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

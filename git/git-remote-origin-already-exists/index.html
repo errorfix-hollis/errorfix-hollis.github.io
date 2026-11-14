@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: remote origin already exists. (Git) — how to fix</title>
+<meta name="description" content="A remote named origin is already configured. Change its URL with git remote set-url, or remove it first.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-remote-origin-already-exists/">
+<meta property="og:title" content="error: remote origin already exists. (Git) — how to fix"><meta property="og:description" content="A remote named origin is already configured. Change its URL with git remote set-url, or remove it first.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-remote-origin-already-exists/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: remote origin already exists. (Git) \u2014 how to fix", "description": "A remote named origin is already configured. Change its URL with git remote set-url, or remove it first.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/git/git-remote-origin-already-exists/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "error: remote origin already exists.", "item": "https://errorfix-hollis.github.io/git/git-remote-origin-already-exists/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>error: remote origin already exists. (Git) — how to fix</h1>
+<pre class="err"><code>error: remote origin already exists.</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Update the URL: <code>git remote set-url origin https://github.com/USER/REPO.git</code>. Check with <code>git remote -v</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>git remote add origin &lt;url&gt;</code> creates a remote called <code>origin</code>, but this repository already has one, often because you cloned it or ran the command before.</p>
+<h2 id="see-whats-configured">See what's configured</h2>
+<pre><code class="language-bash">git remote -v
+</code></pre>
+<h2 id="fix-1-change-the-url">Fix 1: change the URL</h2>
+<pre><code class="language-bash">git remote set-url origin https://github.com/USER/REPO.git
+</code></pre>
+<h2 id="fix-2-remove-and-add-again">Fix 2: remove and add again</h2>
+<pre><code class="language-bash">git remote remove origin
+git remote add origin https://github.com/USER/REPO.git
+</code></pre>
+<h2 id="fix-3-keep-both">Fix 3: keep both</h2>
+<p>Want to push to a fork and the original? Give the new one another name:</p>
+<pre><code class="language-bash">git remote add upstream https://github.com/ORIGINAL/REPO.git
+git fetch upstream
+</code></pre>
+<p>A common convention: <code>origin</code> = your fork, <code>upstream</code> = the original project.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-resolve-host/">fatal: unable to access ... Could not resolve host: github.com</a></li><li><a href="/git/git-destination-path-already-exists-and-is-not-an-empty-directory/">fatal: destination path &#x27;X&#x27; already exists and is not an empty directory.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

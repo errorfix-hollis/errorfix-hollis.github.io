@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CONFLICT (content): Merge conflict in (Git) — how to fix</title>
+<meta name="description" content="Both branches changed the same lines. Edit the file to choose the right content, remove the conflict markers, then git add and commit.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-merge-conflict/">
+<meta property="og:title" content="CONFLICT (content): Merge conflict in (Git) — how to fix"><meta property="og:description" content="Both branches changed the same lines. Edit the file to choose the right content, remove the conflict markers, then git add and commit.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-merge-conflict/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "CONFLICT (content): Merge conflict in (Git) \u2014 how to fix", "description": "Both branches changed the same lines. Edit the file to choose the right content, remove the conflict markers, then git add and commit.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/git/git-merge-conflict/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "CONFLICT (content): Merge conflict in", "item": "https://errorfix-hollis.github.io/git/git-merge-conflict/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>CONFLICT (content): Merge conflict in (Git) — how to fix</h1>
+<pre class="err"><code>Auto-merging src/app.js
+CONFLICT (content): Merge conflict in src/app.js
+Automatic merge failed; fix conflicts and then commit the result.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Open the file, pick the right code between <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>, <code>=======</code> and <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code>, delete the markers, then <code>git add &lt;file&gt;</code> and <code>git commit</code> (or <code>git rebase --continue</code>). Changed your mind: <code>git merge --abort</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Git merged everything it could, but in at least one file <strong>both sides changed the same lines</strong> differently. It needs you to decide.</p>
+<h2 id="see-which-files-conflict">See which files conflict</h2>
+<pre><code class="language-bash">git status       # listed under &quot;Unmerged paths&quot;
+</code></pre>
+<h2 id="resolve-a-file">Resolve a file</h2>
+<p>Inside the file you'll see:</p>
+<pre><code class="language-text">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+const port = 3000;
+=======
+const port = process.env.PORT || 8080;
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; feature-branch
+</code></pre>
+<ul>
+<li>Between <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</code> and <code>=======</code>: your current branch.</li>
+<li>Between <code>=======</code> and <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code>: the incoming changes.</li>
+</ul>
+<p>Edit it to the final version you want and <strong>delete all three marker lines</strong>:</p>
+<pre><code class="language-js">const port = process.env.PORT || 3000;
+</code></pre>
+<p>Then mark it resolved and finish:</p>
+<pre><code class="language-bash">git add src/app.js
+git commit                 # for a merge
+git rebase --continue      # if you were rebasing
+git cherry-pick --continue # if you were cherry-picking
+</code></pre>
+<h2 id="take-one-side-for-a-whole-file">Take one side for a whole file</h2>
+<pre><code class="language-bash">git checkout --ours   src/app.js    # keep your version
+git checkout --theirs src/app.js    # take the incoming version
+git add src/app.js
+</code></pre>
+<p>During a <strong>rebase</strong>, "ours" and "theirs" are swapped: <code>--ours</code> is the branch you're rebasing onto.</p>
+<h2 id="give-up-and-go-back">Give up and go back</h2>
+<pre><code class="language-bash">git merge --abort     # or: git rebase --abort
+</code></pre>
+<h2 id="tools-that-help">Tools that help</h2>
+<ul>
+<li>VS Code shows <em>Accept Current / Accept Incoming / Accept Both</em> buttons above each conflict.</li>
+<li><code>git mergetool</code> opens a configured diff tool.</li>
+<li><code>git diff --name-only --diff-filter=U</code> lists only conflicted files.</li>
+</ul>
+<h2 id="lock-files">Lock files</h2>
+<p>For <code>package-lock.json</code>, <code>yarn.lock</code> or <code>poetry.lock</code>, don't hand-edit. Take either version and regenerate: <code>git checkout --theirs package-lock.json &amp;&amp; npm install</code>, then <code>git add</code> it.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-your-local-changes-would-be-overwritten/">error: Your local changes to the following files would be overwritten by merge</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

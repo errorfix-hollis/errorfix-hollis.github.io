@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>npm ERR! code ELIFECYCLE — how to fix</title>
+<meta name="description" content="An npm script exited with an error. ELIFECYCLE itself is not the problem — the real error is printed above it.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-elifecycle/">
+<meta property="og:title" content="npm ERR! code ELIFECYCLE — how to fix"><meta property="og:description" content="An npm script exited with an error. ELIFECYCLE itself is not the problem — the real error is printed above it.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-elifecycle/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "npm ERR! code ELIFECYCLE \u2014 how to fix", "description": "An npm script exited with an error. ELIFECYCLE itself is not the problem \u2014 the real error is printed above it.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/npm/npm-elifecycle/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "npm ERR! code ELIFECYCLE", "item": "https://errorfix-hollis.github.io/npm/npm-elifecycle/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>npm ERR! code ELIFECYCLE — how to fix</h1>
+<pre class="err"><code>npm ERR! code ELIFECYCLE
+npm ERR! errno 1
+npm ERR! my-app@1.0.0 start: `node server.js`
+npm ERR! Exit status 1
+npm ERR!
+npm ERR! Failed at the my-app@1.0.0 start script.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Scroll up: the real error is in the output <em>before</em> the <code>npm ERR!</code> lines. Fix that. If it's a dependency problem, try <code>rm -rf node_modules package-lock.json &amp;&amp; npm install</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>npm ran one of your <code>package.json</code> scripts (here <code>start</code>) and the command <strong>exited with a non-zero code</strong>. npm just reports that. Newer npm versions print <code>npm ERR! Lifecycle script "start" failed</code> or <code>npm error code 1</code> for the same thing.</p>
+<h2 id="step-1-find-the-real-error">Step 1: find the real error</h2>
+<p>Look at the lines <strong>above</strong> the <code>npm ERR!</code> block. Common ones:</p>
+<ul>
+<li><code>Error: Cannot find module ...</code> → see <a href="/npm/node-cannot-find-module/">Cannot find module</a></li>
+<li><code>EADDRINUSE</code> → see <a href="/linux/linux-address-already-in-use/">address already in use</a></li>
+<li><code>SyntaxError ...</code> → a bug in your code or an unsupported Node version</li>
+<li><code>sh: 1: react-scripts: not found</code> → dependencies not installed: <code>npm install</code></li>
+<li><code>JavaScript heap out of memory</code> → <code>NODE_OPTIONS=--max-old-space-size=4096 npm run build</code></li>
+</ul>
+<h2 id="step-2-run-the-command-directly">Step 2: run the command directly</h2>
+<p>Copy the command shown after the script name and run it yourself, e.g.:</p>
+<pre><code class="language-bash">node server.js
+npx react-scripts build
+</code></pre>
+<p>The output is often clearer without npm in between.</p>
+<h2 id="step-3-reinstall-dependencies">Step 3: reinstall dependencies</h2>
+<pre><code class="language-bash">rm -rf node_modules package-lock.json
+npm cache verify
+npm install
+</code></pre>
+<p>Keep <code>package-lock.json</code> if your team relies on it; then just delete <code>node_modules</code> and run <code>npm ci</code>.</p>
+<h2 id="step-4-check-the-node-version">Step 4: check the Node version</h2>
+<p>Many projects specify one in <code>package.json</code> (<code>"engines"</code>) or <code>.nvmrc</code>. Check <code>node -v</code> and switch with <code>nvm use</code> if needed.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/npm-enoent-package-json/">npm ERR! enoent Could not read package.json</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li><li><a href="/npm/node-err-require-esm/">Error [ERR_REQUIRE_ESM]: require() of ES Module not supported</a></li><li><a href="/npm/node-error-listen-eaddrinuse-address-already-in-use/">Error: listen EADDRINUSE: address already in use :::3000</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

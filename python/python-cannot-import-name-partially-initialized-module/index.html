@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ImportError: cannot import name &#x27;X&#x27; from partially initialized module &#x27;Y&#x27; (most likely due to a circular import) (Python) — how to fix</title>
+<meta name="description" content="Two modules import each other (directly or through a chain), so one of them is used before it has finished executing. It also happens when your own file has the same name as the library you&#x27;re importing.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-cannot-import-name-partially-initialized-module/">
+<meta property="og:title" content="ImportError: cannot import name &#x27;X&#x27; from partially initialized module &#x27;Y&#x27; (most likely due to a circular import) (Python) — how to fix"><meta property="og:description" content="Two modules import each other (directly or through a chain), so one of them is used before it has finished executing. It also happens when your own file has the same name as the library you&#x27;re importing.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-cannot-import-name-partially-initialized-module/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ImportError: cannot import name 'X' from partially initialized module 'Y' (most likely due to a circular import) (Python) \u2014 how to fix", "description": "Two modules import each other (directly or through a chain), so one of them is used before it has finished executing. It also happens when your own file has the same name as the library you're importing.", "dateModified": "2026-10-31", "url": "https://errorfix-hollis.github.io/python/python-cannot-import-name-partially-initialized-module/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ImportError: cannot import name 'X' from partially initialized module 'Y' (most likely due to a circular import)", "item": "https://errorfix-hollis.github.io/python/python-cannot-import-name-partially-initialized-module/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ImportError: cannot import name &#x27;X&#x27; from partially initialized module &#x27;Y&#x27; (most likely due to a circular import) (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;/app/main.py&quot;, line 1, in &lt;module&gt;
+    from models import User
+  File &quot;/app/models.py&quot;, line 2, in &lt;module&gt;
+    from services import send_email
+  File &quot;/app/services.py&quot;, line 1, in &lt;module&gt;
+    from models import User
+ImportError: cannot import name &#x27;User&#x27; from partially initialized module &#x27;models&#x27; (most likely due to a circular import) (/app/models.py)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check your file names first: a script called <code>random.py</code>, <code>requests.py</code> or <code>openai.py</code> shadows the real package — rename it and delete <code>__pycache__</code>. For real cycles, use <code>import module</code> instead of <code>from module import name</code>, move the import inside the function that needs it, or move shared code into a third module.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Python runs a module top to bottom the first time it's imported, and puts it in <code>sys.modules</code> <strong>before</strong> it finishes. If, while <code>models.py</code> is still running, something imports <code>models</code> again, Python returns the half-built module. <code>from models import User</code> then fails because the line defining <code>User</code> hasn't run yet.</p>
+<p>The traceback shows the cycle: <code>main → models → services → models</code>.</p>
+<h2 id="cause-1-your-file-shadows-a-library">Cause 1: your file shadows a library</h2>
+<p>The most common case for beginners:</p>
+<pre><code>ImportError: cannot import name 'randint' from partially initialized module 'random'
+(most likely due to a circular import) (/home/me/random.py)
+</code></pre>
+<p>The path at the end is <strong>your</strong> file. Python imports your <code>random.py</code> instead of the standard library, and your file imports itself. Rename it, and remove cached bytecode:</p>
+<pre><code class="language-bash">mv random.py dice_game.py
+rm -rf __pycache__
+</code></pre>
+<p>Typical offenders: <code>random.py</code>, <code>email.py</code>, <code>requests.py</code>, <code>pandas.py</code>, <code>openai.py</code>, <code>socket.py</code>, <code>test.py</code>, <code>typing.py</code>. Also check for a folder with that name.</p>
+<h2 id="fix-2-import-the-module-not-the-name">Fix 2: import the module, not the name</h2>
+<p><code>from x import y</code> needs <code>y</code> to exist right now; <code>import x</code> only needs the module object, and attributes are looked up later, at call time:</p>
+<pre><code class="language-python"># services.py
+import models
+
+def send_welcome(user_id):
+    user = models.User.get(user_id)   # resolved when the function runs
+</code></pre>
+<h2 id="fix-3-move-the-import-into-the-function">Fix 3: move the import into the function</h2>
+<pre><code class="language-python"># services.py
+def send_welcome(user_id):
+    from models import User           # imported on first call, cycle already resolved
+    ...
+</code></pre>
+<p>This is a common, legitimate pattern for breaking cycles (Django and Flask apps use it a lot).</p>
+<h2 id="fix-4-import-only-for-type-hints">Fix 4: import only for type hints</h2>
+<p>If one side only needs the other for annotations:</p>
+<pre><code class="language-python">from __future__ import annotations
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from models import User
+
+def send_welcome(user: User) -&gt; None: ...
+</code></pre>
+<p><code>TYPE_CHECKING</code> is <code>False</code> at runtime, so there's no import cycle.</p>
+<h2 id="fix-5-restructure">Fix 5: restructure</h2>
+<p>A cycle usually means two modules each contain something the other needs. Move the shared pieces (constants, base classes, helpers) into a new module that both import, and that imports neither:</p>
+<pre><code>models.py   -&gt; imports common.py
+services.py -&gt; imports common.py, models.py
+common.py   -&gt; imports nothing from the app
+</code></pre>
+<h2 id="fix-6-package-__init__py-imports">Fix 6: package <code>__init__.py</code> imports</h2>
+<p>An <code>__init__.py</code> that does <code>from .views import *</code> while <code>views.py</code> does <code>from mypackage import db</code> creates a cycle through the package. Import from the specific submodule instead (<code>from mypackage.db import db</code>), and keep <code>__init__.py</code> light.</p>
+<p class="upd">Last updated 2026-10-31.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li><li><a href="/python/python-attributeerror-str-object-has-no-attribute/">AttributeError: &#x27;str&#x27; object has no attribute</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

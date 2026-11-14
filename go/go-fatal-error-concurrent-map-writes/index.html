@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal error: concurrent map writes (Go) — how to fix</title>
+<meta name="description" content="Two goroutines wrote to the same Go map at the same time. Go maps are not safe for concurrent use, and the runtime aborts the whole program (this is not a recoverable panic).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-fatal-error-concurrent-map-writes/">
+<meta property="og:title" content="fatal error: concurrent map writes (Go) — how to fix"><meta property="og:description" content="Two goroutines wrote to the same Go map at the same time. Go maps are not safe for concurrent use, and the runtime aborts the whole program (this is not a recoverable panic).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-fatal-error-concurrent-map-writes/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal error: concurrent map writes (Go) \u2014 how to fix", "description": "Two goroutines wrote to the same Go map at the same time. Go maps are not safe for concurrent use, and the runtime aborts the whole program (this is not a recoverable panic).", "dateModified": "2026-11-07", "url": "https://errorfix-hollis.github.io/go/go-fatal-error-concurrent-map-writes/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "fatal error: concurrent map writes", "item": "https://errorfix-hollis.github.io/go/go-fatal-error-concurrent-map-writes/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>fatal error: concurrent map writes (Go) — how to fix</h1>
+<pre class="err"><code>fatal error: concurrent map writes
+
+goroutine 18 [running]:
+main.main.func1()
+        /app/main.go:14 +0x4c
+created by main.main in goroutine 1
+        /app/main.go:12 +0x5a
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Protect the map with a <code>sync.Mutex</code> (or <code>sync.RWMutex</code> for read-heavy use): lock around every read and write. Alternatives: <code>sync.Map</code> for append-mostly caches, or give one goroutine ownership of the map and send it updates over a channel. Find all racy spots with <code>go run -race .</code> / <code>go test -race ./...</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The built-in <code>map</code> type has no internal locking. The runtime detects some unsynchronized accesses and stops the program with one of:</p>
+<ul>
+<li><code>fatal error: concurrent map writes</code></li>
+<li><code>fatal error: concurrent map read and map write</code></li>
+<li><code>fatal error: concurrent map iteration and map write</code></li>
+</ul>
+<p>It is a <code>fatal error</code>, not a <code>panic</code>, so <code>recover()</code> cannot catch it. The detection is best-effort: code that "works" may still be racy and crash later under load.</p>
+<p>Typical trigger:</p>
+<pre><code class="language-go">m := map[string]int{}
+var wg sync.WaitGroup
+for i := 0; i &lt; 100; i++ {
+    wg.Add(1)
+    go func(i int) {
+        defer wg.Done()
+        m[fmt.Sprint(i)] = i   // concurrent writes
+    }(i)
+}
+wg.Wait()
+</code></pre>
+<p>In web servers it shows up when a handler writes to a package-level map: every request runs in its own goroutine.</p>
+<h2 id="fix-1-guard-the-map-with-a-mutex">Fix 1: guard the map with a mutex</h2>
+<pre><code class="language-go">type SafeCounter struct {
+    mu sync.Mutex
+    m  map[string]int
+}
+
+func (c *SafeCounter) Inc(key string) {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    c.m[key]++
+}
+
+func (c *SafeCounter) Get(key string) int {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    return c.m[key]
+}
+</code></pre>
+<p>Lock around <strong>reads too</strong>, including <code>len(m)</code> and <code>for range m</code>. For many readers and few writers use <code>sync.RWMutex</code> with <code>RLock()</code>/<code>RUnlock()</code> on reads.</p>
+<p>Pass the struct by pointer (<code>*SafeCounter</code>); copying a struct copies the mutex and breaks the protection (<code>go vet</code> warns about this).</p>
+<h2 id="fix-2-syncmap">Fix 2: <code>sync.Map</code></h2>
+<p>The standard library has a concurrent map tuned for keys written once and read many times, or goroutines working on disjoint keys:</p>
+<pre><code class="language-go">var cache sync.Map
+
+cache.Store(&quot;a&quot;, 1)
+if v, ok := cache.Load(&quot;a&quot;); ok {
+    fmt.Println(v.(int))
+}
+v, loaded := cache.LoadOrStore(&quot;b&quot;, 2)
+cache.Range(func(k, v any) bool { fmt.Println(k, v); return true })
+</code></pre>
+<p>It is untyped (<code>any</code>), and for general read/write workloads a mutex-protected map is usually as fast and clearer.</p>
+<h2 id="fix-3-one-owner-goroutine">Fix 3: one owner goroutine</h2>
+<p>Let only one goroutine touch the map and send it work through channels:</p>
+<pre><code class="language-go">type inc struct{ key string }
+updates := make(chan inc)
+go func() {
+    counts := map[string]int{}
+    for u := range updates {
+        counts[u.key]++
+    }
+}()
+updates &lt;- inc{&quot;x&quot;}
+</code></pre>
+<p>Or collect results per goroutine and merge them after <code>wg.Wait()</code>.</p>
+<h2 id="find-every-racy-access">Find every racy access</h2>
+<p>Run with the race detector; it reports both goroutines' stack traces, even when the program doesn't crash:</p>
+<pre><code class="language-bash">go run -race .
+go test -race ./...
+</code></pre>
+<p>It needs cgo on some platforms (<code>CGO_ENABLED=1</code>). Fix every <code>WARNING: DATA RACE</code> it prints, not just the map.</p>
+<h2 id="common-hidden-cases">Common hidden cases</h2>
+<ul>
+<li>A map stored in a struct that is shared between goroutines (e.g. a <code>Config</code> with a <code>map</code> field mutated at runtime).</li>
+<li>Writing to a map inside <code>http.HandlerFunc</code>s, gRPC handlers or <code>errgroup</code> workers.</li>
+<li>Passing a map to a goroutine: maps are reference types, so "copying" the variable still shares the data. Copy entries into a new map if each goroutine needs its own.</li>
+</ul>
+<p class="upd">Last updated 2026-11-07.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-all-goroutines-are-asleep-deadlock/">fatal error: all goroutines are asleep - deadlock!</a></li><li><a href="/go/go-invalid-memory-address-or-nil-pointer-dereference/">panic: runtime error: invalid memory address or nil pointer dereference</a></li><li><a href="/go/go-panic-assignment-to-entry-in-nil-map/">panic: assignment to entry in nil map</a></li><li><a href="/go/go-cannot-find-main-module/">go: cannot find main module, but found .git/config</a></li><li><a href="/go/go-cannot-use-as-value-in-assignment/">cannot use x (variable of type T) as U value in assignment</a></li><li><a href="/go/go-declared-and-not-used/">declared and not used</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

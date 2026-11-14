@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>warning: adding embedded git repository — how to fix</title>
+<meta name="description" content="A folder you staged contains its own .git directory, so Git records it as a pointer to a commit (a &quot;gitlink&quot;) instead of its files. Others who clone get an empty folder.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-adding-embedded-git-repository/">
+<meta property="og:title" content="warning: adding embedded git repository — how to fix"><meta property="og:description" content="A folder you staged contains its own .git directory, so Git records it as a pointer to a commit (a &quot;gitlink&quot;) instead of its files. Others who clone get an empty folder.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-adding-embedded-git-repository/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "warning: adding embedded git repository \u2014 how to fix", "description": "A folder you staged contains its own .git directory, so Git records it as a pointer to a commit (a \"gitlink\") instead of its files. Others who clone get an empty folder.", "dateModified": "2026-11-03", "url": "https://errorfix-hollis.github.io/git/git-adding-embedded-git-repository/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "warning: adding embedded git repository", "item": "https://errorfix-hollis.github.io/git/git-adding-embedded-git-repository/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>warning: adding embedded git repository — how to fix</h1>
+<pre class="err"><code>warning: adding embedded git repository: vendor/lib
+hint: You&#x27;ve added another git repository inside your current repository.
+hint: Clones of the outer repository will not contain the contents of
+hint: the embedded repository and will not know how to obtain it.
+hint: If you meant to add a submodule, use:
+hint:
+hint: 	git submodule add &lt;url&gt; vendor/lib
+hint:
+hint: If you added this path by mistake, you can remove it from the
+hint: index with:
+hint:
+hint: 	git rm --cached vendor/lib
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Unstage it: <code>git rm --cached vendor/lib</code>. Then either delete its <code>.git</code> folder (<code>rm -rf vendor/lib/.git</code>) and <code>git add vendor/lib</code> to include the files, or add it properly as a submodule: <code>git submodule add &lt;url&gt; vendor/lib</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When <code>git add</code> finds a directory containing a <code>.git</code> folder, it doesn't add that directory's files. It adds a single special entry (mode <code>160000</code>, a <em>gitlink</em>) that records which commit the inner repository is at. Without a <code>.gitmodules</code> entry nobody else can fetch it, so on GitHub the folder shows as an unclickable folder with an arrow icon, and clones contain an empty directory.</p>
+<p>Confirm it:</p>
+<pre><code class="language-bash">git ls-files -s vendor/lib
+# 160000 3f2a...  0   vendor/lib     &lt;- 160000 = gitlink
+</code></pre>
+<h2 id="step-1-unstage-the-embedded-repo">Step 1: unstage the embedded repo</h2>
+<pre><code class="language-bash">git rm --cached vendor/lib     # no trailing slash
+</code></pre>
+<p>This only removes it from the index; your files stay on disk. If you already committed, commit this removal too.</p>
+<p>Then decide which of the following you want.</p>
+<h2 id="fix-a-you-want-the-files-in-your-repo-most-common">Fix A: you want the files in your repo (most common)</h2>
+<p>Typical cause: you ran <code>npx create-react-app</code>, <code>cargo new</code>, <code>django-admin startproject</code> or <code>git clone</code> inside an existing repo, and the tool created its own <code>.git</code>.</p>
+<pre><code class="language-bash">rm -rf vendor/lib/.git         # Windows: rmdir /s /q vendor\lib\.git
+git add vendor/lib
+git commit -m &quot;Add vendor/lib as regular files&quot;
+</code></pre>
+<p>This throws away the inner repo's history. If you need that history, merge it with <code>git subtree add --prefix=vendor/lib &lt;url&gt; main</code> instead.</p>
+<h2 id="fix-b-you-want-a-submodule">Fix B: you want a submodule</h2>
+<p>If the folder is a separate project you want to track at a specific commit:</p>
+<pre><code class="language-bash">git rm --cached vendor/lib
+rm -rf vendor/lib              # submodule add needs an empty/nonexistent path
+git submodule add https://github.com/user/lib.git vendor/lib
+git commit -m &quot;Add lib as submodule&quot;
+</code></pre>
+<p>Others then clone with:</p>
+<pre><code class="language-bash">git clone --recurse-submodules &lt;repo-url&gt;
+# or after a normal clone:
+git submodule update --init --recursive
+</code></pre>
+<h2 id="fix-c-you-didnt-want-it-at-all">Fix C: you didn't want it at all</h2>
+<p>Add it to <code>.gitignore</code> after unstaging:</p>
+<pre><code class="language-bash">git rm --cached vendor/lib
+echo &quot;vendor/lib/&quot; &gt;&gt; .gitignore
+git commit -m &quot;Ignore vendor/lib&quot;
+</code></pre>
+<h2 id="already-pushed-and-the-folder-is-empty-on-github">Already pushed and the folder is empty on GitHub?</h2>
+<p>Same fix — remove the gitlink, add the real files, push:</p>
+<pre><code class="language-bash">git rm --cached vendor/lib
+rm -rf vendor/lib/.git
+git add vendor/lib
+git commit -m &quot;Replace gitlink with files&quot;
+git push
+</code></pre>
+<h2 id="finding-nested-repositories">Finding nested repositories</h2>
+<pre><code class="language-bash">find . -mindepth 2 -name .git -not -path &quot;./.git/*&quot;
+</code></pre>
+<p>Every result (outside the root <code>.git</code>) is an embedded repository. Silence the warning only if you really want gitlinks: <code>git config advice.addEmbeddedRepo false</code>.</p>
+<p class="upd">Last updated 2026-11-03.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-gh001-large-files-detected/">remote: error: GH001: Large files detected. You may want to try Git Large File Storage</a></li><li><a href="/git/git-not-a-git-repository/">fatal: not a git repository (or any of the parent directories): .git</a></li><li><a href="/git/git-pathspec-did-not-match/">error: pathspec &#x27;x&#x27; did not match any file(s) known to git</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

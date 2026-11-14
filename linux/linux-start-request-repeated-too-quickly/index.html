@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Start request repeated too quickly (Linux) — how to fix</title>
+<meta name="description" content="systemd tried to restart a crashing service too many times within the rate-limit window (by default 5 starts in 10 seconds) and gave up. The real problem is why the service keeps exiting.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-start-request-repeated-too-quickly/">
+<meta property="og:title" content="Start request repeated too quickly (Linux) — how to fix"><meta property="og:description" content="systemd tried to restart a crashing service too many times within the rate-limit window (by default 5 starts in 10 seconds) and gave up. The real problem is why the service keeps exiting.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-start-request-repeated-too-quickly/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Start request repeated too quickly (Linux) \u2014 how to fix", "description": "systemd tried to restart a crashing service too many times within the rate-limit window (by default 5 starts in 10 seconds) and gave up. The real problem is why the service keeps exiting.", "dateModified": "2026-11-07", "url": "https://errorfix-hollis.github.io/linux/linux-start-request-repeated-too-quickly/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "Start request repeated too quickly", "item": "https://errorfix-hollis.github.io/linux/linux-start-request-repeated-too-quickly/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>Start request repeated too quickly (Linux) — how to fix</h1>
+<pre class="err"><code>myapp.service: Start request repeated too quickly.
+myapp.service: Failed with result &#x27;exit-code&#x27;.
+Failed to start myapp.service - My App.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find the actual crash: <code>journalctl -u myapp -n 50 --no-pager</code>. Fix it (bad path, permissions, missing env, port in use), then <code>sudo systemctl reset-failed myapp &amp;&amp; sudo systemctl start myapp</code>. To tune the limit, set <code>StartLimitIntervalSec=</code>/<code>StartLimitBurst=</code> in <code>[Unit]</code> and <code>RestartSec=5</code> in <code>[Service]</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>With <code>Restart=always</code> or <code>Restart=on-failure</code>, systemd restarts a service whenever it exits. To avoid a tight crash loop, each unit has a start rate limit: by default <code>StartLimitBurst=5</code> starts within <code>StartLimitIntervalSec=10s</code>. Once exceeded, systemd marks the unit failed and prints this message. It is a symptom; the service itself is crashing on every start.</p>
+<h2 id="step-1-find-why-it-exits">Step 1: find why it exits</h2>
+<pre><code class="language-bash">systemctl status myapp
+journalctl -u myapp -n 100 --no-pager
+journalctl -u myapp -b -o cat | grep -iE &quot;error|fail|denied&quot; | tail
+</code></pre>
+<p>Look at the lines <strong>before</strong> "Start request repeated too quickly". The <code>status=</code> code helps: <code>203/EXEC</code> means <code>ExecStart</code> binary not found or not executable, <code>217/USER</code> means the <code>User=</code> doesn't exist, <code>200/CHDIR</code> a bad <code>WorkingDirectory=</code>, <code>226/NAMESPACE</code> a missing path in <code>ReadWritePaths=</code> and similar.</p>
+<p>Run the exact <code>ExecStart</code> command by hand as the service user to see the error directly:</p>
+<pre><code class="language-bash">systemctl cat myapp | grep -E &quot;ExecStart|User|WorkingDirectory|Environment&quot;
+sudo -u myuser /opt/myapp/bin/myapp --config /etc/myapp.yml
+</code></pre>
+<h2 id="cause-1-common-crash-reasons">Cause 1: common crash reasons</h2>
+<ul>
+<li><strong>Path / executable</strong>: use absolute paths in <code>ExecStart=</code>; scripts need a shebang and <code>chmod +x</code>. A script with Windows line endings fails with <code>203/EXEC</code> (check with the <a href="/tools/line-ending-whitespace-inspector/">line ending inspector</a>).</li>
+<li><strong>Environment</strong>: systemd doesn't load your shell profile. Set <code>Environment=KEY=value</code> or <code>EnvironmentFile=/etc/myapp.env</code>; node/python from nvm or a venv need full paths.</li>
+<li><strong>Port already in use</strong>: another instance or process holds the port (<code>sudo ss -ltnp | grep :8080</code>).</li>
+<li><strong>Permissions</strong>: the <code>User=</code> can't read config or write logs/data directories.</li>
+<li><strong>Config syntax errors</strong> in the app's own config file.</li>
+</ul>
+<h2 id="cause-2-type-doesnt-match-the-program">Cause 2: <code>Type=</code> doesn't match the program</h2>
+<p>If the program forks into the background (daemonizes) but the unit has <code>Type=simple</code>, systemd sees the main process exit and restarts it. Either run the program in foreground mode (preferred; e.g. <code>nginx -g 'daemon off;'</code>) or use <code>Type=forking</code> with <code>PIDFile=</code>. A one-shot script that exits normally should use <code>Type=oneshot</code> without <code>Restart=always</code>.</p>
+<h2 id="fix-restart-after-fixing">Fix: restart after fixing</h2>
+<p>The failed state persists until reset:</p>
+<pre><code class="language-bash">sudo systemctl daemon-reload        # if you edited the unit
+sudo systemctl reset-failed myapp
+sudo systemctl start myapp
+</code></pre>
+<h2 id="tune-restart-behaviour">Tune restart behaviour</h2>
+<p>For services that legitimately need time (e.g. waiting on a database), slow the restarts instead of removing the limit:</p>
+<pre><code class="language-bash">sudo systemctl edit myapp
+</code></pre>
+<pre><code class="language-ini">[Unit]
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Restart=on-failure
+RestartSec=5
+</code></pre>
+<p>Note <code>StartLimitIntervalSec</code> and <code>StartLimitBurst</code> belong in <code>[Unit]</code> (older guides put <code>StartLimitInterval</code> in <code>[Service]</code>, which modern systemd ignores with a warning). <code>StartLimitIntervalSec=0</code> disables rate limiting entirely, which can leave a broken service spinning forever, so use it with a sensible <code>RestartSec</code>.</p>
+<p>For dependency ordering problems, add <code>After=network-online.target postgresql.service</code> and <code>Wants=network-online.target</code>.</p>
+<p class="upd">Last updated 2026-11-07.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-job-for-service-failed-because-the-control-process-exited-with-error-code/">Job for X.service failed because the control process exited with error code</a></li><li><a href="/linux/linux-unit-service-not-found/">Failed to start nginx.service: Unit nginx.service not found.</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/linux/linux-cannot-execute-binary-file/">cannot execute binary file: Exec format error</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

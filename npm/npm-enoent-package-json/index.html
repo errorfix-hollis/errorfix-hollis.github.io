@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>npm ERR! enoent Could not read package.json — how to fix</title>
+<meta name="description" content="You ran npm in a folder without a package.json. cd into your project, or create one with npm init.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-enoent-package-json/">
+<meta property="og:title" content="npm ERR! enoent Could not read package.json — how to fix"><meta property="og:description" content="You ran npm in a folder without a package.json. cd into your project, or create one with npm init.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-enoent-package-json/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "npm ERR! enoent Could not read package.json \u2014 how to fix", "description": "You ran npm in a folder without a package.json. cd into your project, or create one with npm init.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/npm/npm-enoent-package-json/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "npm ERR! enoent Could not read package.json", "item": "https://errorfix-hollis.github.io/npm/npm-enoent-package-json/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>npm ERR! enoent Could not read package.json — how to fix</h1>
+<pre class="err"><code>npm ERR! code ENOENT
+npm ERR! syscall open
+npm ERR! path /home/user/package.json
+npm ERR! errno -2
+npm ERR! enoent ENOENT: no such file or directory, open &#x27;/home/user/package.json&#x27;
+npm ERR! enoent This is related to npm not being able to find a file.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the <code>path</code> in the error. <code>cd</code> into the folder that contains <code>package.json</code> and run the command again. Starting a new project? Run <code>npm init -y</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>npm looks for <code>package.json</code> in the <strong>current folder</strong>. The <code>path</code> line in the error shows where it looked, and there's no file there.</p>
+<h2 id="fixes">Fixes</h2>
+<p><strong>Wrong folder</strong> (most common, especially right after <code>git clone</code> or <code>npx create-...</code>):</p>
+<pre><code class="language-bash">ls                 # is package.json here?
+cd my-project
+npm install
+</code></pre>
+<p><strong>New project:</strong> create a <code>package.json</code>:</p>
+<pre><code class="language-bash">npm init -y
+</code></pre>
+<p><strong>Monorepos:</strong> the <code>package.json</code> you want may be in a subfolder (<code>frontend/</code>, <code>packages/app/</code>). <code>cd</code> into it, or use workspaces: <code>npm run build -w packages/app</code>.</p>
+<p><strong>Typo in the file name:</strong> it must be exactly <code>package.json</code> (not <code>Package.json</code> or <code>package.json.txt</code>; Windows hides known extensions by default).</p>
+<h2 id="enoent-for-other-files">ENOENT for other files</h2>
+<p>The same <code>ENOENT</code> code appears for any missing file, for example:</p>
+<ul>
+<li><code>spawn git ENOENT</code> / <code>spawn python ENOENT</code> – a program npm tried to run isn't installed or not on PATH.</li>
+<li><code>ENOENT ... node_modules/.bin/...</code> – dependencies aren't installed. Run <code>npm install</code> (or <code>npm ci</code>).</li>
+<li><code>ENOENT ... .npmrc</code> or cache paths – delete the cache with <code>npm cache clean --force</code> and retry.</li>
+</ul>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li><li><a href="/npm/node-err-require-esm/">Error [ERR_REQUIRE_ESM]: require() of ES Module not supported</a></li><li><a href="/npm/node-error-listen-eaddrinuse-address-already-in-use/">Error: listen EADDRINUSE: address already in use :::3000</a></li><li><a href="/npm/node-javascript-heap-out-of-memory/">FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

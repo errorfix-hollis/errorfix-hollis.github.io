@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>sign_and_send_pubkey: no mutual signature supported (SSH) — how to fix</title>
+<meta name="description" content="Your OpenSSH client (8.8+) refuses to sign with the legacy ssh-rsa (SHA-1) algorithm, and the server only accepts that for RSA keys. The key itself is fine; the client and server share no signature algorithm.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/ssh/ssh-sign-and-send-pubkey-no-mutual-signature-supported/">
+<meta property="og:title" content="sign_and_send_pubkey: no mutual signature supported (SSH) — how to fix"><meta property="og:description" content="Your OpenSSH client (8.8+) refuses to sign with the legacy ssh-rsa (SHA-1) algorithm, and the server only accepts that for RSA keys. The key itself is fine; the client and server share no signature algorithm.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/ssh/ssh-sign-and-send-pubkey-no-mutual-signature-supported/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "sign_and_send_pubkey: no mutual signature supported (SSH) \u2014 how to fix", "description": "Your OpenSSH client (8.8+) refuses to sign with the legacy ssh-rsa (SHA-1) algorithm, and the server only accepts that for RSA keys. The key itself is fine; the client and server share no signature algorithm.", "dateModified": "2026-11-10", "url": "https://errorfix-hollis.github.io/ssh/ssh-sign-and-send-pubkey-no-mutual-signature-supported/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "SSH", "item": "https://errorfix-hollis.github.io/ssh/"}, {"@type": "ListItem", "position": 3, "name": "sign_and_send_pubkey: no mutual signature supported", "item": "https://errorfix-hollis.github.io/ssh/ssh-sign-and-send-pubkey-no-mutual-signature-supported/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/ssh/">SSH</a></p>
+<article><h1>sign_and_send_pubkey: no mutual signature supported (SSH) — how to fix</h1>
+<pre class="err"><code>sign_and_send_pubkey: no mutual signature supported
+user@host: Permission denied (publickey).
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Best fix: use an ed25519 key (<code>ssh-keygen -t ed25519</code>) or update the server's OpenSSH. Quick workaround for one old host: add <code>PubkeyAcceptedAlgorithms +ssh-rsa</code> and <code>HostkeyAlgorithms +ssh-rsa</code> under <code>Host oldserver</code> in <code>~/.ssh/config</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>An RSA key can be used with three signature algorithms: <code>ssh-rsa</code> (SHA-1), <code>rsa-sha2-256</code> and <code>rsa-sha2-512</code>. OpenSSH 8.8 (2021) disabled <code>ssh-rsa</code> by default because SHA-1 is broken. When the client connects to a server that only supports <code>ssh-rsa</code> signatures for user keys — typically OpenSSH older than 7.2, or old appliances, Gerrit/Bitbucket Server versions, embedded devices — there's no algorithm both sides accept, so the client skips the key and authentication falls through to <code>Permission denied (publickey)</code>.</p>
+<p>The same happens in reverse with up-to-date servers and old clients, and on newer RHEL/Fedora systems where the crypto policy disables SHA-1.</p>
+<p>Confirm with verbose output:</p>
+<pre><code class="language-bash">ssh -v user@host 2&gt;&amp;1 | grep -Ei &quot;sign_and_send|server-sig-algs|Offering&quot;
+</code></pre>
+<p>If the server's <code>server-sig-algs</code> list is missing or doesn't contain <code>rsa-sha2-256</code>, it's an old server.</p>
+<h2 id="fix-1-switch-to-an-ed25519-key-best">Fix 1: switch to an ed25519 key (best)</h2>
+<pre><code class="language-bash">ssh-keygen -t ed25519 -C &quot;you@example.com&quot;
+ssh-copy-id -i ~/.ssh/id_ed25519.pub user@host
+</code></pre>
+<p>Servers running OpenSSH 6.5+ support ed25519. If the server is too old for that too, see Fix 3.</p>
+<h2 id="fix-2-update-the-server">Fix 2: update the server</h2>
+<p>Upgrading OpenSSH on the server (7.2+) adds <code>rsa-sha2-256/512</code> support, so your existing RSA key works without weakening the client. For Git hosting software, upgrading usually fixes it (e.g. older Bitbucket Server, Gerrit, Azure DevOps Server versions).</p>
+<h2 id="fix-3-re-enable-ssh-rsa-for-that-host-only">Fix 3: re-enable ssh-rsa for that host only</h2>
+<p>In <code>~/.ssh/config</code>:</p>
+<pre><code>Host oldserver
+    HostName 192.0.2.10
+    User admin
+    PubkeyAcceptedAlgorithms +ssh-rsa
+    HostkeyAlgorithms +ssh-rsa
+</code></pre>
+<p>On OpenSSH older than 8.5, the option is called <code>PubkeyAcceptedKeyTypes</code>. Keep it scoped to the <code>Host</code> block rather than <code>Host *</code>, so other connections stay on modern algorithms.</p>
+<p>One-off on the command line:</p>
+<pre><code class="language-bash">ssh -o PubkeyAcceptedAlgorithms=+ssh-rsa -o HostkeyAlgorithms=+ssh-rsa user@host
+</code></pre>
+<p>For Git: <code>GIT_SSH_COMMAND="ssh -o PubkeyAcceptedAlgorithms=+ssh-rsa" git fetch</code>.</p>
+<h2 id="fix-4-rhel-fedora-centos-stream-crypto-policy">Fix 4: RHEL / Fedora / CentOS Stream crypto policy</h2>
+<p>On RHEL 9 and Fedora 33+, the system-wide policy blocks SHA-1 signatures even with the config above. Options, from narrowest to broadest:</p>
+<pre><code class="language-bash"># per user: the ~/.ssh/config option above usually suffices; if not
+sudo update-crypto-policies --set DEFAULT:SHA1   # system-wide, weaker
+</code></pre>
+<p>Prefer moving to ed25519 or ECDSA keys rather than lowering the policy.</p>
+<h2 id="fix-5-an-old-ssh-agent-or-key-format">Fix 5: an old ssh-agent or key format</h2>
+<p>Very old agents (or some Windows agents like old Pageant) can't produce <code>rsa-sha2</code> signatures. Update the agent (PuTTY 0.75+), or bypass it with <code>ssh -o IdentitiesOnly=yes -i ~/.ssh/id_rsa user@host</code>. A key in an unexpected format may also fail to load; see <a href="/ssh/ssh-load-key-invalid-format/">Load key: invalid format</a>.</p>
+<p class="upd">Last updated 2026-11-10.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/ssh/ssh-load-key-invalid-format/">Load key &quot;id_rsa&quot;: invalid format</a></li><li><a href="/ssh/ssh-no-matching-host-key-type-found/">no matching host key type found. Their offer: ssh-rsa</a></li><li><a href="/ssh/ssh-permission-denied-publickey/">Permission denied (publickey)</a></li><li><a href="/ssh/ssh-connect-to-host-port-22-connection-refused/">ssh: connect to host port 22: Connection refused</a></li><li><a href="/ssh/ssh-connection-closed-by-remote-host/">Connection closed by remote host</a></li><li><a href="/ssh/ssh-connection-timed-out/">ssh: connect to host port 22: Connection timed out</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

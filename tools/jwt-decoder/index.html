@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JWT Decoder — decode a JSON Web Token&#x27;s header, payload and expiry</title>
+<meta name="description" content="Decode a JSON Web Token (JWT) in your browser to read its header and payload, see exp, iat and nbf as dates, and check whether it has expired. Nothing is sent to a server.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/jwt-decoder/">
+<meta property="og:title" content="JWT Decoder — decode a JSON Web Token&#x27;s header, payload and expiry"><meta property="og:description" content="Decode a JSON Web Token (JWT) in your browser to read its header and payload, see exp, iat and nbf as dates, and check whether it has expired. Nothing is sent to a server.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/jwt-decoder/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "JWT decoder", "url": "https://errorfix-hollis.github.io/tools/jwt-decoder/", "description": "Decode a JSON Web Token (JWT) in your browser to read its header and payload, see exp, iat and nbf as dates, and check whether it has expired. Nothing is sent to a server.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-01", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": "JWT decoder", "item": "https://errorfix-hollis.github.io/tools/jwt-decoder/"}]}</script><script src="/tools.js?v=70df2f10" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>JWT decoder</h1>
+<p class="lead">Paste a JSON Web Token to read its header and payload and see whether it has expired; decoding happens locally and the signature is not verified.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="jwt"><label for="jwt-in">Paste a JWT <small>(the "Bearer " prefix is removed automatically)</small></label>
+<textarea id="jwt-in" spellcheck="false" class="short" placeholder="eyJhbGciOi..."></textarea>
+<div class="row"><button id="jwt-sample" class="sec">Example token</button></div>
+<div id="jwt-msg" class="msg" hidden></div>
+<div id="jwt-res" hidden>
+<h3>Header</h3><pre class="out"><code id="jwt-h"></code></pre>
+<h3>Payload</h3><pre class="out"><code id="jwt-p"></code></pre>
+<h3>Claims</h3><table id="jwt-claims" class="kv"></table>
+</div>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<p><strong>This tool decodes, it does not verify.</strong> Anyone can create a token with any payload; only the server that holds the secret or public key can check the signature. Never trust a token's contents in your app without verifying it with a library such as <code>jsonwebtoken</code>, <code>jose</code> or <code>PyJWT</code>.</p>
+<h2 id="jwt-structure">JWT structure</h2>
+<p>A JWT is three Base64URL strings joined by dots: <code>header.payload.signature</code>. The header says how it was signed (<code>alg</code>, e.g. <code>HS256</code>, <code>RS256</code>, <code>ES256</code>), the payload holds the claims, and the signature covers the first two parts. The payload is only encoded, not encrypted, so don't put secrets in it. A token with <strong>five</strong> parts is an encrypted JWE, which cannot be read without the key.</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Name</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>iss</code></td>
+<td>Issuer</td>
+<td>who issued the token (e.g. your auth server URL)</td>
+</tr>
+<tr>
+<td><code>sub</code></td>
+<td>Subject</td>
+<td>the user or entity the token is about</td>
+</tr>
+<tr>
+<td><code>aud</code></td>
+<td>Audience</td>
+<td>which API the token is meant for</td>
+</tr>
+<tr>
+<td><code>exp</code></td>
+<td>Expiration</td>
+<td>Unix time in <strong>seconds</strong> after which it must be rejected</td>
+</tr>
+<tr>
+<td><code>nbf</code></td>
+<td>Not before</td>
+<td>Unix time before which it must be rejected</td>
+</tr>
+<tr>
+<td><code>iat</code></td>
+<td>Issued at</td>
+<td>Unix time when it was created</td>
+</tr>
+<tr>
+<td><code>jti</code></td>
+<td>JWT ID</td>
+<td>unique id, used to prevent replay</td>
+</tr>
+</tbody>
+</table>
+<h2 id="debugging-invalid-token-and-401-errors">Debugging "invalid token" and 401 errors</h2>
+<ul>
+<li><strong>Expired:</strong> compare <code>exp</code> with the current time. Remember it is in seconds; JavaScript's <code>Date.now()</code> is milliseconds. The <a href="/tools/unix-timestamp-converter/">timestamp converter</a> helps.</li>
+<li><strong>Clock skew:</strong> if <code>iat</code>/<code>nbf</code> is slightly in the future, the server's clock is off; most libraries accept a small <code>leeway</code>.</li>
+<li><strong>Wrong audience or issuer:</strong> <code>aud</code>/<code>iss</code> must match exactly what the API is configured for.</li>
+<li><strong>Algorithm mismatch:</strong> an <code>RS256</code> token checked with an HMAC secret (or vice versa) always fails.</li>
+<li><strong>Kubernetes:</strong> service account tokens are JWTs too; decode one to see its namespace and service account when you hit <a href="/kubernetes/k8s-error-from-server-forbidden/">Error from server (Forbidden)</a>.</li>
+</ul>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-error-from-server-forbidden/">Error from server (Forbidden): User cannot list resource in API group at the cluster scope</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/json-formatter/">JSON formatter &amp; validator</a></li><li><a href="/tools/cron-expression-explainer/">Cron expression explainer</a></li><li><a href="/tools/chmod-calculator/">chmod calculator</a></li><li><a href="/tools/unix-timestamp-converter/">Unix timestamp converter</a></li><li><a href="/tools/base64-encode-decode/">Base64 encode / decode</a></li><li><a href="/tools/url-encode-decode/">URL encode / decode</a></li><li><a href="/tools/regex-tester/">Regex tester</a></li><li><a href="/tools/yaml-validator/">YAML validator &amp; YAML ↔ JSON converter</a></li><li><a href="/tools/uuid-generator/">UUID generator &amp; validator (v4, v7)</a></li><li><a href="/tools/text-diff/">Text diff checker</a></li><li><a href="/tools/http-status-codes/">HTTP status codes reference</a></li><li><a href="/tools/hash-generator/">Hash generator (MD5, SHA-256, SHA-512)</a></li><li><a href="/tools/line-ending-whitespace-inspector/">Line ending &amp; whitespace inspector</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

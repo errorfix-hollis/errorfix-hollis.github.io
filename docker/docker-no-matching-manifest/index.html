@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>no matching manifest for linux/arm64/v8 in the manifest list entries (Docker) — how to fix</title>
+<meta name="description" content="The image you pulled has no build for your CPU architecture (often Apple Silicon / ARM pulling an amd64-only image, or the reverse). Use a multi-arch tag, emulate with --platform, or build the image yourself.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-no-matching-manifest/">
+<meta property="og:title" content="no matching manifest for linux/arm64/v8 in the manifest list entries (Docker) — how to fix"><meta property="og:description" content="The image you pulled has no build for your CPU architecture (often Apple Silicon / ARM pulling an amd64-only image, or the reverse). Use a multi-arch tag, emulate with --platform, or build the image yourself.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-no-matching-manifest/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "no matching manifest for linux/arm64/v8 in the manifest list entries (Docker) \u2014 how to fix", "description": "The image you pulled has no build for your CPU architecture (often Apple Silicon / ARM pulling an amd64-only image, or the reverse). Use a multi-arch tag, emulate with --platform, or build the image yourself.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/docker/docker-no-matching-manifest/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "no matching manifest for linux/arm64/v8 in the manifest list entries", "item": "https://errorfix-hollis.github.io/docker/docker-no-matching-manifest/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>no matching manifest for linux/arm64/v8 in the manifest list entries (Docker) — how to fix</h1>
+<pre class="err"><code>Error response from daemon: no matching manifest for linux/arm64/v8 in the manifest list entries
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run it under emulation: <code>docker pull --platform linux/amd64 image:tag</code> (or <code>platform: linux/amd64</code> in docker-compose). Better: use a tag/image that publishes your architecture, or build locally.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Docker images can publish several variants (amd64, arm64, …) under one tag via a <em>manifest list</em>. Docker picks the one matching your machine. If there's no variant for your platform, the pull fails.</p>
+<p>Check your platform and what the image offers:</p>
+<pre><code class="language-bash">docker info --format '{{.OSType}}/{{.Architecture}}'
+docker manifest inspect mysql:5.7 | grep -A2 platform
+</code></pre>
+<h2 id="fix-1-run-the-other-architecture-under-emulation">Fix 1: run the other architecture under emulation</h2>
+<p>Docker Desktop (Mac/Windows) includes QEMU emulation:</p>
+<pre><code class="language-bash">docker pull --platform linux/amd64 mysql:5.7
+docker run --platform linux/amd64 mysql:5.7
+</code></pre>
+<p>docker-compose:</p>
+<pre><code class="language-yaml">services:
+  db:
+    image: mysql:5.7
+    platform: linux/amd64
+</code></pre>
+<p>On Linux, install emulators first:</p>
+<pre><code class="language-bash">docker run --privileged --rm tonistiigi/binfmt --install all
+</code></pre>
+<p>Emulation works but is slower.</p>
+<h2 id="fix-2-use-an-image-that-supports-your-architecture">Fix 2: use an image that supports your architecture</h2>
+<ul>
+<li><code>mysql:5.7</code> has no arm64 build; <code>mysql:8</code> and <code>mariadb</code> do.</li>
+<li>Check Docker Hub's "OS/ARCH" column on the Tags tab.</li>
+<li>Some projects publish separate tags (<code>-arm64</code>) or alternative images (e.g. <code>arm64v8/…</code>).</li>
+</ul>
+<h2 id="fix-3-build-it-yourself-for-your-platform">Fix 3: build it yourself for your platform</h2>
+<p>If you control the Dockerfile, build multi-arch images with buildx:</p>
+<pre><code class="language-bash">docker buildx create --use
+docker buildx build --platform linux/amd64,linux/arm64 -t you/app:latest --push .
+</code></pre>
+<h2 id="related-running-the-wrong-architecture">Related: running the wrong architecture</h2>
+<p>If you force the wrong platform without emulation, the container fails with <code>exec format error</code>.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-exec-format-error/">exec format error</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li><li><a href="/docker/docker-container-name-already-in-use/">Conflict. The container name is already in use by container</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>gyp ERR! find Python (Node.js) — how to fix</title>
+<meta name="description" content="A package with a native C/C++ addon (bcrypt, sqlite3, node-sass, canvas...) is being compiled with node-gyp, which needs Python and a C++ compiler, and it couldn&#x27;t find a usable Python.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-gyp-err-find-python/">
+<meta property="og:title" content="gyp ERR! find Python (Node.js) — how to fix"><meta property="og:description" content="A package with a native C/C++ addon (bcrypt, sqlite3, node-sass, canvas...) is being compiled with node-gyp, which needs Python and a C++ compiler, and it couldn&#x27;t find a usable Python.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-gyp-err-find-python/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "gyp ERR! find Python (Node.js) \u2014 how to fix", "description": "A package with a native C/C++ addon (bcrypt, sqlite3, node-sass, canvas...) is being compiled with node-gyp, which needs Python and a C++ compiler, and it couldn't find a usable Python.", "dateModified": "2026-10-31", "url": "https://errorfix-hollis.github.io/npm/npm-gyp-err-find-python/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "gyp ERR! find Python", "item": "https://errorfix-hollis.github.io/npm/npm-gyp-err-find-python/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>gyp ERR! find Python (Node.js) — how to fix</h1>
+<pre class="err"><code>gyp ERR! find Python
+gyp ERR! find Python Python is not set from command line or npm configuration
+gyp ERR! find Python Python is not set from environment variable PYTHON
+gyp ERR! find Python checking if &quot;python3&quot; can be used
+gyp ERR! find Python - &quot;python3&quot; is not in PATH or produced an error
+gyp ERR! find Python You need to install the latest version of Python.
+gyp ERR! configure error
+gyp ERR! stack Error: Could not find any Python installation to use
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install Python 3 and build tools (<code>sudo apt install python3 make g++</code> / <code>xcode-select --install</code> / Visual Studio Build Tools with 'Desktop development with C++' on Windows), or point npm at it: <code>npm config set python /usr/bin/python3</code> or <code>export npm_config_python=/usr/bin/python3</code>. Better: upgrade the package to a version with prebuilt binaries.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>node-gyp</code> builds native Node.js addons. It runs a Python program (gyp) to generate build files, then a C++ compiler. This error is the first step failing: no Python was found, or the one found didn't work. You see it during <code>npm install</code> when a dependency has no prebuilt binary for your Node version/OS.</p>
+<p>Find which package is building:</p>
+<pre><code class="language-bash">npm install --foreground-scripts 2&gt;&amp;1 | grep -B5 &quot;gyp ERR&quot; | head -30
+</code></pre>
+<h2 id="fix-1-install-python-and-a-compiler">Fix 1: install Python and a compiler</h2>
+<p>Debian/Ubuntu:</p>
+<pre><code class="language-bash">sudo apt update
+sudo apt install python3 make g++
+</code></pre>
+<p>Fedora: <code>sudo dnf install python3 make gcc-c++</code>. Alpine (Docker): <code>apk add --no-cache python3 make g++</code>.</p>
+<p>macOS:</p>
+<pre><code class="language-bash">xcode-select --install       # compiler; Python 3 is included with recent macOS or install via Homebrew
+</code></pre>
+<p>Windows: install Python 3 from python.org (tick "Add python.exe to PATH") and Visual Studio Build Tools with the <strong>Desktop development with C++</strong> workload. The old <code>npm install --global windows-build-tools</code> package is deprecated — don't use it.</p>
+<h2 id="fix-2-tell-node-gyp-which-python-to-use">Fix 2: tell node-gyp which Python to use</h2>
+<p>If Python is installed but not found (custom path, only <code>python</code> and not <code>python3</code>, pyenv):</p>
+<pre><code class="language-bash">npm config set python /usr/bin/python3
+# or for one command
+npm_config_python=/usr/bin/python3 npm install
+</code></pre>
+<p>On Windows: <code>npm config set python C:\Path\To\python.exe</code>.</p>
+<h2 id="fix-3-python-312-and-no-module-named-distutils">Fix 3: Python 3.12+ and "No module named 'distutils'"</h2>
+<p>Older node-gyp versions import <code>distutils</code>, removed in Python 3.12. You then see <code>ModuleNotFoundError: No module named 'distutils'</code> right after gyp finds Python. Either upgrade node-gyp (bundled with npm — <code>npm install -g npm@latest</code>), or install setuptools, which provides a <code>distutils</code> shim:</p>
+<pre><code class="language-bash">python3 -m pip install setuptools
+</code></pre>
+<h2 id="fix-4-avoid-compiling-at-all">Fix 4: avoid compiling at all</h2>
+<p>Often the real fix is that the package is old:</p>
+<ul>
+<li><code>node-sass</code> is deprecated — replace with <code>sass</code> (pure JS): <code>npm uninstall node-sass &amp;&amp; npm install -D sass</code>.</li>
+<li><code>bcrypt</code> → upgrade to the latest, or use <code>bcryptjs</code> (pure JS).</li>
+<li><code>sqlite3</code>, <code>canvas</code>, <code>sharp</code> — the latest versions ship prebuilt binaries for current Node LTS releases.</li>
+</ul>
+<p>Prebuilt binaries are only published for supported Node versions. If you're on a brand-new or very old Node, switching to the current LTS (<code>nvm install --lts</code>) frequently makes the build step disappear.</p>
+<h2 id="fix-5-clean-and-retry">Fix 5: clean and retry</h2>
+<pre><code class="language-bash">rm -rf node_modules package-lock.json
+npm cache verify
+npm install
+</code></pre>
+<p>Only delete the lockfile if you're fine with dependency versions changing; otherwise just remove <code>node_modules</code>.</p>
+<p class="upd">Last updated 2026-10-31.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/npm-elifecycle/">npm ERR! code ELIFECYCLE</a></li><li><a href="/python/python-microsoft-visual-cpp-required/">error: Microsoft Visual C++ 14.0 or greater is required.</a></li><li><a href="/python/python-no-module-named-distutils/">ModuleNotFoundError: No module named &#x27;distutils&#x27;</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

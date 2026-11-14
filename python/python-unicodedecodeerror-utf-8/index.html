@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UnicodeDecodeError: &#x27;utf-8&#x27; codec can&#x27;t decode byte 0xff in position 0: invalid start byte (Python) — how to fix</title>
+<meta name="description" content="You&#x27;re reading a file as UTF-8 but it&#x27;s in another encoding (often Windows-1252, Latin-1 or UTF-16) — or it&#x27;s not text at all. Open it with the right encoding.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-unicodedecodeerror-utf-8/">
+<meta property="og:title" content="UnicodeDecodeError: &#x27;utf-8&#x27; codec can&#x27;t decode byte 0xff in position 0: invalid start byte (Python) — how to fix"><meta property="og:description" content="You&#x27;re reading a file as UTF-8 but it&#x27;s in another encoding (often Windows-1252, Latin-1 or UTF-16) — or it&#x27;s not text at all. Open it with the right encoding.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-unicodedecodeerror-utf-8/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte (Python) \u2014 how to fix", "description": "You're reading a file as UTF-8 but it's in another encoding (often Windows-1252, Latin-1 or UTF-16) \u2014 or it's not text at all. Open it with the right encoding.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/python/python-unicodedecodeerror-utf-8/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte", "item": "https://errorfix-hollis.github.io/python/python-unicodedecodeerror-utf-8/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>UnicodeDecodeError: &#x27;utf-8&#x27; codec can&#x27;t decode byte 0xff in position 0: invalid start byte (Python) — how to fix</h1>
+<pre class="err"><code>UnicodeDecodeError: &#x27;utf-8&#x27; codec can&#x27;t decode byte 0xff in position 0: invalid start byte</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Pass the real encoding: <code>open(path, encoding='cp1252')</code> (Windows Excel CSVs), <code>'utf-16'</code> (byte 0xff/0xfe at position 0), or <code>'latin-1'</code>. For binary files, open with <code>'rb'</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>UTF-8 has strict rules for which byte sequences are valid. The file contains a byte that can't appear at that point in UTF-8, so it wasn't written as UTF-8.</p>
+<h2 id="reading-the-clue-in-the-message">Reading the clue in the message</h2>
+<table>
+<thead>
+<tr>
+<th>Byte in the error</th>
+<th>Likely encoding</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0xff</code> or <code>0xfe</code> in <strong>position 0</strong></td>
+<td>UTF-16 (has a byte-order mark)</td>
+</tr>
+<tr>
+<td><code>0x92</code>, <code>0x93</code>, <code>0x96</code>, <code>0xe9</code> somewhere in the middle</td>
+<td>Windows-1252 (<code>cp1252</code>) or Latin-1</td>
+</tr>
+<tr>
+<td><code>0x89</code> in position 0</td>
+<td>it's a PNG image, not text</td>
+</tr>
+<tr>
+<td><code>0x8b</code> in position 1</td>
+<td>it's gzip-compressed</td>
+</tr>
+</tbody>
+</table>
+<h2 id="fix-specify-the-encoding">Fix: specify the encoding</h2>
+<pre><code class="language-python">with open(&quot;data.csv&quot;, encoding=&quot;cp1252&quot;) as f:
+    text = f.read()
+</code></pre>
+<p>pandas:</p>
+<pre><code class="language-python">df = pd.read_csv(&quot;data.csv&quot;, encoding=&quot;cp1252&quot;)     # or &quot;utf-16&quot;, &quot;latin-1&quot;
+</code></pre>
+<p><code>latin-1</code> never raises this error (every byte is valid), which makes it a handy fallback, but accented characters may come out wrong if the real encoding was different.</p>
+<h2 id="dont-know-the-encoding">Don't know the encoding?</h2>
+<pre><code class="language-bash">file -i data.csv
+</code></pre>
+<p>or in Python:</p>
+<pre><code class="language-bash">pip install charset-normalizer
+</code></pre>
+<pre><code class="language-python">from charset_normalizer import from_path
+print(from_path(&quot;data.csv&quot;).best().encoding)
+</code></pre>
+<h2 id="keep-going-and-replace-bad-bytes">Keep going and replace bad bytes</h2>
+<pre><code class="language-python">open(&quot;log.txt&quot;, encoding=&quot;utf-8&quot;, errors=&quot;replace&quot;)   # bad bytes become �
+</code></pre>
+<h2 id="its-a-binary-file">It's a binary file</h2>
+<p>Images, PDFs, Excel <code>.xlsx</code> and pickles aren't text. Open them in binary mode (<code>"rb"</code>) or with the right library (<code>openpyxl</code>/<code>pd.read_excel</code> for <code>.xlsx</code>).</p>
+<h2 id="on-windows-writing-files">On Windows, writing files</h2>
+<p>The reverse problem (<code>UnicodeEncodeError: 'charmap' codec can't encode</code>) comes from Windows' default encoding. Always pass <code>encoding="utf-8"</code> when writing, or set <code>PYTHONUTF8=1</code>.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li><li><a href="/python/python-attributeerror-str-object-has-no-attribute/">AttributeError: &#x27;str&#x27; object has no attribute</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: missing 1 required positional argument: &#x27;self&#x27; (Python) — how to fix</title>
+<meta name="description" content="An instance method was called on the class itself instead of on an instance, so Python had nothing to pass as `self`. Create an instance first, or make the method a `@staticmethod`/`@classmethod`.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-missing-1-required-positional-argument-self/">
+<meta property="og:title" content="TypeError: missing 1 required positional argument: &#x27;self&#x27; (Python) — how to fix"><meta property="og:description" content="An instance method was called on the class itself instead of on an instance, so Python had nothing to pass as `self`. Create an instance first, or make the method a `@staticmethod`/`@classmethod`.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-missing-1-required-positional-argument-self/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: missing 1 required positional argument: 'self' (Python) \u2014 how to fix", "description": "An instance method was called on the class itself instead of on an instance, so Python had nothing to pass as `self`. Create an instance first, or make the method a `@staticmethod`/`@classmethod`.", "dateModified": "2026-11-07", "url": "https://errorfix-hollis.github.io/python/python-typeerror-missing-1-required-positional-argument-self/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: missing 1 required positional argument: 'self'", "item": "https://errorfix-hollis.github.io/python/python-typeerror-missing-1-required-positional-argument-self/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: missing 1 required positional argument: &#x27;self&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;main.py&quot;, line 9, in &lt;module&gt;
+    Counter.increment()
+TypeError: Counter.increment() missing 1 required positional argument: &#x27;self&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Instantiate the class and call the method on the object: <code>c = Counter(); c.increment()</code> (note the parentheses after <code>Counter</code>). If the method doesn't need instance data, decorate it with <code>@staticmethod</code> (no <code>self</code>) or <code>@classmethod</code> (takes <code>cls</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When you call <code>obj.method()</code>, Python passes <code>obj</code> as the first argument, <code>self</code>. When you call <code>ClassName.method()</code>, there is no object, so <code>self</code> is missing and Python reports it like any other missing argument.</p>
+<pre><code class="language-python">class Counter:
+    def __init__(self):
+        self.n = 0
+
+    def increment(self):
+        self.n += 1
+
+Counter.increment()   # TypeError: ... missing 1 required positional argument: 'self'
+</code></pre>
+<h2 id="cause-1-calling-the-method-on-the-class">Cause 1: calling the method on the class</h2>
+<p>Fix: create an instance and call the method on it.</p>
+<pre><code class="language-python">c = Counter()
+c.increment()
+print(c.n)   # 1
+</code></pre>
+<h2 id="cause-2-forgot-the-parentheses-when-creating-the-instance">Cause 2: forgot the parentheses when creating the instance</h2>
+<p>This is the most common version of the bug:</p>
+<pre><code class="language-python">c = Counter       # c is the class, not an instance
+c.increment()     # TypeError
+</code></pre>
+<p>Fix: <code>c = Counter()</code>. The same applies to callbacks and configuration, e.g. <code>app.add_handler(MyHandler)</code> vs <code>app.add_handler(MyHandler())</code> — check what the API expects.</p>
+<h2 id="cause-3-the-method-doesnt-need-an-instance">Cause 3: the method doesn't need an instance</h2>
+<p>If the method never uses <code>self</code>, make that explicit:</p>
+<pre><code class="language-python">class MathUtil:
+    @staticmethod
+    def square(x):
+        return x * x
+
+MathUtil.square(4)   # 16
+</code></pre>
+<p>If it needs the class (e.g. an alternative constructor), use <code>@classmethod</code>:</p>
+<pre><code class="language-python">class User:
+    def __init__(self, name):
+        self.name = name
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(d[&quot;name&quot;])
+
+u = User.from_dict({&quot;name&quot;: &quot;ana&quot;})
+</code></pre>
+<h2 id="cause-4-self-missing-from-the-method-definition-or-a-decorator-in-the-wrong-place">Cause 4: <code>self</code> missing from the method definition, or a decorator in the wrong place</h2>
+<p>If you defined a method without <code>self</code> and call it on an instance, the error is the reverse (<code>takes 0 positional arguments but 1 was given</code>). If you added <code>@staticmethod</code> but kept <code>self</code> as a parameter, calling it without arguments gives <em>this</em> error, because <code>self</code> is now an ordinary parameter. Remove <code>self</code> from static methods.</p>
+<h2 id="cause-5-passing-an-unbound-method-as-a-callback">Cause 5: passing an unbound method as a callback</h2>
+<pre><code class="language-python">import threading
+t = threading.Thread(target=Worker.run)    # Worker is the class
+t.start()                                   # TypeError inside the thread
+</code></pre>
+<p>Fix: pass a bound method from an instance: <code>w = Worker(); threading.Thread(target=w.run)</code>. The same applies to <code>map(Cls.method, ...)</code>, <code>sorted(key=...)</code>, button <code>command=</code> handlers in Tkinter, and Flask/FastAPI dependencies.</p>
+<h2 id="cause-6-frameworks-that-expect-an-instance">Cause 6: frameworks that expect an instance</h2>
+<ul>
+<li><strong>unittest / pytest</strong>: don't call test methods directly on the <code>TestCase</code> class; let the runner instantiate it.</li>
+<li><strong>Django</strong>: <code>MyView.get(request)</code> fails; route with <code>MyView.as_view()</code>.</li>
+<li><strong>Mocking</strong>: <code>mock.patch.object(Class, "method")</code> replaces the function on the class; using <code>autospec=True</code> makes the mock require <code>self</code> too, so call it through an instance.</li>
+</ul>
+<h2 id="quick-check">Quick check</h2>
+<p>Print what you are calling on:</p>
+<pre><code class="language-python">print(type(c))   # &lt;class 'type'&gt; means you have the class, not an instance
+</code></pre>
+<p>An instance shows <code>&lt;class '__main__.Counter'&gt;</code>.</p>
+<p class="upd">Last updated 2026-11-07.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li><li><a href="/python/python-nameerror-name-is-not-defined/">NameError: name &#x27;x&#x27; is not defined</a></li><li><a href="/python/python-typeerror-module-object-is-not-callable/">TypeError: &#x27;module&#x27; object is not callable</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

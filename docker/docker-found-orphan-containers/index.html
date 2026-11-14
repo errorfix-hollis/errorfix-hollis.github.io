@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Found orphan containers for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up. (Docker) — how to fix</title>
+<meta name="description" content="Docker Compose found running or stopped containers labelled with your project name that don&#x27;t match any service in the current compose file: a service was removed/renamed, or two compose files share the same project name.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-found-orphan-containers/">
+<meta property="og:title" content="Found orphan containers for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up. (Docker) — how to fix"><meta property="og:description" content="Docker Compose found running or stopped containers labelled with your project name that don&#x27;t match any service in the current compose file: a service was removed/renamed, or two compose files share the same project name.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-found-orphan-containers/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Found orphan containers for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up. (Docker) \u2014 how to fix", "description": "Docker Compose found running or stopped containers labelled with your project name that don't match any service in the current compose file: a service was removed/renamed, or two compose files share the same project name.", "dateModified": "2026-11-12", "url": "https://errorfix-hollis.github.io/docker/docker-found-orphan-containers/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "Found orphan containers for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.", "item": "https://errorfix-hollis.github.io/docker/docker-found-orphan-containers/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>Found orphan containers for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up. (Docker) — how to fix</h1>
+<pre class="err"><code>WARN[0000] Found orphan containers ([myapp-redis-1 myapp-worker-1]) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> If the services were removed or renamed, clean up with <code>docker compose up -d --remove-orphans</code> (or <code>docker compose down --remove-orphans</code>). If two different stacks share a folder name, give each a unique project name: <code>docker compose -p myproject up -d</code> or <code>name: myproject</code> at the top of compose.yaml.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Compose doesn't keep a state file. It finds "its" containers by <strong>labels</strong>: every container it creates gets <code>com.docker.compose.project=&lt;project&gt;</code> and <code>com.docker.compose.service=&lt;service&gt;</code>. On <code>up</code>, <code>run</code> or <code>down</code>, it lists containers with your project label and compares them to the services in the compose file. Containers whose service no longer exists are <strong>orphans</strong>.</p>
+<p>It's a warning, not a failure. But orphans keep running, hold ports and networks, and can cause <a href="/docker/docker-network-has-active-endpoints/">network has active endpoints</a> on <code>down</code>.</p>
+<p>See what Compose considers part of the project:</p>
+<pre><code class="language-bash">docker ps -a --filter &quot;label=com.docker.compose.project=myapp&quot; \
+  --format &quot;table {{.Names}}\t{{.Label \&quot;com.docker.compose.service\&quot;}}\t{{.Status}}&quot;
+</code></pre>
+<h2 id="cause-1-you-removed-or-renamed-a-service">Cause 1: you removed or renamed a service</h2>
+<p>You renamed <code>redis</code> to <code>cache</code>, or deleted the <code>worker</code> service. The old containers are still there. Remove them:</p>
+<pre><code class="language-bash">docker compose up -d --remove-orphans
+# or tear everything down, orphans included
+docker compose down --remove-orphans
+</code></pre>
+<p>To make this the default (Compose v2.x), set:</p>
+<pre><code class="language-bash">export COMPOSE_REMOVE_ORPHANS=1
+</code></pre>
+<h2 id="cause-2-two-compose-projects-share-the-same-name">Cause 2: two compose projects share the same name</h2>
+<p>The project name defaults to the <strong>directory name</strong>. Two separate stacks in folders both called <code>docker</code> or <code>app</code> (e.g. <code>~/work/api/docker</code> and <code>~/work/web/docker</code>) become the same project and see each other's containers as orphans. Running <code>--remove-orphans</code> here would delete the other stack, so don't.</p>
+<p>Give each stack a unique name instead. In <code>compose.yaml</code> (Compose v2.3+):</p>
+<pre><code class="language-yaml">name: api
+services:
+  db:
+    image: postgres:16
+</code></pre>
+<p>Or on the command line / environment:</p>
+<pre><code class="language-bash">docker compose -p api up -d
+# .env next to the compose file
+COMPOSE_PROJECT_NAME=api
+</code></pre>
+<p>After renaming, the old containers still carry the old label; stop them once with the old name: <code>docker compose -p docker down</code>.</p>
+<h2 id="cause-3-several-compose-files-for-one-project">Cause 3: several compose files for one project</h2>
+<p>If you run <code>docker compose -f compose.yaml -f compose.dev.yaml up</code> sometimes and only <code>compose.yaml</code> other times, services defined only in the dev file look like orphans in the second case. Always pass the same set of files, or put them in <code>COMPOSE_FILE</code>:</p>
+<pre><code class="language-bash"># .env
+COMPOSE_FILE=compose.yaml:compose.dev.yaml
+</code></pre>
+<p>Services you only want sometimes are better handled with <strong>profiles</strong>:</p>
+<pre><code class="language-yaml">services:
+  adminer:
+    image: adminer
+    profiles: [debug]
+</code></pre>
+<pre><code class="language-bash">docker compose --profile debug up -d
+</code></pre>
+<h2 id="cause-4-docker-compose-run-containers">Cause 4: <code>docker compose run</code> containers</h2>
+<p>One-off containers from <code>docker compose run</code> (named like <code>myapp-web-run-1a2b3c</code>) stay around unless you use <code>--rm</code>:</p>
+<pre><code class="language-bash">docker compose run --rm web python manage.py migrate
+</code></pre>
+<p>Clean up leftovers with <code>docker compose down --remove-orphans</code> or <code>docker container prune</code>.</p>
+<p class="upd">Last updated 2026-11-12.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/docker/docker-container-name-already-in-use/">Conflict. The container name is already in use by container</a></li><li><a href="/docker/docker-network-has-active-endpoints/">Error response from daemon: error while removing network: network has active endpoints</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

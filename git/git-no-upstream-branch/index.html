@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal: The current branch has no upstream branch. (Git) — how to fix</title>
+<meta name="description" content="Your new local branch isn&#x27;t linked to a remote branch yet. Push it once with -u, or tell Git to do this automatically.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-no-upstream-branch/">
+<meta property="og:title" content="fatal: The current branch has no upstream branch. (Git) — how to fix"><meta property="og:description" content="Your new local branch isn&#x27;t linked to a remote branch yet. Push it once with -u, or tell Git to do this automatically.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-no-upstream-branch/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal: The current branch has no upstream branch. (Git) \u2014 how to fix", "description": "Your new local branch isn't linked to a remote branch yet. Push it once with -u, or tell Git to do this automatically.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/git/git-no-upstream-branch/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "fatal: The current branch has no upstream branch.", "item": "https://errorfix-hollis.github.io/git/git-no-upstream-branch/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>fatal: The current branch has no upstream branch. (Git) — how to fix</h1>
+<pre class="err"><code>fatal: The current branch feature-x has no upstream branch.
+To push the current branch and set the remote as upstream, use
+
+    git push --set-upstream origin feature-x
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>git push -u origin HEAD</code> (or <code>git push --set-upstream origin feature-x</code>). To never see this again: <code>git config --global push.autoSetupRemote true</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A plain <code>git push</code> pushes to the branch's <strong>upstream</strong> (the remote branch it tracks). A branch you just created locally has none yet, so Git doesn't know where to push.</p>
+<h2 id="fix">Fix</h2>
+<pre><code class="language-bash">git push -u origin HEAD
+</code></pre>
+<p><code>-u</code> (<code>--set-upstream</code>) links the branch, so later <code>git push</code> and <code>git pull</code> work without arguments. <code>HEAD</code> means "the current branch", so you don't have to type its name.</p>
+<h2 id="make-it-automatic-git-237">Make it automatic (Git 2.37+)</h2>
+<pre><code class="language-bash">git config --global push.autoSetupRemote true
+</code></pre>
+<p>Now the first <code>git push</code> on a new branch creates and tracks the remote branch by itself.</p>
+<h2 id="check-what-a-branch-tracks">Check what a branch tracks</h2>
+<pre><code class="language-bash">git branch -vv
+</code></pre>
+<p>Link an existing remote branch without pushing:</p>
+<pre><code class="language-bash">git branch --set-upstream-to=origin/feature-x
+</code></pre>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-src-refspec-main-does-not-match-any/">error: src refspec main does not match any</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

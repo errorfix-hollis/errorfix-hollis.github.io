@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR 1215 (HY000): Cannot add foreign key constraint (MySQL) — how to fix</title>
+<meta name="description" content="MySQL refused to create a foreign key because the two columns don&#x27;t match exactly, the referenced column isn&#x27;t indexed, the referenced table doesn&#x27;t exist yet, or the engine isn&#x27;t InnoDB. SHOW ENGINE INNODB STATUS shows the exact reason.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-mysql-error-1215-cannot-add-foreign-key-constraint/">
+<meta property="og:title" content="ERROR 1215 (HY000): Cannot add foreign key constraint (MySQL) — how to fix"><meta property="og:description" content="MySQL refused to create a foreign key because the two columns don&#x27;t match exactly, the referenced column isn&#x27;t indexed, the referenced table doesn&#x27;t exist yet, or the engine isn&#x27;t InnoDB. SHOW ENGINE INNODB STATUS shows the exact reason.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-mysql-error-1215-cannot-add-foreign-key-constraint/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR 1215 (HY000): Cannot add foreign key constraint (MySQL) \u2014 how to fix", "description": "MySQL refused to create a foreign key because the two columns don't match exactly, the referenced column isn't indexed, the referenced table doesn't exist yet, or the engine isn't InnoDB. SHOW ENGINE INNODB STATUS shows the exact reason.", "dateModified": "2026-11-09", "url": "https://errorfix-hollis.github.io/database/db-mysql-error-1215-cannot-add-foreign-key-constraint/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR 1215 (HY000): Cannot add foreign key constraint", "item": "https://errorfix-hollis.github.io/database/db-mysql-error-1215-cannot-add-foreign-key-constraint/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR 1215 (HY000): Cannot add foreign key constraint (MySQL) — how to fix</h1>
+<pre class="err"><code>ERROR 1215 (HY000): Cannot add foreign key constraint
+ERROR 3780 (HY000): Referencing column &#x27;user_id&#x27; and referenced column &#x27;id&#x27; in foreign key constraint &#x27;fk_orders_user&#x27; are incompatible.
+ERROR 1822 (HY000): Failed to add the foreign key constraint. Missing index for constraint &#x27;fk_orders_user&#x27; in the referenced table &#x27;users&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>SHOW ENGINE INNODB STATUS\G</code> and read LATEST FOREIGN KEY ERROR. Make both columns the same type, length and signedness (e.g. both <code>BIGINT UNSIGNED</code>) and the same charset/collation, make the referenced column a PRIMARY KEY or indexed, create the parent table first, and use ENGINE=InnoDB.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A foreign key requires the child column and the parent column to be strictly compatible, and the parent column to be indexed. Error 1215 is the generic message; MySQL 8.0 often gives a more specific one (3780 for type mismatch, 1822 for missing index). Get the real reason:</p>
+<pre><code class="language-sql">SHOW ENGINE INNODB STATUS\G
+</code></pre>
+<p>Look for the <code>LATEST FOREIGN KEY ERROR</code> section.</p>
+<h2 id="cause-1-column-types-dont-match-exactly">Cause 1: column types don't match exactly</h2>
+<p>Type, size and <code>UNSIGNED</code> must match. This is the most common cause — especially Laravel/Rails-style <code>BIGINT UNSIGNED</code> ids referenced by a plain <code>INT</code>:</p>
+<pre><code class="language-sql">CREATE TABLE users (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY
+) ENGINE=InnoDB;
+
+CREATE TABLE orders (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT,                                -- wrong: INT signed
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+</code></pre>
+<p>Fix the child column:</p>
+<pre><code class="language-sql">ALTER TABLE orders MODIFY user_id BIGINT UNSIGNED;
+ALTER TABLE orders ADD CONSTRAINT fk_orders_user
+  FOREIGN KEY (user_id) REFERENCES users(id);
+</code></pre>
+<p>Compare definitions with <code>SHOW CREATE TABLE users;</code> and <code>SHOW CREATE TABLE orders;</code>. (<code>VARCHAR</code> lengths may differ, but <code>INT</code> vs <code>BIGINT</code> or signed vs unsigned may not.)</p>
+<h2 id="cause-2-string-columns-with-different-charsetcollation">Cause 2: string columns with different charset/collation</h2>
+<p>For <code>VARCHAR</code>/<code>CHAR</code> keys, both columns need the same character set and collation:</p>
+<pre><code class="language-sql">SELECT table_name, column_name, character_set_name, collation_name
+FROM information_schema.columns
+WHERE table_schema = DATABASE() AND column_name IN ('code', 'country_code');
+
+ALTER TABLE orders MODIFY country_code VARCHAR(2)
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+</code></pre>
+<p>This often appears when old <code>utf8</code>/<code>latin1</code> tables meet new <code>utf8mb4</code> ones.</p>
+<h2 id="cause-3-referenced-column-isnt-indexed">Cause 3: referenced column isn't indexed</h2>
+<p>The parent column must be the leftmost column of an index (normally the PRIMARY KEY or a UNIQUE key):</p>
+<pre><code class="language-sql">ALTER TABLE users ADD UNIQUE INDEX ux_users_email (email);
+</code></pre>
+<p>For a composite foreign key, the columns must appear in the same order as in the parent index.</p>
+<h2 id="cause-4-parent-table-doesnt-exist-yet-or-is-myisam">Cause 4: parent table doesn't exist yet (or is MyISAM)</h2>
+<p>Create tables in dependency order, or load dumps with checks off:</p>
+<pre><code class="language-sql">SET FOREIGN_KEY_CHECKS = 0;
+-- CREATE TABLE ... / SOURCE dump.sql
+SET FOREIGN_KEY_CHECKS = 1;
+</code></pre>
+<p>Both tables must be InnoDB:</p>
+<pre><code class="language-sql">SELECT table_name, engine FROM information_schema.tables WHERE table_schema = DATABASE();
+ALTER TABLE users ENGINE=InnoDB;
+</code></pre>
+<p>Also check spelling and case of table names — on Linux, table names are case-sensitive by default.</p>
+<h2 id="cause-5-on-delete-set-null-on-a-not-null-column">Cause 5: ON DELETE SET NULL on a NOT NULL column</h2>
+<pre><code class="language-sql">user_id BIGINT UNSIGNED NOT NULL,
+FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL   -- invalid
+</code></pre>
+<p>Make the column nullable or use <code>ON DELETE CASCADE</code> / <code>RESTRICT</code>.</p>
+<h2 id="cause-6-duplicate-constraint-name">Cause 6: duplicate constraint name</h2>
+<p>Constraint names are unique per database. Reusing <code>fk_user</code> on two tables fails (error 1826 in newer versions, 1215/121 in older). Use names like <code>fk_&lt;table&gt;_&lt;column&gt;</code>.</p>
+<h2 id="existing-data-violates-the-key">Existing data violates the key</h2>
+<p>If the constraint definition is fine but existing rows reference missing parents, you'll get error 1452 instead — see <a href="/database/db-mysql-error-1452-cannot-add-or-update-a-child-row/">Cannot add or update a child row</a>.</p>
+<p class="upd">Last updated 2026-11-09.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-error-1451-cannot-delete-or-update-a-parent-row/">ERROR 1451 (23000): Cannot delete or update a parent row: a foreign key constraint fails</a></li><li><a href="/database/db-mysql-error-1452-cannot-add-or-update-a-child-row/">ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails</a></li><li><a href="/database/db-mysql-specified-key-was-too-long/">Specified key was too long; max key length is 767 bytes</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

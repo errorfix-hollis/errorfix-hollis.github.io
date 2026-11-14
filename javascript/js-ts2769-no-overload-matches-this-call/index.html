@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TS2769: No overload matches this call. (TypeScript) — how to fix</title>
+<meta name="description" content="The function you called has several overload signatures in its type definitions, and your arguments don&#x27;t fit any of them. TypeScript shows why each overload failed; the useful detail is usually in the last or most specific one.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-ts2769-no-overload-matches-this-call/">
+<meta property="og:title" content="TS2769: No overload matches this call. (TypeScript) — how to fix"><meta property="og:description" content="The function you called has several overload signatures in its type definitions, and your arguments don&#x27;t fit any of them. TypeScript shows why each overload failed; the useful detail is usually in the last or most specific one.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-ts2769-no-overload-matches-this-call/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TS2769: No overload matches this call. (TypeScript) \u2014 how to fix", "description": "The function you called has several overload signatures in its type definitions, and your arguments don't fit any of them. TypeScript shows why each overload failed; the useful detail is usually in the last or most specific one.", "dateModified": "2026-11-10", "url": "https://errorfix-hollis.github.io/javascript/js-ts2769-no-overload-matches-this-call/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "TS2769: No overload matches this call.", "item": "https://errorfix-hollis.github.io/javascript/js-ts2769-no-overload-matches-this-call/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>TS2769: No overload matches this call. (TypeScript) — how to fix</h1>
+<pre class="err"><code>error TS2769: No overload matches this call.
+  Overload 1 of 4, &#x27;(): Date&#x27;, gave the following error.
+    Expected 0 arguments, but got 1.
+  Overload 2 of 4, &#x27;(value: string | number | Date): Date&#x27;, gave the following error.
+    Argument of type &#x27;string | undefined&#x27; is not assignable to parameter of type &#x27;string | number | Date&#x27;.
+      Type &#x27;undefined&#x27; is not assignable to type &#x27;string | number | Date&#x27;.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Read the per-overload errors and find the one you meant to call; fix that argument's type (narrow <code>undefined</code> with a check, add a generic like <code>reduce&lt;Record&lt;string, number&gt;&gt;(...)</code>, or type the callback parameters). Don't silence it with <code>as any</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Many APIs declare more than one call signature (overloads): <code>new Date()</code>, <code>Array.prototype.reduce</code>, <code>addEventListener</code>, <code>fetch</code>, React's <code>useState</code>, <code>styled-components</code>, Express route handlers, Mongoose queries and so on. TypeScript tries each overload in order. If <strong>none</strong> accepts your arguments, you get TS2769, followed by the reason each overload rejected the call.</p>
+<p>For a single-signature function the same mistake would be a plain <a href="/javascript/js-ts2345-argument-of-type-is-not-assignable-to-parameter/">TS2345</a>. So: pick the overload you intended, read <em>its</em> error, and fix that argument.</p>
+<h2 id="cause-1-a-possibly-undefined-value">Cause 1: a possibly-undefined value</h2>
+<pre><code class="language-ts">const raw: string | undefined = process.env.START_DATE;
+const d = new Date(raw);   // TS2769
+</code></pre>
+<p>Overload 2 says <code>'string | undefined' is not assignable to 'string | number | Date'</code>. Narrow it:</p>
+<pre><code class="language-ts">if (!raw) throw new Error(&quot;START_DATE is not set&quot;);
+const d = new Date(raw);          // raw is string here
+// or provide a default
+const d2 = new Date(raw ?? Date.now());
+</code></pre>
+<p>Same with <code>parseInt(maybeString)</code>, <code>JSON.parse(localStorage.getItem("x"))</code> (returns <code>string | null</code>) and <code>setTimeout</code>/<code>setInterval</code> callbacks.</p>
+<h2 id="cause-2-reduce-with-an-untyped-initial-value">Cause 2: <code>reduce</code> with an untyped initial value</h2>
+<pre><code class="language-ts">const counts = words.reduce((acc, w) =&gt; {
+  acc[w] = (acc[w] ?? 0) + 1;     // TS2769 / TS7053
+  return acc;
+}, {});
+</code></pre>
+<p><code>{}</code> is inferred as type <code>{}</code>, which matches no overload. Give the accumulator type via the generic:</p>
+<pre><code class="language-ts">const counts = words.reduce&lt;Record&lt;string, number&gt;&gt;((acc, w) =&gt; {
+  acc[w] = (acc[w] ?? 0) + 1;
+  return acc;
+}, {});
+</code></pre>
+<h2 id="cause-3-callback-parameters-or-return-type-dont-match">Cause 3: callback parameters or return type don't match</h2>
+<pre><code class="language-ts">window.addEventListener(&quot;keydown&quot;, (e: MouseEvent) =&gt; {});  // TS2769
+</code></pre>
+<p><code>"keydown"</code> requires a <code>KeyboardEvent</code> listener. Use the right event type or let TypeScript infer it by omitting the annotation:</p>
+<pre><code class="language-ts">window.addEventListener(&quot;keydown&quot;, (e) =&gt; console.log(e.key));
+</code></pre>
+<p>For custom events, augment <code>WindowEventMap</code> (or <code>HTMLElementEventMap</code>) instead of casting.</p>
+<h2 id="cause-4-react-props-and-styled-components">Cause 4: React props and styled components</h2>
+<p>A component with extra or wrongly typed props hits overloads from <code>React.createElement</code> / styled-components:</p>
+<pre><code class="language-tsx">const Button = styled.button&lt;{ $primary?: boolean }&gt;`
+  color: ${(p) =&gt; (p.$primary ? &quot;white&quot; : &quot;black&quot;)};
+`;
+&lt;Button $primary&gt;Save&lt;/Button&gt;
+</code></pre>
+<p>Without the generic, passing <code>$primary</code> produces TS2769. Similarly, check <code>onChange</code> handlers: <code>(e: React.ChangeEvent&lt;HTMLInputElement&gt;) =&gt; void</code> for inputs, not <code>HTMLSelectElement</code>.</p>
+<h2 id="cause-5-express-node-handlers">Cause 5: Express / Node handlers</h2>
+<pre><code class="language-ts">app.get(&quot;/user/:id&quot;, async (req: Request, res: Response) =&gt; { ... });
+</code></pre>
+<p>If <code>Request</code>/<code>Response</code> are imported from the wrong place (the DOM globals instead of <code>express</code>), no overload matches. Import them explicitly:</p>
+<pre><code class="language-ts">import express, { Request, Response } from &quot;express&quot;;
+</code></pre>
+<p>Returning <code>res.json(...)</code> from a handler typed to return <code>void</code> can also fail with newer <code>@types/express</code>; use <code>res.json(...); return;</code>.</p>
+<h2 id="cause-6-mismatched-library-and-types-versions">Cause 6: mismatched library and @types versions</h2>
+<p>If the error appears after an upgrade in code you didn't change, <code>@types/*</code> may not match the library version (e.g. <code>@types/react</code> 18 with React 19). Align them and delete duplicates:</p>
+<pre><code class="language-bash">npm ls @types/react
+npm install -D @types/react@^19 @types/react-dom@^19
+</code></pre>
+<h2 id="debugging-tip">Debugging tip</h2>
+<p>Hover the call in your editor or temporarily assign each argument to a variable with the expected type — the error then moves to the exact argument at fault, which is easier to read than the overload list.</p>
+<p class="upd">Last updated 2026-11-10.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-ts2322-type-is-not-assignable-to-type/">TS2322: Type &#x27;X&#x27; is not assignable to type &#x27;Y&#x27;</a></li><li><a href="/javascript/js-ts2345-argument-of-type-is-not-assignable-to-parameter/">TS2345: Argument of type &#x27;string | undefined&#x27; is not assignable to parameter of type &#x27;string&#x27;.</a></li><li><a href="/javascript/js-ts2532-object-is-possibly-undefined/">Object is possibly &#x27;undefined&#x27;. ts(2532)</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

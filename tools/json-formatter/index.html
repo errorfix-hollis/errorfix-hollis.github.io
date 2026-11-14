@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JSON Formatter &amp; Validator — find the exact error line and column</title>
+<meta name="description" content="Free online JSON formatter, validator and minifier. Pretty-print JSON, and see exactly which line and column is invalid and why. Runs in your browser.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/json-formatter/">
+<meta property="og:title" content="JSON Formatter &amp; Validator — find the exact error line and column"><meta property="og:description" content="Free online JSON formatter, validator and minifier. Pretty-print JSON, and see exactly which line and column is invalid and why. Runs in your browser.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/json-formatter/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "JSON formatter & validator", "url": "https://errorfix-hollis.github.io/tools/json-formatter/", "description": "Free online JSON formatter, validator and minifier. Pretty-print JSON, and see exactly which line and column is invalid and why. Runs in your browser.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-01", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": "JSON formatter & validator", "item": "https://errorfix-hollis.github.io/tools/json-formatter/"}]}</script><script src="/tools.js?v=70df2f10" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>JSON formatter and validator</h1>
+<p class="lead">Paste JSON to pretty-print or minify it; if it is invalid, the tool shows the error, its line and column, and highlights the exact character.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="json"><label for="json-in">Paste JSON</label>
+<textarea id="json-in" spellcheck="false" placeholder='{"paste": "your JSON here"}'></textarea>
+<div class="row">
+<button id="json-fmt">Format</button><button id="json-min" class="sec">Minify</button>
+<label>Indent <select id="json-indent" class="inline"><option value="2">2 spaces</option><option value="4">4 spaces</option><option value="tab">Tab</option></select></label>
+<label><input type="checkbox" id="json-sort"> Sort keys</label>
+<button id="json-sample" class="sec">Broken example</button><button id="json-clear" class="sec">Clear</button>
+</div>
+<div id="json-msg" class="msg" hidden></div>
+<pre id="json-ctx" class="out ctx" hidden></pre>
+<label for="json-out">Output</label>
+<textarea id="json-out" spellcheck="false" readonly></textarea>
+<div class="row"><button id="json-copy" class="sec">Copy output</button></div>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<h2 id="what-makes-json-invalid">What makes JSON invalid</h2>
+<p>JSON is much stricter than JavaScript object syntax. These are the mistakes behind almost every <code>JSON.parse</code> / <code>json.loads</code> error:</p>
+<table>
+<thead>
+<tr>
+<th>Mistake</th>
+<th>Invalid</th>
+<th>Valid</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Trailing comma</td>
+<td><code>{"a": 1,}</code></td>
+<td><code>{"a": 1}</code></td>
+</tr>
+<tr>
+<td>Single quotes</td>
+<td><code>{'a': 'x'}</code></td>
+<td><code>{"a": "x"}</code></td>
+</tr>
+<tr>
+<td>Unquoted keys</td>
+<td><code>{a: 1}</code></td>
+<td><code>{"a": 1}</code></td>
+</tr>
+<tr>
+<td>Comments</td>
+<td><code>{"a": 1 // note}</code></td>
+<td>not allowed at all</td>
+</tr>
+<tr>
+<td>Python literals</td>
+<td><code>True</code>, <code>None</code></td>
+<td><code>true</code>, <code>null</code></td>
+</tr>
+<tr>
+<td><code>undefined</code>, <code>NaN</code>, <code>Infinity</code></td>
+<td><code>{"a": NaN}</code></td>
+<td><code>{"a": null}</code></td>
+</tr>
+<tr>
+<td>Leading zeros / hex</td>
+<td><code>007</code>, <code>0x1F</code></td>
+<td><code>7</code>, <code>31</code></td>
+</tr>
+<tr>
+<td>Raw line break in a string</td>
+<td><code>"line1⏎line2"</code></td>
+<td><code>"line1\nline2"</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="reading-the-error-position">Reading the error position</h2>
+<p>Parsers report the position of the first character they could not accept, which is often <em>after</em> the real mistake. A missing comma is reported at the start of the next key; an unclosed bracket is reported at the very end of the input. Look at the highlighted character and the line just before it.</p>
+<p>If you got an error like <code>Unexpected token &lt; in JSON at position 0</code>, you are not parsing JSON at all: the server returned an HTML page (often a 404 or login page). See <a href="/javascript/js-unexpected-token-in-json/">Unexpected token in JSON</a> for how to debug that.</p>
+<h2 id="format-vs-minify">Format vs. minify</h2>
+<p><strong>Format</strong> (pretty-print) adds indentation and line breaks so humans can read and diff the data. <strong>Minify</strong> removes all optional whitespace to make the payload smaller for APIs and config storage. Both produce exactly the same data. <strong>Sort keys</strong> orders object keys alphabetically, which makes two JSON documents much easier to compare.</p>
+<p>Your JSON is parsed by your own browser's <code>JSON.parse</code>. It is never uploaded, so it is safe to paste API responses or config files that contain internal data.</p>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-unexpected-token-in-json/">SyntaxError: Unexpected token &#x27;&lt;&#x27;, &quot;&lt;!DOCTYPE &quot;... is not valid JSON</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/python/python-keyerror/">KeyError</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/cron-expression-explainer/">Cron expression explainer</a></li><li><a href="/tools/chmod-calculator/">chmod calculator</a></li><li><a href="/tools/unix-timestamp-converter/">Unix timestamp converter</a></li><li><a href="/tools/base64-encode-decode/">Base64 encode / decode</a></li><li><a href="/tools/url-encode-decode/">URL encode / decode</a></li><li><a href="/tools/jwt-decoder/">JWT decoder</a></li><li><a href="/tools/regex-tester/">Regex tester</a></li><li><a href="/tools/yaml-validator/">YAML validator &amp; YAML ↔ JSON converter</a></li><li><a href="/tools/uuid-generator/">UUID generator &amp; validator (v4, v7)</a></li><li><a href="/tools/text-diff/">Text diff checker</a></li><li><a href="/tools/http-status-codes/">HTTP status codes reference</a></li><li><a href="/tools/hash-generator/">Hash generator (MD5, SHA-256, SHA-512)</a></li><li><a href="/tools/line-ending-whitespace-inspector/">Line ending &amp; whitespace inspector</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

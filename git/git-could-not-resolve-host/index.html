@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal: unable to access ... Could not resolve host: github.com — how to fix</title>
+<meta name="description" content="Git couldn&#x27;t turn the hostname into an IP address, so it never reached the server. It&#x27;s a DNS or network problem (offline, VPN, proxy, broken resolver), or a typo in the remote URL.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-could-not-resolve-host/">
+<meta property="og:title" content="fatal: unable to access ... Could not resolve host: github.com — how to fix"><meta property="og:description" content="Git couldn&#x27;t turn the hostname into an IP address, so it never reached the server. It&#x27;s a DNS or network problem (offline, VPN, proxy, broken resolver), or a typo in the remote URL.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-could-not-resolve-host/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal: unable to access ... Could not resolve host: github.com \u2014 how to fix", "description": "Git couldn't turn the hostname into an IP address, so it never reached the server. It's a DNS or network problem (offline, VPN, proxy, broken resolver), or a typo in the remote URL.", "dateModified": "2026-11-14", "url": "https://errorfix-hollis.github.io/git/git-could-not-resolve-host/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "fatal: unable to access ... Could not resolve host: github.com", "item": "https://errorfix-hollis.github.io/git/git-could-not-resolve-host/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>fatal: unable to access ... Could not resolve host: github.com — how to fix</h1>
+<pre class="err"><code>fatal: unable to access &#x27;https://github.com/user/repo.git/&#x27;: Could not resolve host: github.com
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Test DNS outside Git: <code>ping github.com</code> or <code>nslookup github.com</code>. Check the remote URL with <code>git remote -v</code>. If you're behind a proxy set <code>git config --global http.proxy http://proxy:port</code>; if a stale proxy is configured remove it with <code>git config --global --unset http.proxy</code>. On Linux/WSL fix <code>/etc/resolv.conf</code> (e.g. <code>nameserver 1.1.1.1</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Before Git (via curl) can connect over HTTPS it must resolve the host in the URL (<code>github.com</code>, <code>gitlab.com</code>, <code>dev.azure.com</code>, ...) to an IP address. <code>Could not resolve host</code> means that DNS lookup failed. Authentication, permissions and the repository itself are not involved yet.</p>
+<p>First check whether it's Git-specific or the whole machine:</p>
+<pre><code class="language-bash">nslookup github.com
+ping -c 3 github.com        # Windows: ping github.com
+curl -sI https://github.com | head -1
+</code></pre>
+<p>If those fail too, it's the network/DNS. If they work, look at the URL and Git's proxy settings.</p>
+<h2 id="cause-1-typo-or-odd-hostname-in-the-remote-url">Cause 1: typo or odd hostname in the remote URL</h2>
+<pre><code class="language-bash">git remote -v
+</code></pre>
+<p>Look for <code>githb.com</code>, a missing dot, an extra space, or a company host that only resolves on the VPN. Fix it:</p>
+<pre><code class="language-bash">git remote set-url origin https://github.com/user/repo.git
+</code></pre>
+<h2 id="cause-2-a-proxy-setting-that-is-wrong-or-no-longer-needed">Cause 2: a proxy setting that is wrong or no longer needed</h2>
+<p>A proxy configured for an office network breaks Git at home (and vice versa). The error then often names the <em>proxy</em> host: <code>Could not resolve proxy: proxy.corp.local</code>.</p>
+<pre><code class="language-bash">git config --global --get http.proxy
+git config --global --get https.proxy
+env | grep -i proxy
+</code></pre>
+<p>Remove stale settings:</p>
+<pre><code class="language-bash">git config --global --unset http.proxy
+git config --global --unset https.proxy
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+</code></pre>
+<p>Or set the correct one:</p>
+<pre><code class="language-bash">git config --global http.proxy http://user:pass@proxy.example.com:8080
+</code></pre>
+<p>You can scope it to one host: <code>git config --global http.https://github.com.proxy http://proxy:8080</code>.</p>
+<h2 id="cause-3-broken-dns-on-linux-or-wsl">Cause 3: broken DNS on Linux or WSL</h2>
+<p>Check the resolver:</p>
+<pre><code class="language-bash">cat /etc/resolv.conf
+resolvectl status          # systemd-resolved
+</code></pre>
+<p>On WSL2 the auto-generated <code>resolv.conf</code> sometimes points to an unreachable address, especially with a VPN. Set a fixed resolver:</p>
+<pre><code class="language-ini"># /etc/wsl.conf
+[network]
+generateResolvConf = false
+</code></pre>
+<pre><code class="language-bash">sudo rm /etc/resolv.conf
+echo &quot;nameserver 1.1.1.1&quot; | sudo tee /etc/resolv.conf
+</code></pre>
+<p>Then run <code>wsl --shutdown</code> from Windows and reopen. On newer WSL you can instead enable <code>dnsTunneling=true</code> under <code>[wsl2]</code> in <code>%UserProfile%\.wslconfig</code>. More on Linux DNS in <a href="/linux/linux-temporary-failure-in-name-resolution/">Temporary failure in name resolution</a>.</p>
+<h2 id="cause-4-vpn-firewall-or-captive-portal">Cause 4: VPN, firewall or captive portal</h2>
+<ul>
+<li>A VPN may push its own DNS servers that don't resolve public names (or only resolve internal ones). Try with the VPN off, or ask for split DNS.</li>
+<li>Hotel/airport Wi-Fi blocks DNS until you log in through the browser.</li>
+<li>Corporate DNS filters may block a host; try <code>nslookup github.com 1.1.1.1</code> to compare.</li>
+</ul>
+<p>Flush the DNS cache after network changes:</p>
+<pre><code class="language-bash"># Windows
+ipconfig /flushdns
+# macOS
+sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
+# Linux (systemd-resolved)
+resolvectl flush-caches
+</code></pre>
+<h2 id="cause-5-docker-builds-and-ci-runners">Cause 5: Docker builds and CI runners</h2>
+<p><code>RUN git clone ...</code> in a Dockerfile uses the build container's DNS. If the host works but the build doesn't, set DNS for the daemon in <code>/etc/docker/daemon.json</code> (<code>"dns": ["1.1.1.1", "8.8.8.8"]</code>) and restart Docker, or build with <code>--network host</code>.</p>
+<h2 id="workaround-use-ssh-instead-of-https">Workaround: use SSH instead of HTTPS</h2>
+<p>This doesn't fix DNS (SSH needs to resolve <code>github.com</code> too), but if only HTTPS is blocked by a proxy, SSH over port 443 often works:</p>
+<pre><code># ~/.ssh/config
+Host github.com
+  HostName ssh.github.com
+  Port 443
+  User git
+</code></pre>
+<pre><code class="language-bash">git remote set-url origin git@github.com:user/repo.git
+</code></pre>
+<p class="upd">Last updated 2026-11-14.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li><li><a href="/git/git-remote-end-hung-up-unexpectedly/">fatal: the remote end hung up unexpectedly</a></li><li><a href="/linux/linux-temporary-failure-in-name-resolution/">Temporary failure in name resolution</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

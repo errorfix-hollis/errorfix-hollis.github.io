@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Regex Tester (JavaScript) — highlight matches and capture groups</title>
+<meta name="description" content="Test JavaScript regular expressions live: highlight every match, list capture groups and named groups, try replacements, and see syntax errors. Runs in your browser.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/regex-tester/">
+<meta property="og:title" content="Regex Tester (JavaScript) — highlight matches and capture groups"><meta property="og:description" content="Test JavaScript regular expressions live: highlight every match, list capture groups and named groups, try replacements, and see syntax errors. Runs in your browser.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/regex-tester/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "Regex tester", "url": "https://errorfix-hollis.github.io/tools/regex-tester/", "description": "Test JavaScript regular expressions live: highlight every match, list capture groups and named groups, try replacements, and see syntax errors. Runs in your browser.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-01", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": "Regex tester", "item": "https://errorfix-hollis.github.io/tools/regex-tester/"}]}</script><script src="/tools.js?v=70df2f10" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>Regex tester (JavaScript)</h1>
+<p class="lead">Enter a JavaScript regular expression and some text to highlight every match and inspect its capture groups as you type.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="regex"><div class="row re">
+<span class="slash">/</span><input type="text" id="re-pat" class="big grow" spellcheck="false" autocomplete="off" value="(?&lt;year&gt;\d{4})-(\d{2})-(\d{2})" aria-label="Regular expression"><span class="slash">/</span><input type="text" id="re-flags" class="big flags" spellcheck="false" autocomplete="off" value="g" aria-label="Flags">
+</div>
+<div id="re-msg" class="msg" hidden></div>
+<label for="re-text">Test string</label>
+<textarea id="re-text" spellcheck="false">Released 2024-05-17, patched 2024-06-02.
+Next release: 2025-01-09 (maybe).</textarea>
+<label>Matches</label>
+<pre class="out hl" id="re-hl"></pre>
+<table id="re-table" class="kv"></table>
+<label for="re-rep">Replace with <small>(optional: $1, $&lt;name&gt;, $&amp;)</small></label>
+<input type="text" id="re-rep" class="big" spellcheck="false" autocomplete="off" placeholder="$3/$2/$<year>">
+<div id="re-repwrap" hidden><label>Result</label><pre class="out" id="re-repout"></pre></div>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<h2 id="flags">Flags</h2>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Name</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>g</code></td>
+<td>global</td>
+<td>find all matches, not just the first</td>
+</tr>
+<tr>
+<td><code>i</code></td>
+<td>ignore case</td>
+<td><code>a</code> matches <code>A</code></td>
+</tr>
+<tr>
+<td><code>m</code></td>
+<td>multiline</td>
+<td><code>^</code> and <code>$</code> match at every line break</td>
+</tr>
+<tr>
+<td><code>s</code></td>
+<td>dotAll</td>
+<td><code>.</code> also matches newlines</td>
+</tr>
+<tr>
+<td><code>u</code></td>
+<td>unicode</td>
+<td>full Unicode, <code>\u{1F600}</code> and <code>\p{L}</code> escapes</td>
+</tr>
+<tr>
+<td><code>v</code></td>
+<td>unicodeSets</td>
+<td><code>u</code> plus set operations in classes (newer browsers)</td>
+</tr>
+<tr>
+<td><code>y</code></td>
+<td>sticky</td>
+<td>match only at <code>lastIndex</code></td>
+</tr>
+<tr>
+<td><code>d</code></td>
+<td>indices</td>
+<td>record start/end of each group</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cheat-sheet">Cheat sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Matches</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.</code></td>
+<td>any character except newline</td>
+</tr>
+<tr>
+<td><code>\d</code> <code>\w</code> <code>\s</code></td>
+<td>digit, word character <code>[A-Za-z0-9_]</code>, whitespace</td>
+</tr>
+<tr>
+<td><code>\D</code> <code>\W</code> <code>\S</code></td>
+<td>the opposites</td>
+</tr>
+<tr>
+<td><code>[abc]</code> <code>[^abc]</code> <code>[a-z]</code></td>
+<td>one of, none of, range</td>
+</tr>
+<tr>
+<td><code>^</code> <code>$</code> <code>\b</code></td>
+<td>start, end, word boundary</td>
+</tr>
+<tr>
+<td><code>*</code> <code>+</code> <code>?</code> <code>{2,5}</code></td>
+<td>0+, 1+, optional, 2 to 5 times</td>
+</tr>
+<tr>
+<td><code>*?</code> <code>+?</code></td>
+<td>lazy (as few as possible)</td>
+</tr>
+<tr>
+<td><code>(…)</code> <code>(?:…)</code> <code>(?&lt;name&gt;…)</code></td>
+<td>capture, non-capturing, named group</td>
+</tr>
+<tr>
+<td><code>a|b</code></td>
+<td>a or b</td>
+</tr>
+<tr>
+<td><code>(?=…)</code> <code>(?!…)</code> <code>(?&lt;=…)</code> <code>(?&lt;!…)</code></td>
+<td>lookahead, negative lookahead, lookbehind, negative lookbehind</td>
+</tr>
+<tr>
+<td><code>\1</code> <code>\k&lt;name&gt;</code></td>
+<td>backreference</td>
+</tr>
+</tbody>
+</table>
+<h2 id="javascript-specific-gotchas">JavaScript-specific gotchas</h2>
+<ul>
+<li>In a string, backslashes must be doubled: <code>new RegExp("\\d+")</code> equals <code>/\d+/</code>. This tester takes the pattern as you would write it between slashes.</li>
+<li><code>str.match(/x/g)</code> returns only the matched strings, without groups; use <code>str.matchAll(/x/g)</code> to get groups for every match. <code>matchAll</code> and <code>replaceAll</code> throw a TypeError if the regex lacks the <code>g</code> flag.</li>
+<li>A global regex keeps state in <code>lastIndex</code>, so calling <code>re.test()</code> repeatedly on different strings can alternate between <code>true</code> and <code>false</code>.</li>
+<li>Calling <code>.match()</code> on something that is not a string fails with <a href="/javascript/js-is-not-a-function/">x.match is not a function</a>; convert with <code>String(x)</code> first.</li>
+<li>Patterns like <code>(a+)+$</code> can backtrack catastrophically on long inputs and freeze the page (ReDoS). Prefer specific character classes over nested quantifiers.</li>
+</ul>
+<p>Python's <code>re</code>, PCRE (PHP) and Go's RE2 differ in details: Python uses <code>(?P&lt;name&gt;…)</code>, and RE2 has no lookarounds or backreferences.</p>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-is-not-a-function/">TypeError: x is not a function</a></li><li><a href="/python/python-keyerror/">KeyError</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/json-formatter/">JSON formatter &amp; validator</a></li><li><a href="/tools/cron-expression-explainer/">Cron expression explainer</a></li><li><a href="/tools/chmod-calculator/">chmod calculator</a></li><li><a href="/tools/unix-timestamp-converter/">Unix timestamp converter</a></li><li><a href="/tools/base64-encode-decode/">Base64 encode / decode</a></li><li><a href="/tools/url-encode-decode/">URL encode / decode</a></li><li><a href="/tools/jwt-decoder/">JWT decoder</a></li><li><a href="/tools/yaml-validator/">YAML validator &amp; YAML ↔ JSON converter</a></li><li><a href="/tools/uuid-generator/">UUID generator &amp; validator (v4, v7)</a></li><li><a href="/tools/text-diff/">Text diff checker</a></li><li><a href="/tools/http-status-codes/">HTTP status codes reference</a></li><li><a href="/tools/hash-generator/">Hash generator (MD5, SHA-256, SHA-512)</a></li><li><a href="/tools/line-ending-whitespace-inspector/">Line ending &amp; whitespace inspector</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Object is possibly &#x27;undefined&#x27;. ts(2532) (TypeScript) — how to fix</title>
+<meta name="description" content="TypeScript strict null checks found a value whose type includes undefined (or null) being used as if it were always defined. Narrow the type, provide a default, or fix the type.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-ts2532-object-is-possibly-undefined/">
+<meta property="og:title" content="Object is possibly &#x27;undefined&#x27;. ts(2532) (TypeScript) — how to fix"><meta property="og:description" content="TypeScript strict null checks found a value whose type includes undefined (or null) being used as if it were always defined. Narrow the type, provide a default, or fix the type.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-ts2532-object-is-possibly-undefined/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Object is possibly 'undefined'. ts(2532) (TypeScript) \u2014 how to fix", "description": "TypeScript strict null checks found a value whose type includes undefined (or null) being used as if it were always defined. Narrow the type, provide a default, or fix the type.", "dateModified": "2026-11-01", "url": "https://errorfix-hollis.github.io/javascript/js-ts2532-object-is-possibly-undefined/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "Object is possibly 'undefined'. ts(2532)", "item": "https://errorfix-hollis.github.io/javascript/js-ts2532-object-is-possibly-undefined/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>Object is possibly &#x27;undefined&#x27;. ts(2532) (TypeScript) — how to fix</h1>
+<pre class="err"><code>error TS2532: Object is possibly &#x27;undefined&#x27;.
+error TS18048: &#x27;user&#x27; is possibly &#x27;undefined&#x27;.
+error TS2531: Object is possibly &#x27;null&#x27;.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Narrow before use: <code>if (user) { user.name }</code>, or use optional chaining <code>user?.name</code> and a default <code>user?.name ?? 'anon'</code>. Use <code>!</code> (<code>user!.name</code>) only when you are certain it is set. For arrays and records with <code>noUncheckedIndexedAccess</code>, check the element after indexing.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>With <code>strict</code> (or <code>strictNullChecks</code>) enabled, <code>undefined</code> and <code>null</code> are separate types. If a value's type is <code>User | undefined</code>, TypeScript won't let you access <code>.name</code> on it until you prove it isn't <code>undefined</code>. Newer TypeScript versions (5.0+) report the same thing as <code>TS18048: 'x' is possibly 'undefined'</code> when it can name the variable.</p>
+<p>Common sources of <code>| undefined</code>:</p>
+<ul>
+<li>optional properties (<code>name?: string</code>) and optional parameters</li>
+<li><code>Array.prototype.find()</code>, <code>Map.get()</code></li>
+<li>indexing with <code>noUncheckedIndexedAccess</code> turned on</li>
+<li><code>useState&lt;User&gt;()</code> with no initial value, <code>useRef&lt;HTMLDivElement&gt;(null)</code></li>
+</ul>
+<h2 id="fix-1-narrow-with-a-check">Fix 1: narrow with a check</h2>
+<p>TypeScript understands normal control flow:</p>
+<pre><code class="language-ts">const user = users.find(u =&gt; u.id === id);   // User | undefined
+
+if (!user) {
+  throw new Error(`No user ${id}`);
+}
+console.log(user.name);   // user is User here
+</code></pre>
+<p><code>typeof x === "string"</code>, <code>x !== undefined</code>, <code>"key" in obj</code> and <code>instanceof</code> all narrow too.</p>
+<h2 id="fix-2-optional-chaining-and-defaults">Fix 2: optional chaining and defaults</h2>
+<p>When "missing" is a valid state, handle it inline:</p>
+<pre><code class="language-ts">const city = user?.address?.city;          // string | undefined
+const label = user?.name ?? &quot;Anonymous&quot;;   // string
+const count = cart.items?.length ?? 0;
+</code></pre>
+<p><code>?.</code> returns <code>undefined</code> instead of throwing; <code>??</code> supplies a fallback only for <code>null</code>/<code>undefined</code> (unlike <code>||</code>, it keeps <code>0</code> and <code>""</code>).</p>
+<h2 id="fix-3-the-narrowing-got-lost-in-a-callback">Fix 3: the narrowing got lost in a callback</h2>
+<p>Narrowing on a property doesn't survive into callbacks, because the property could change before the callback runs:</p>
+<pre><code class="language-ts">if (this.config) {
+  items.forEach(i =&gt; this.config.apply(i));   // TS2532
+}
+</code></pre>
+<p>Copy to a local <code>const</code> first:</p>
+<pre><code class="language-ts">const config = this.config;
+if (config) {
+  items.forEach(i =&gt; config.apply(i));        // OK
+}
+</code></pre>
+<h2 id="fix-4-indexed-access-with-nouncheckedindexedaccess">Fix 4: indexed access with noUncheckedIndexedAccess</h2>
+<p>With this option <code>arr[0]</code> is <code>T | undefined</code>:</p>
+<pre><code class="language-ts">const first = arr[0];
+if (first !== undefined) {
+  use(first);
+}
+
+// or for records
+const value = map[key];
+if (value) { ... }
+</code></pre>
+<p><code>for (const item of arr)</code> gives you <code>T</code>, not <code>T | undefined</code>, so prefer it over index loops.</p>
+<h2 id="fix-5-react-refs-and-state">Fix 5: React refs and state</h2>
+<pre><code class="language-tsx">const ref = useRef&lt;HTMLInputElement&gt;(null);
+ref.current?.focus();                 // current is HTMLInputElement | null
+
+const [user, setUser] = useState&lt;User | null&gt;(null);
+if (!user) return &lt;Spinner /&gt;;
+return &lt;p&gt;{user.name}&lt;/p&gt;;
+</code></pre>
+<h2 id="fix-6-non-null-assertion-last-resort">Fix 6: non-null assertion (last resort)</h2>
+<p>If you <em>know</em> the value is set and TypeScript can't see it, <code>!</code> removes <code>undefined</code>/<code>null</code> from the type:</p>
+<pre><code class="language-ts">const el = document.getElementById(&quot;app&quot;)!;
+</code></pre>
+<p>This is only a compile-time claim. If you're wrong you get <code>Cannot read properties of undefined</code> at runtime, so prefer a check that throws a clear error.</p>
+<h2 id="fix-7-the-type-itself-is-wrong">Fix 7: the type itself is wrong</h2>
+<p>If a property is always present, don't declare it optional. Change <code>name?: string</code> to <code>name: string</code>, or give function parameters a default (<code>function f(opts: Options = {})</code>). Turning off <code>strictNullChecks</code> silences the error everywhere but hides real bugs; avoid it.</p>
+<p class="upd">Last updated 2026-11-01.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-ts2307-cannot-find-module-or-its-corresponding-type-declarations/">TS2307: Cannot find module or its corresponding type declarations.</a></li><li><a href="/javascript/js-ts2339-property-does-not-exist-on-type/">Property &#x27;x&#x27; does not exist on type &#x27;Y&#x27;</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li><li><a href="/javascript/js-hydration-failed-initial-ui-does-not-match/">Hydration failed because the initial UI does not match what was rendered on the server</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

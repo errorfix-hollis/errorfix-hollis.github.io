@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error[E0277]: the trait bound is not satisfied (Rust) — how to fix</title>
+<meta name="description" content="You used a type where a trait implementation is required (by a generic bound, a macro like println!, or the ? operator) but the type doesn&#x27;t implement that trait. Derive or implement the trait, convert the value, or change the bound.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/rust/rust-e0277-trait-bound-not-satisfied/">
+<meta property="og:title" content="error[E0277]: the trait bound is not satisfied (Rust) — how to fix"><meta property="og:description" content="You used a type where a trait implementation is required (by a generic bound, a macro like println!, or the ? operator) but the type doesn&#x27;t implement that trait. Derive or implement the trait, convert the value, or change the bound.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/rust/rust-e0277-trait-bound-not-satisfied/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error[E0277]: the trait bound is not satisfied (Rust) \u2014 how to fix", "description": "You used a type where a trait implementation is required (by a generic bound, a macro like println!, or the ? operator) but the type doesn't implement that trait. Derive or implement the trait, convert the value, or change the bound.", "dateModified": "2026-11-04", "url": "https://errorfix-hollis.github.io/rust/rust-e0277-trait-bound-not-satisfied/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Rust", "item": "https://errorfix-hollis.github.io/rust/"}, {"@type": "ListItem", "position": 3, "name": "error[E0277]: the trait bound is not satisfied", "item": "https://errorfix-hollis.github.io/rust/rust-e0277-trait-bound-not-satisfied/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/rust/">Rust</a></p>
+<article><h1>error[E0277]: the trait bound is not satisfied (Rust) — how to fix</h1>
+<pre class="err"><code>error[E0277]: the trait bound `MyType: Serialize` is not satisfied
+error[E0277]: `Point` doesn&#x27;t implement `std::fmt::Display`
+error[E0277]: the `?` operator can only be used in a function that returns `Result` or `Option`
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Read which trait is missing and for which type. Usually <code>#[derive(Debug, Clone, PartialEq, serde::Serialize)]</code> fixes it; for <code>Display</code> write <code>impl fmt::Display for T</code>. For <code>?</code> errors make the function return <code>Result&lt;_, E&gt;</code> where your error converts via <code>From</code> (e.g. <code>Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt;</code>). For serde check that the crate feature <code>derive</code> is enabled and only one serde version is in <code>cargo tree -d</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Some code requires a type <code>T</code> to implement a trait (<code>T: Trait</code>). The compiler checked your concrete type and found no implementation. The message names both: <code>the trait bound `MyType: Serialize` is not satisfied</code> means "<code>MyType</code> must implement <code>Serialize</code> here". Further down, <code>note: required by a bound in ...</code> shows <em>which</em> function or impl introduced the requirement.</p>
+<h2 id="cause-1-missing-derive">Cause 1: missing derive</h2>
+<pre><code class="language-rust">struct Point { x: i32, y: i32 }
+
+let p = Point { x: 1, y: 2 };
+println!(&quot;{:?}&quot;, p);            // E0277: `Point` doesn't implement `Debug`
+let q = p.clone();              // E0599/E0277 for Clone
+let mut set = std::collections::HashSet::new();
+set.insert(p);                  // needs Eq + Hash
+</code></pre>
+<p>Fix:</p>
+<pre><code class="language-rust">#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct Point { x: i32, y: i32 }
+</code></pre>
+<p>Deriving requires every field to implement the trait too; the compiler will point at the field that doesn't.</p>
+<h2 id="cause-2-display-for">Cause 2: Display for <code>{}</code></h2>
+<p><code>{}</code> needs <code>std::fmt::Display</code>, which can't be derived:</p>
+<pre><code class="language-rust">use std::fmt;
+
+impl fmt::Display for Point {
+    fn fmt(&amp;self, f: &amp;mut fmt::Formatter) -&gt; fmt::Result {
+        write!(f, &quot;({}, {})&quot;, self.x, self.y)
+    }
+}
+</code></pre>
+<p>Or just use <code>{:?}</code> with <code>#[derive(Debug)]</code>.</p>
+<h2 id="cause-3-serde-serializedeserialize">Cause 3: serde Serialize/Deserialize</h2>
+<pre><code class="language-toml">[dependencies]
+serde = { version = &quot;1&quot;, features = [&quot;derive&quot;] }
+serde_json = &quot;1&quot;
+</code></pre>
+<pre><code class="language-rust">#[derive(serde::Serialize, serde::Deserialize)]
+struct User { name: String }
+</code></pre>
+<p>If you derived it and still get E0277, you may have <strong>two versions of serde</strong> (or of the crate defining the trait): your type implements version A's trait, the library wants version B's. Check:</p>
+<pre><code class="language-bash">cargo tree -d          # lists duplicated crates
+cargo tree -i serde
+</code></pre>
+<p>Align versions in <code>Cargo.toml</code> (or <code>cargo update -p serde</code>). The same applies to <code>rand</code>, <code>tokio</code>, <code>http</code> and other crates whose traits are shared.</p>
+<h2 id="cause-4-in-a-function-that-doesnt-return-resultoption">Cause 4: <code>?</code> in a function that doesn't return Result/Option</h2>
+<pre><code class="language-rust">fn main() {
+    let s = std::fs::read_to_string(&quot;a.txt&quot;)?;   // E0277
+}
+</code></pre>
+<p>Fix by returning a Result:</p>
+<pre><code class="language-rust">fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+    let s = std::fs::read_to_string(&quot;a.txt&quot;)?;
+    Ok(())
+}
+</code></pre>
+<p>A related E0277: <code>`?` couldn't convert the error to `MyError`</code> means there's no <code>From&lt;io::Error&gt; for MyError</code>. Implement <code>From</code>, use <code>.map_err(...)</code>, or use <code>anyhow::Result</code> / <code>thiserror</code> with <code>#[from]</code>.</p>
+<h2 id="cause-5-wrong-type-passed-to-a-generic">Cause 5: wrong type passed to a generic</h2>
+<pre><code class="language-rust">let total: i32 = vec![1u8, 2, 3].iter().sum();   // E0277: Sum&lt;&amp;u8&gt; not implemented for i32
+let total: u32 = vec![1u8, 2, 3].iter().map(|&amp;x| x as u32).sum();
+</code></pre>
+<p>Also common: passing <code>&amp;str</code> where <code>String</code> is required, or <code>&amp;T</code> where <code>T</code> is required. Convert with <code>.to_string()</code>, <code>.clone()</code>, <code>*x</code>, or <code>.into()</code>.</p>
+<h2 id="cause-6-send-sync-with-threads-and-async">Cause 6: <code>Send</code> / <code>Sync</code> with threads and async</h2>
+<p><code>error[E0277]: `Rc&lt;...&gt;` cannot be sent between threads safely</code> appears with <code>std::thread::spawn</code> or <code>tokio::spawn</code>. Use <code>Arc</code> instead of <code>Rc</code>, <code>Mutex</code>/<code>RwLock</code> instead of <code>RefCell</code>, and don't hold a non-<code>Send</code> value (e.g. a <code>std::sync::MutexGuard</code>) across an <code>.await</code>: drop it in an inner block before awaiting.</p>
+<h2 id="cause-7-your-generic-function-lacks-the-bound">Cause 7: your generic function lacks the bound</h2>
+<pre><code class="language-rust">fn largest&lt;T&gt;(xs: &amp;[T]) -&gt; &amp;T {        // E0277: binary operation `&gt;` cannot be applied
+    ...
+}
+fn largest&lt;T: PartialOrd&gt;(xs: &amp;[T]) -&gt; &amp;T { ... }
+</code></pre>
+<p>Add the bound the compiler suggests in its <code>help:</code> line.</p>
+<p class="upd">Last updated 2026-11-04.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/rust/rust-borrow-of-moved-value/">error[E0382]: borrow of moved value</a></li><li><a href="/rust/rust-cannot-borrow-as-mutable/">error[E0502]: cannot borrow as mutable because it is also borrowed as immutable</a></li><li><a href="/rust/rust-e0308-mismatched-types/">error[E0308]: mismatched types</a></li><li><a href="/rust/rust-e0106-missing-lifetime-specifier/">error[E0106]: missing lifetime specifier</a></li><li><a href="/rust/rust-e0412-cannot-find-type-in-this-scope/">error[E0412]: cannot find type `X` in this scope</a></li><li><a href="/rust/rust-e0425-cannot-find-value-in-this-scope/">error[E0425]: cannot find value `x` in this scope</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

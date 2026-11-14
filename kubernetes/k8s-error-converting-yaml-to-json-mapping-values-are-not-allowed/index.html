@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context (Kubernetes) — how to fix</title>
+<meta name="description" content="kubectl (or Helm) couldn&#x27;t parse your manifest because the YAML is malformed — usually a missing space after a colon, wrong indentation, or an unquoted value containing &quot;: &quot;. The line number points at or just after the problem.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-error-converting-yaml-to-json-mapping-values-are-not-allowed/">
+<meta property="og:title" content="error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context (Kubernetes) — how to fix"><meta property="og:description" content="kubectl (or Helm) couldn&#x27;t parse your manifest because the YAML is malformed — usually a missing space after a colon, wrong indentation, or an unquoted value containing &quot;: &quot;. The line number points at or just after the problem.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-error-converting-yaml-to-json-mapping-values-are-not-allowed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context (Kubernetes) \u2014 how to fix", "description": "kubectl (or Helm) couldn't parse your manifest because the YAML is malformed \u2014 usually a missing space after a colon, wrong indentation, or an unquoted value containing \": \". The line number points at or just after the problem.", "dateModified": "2026-11-06", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-error-converting-yaml-to-json-mapping-values-are-not-allowed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-error-converting-yaml-to-json-mapping-values-are-not-allowed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context (Kubernetes) — how to fix</h1>
+<pre class="err"><code>error: error parsing deployment.yaml: error converting YAML to JSON: yaml: line 12: mapping values are not allowed in this context
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Open the file at the reported line and the line above it. Fix indentation (spaces only, consistent levels), put a space after every <code>key:</code>, and quote values that contain <code>:</code> or start with <code>{</code>, <code>[</code>, <code>*</code>, <code>&amp;</code>, <code>!</code>, <code>%</code>, <code>@</code> or a backtick. Validate with <code>kubectl apply --dry-run=client -f file.yaml</code> or the YAML validator before applying.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Kubernetes manifests are YAML that kubectl converts to JSON before sending to the API server. The YAML parser failed before Kubernetes even looked at your resources. "Mapping values are not allowed in this context" means the parser found a <code>key: value</code> pair (a mapping) somewhere it couldn't start one — typically because the line above ended in a way that made the parser think it was still reading a plain value.</p>
+<p>The line number is where the parser gave up. The real mistake is often on the <strong>line before</strong>.</p>
+<p>Paste the file into the <a href="/tools/yaml-validator/">YAML validator</a> to see the exact position, or run:</p>
+<pre><code class="language-bash">kubectl apply --dry-run=client -f deployment.yaml
+python3 -c 'import sys, yaml; list(yaml.safe_load_all(open(sys.argv[1])))' deployment.yaml
+yamllint deployment.yaml
+</code></pre>
+<h2 id="cause-1-unquoted-value-containing">Cause 1: unquoted value containing ": "</h2>
+<pre><code class="language-yaml">command: [&quot;sh&quot;, &quot;-c&quot;]
+args:
+  - echo Status: ready        # no parse error, but becomes a map {&quot;echo Status&quot;: &quot;ready&quot;}
+env:
+  - name: GREETING
+    value: Hello: world       # error
+</code></pre>
+<p>A colon followed by a space starts a mapping. On <code>value:</code> that's a parse error; in the list item it silently turns the item into a map, which kubectl then rejects with a type error. Quote both:</p>
+<pre><code class="language-yaml">    value: &quot;Hello: world&quot;
+args:
+  - &quot;echo Status: ready&quot;
+</code></pre>
+<p>Same for image tags with digests in odd places, URLs with ports in plain lists, and Windows paths. When in doubt, quote strings.</p>
+<h2 id="cause-2-missing-space-after-the-colon-on-the-previous-line">Cause 2: missing space after the colon on the previous line</h2>
+<pre><code class="language-yaml">metadata:
+  name:my-app            # parsed as the string &quot;name:my-app&quot;
+  labels:                # error reported here
+    app: my-app
+</code></pre>
+<p><code>name:my-app</code> without a space is a plain string, so <code>labels:</code> on the next line is "a mapping inside a scalar". Add the space: <code>name: my-app</code>.</p>
+<h2 id="cause-3-wrong-indentation">Cause 3: wrong indentation</h2>
+<pre><code class="language-yaml">spec:
+  containers:
+  - name: web
+    image: nginx:1.27
+     ports:              # 5 spaces instead of 4
+      - containerPort: 80
+</code></pre>
+<p>Every key at the same level must start in the same column. Use 2 spaces per level consistently. List items (<code>-</code>) can sit at the parent's indentation or be indented, but all items in a list must line up.</p>
+<p><strong>Tabs are not allowed</strong> for indentation in YAML. They produce <code>found character that cannot start any token</code>. Find them with:</p>
+<pre><code class="language-bash">grep -nP '\t' deployment.yaml
+</code></pre>
+<h2 id="cause-4-a-value-on-the-same-line-as-a-nested-block">Cause 4: a value on the same line as a nested block</h2>
+<pre><code class="language-yaml">resources: limits:
+  memory: 256Mi
+</code></pre>
+<p>A key can have either an inline value or a nested block, not both. Write:</p>
+<pre><code class="language-yaml">resources:
+  limits:
+    memory: 256Mi
+</code></pre>
+<h2 id="cause-5-multi-line-strings-scripts-configmap-data">Cause 5: multi-line strings (scripts, ConfigMap data)</h2>
+<p>Shell scripts and config files embedded in a ConfigMap are full of colons. Use a block scalar so the content is taken literally:</p>
+<pre><code class="language-yaml">apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  app.conf: |
+    server:
+      port: 8080
+    log: level: debug
+</code></pre>
+<p>Everything indented under <code>|</code> is a single string. The content must be indented more than the key.</p>
+<h2 id="cause-6-helm-templates-that-render-bad-yaml">Cause 6: Helm templates that render bad YAML</h2>
+<p>With Helm the error refers to the <strong>rendered</strong> output, so the line number won't match your template. Render and inspect it:</p>
+<pre><code class="language-bash">helm template myrelease ./chart -f values.yaml &gt; out.yaml
+helm lint ./chart
+</code></pre>
+<p>Typical culprits: <code>{{ .Values.x }}</code> producing an unquoted string with <code>:</code> (use <code>{{ .Values.x | quote }}</code>), and <code>toYaml</code> blocks with the wrong <code>nindent</code>:</p>
+<pre><code class="language-yaml">        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+</code></pre>
+<h2 id="related-parse-errors">Related parse errors</h2>
+<ul>
+<li><code>did not find expected key</code> — usually a list item or key indented inconsistently, or an unclosed quote/bracket.</li>
+<li><code>found character that cannot start any token</code> — a tab, or a value starting with <code>`</code> or <code>@</code>.</li>
+<li><code>could not find expected ':'</code> — a line with a key but no colon, often in a broken multi-line string.</li>
+</ul>
+<p>All are fixed the same way: check the reported line and the one above it for indentation, spacing and quoting.</p>
+<p class="upd">Last updated 2026-11-06.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li><li><a href="/kubernetes/k8s-no-matches-for-kind/">error: resource mapping not found ... no matches for kind &quot;Deployment&quot; in version &quot;extensions/v1beta1&quot;</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-error-from-server-forbidden/">Error from server (Forbidden): User cannot list resource in API group at the cluster scope</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

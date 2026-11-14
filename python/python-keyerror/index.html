@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KeyError (Python) — how to fix</title>
+<meta name="description" content="You looked up a dictionary key that doesn&#x27;t exist. Check the actual keys, use .get() with a default, or handle the missing case.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-keyerror/">
+<meta property="og:title" content="KeyError (Python) — how to fix"><meta property="og:description" content="You looked up a dictionary key that doesn&#x27;t exist. Check the actual keys, use .get() with a default, or handle the missing case.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-keyerror/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "KeyError (Python) \u2014 how to fix", "description": "You looked up a dictionary key that doesn't exist. Check the actual keys, use .get() with a default, or handle the missing case.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/python/python-keyerror/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "KeyError", "item": "https://errorfix-hollis.github.io/python/python-keyerror/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>KeyError (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 3, in &lt;module&gt;
+    print(user[&quot;email&quot;])
+          ~~~~^^^^^^^^^
+KeyError: &#x27;email&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Use <code>d.get('email')</code> (returns <code>None</code>) or <code>d.get('email', 'default')</code> instead of <code>d['email']</code>, or check first with <code>if 'email' in d:</code>. Print <code>d.keys()</code> to see what keys really exist.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>d["email"]</code> requires the key to exist. It doesn't, so Python raises <code>KeyError</code> with the missing key.</p>
+<h2 id="find-out-whats-actually-in-the-dictionary">Find out what's actually in the dictionary</h2>
+<pre><code class="language-python">print(list(user.keys()))
+</code></pre>
+<p>Common surprises: different case (<code>"Email"</code>), extra whitespace (<code>"email "</code>), the data is nested one level deeper (<code>user["data"]["email"]</code>), or a number vs. string key (<code>1</code> vs <code>"1"</code>).</p>
+<h2 id="fix-1-provide-a-default">Fix 1: provide a default</h2>
+<pre><code class="language-python">email = user.get(&quot;email&quot;)              # None if missing
+email = user.get(&quot;email&quot;, &quot;unknown&quot;)
+</code></pre>
+<h2 id="fix-2-check-first">Fix 2: check first</h2>
+<pre><code class="language-python">if &quot;email&quot; in user:
+    send(user[&quot;email&quot;])
+</code></pre>
+<h2 id="fix-3-handle-it">Fix 3: handle it</h2>
+<pre><code class="language-python">try:
+    email = user[&quot;email&quot;]
+except KeyError:
+    log.warning(&quot;user %s has no email&quot;, user.get(&quot;id&quot;))
+</code></pre>
+<h2 id="counting-grouping">Counting / grouping</h2>
+<p>Instead of initialising keys manually, use <code>collections.defaultdict</code> or <code>Counter</code>:</p>
+<pre><code class="language-python">from collections import defaultdict
+groups = defaultdict(list)
+groups[key].append(item)     # no KeyError on first use
+</code></pre>
+<h2 id="pandas-keyerror-on-a-column">pandas: KeyError on a column</h2>
+<p><code>df["Price"]</code> raises <code>KeyError: 'Price'</code> if the column name differs. Check <code>df.columns.tolist()</code>; headers often have stray spaces. Clean them with <code>df.columns = df.columns.str.strip()</code>.</p>
+<h2 id="json-from-an-api">JSON from an API</h2>
+<p>APIs often omit fields or return an error object instead of data. Print the response (<code>print(resp.status_code, resp.json())</code>) before indexing into it.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-typeerror-nonetype-object-is-not-subscriptable/">TypeError: &#x27;NoneType&#x27; object is not subscriptable</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li><li><a href="/python/python-attributeerror-str-object-has-no-attribute/">AttributeError: &#x27;str&#x27; object has no attribute</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

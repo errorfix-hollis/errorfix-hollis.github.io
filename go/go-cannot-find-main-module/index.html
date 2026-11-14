@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>go: cannot find main module, but found .git/config — how to fix</title>
+<meta name="description" content="You ran a go command that needs a module (build, run, test, get, mod tidy) outside any directory with a go.mod file. Create one with go mod init, or run the command from the module&#x27;s directory.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-cannot-find-main-module/">
+<meta property="og:title" content="go: cannot find main module, but found .git/config — how to fix"><meta property="og:description" content="You ran a go command that needs a module (build, run, test, get, mod tidy) outside any directory with a go.mod file. Create one with go mod init, or run the command from the module&#x27;s directory.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-cannot-find-main-module/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "go: cannot find main module, but found .git/config \u2014 how to fix", "description": "You ran a go command that needs a module (build, run, test, get, mod tidy) outside any directory with a go.mod file. Create one with go mod init, or run the command from the module's directory.", "dateModified": "2026-10-30", "url": "https://errorfix-hollis.github.io/go/go-cannot-find-main-module/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "go: cannot find main module, but found .git/config", "item": "https://errorfix-hollis.github.io/go/go-cannot-find-main-module/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>go: cannot find main module, but found .git/config — how to fix</h1>
+<pre class="err"><code>go: cannot find main module, but found .git/config in /home/me/project
+	to create a module there, run:
+	go mod init
+go: go.mod file not found in current directory or any parent directory; see &#x27;go help modules&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> In your project root run <code>go mod init github.com/you/project</code> (any module path works for local code), then <code>go mod tidy</code>. If go.mod already exists, <code>cd</code> into that directory (or a subdirectory) before running go commands. In a multi-module repo, use <code>go work init ./moduleA ./moduleB</code>. To install a tool, use <code>go install pkg@latest</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Since Go 1.16, module mode is the default (<code>GO111MODULE=on</code>). Commands like <code>go build</code>, <code>go run</code>, <code>go test</code> and <code>go mod tidy</code> look for <code>go.mod</code> in the current directory and then each parent. If none is found, there's no "main module" to work in and you get one of these messages. The <code>.git/config</code> hint just tells you where your repo root is, suggesting that's where <code>go.mod</code> should go.</p>
+<h2 id="fix-1-create-gomod-for-a-new-project">Fix 1: create go.mod for a new project</h2>
+<p>From the project's root directory:</p>
+<pre><code class="language-bash">go mod init github.com/yourname/myproject
+go mod tidy
+</code></pre>
+<p>The module path is the import prefix for your packages. If you'll never publish it, a simple name like <code>myproject</code> also works (for publishing, it should match the repository URL).</p>
+<p>After that, packages inside import each other with the module path:</p>
+<pre><code class="language-go">import &quot;github.com/yourname/myproject/internal/store&quot;
+</code></pre>
+<h2 id="fix-2-youre-in-the-wrong-directory">Fix 2: you're in the wrong directory</h2>
+<p>If go.mod exists, you're probably above it (e.g. in a repo where the module lives in <code>backend/</code>):</p>
+<pre><code class="language-bash">find . -name go.mod -not -path &quot;*/vendor/*&quot;
+cd backend
+go build ./...
+</code></pre>
+<p>In VS Code, gopls has the same requirement: open the folder that contains go.mod, or use a workspace (Fix 3).</p>
+<h2 id="fix-3-multiple-modules-in-one-repo-gowork">Fix 3: multiple modules in one repo — go.work</h2>
+<p>For a repo containing several modules, create a workspace at the root (Go 1.18+):</p>
+<pre><code class="language-bash">go work init ./api ./worker ./shared
+</code></pre>
+<p>Then <code>go build ./api/...</code> and gopls work from the root, and local changes to <code>shared</code> are picked up without <code>replace</code> directives.</p>
+<h2 id="fix-4-installing-a-tool-not-building-a-project">Fix 4: installing a tool, not building a project</h2>
+<p><code>go get</code> no longer installs binaries outside a module. Use <code>go install</code> with a version:</p>
+<pre><code class="language-bash">go install golang.org/x/tools/gopls@latest
+go install github.com/air-verse/air@latest
+</code></pre>
+<p>Binaries go to <code>$(go env GOPATH)/bin</code> — add it to <code>PATH</code>:</p>
+<pre><code class="language-bash">export PATH=&quot;$PATH:$(go env GOPATH)/bin&quot;
+</code></pre>
+<h2 id="fix-5-running-a-single-file">Fix 5: running a single file</h2>
+<p><code>go run main.go</code> works without go.mod only if the file imports nothing but the standard library. Once it imports a third-party package, you need a module: <code>go mod init</code>, then <code>go mod tidy</code> to fetch dependencies.</p>
+<h2 id="old-gopath-projects">Old GOPATH projects</h2>
+<p>Legacy code under <code>$GOPATH/src</code> without go.mod can be built temporarily with:</p>
+<pre><code class="language-bash">GO111MODULE=off go build
+</code></pre>
+<p>This mode is deprecated; migrating is just <code>go mod init &lt;import path&gt;</code> plus <code>go mod tidy</code> in the project root.</p>
+<h2 id="check-your-environment">Check your environment</h2>
+<p>If go.mod exists and you still get the error, check that <code>GO111MODULE</code> or <code>GOFLAGS</code> aren't set to something odd, and where Go thinks the module file is:</p>
+<pre><code class="language-bash">go env GO111MODULE GOMOD GOFLAGS
+</code></pre>
+<p><code>GOMOD</code> prints the path of the go.mod in use — empty or <code>/dev/null</code> means none was found.</p>
+<p class="upd">Last updated 2026-10-30.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-declared-and-not-used/">declared and not used</a></li><li><a href="/go/go-imported-and-not-used/">&quot;fmt&quot; imported and not used</a></li><li><a href="/go/go-all-goroutines-are-asleep-deadlock/">fatal error: all goroutines are asleep - deadlock!</a></li><li><a href="/go/go-cannot-use-as-value-in-assignment/">cannot use x (variable of type T) as U value in assignment</a></li><li><a href="/go/go-fatal-error-concurrent-map-writes/">fatal error: concurrent map writes</a></li><li><a href="/go/go-invalid-go-version-must-match-format/">go: errors parsing go.mod: invalid go version: must match format 1.23</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

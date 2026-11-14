@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Job for X.service failed because the control process exited with error code (Linux) — how to fix</title>
+<meta name="description" content="systemd started the service, but its start command (ExecStart, or ExecStartPre) exited with a non-zero status. The message itself is generic; the real reason is in the service&#x27;s logs.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-job-for-service-failed-because-the-control-process-exited-with-error-code/">
+<meta property="og:title" content="Job for X.service failed because the control process exited with error code (Linux) — how to fix"><meta property="og:description" content="systemd started the service, but its start command (ExecStart, or ExecStartPre) exited with a non-zero status. The message itself is generic; the real reason is in the service&#x27;s logs.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-job-for-service-failed-because-the-control-process-exited-with-error-code/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Job for X.service failed because the control process exited with error code (Linux) \u2014 how to fix", "description": "systemd started the service, but its start command (ExecStart, or ExecStartPre) exited with a non-zero status. The message itself is generic; the real reason is in the service's logs.", "dateModified": "2026-11-06", "url": "https://errorfix-hollis.github.io/linux/linux-job-for-service-failed-because-the-control-process-exited-with-error-code/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "Job for X.service failed because the control process exited with error code", "item": "https://errorfix-hollis.github.io/linux/linux-job-for-service-failed-because-the-control-process-exited-with-error-code/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>Job for X.service failed because the control process exited with error code (Linux) — how to fix</h1>
+<pre class="err"><code>Job for nginx.service failed because the control process exited with error code.
+See &quot;systemctl status nginx.service&quot; and &quot;journalctl -xeu nginx.service&quot; for details.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>systemctl status X.service</code> and <code>journalctl -xeu X.service --no-pager | tail -50</code> to see the real error. Common causes: bad config (test with <code>nginx -t</code>, <code>apachectl configtest</code>, <code>sshd -t</code>), port already in use, permissions, or a wrong ExecStart path. Fix it, then <code>sudo systemctl daemon-reload</code> (if you edited the unit) and <code>sudo systemctl restart X</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>systemctl start</code> (or <code>restart</code>, or <code>apt</code> starting a newly installed package) asked systemd to run the unit. The process systemd launched — the "control process" — exited with an error, so the job failed. systemd doesn't know <em>why</em>; the program printed its reason to its log. Your job is to find that line.</p>
+<h2 id="step-1-read-the-logs">Step 1: read the logs</h2>
+<pre><code class="language-bash">systemctl status nginx.service --no-pager -l
+journalctl -xeu nginx.service --no-pager | tail -50
+</code></pre>
+<p>In <code>status</code> look at the lines:</p>
+<pre><code class="language-text">Process: 1234 ExecStartPre=/usr/sbin/nginx -t -q -g daemon on; master_process on; (code=exited, status=1/FAILURE)
+</code></pre>
+<p>That tells you which command failed (<code>ExecStartPre</code> here — the config test) and the exit status. The journal lines just above it contain the program's own message, e.g. <code>nginx: [emerg] unknown directive "servr_name" in /etc/nginx/sites-enabled/default:3</code>.</p>
+<p>If the journal is empty, run the <code>ExecStart</code> command by hand as the service user:</p>
+<pre><code class="language-bash">systemctl cat myapp.service          # see ExecStart, User, WorkingDirectory
+sudo -u myapp /opt/myapp/bin/myapp --config /etc/myapp.yml
+</code></pre>
+<h2 id="cause-1-configuration-syntax-error">Cause 1: configuration syntax error</h2>
+<p>The most common cause after editing a config file. Most daemons have a test mode:</p>
+<pre><code class="language-bash">sudo nginx -t
+sudo apachectl configtest        # or: apache2ctl -t
+sudo sshd -t
+sudo named-checkconf
+sudo haproxy -c -f /etc/haproxy/haproxy.cfg
+sudo php-fpm8.3 -t
+sudo visudo -c
+</code></pre>
+<p>For YAML or JSON configs (netplan, <code>/etc/docker/daemon.json</code>, app configs) a single bad indent or trailing comma stops the service — check it with the <a href="/tools/yaml-validator/">YAML validator</a> or <a href="/tools/json-formatter/">JSON formatter</a>.</p>
+<h2 id="cause-2-port-already-in-use">Cause 2: port already in use</h2>
+<p>Journal shows <code>bind() to 0.0.0.0:80 failed (98: Address already in use)</code> or similar:</p>
+<pre><code class="language-bash">sudo ss -ltnp | grep ':80 '
+</code></pre>
+<p>Stop the other program (often apache2 vs nginx, or an old instance not managed by systemd), or change the port. See <a href="/linux/linux-address-already-in-use/">Address already in use</a>.</p>
+<h2 id="cause-3-status203exec-the-binary-cant-be-executed">Cause 3: status=203/EXEC — the binary can't be executed</h2>
+<p><code>(code=exited, status=203/EXEC)</code> means systemd couldn't run <code>ExecStart</code> at all: the path is wrong, it isn't executable, or a script lacks a shebang. <code>ExecStart</code> needs an absolute path:</p>
+<pre><code class="language-ini">[Service]
+ExecStart=/usr/bin/node /opt/app/server.js
+</code></pre>
+<pre><code class="language-bash">ls -l /opt/app/start.sh &amp;&amp; sudo chmod +x /opt/app/start.sh
+head -1 /opt/app/start.sh            # must be e.g. #!/bin/bash
+</code></pre>
+<p>Other numeric codes: <code>200/CHDIR</code> (WorkingDirectory missing), <code>217/USER</code> (User= doesn't exist), <code>226/NAMESPACE</code> (a path in ReadWritePaths= etc. doesn't exist).</p>
+<h2 id="cause-4-permissions">Cause 4: permissions</h2>
+<p>The service runs as a dedicated user (<code>User=</code> in the unit) that can't read its config, write its PID file, log directory or data directory:</p>
+<pre><code class="language-bash">sudo -u www-data test -r /etc/myapp/config.yml &amp;&amp; echo ok
+sudo chown -R mysql:mysql /var/lib/mysql
+</code></pre>
+<p>Also check SELinux/AppArmor denials: <code>sudo journalctl -k | grep -i -e denied -e apparmor</code> or <code>sudo ausearch -m avc -ts recent</code>.</p>
+<h2 id="cause-5-you-edited-the-unit-file-but-didnt-reload">Cause 5: you edited the unit file but didn't reload</h2>
+<pre><code class="language-bash">sudo systemctl daemon-reload
+sudo systemctl restart myapp
+</code></pre>
+<p>Prefer overrides to editing vendor units: <code>sudo systemctl edit myapp</code> creates <code>/etc/systemd/system/myapp.service.d/override.conf</code>.</p>
+<h2 id="cause-6-type-doesnt-match-how-the-program-runs">Cause 6: Type= doesn't match how the program runs</h2>
+<p>If the program forks into the background but the unit says <code>Type=simple</code>, or vice versa with <code>Type=forking</code>, systemd may consider it failed or kill it. For most modern programs, run in the foreground and use <code>Type=simple</code> (or <code>exec</code>).</p>
+<h2 id="cause-7-start-limit-hit">Cause 7: start-limit-hit</h2>
+<p>After repeated failures: <code>Start request repeated too quickly</code>. Fix the underlying error, then:</p>
+<pre><code class="language-bash">sudo systemctl reset-failed myapp
+sudo systemctl start myapp
+</code></pre>
+<h2 id="useful-afterwards">Useful afterwards</h2>
+<pre><code class="language-bash">systemctl is-active myapp
+journalctl -u myapp -f            # follow logs live
+systemctl --failed                # list all failed units
+</code></pre>
+<p class="upd">Last updated 2026-11-06.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-unit-service-not-found/">Failed to start nginx.service: Unit nginx.service not found.</a></li><li><a href="/web/web-nginx-bind-address-already-in-use/">nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use)</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/linux/linux-cannot-execute-binary-file/">cannot execute binary file: Exec format error</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

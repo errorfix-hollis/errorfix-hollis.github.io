@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Argument list too long (Linux) — how to fix</title>
+<meta name="description" content="A glob like `*.log` expanded to so many filenames that the command line exceeded the kernel&#x27;s ARG_MAX limit (E2BIG). Use find, xargs or a loop instead of passing all files as arguments.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-argument-list-too-long/">
+<meta property="og:title" content="Argument list too long (Linux) — how to fix"><meta property="og:description" content="A glob like `*.log` expanded to so many filenames that the command line exceeded the kernel&#x27;s ARG_MAX limit (E2BIG). Use find, xargs or a loop instead of passing all files as arguments.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-argument-list-too-long/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Argument list too long (Linux) \u2014 how to fix", "description": "A glob like `*.log` expanded to so many filenames that the command line exceeded the kernel's ARG_MAX limit (E2BIG). Use find, xargs or a loop instead of passing all files as arguments.", "dateModified": "2026-11-04", "url": "https://errorfix-hollis.github.io/linux/linux-argument-list-too-long/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "Argument list too long", "item": "https://errorfix-hollis.github.io/linux/linux-argument-list-too-long/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>Argument list too long (Linux) — how to fix</h1>
+<pre class="err"><code>bash: /usr/bin/rm: Argument list too long
+-bash: /bin/ls: Argument list too long
+OSError: [Errno 7] Argument list too long
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Don't pass the glob to the command; let find do it: <code>find . -maxdepth 1 -name '*.log' -delete</code> or <code>find . -maxdepth 1 -name '*.jpg' -exec mv -t /dest {} +</code>. For other commands pipe through xargs: <code>printf '%s\0' *.log | xargs -0 rm</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The shell expands <code>*.log</code> into one argument per file <em>before</em> running <code>rm</code>. When the total size of the arguments plus environment variables exceeds the kernel limit, <code>execve()</code> fails with <code>E2BIG</code>, shown as "Argument list too long". The command never runs.</p>
+<p>Check the limit (bytes):</p>
+<pre><code class="language-bash">getconf ARG_MAX          # typically 2097152 (2 MiB) on Linux
+</code></pre>
+<p>There's also a per-argument limit of 128 KiB (<code>MAX_ARG_STRLEN</code>), which matters for one huge argument (e.g. a giant <code>-e</code> string or environment variable).</p>
+<p>Shell builtins like <code>echo</code> and <code>printf</code> aren't affected because no <code>execve</code> happens — that's why the tricks below work.</p>
+<h2 id="fix-1-find-best-for-deletemovecopy">Fix 1: find (best for delete/move/copy)</h2>
+<pre><code class="language-bash"># delete
+find . -maxdepth 1 -type f -name '*.log' -delete
+
+# move (GNU mv supports -t target-directory)
+find . -maxdepth 1 -type f -name '*.jpg' -exec mv -t /dest/ {} +
+
+# copy
+find src/ -maxdepth 1 -type f -name '*.csv' -exec cp -t backup/ {} +
+</code></pre>
+<p><code>-exec ... {} +</code> packs as many filenames per invocation as fit under the limit, so it's fast. Drop <code>-maxdepth 1</code> to include subdirectories. Run without <code>-delete</code> first to preview what matches.</p>
+<h2 id="fix-2-xargs-with-null-separators">Fix 2: xargs with null separators</h2>
+<pre><code class="language-bash">printf '%s\0' *.log | xargs -0 rm --
+</code></pre>
+<p><code>printf</code> is a builtin, so the expansion is fine; <code>xargs</code> splits the list into chunks below ARG_MAX. <code>-0</code> makes filenames with spaces and newlines safe. Add <code>-P 4</code> to run in parallel for slow commands.</p>
+<p>With find:</p>
+<pre><code class="language-bash">find . -name '*.tmp' -print0 | xargs -0 rm -f --
+</code></pre>
+<h2 id="fix-3-a-loop-simple-slower">Fix 3: a loop (simple, slower)</h2>
+<pre><code class="language-bash">for f in *.log; do rm -- &quot;$f&quot;; done
+</code></pre>
+<p>One process per file; fine for thousands, slow for millions.</p>
+<h2 id="fix-4-operate-on-the-directory">Fix 4: operate on the directory</h2>
+<p>If you want to empty a directory completely, removing and recreating it avoids expanding anything:</p>
+<pre><code class="language-bash">rm -rf /var/app/cache &amp;&amp; mkdir /var/app/cache
+</code></pre>
+<p>(Preserve ownership/permissions if needed.) <code>rsync -a --delete empty/ target/</code> is another fast way to empty a huge directory.</p>
+<h2 id="ls-and-wc">ls and wc</h2>
+<pre><code class="language-bash">ls | wc -l                          # count files without a glob
+find . -maxdepth 1 -name '*.log' | wc -l
+</code></pre>
+<h2 id="tar-grep-and-others">tar, grep, and others</h2>
+<pre><code class="language-bash">find . -name '*.json' -print0 | tar --null -czf data.tgz -T -
+grep -r &quot;needle&quot; --include='*.log' .       # let grep recurse instead of grep needle *.log
+</code></pre>
+<h2 id="in-scripts-and-programs">In scripts and programs</h2>
+<p>Python's <code>subprocess.run(["rm"] + files)</code> fails the same way (<code>OSError: [Errno 7]</code>). Batch the list, or call <code>os.remove()</code> in a loop instead of spawning a process. In Makefiles and build tools, extremely long command lines (many object files) can hit it too; use response files (<code>@args.txt</code>) where the tool supports them.</p>
+<h2 id="raising-the-limit">Raising the limit</h2>
+<p>On Linux, ARG_MAX is a quarter of the stack size limit, so <code>ulimit -s unlimited</code> or a larger <code>ulimit -s</code> raises it for that shell. It's rarely the right fix; find and xargs scale to any number of files.</p>
+<p class="upd">Last updated 2026-11-04.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-command-not-found/">command not found</a></li><li><a href="/linux/linux-no-space-left-on-device/">No space left on device</a></li><li><a href="/linux/linux-too-many-open-files/">Too many open files</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/linux/linux-cannot-execute-binary-file/">cannot execute binary file: Exec format error</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

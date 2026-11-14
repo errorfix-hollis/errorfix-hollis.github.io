@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused (PostgreSQL) — how to fix</title>
+<meta name="description" content="Nothing is listening on that host and port. PostgreSQL isn&#x27;t running, listens on another port/address, or is in a container that doesn&#x27;t publish the port.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-connection-refused/">
+<meta property="og:title" content="psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused (PostgreSQL) — how to fix"><meta property="og:description" content="Nothing is listening on that host and port. PostgreSQL isn&#x27;t running, listens on another port/address, or is in a container that doesn&#x27;t publish the port.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-connection-refused/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "psql: error: connection to server at \"localhost\" (127.0.0.1), port 5432 failed: Connection refused (PostgreSQL) \u2014 how to fix", "description": "Nothing is listening on that host and port. PostgreSQL isn't running, listens on another port/address, or is in a container that doesn't publish the port.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/database/db-postgres-connection-refused/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "psql: error: connection to server at \"localhost\" (127.0.0.1), port 5432 failed: Connection refused", "item": "https://errorfix-hollis.github.io/database/db-postgres-connection-refused/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused
+        Is the server running on that host and accepting TCP/IP connections?
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Start the server: <code>sudo systemctl start postgresql</code> and check <code>sudo systemctl status postgresql</code>. Then verify the port with <code>sudo ss -ltnp | grep 5432</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The TCP connection was actively refused: nothing is listening at that address and port. Authentication hasn't even started.</p>
+<h2 id="step-1-is-postgresql-running">Step 1: is PostgreSQL running?</h2>
+<pre><code class="language-bash">sudo systemctl status postgresql
+sudo systemctl start postgresql
+</code></pre>
+<p>On Debian/Ubuntu each cluster has its own unit: <code>pg_lsclusters</code> shows clusters, ports and status. Start one with <code>sudo pg_ctlcluster 16 main start</code>.</p>
+<p>macOS Homebrew: <code>brew services start postgresql@16</code>.</p>
+<p>If it won't start, read the log: <code>sudo journalctl -u postgresql -n 50</code> or <code>/var/log/postgresql/</code>.</p>
+<h2 id="step-2-which-port-and-address">Step 2: which port and address?</h2>
+<pre><code class="language-bash">sudo ss -ltnp | grep postgres
+</code></pre>
+<p>A second installed version often takes port <strong>5433</strong>. Connect with <code>-p 5433</code> or change <code>port</code> in <code>postgresql.conf</code>.</p>
+<h2 id="step-3-connecting-from-another-machine-or-container">Step 3: connecting from another machine or container</h2>
+<p>By default PostgreSQL listens only on <code>localhost</code>. In <code>postgresql.conf</code>:</p>
+<pre><code class="language-ini">listen_addresses = '*'
+</code></pre>
+<p>and allow the client network in <code>pg_hba.conf</code>:</p>
+<pre><code class="language-text">host  all  all  10.0.0.0/24  scram-sha-256
+</code></pre>
+<p>Restart PostgreSQL, and open port 5432 in the firewall only for trusted networks.</p>
+<h2 id="docker">Docker</h2>
+<ul>
+<li>Publish the port: <code>docker run -p 5432:5432 postgres</code>.</li>
+<li>From <strong>another container</strong>, <code>localhost</code> means that container itself. Use the service name as the host (<code>db</code>, as defined in <code>compose.yaml</code>).</li>
+<li><code>depends_on</code> doesn't wait for PostgreSQL to be ready. Add a healthcheck with <code>pg_isready</code> and use <code>condition: service_healthy</code>, or retry in your app.</li>
+</ul>
+<h2 id="unix-socket-version-of-this-error">Unix socket version of this error</h2>
+<p><code>connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: No such file or directory</code> means the same thing over the socket: the server isn't running, or it uses another port (the port number is part of the socket name).</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-postgres-password-authentication-failed/">FATAL: password authentication failed for user &quot;postgres&quot;</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li><li><a href="/database/db-mysql-error-1130-host-is-not-allowed-to-connect/">ERROR 1130 (HY000): Host is not allowed to connect to this MySQL server</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

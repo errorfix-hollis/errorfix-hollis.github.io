@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal: unable to access ... The requested URL returned error: 403 (Git) — how to fix</title>
+<meta name="description" content="The server recognised you but refused the request. Usually Git is sending cached credentials for the wrong account, or the token lacks write permission (scope) for that repository.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-the-requested-url-returned-error-403/">
+<meta property="og:title" content="fatal: unable to access ... The requested URL returned error: 403 (Git) — how to fix"><meta property="og:description" content="The server recognised you but refused the request. Usually Git is sending cached credentials for the wrong account, or the token lacks write permission (scope) for that repository.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-the-requested-url-returned-error-403/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal: unable to access ... The requested URL returned error: 403 (Git) \u2014 how to fix", "description": "The server recognised you but refused the request. Usually Git is sending cached credentials for the wrong account, or the token lacks write permission (scope) for that repository.", "dateModified": "2026-11-14", "url": "https://errorfix-hollis.github.io/git/git-the-requested-url-returned-error-403/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "fatal: unable to access ... The requested URL returned error: 403", "item": "https://errorfix-hollis.github.io/git/git-the-requested-url-returned-error-403/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>fatal: unable to access ... The requested URL returned error: 403 (Git) — how to fix</h1>
+<pre class="err"><code>remote: Permission to user/repo.git denied to other-user.
+fatal: unable to access &#x27;https://github.com/user/repo.git/&#x27;: The requested URL returned error: 403
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check which account Git uses (<code>remote: Permission ... denied to &lt;user&gt;</code>). Clear the cached credential (<code>git credential reject</code> or Windows Credential Manager / macOS Keychain entry for github.com) and log in again with <code>gh auth login</code> or a token that has <code>repo</code> scope (fine-grained: Contents read and write on that repo).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>HTTP 403 Forbidden: authentication worked (otherwise you'd get 401 / <code>Authentication failed</code>), but the authenticated identity isn't allowed to do this. GitHub usually prints the account it saw:</p>
+<pre><code>remote: Permission to acme/api.git denied to old-username.
+</code></pre>
+<p>If that username isn't the one you expect, it's a cached-credential problem. If it is the right user, it's a permissions/scope problem.</p>
+<h2 id="cause-1-cached-credentials-for-another-account">Cause 1: cached credentials for another account</h2>
+<p>Git's credential helper silently reuses the first login it stored for <code>github.com</code>. Find the helper:</p>
+<pre><code class="language-bash">git config --show-origin --get-all credential.helper
+</code></pre>
+<p>Clear the stored entry:</p>
+<pre><code class="language-bash">printf &quot;protocol=https\nhost=github.com\n\n&quot; | git credential reject
+</code></pre>
+<p>Or by OS:</p>
+<ul>
+<li><strong>Windows:</strong> Control Panel → Credential Manager → Windows Credentials → remove <code>git:https://github.com</code>.</li>
+<li><strong>macOS:</strong> Keychain Access → search <code>github.com</code> → delete the internet password. Or <code>git credential-osxkeychain erase</code> with the same input as above.</li>
+<li><strong>Linux (store helper):</strong> edit or delete <code>~/.git-credentials</code>.</li>
+</ul>
+<p>Next <code>git push</code> prompts again. Use a token as the password, or <code>gh auth login</code> followed by <code>gh auth setup-git</code>.</p>
+<p>To use different accounts per repo, include the username in the URL so credentials are stored separately:</p>
+<pre><code class="language-bash">git remote set-url origin https://work-user@github.com/acme/api.git
+git config --global credential.useHttpPath true   # optional: per-repo credentials
+</code></pre>
+<h2 id="cause-2-token-without-write-permission">Cause 2: token without write permission</h2>
+<p>A token can read a repo but not push. Check:</p>
+<ul>
+<li><strong>Classic PAT:</strong> needs the <code>repo</code> scope for private repos (<code>public_repo</code> for public only). Pushing changes to <code>.github/workflows/</code> also needs the <code>workflow</code> scope.</li>
+<li><strong>Fine-grained PAT:</strong> must list the repository (or "All repositories") and grant <strong>Contents: Read and write</strong>. Its resource owner must be the org that owns the repo, and some orgs require admin approval of fine-grained tokens.</li>
+<li><strong>Expired or revoked token:</strong> GitHub usually answers 401/<code>Authentication failed</code>, but replace it anyway.</li>
+</ul>
+<p>Test what the token can do:</p>
+<pre><code class="language-bash">curl -s -H &quot;Authorization: Bearer $TOKEN&quot; https://api.github.com/repos/acme/api | grep -A4 '&quot;permissions&quot;'
+</code></pre>
+<p><code>"push": true</code> must be there.</p>
+<h2 id="cause-3-you-really-have-no-write-access">Cause 3: you really have no write access</h2>
+<p>You're a reader on the repo, or it's someone else's project. Either ask for write access, or fork it and push to your fork:</p>
+<pre><code class="language-bash">gh repo fork --remote
+git push -u origin my-branch
+</code></pre>
+<p>Then open a pull request.</p>
+<h2 id="cause-4-organisation-saml-sso">Cause 4: organisation SAML SSO</h2>
+<p>For orgs with SAML single sign-on, a token must be authorised for the org: GitHub → Settings → Developer settings → Tokens → <strong>Configure SSO</strong> → Authorize next to the organisation. SSH keys need the same step.</p>
+<h2 id="cause-5-github-actions-github_token">Cause 5: GitHub Actions <code>GITHUB_TOKEN</code></h2>
+<p>In workflows, <code>git push</code> with the default token fails with 403 when it is read-only:</p>
+<pre><code class="language-yaml">permissions:
+  contents: write
+</code></pre>
+<p>Also check <strong>Settings → Actions → General → Workflow permissions</strong> for the repository or org.</p>
+<h2 id="other-hosts">Other hosts</h2>
+<ul>
+<li><strong>GitLab:</strong> 403 often means the token lacks <code>write_repository</code>, or the branch is protected.</li>
+<li><strong>Azure DevOps / Bitbucket:</strong> PAT needs Code (Read &amp; write) / repository write. App passwords on Bitbucket are being replaced by API tokens.</li>
+</ul>
+<h2 id="switch-to-ssh-to-avoid-credential-confusion">Switch to SSH to avoid credential confusion</h2>
+<pre><code class="language-bash">git remote set-url origin git@github.com:acme/api.git
+ssh -T git@github.com     # shows which account the key belongs to
+</code></pre>
+<p class="upd">Last updated 2026-11-14.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-password-authentication-removed/">remote: Support for password authentication was removed</a></li><li><a href="/git/git-permission-denied-publickey/">git@github.com: Permission denied (publickey).</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

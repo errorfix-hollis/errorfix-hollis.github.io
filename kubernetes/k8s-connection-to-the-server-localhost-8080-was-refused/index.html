@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The connection to the server localhost:8080 was refused - did you specify the right host or port? (Kubernetes) — how to fix</title>
+<meta name="description" content="kubectl found no kubeconfig, so it fell back to its built-in default of http://localhost:8080. Point kubectl at your cluster&#x27;s kubeconfig.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">
+<meta property="og:title" content="The connection to the server localhost:8080 was refused - did you specify the right host or port? (Kubernetes) — how to fix"><meta property="og:description" content="kubectl found no kubeconfig, so it fell back to its built-in default of http://localhost:8080. Point kubectl at your cluster&#x27;s kubeconfig.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The connection to the server localhost:8080 was refused - did you specify the right host or port? (Kubernetes) \u2014 how to fix", "description": "kubectl found no kubeconfig, so it fell back to its built-in default of http://localhost:8080. Point kubectl at your cluster's kubeconfig.", "dateModified": "2026-11-03", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "The connection to the server localhost:8080 was refused - did you specify the right host or port?", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>The connection to the server localhost:8080 was refused - did you specify the right host or port? (Kubernetes) — how to fix</h1>
+<pre class="err"><code>E1103 09:12:44.123456   12345 memcache.go:265] couldn&#x27;t get current server API group list: Get &quot;http://localhost:8080/api?timeout=32s&quot;: dial tcp 127.0.0.1:8080: connect: connection refused
+The connection to the server localhost:8080 was refused - did you specify the right host or port?
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> kubectl has no config. On a kubeadm control plane: <code>mkdir -p ~/.kube &amp;&amp; sudo cp /etc/kubernetes/admin.conf ~/.kube/config &amp;&amp; sudo chown $(id -u):$(id -g) ~/.kube/config</code>. On k3s: <code>export KUBECONFIG=/etc/rancher/k3s/k3s.yaml</code>. For cloud clusters regenerate it (<code>aws eks update-kubeconfig ...</code>, <code>gcloud container clusters get-credentials ...</code>, <code>az aks get-credentials ...</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When kubectl has no cluster configured, it defaults to <code>http://localhost:8080</code> — the old insecure API port that no modern cluster exposes. So this error almost never means "the API server on 8080 is down"; it means <strong>kubectl couldn't find a kubeconfig</strong> (or the one it found has no current context).</p>
+<p>kubectl looks for config in this order:</p>
+<ol>
+<li><code>--kubeconfig</code> flag</li>
+<li><code>KUBECONFIG</code> environment variable (colon-separated list)</li>
+<li><code>~/.kube/config</code></li>
+</ol>
+<p>Check what it sees:</p>
+<pre><code class="language-bash">echo $KUBECONFIG
+ls -l ~/.kube/config
+kubectl config view --minify
+kubectl config current-context
+</code></pre>
+<p>An empty <code>kubectl config view</code> confirms the diagnosis.</p>
+<h2 id="fix-1-kubeadm-cluster-on-the-control-plane-node">Fix 1: kubeadm cluster (on the control-plane node)</h2>
+<p>kubeadm writes the admin config to <code>/etc/kubernetes/admin.conf</code>. Copy it for your user — exactly what <code>kubeadm init</code> prints at the end:</p>
+<pre><code class="language-bash">mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+</code></pre>
+<p>As root, you can instead <code>export KUBECONFIG=/etc/kubernetes/admin.conf</code>.</p>
+<p>On a <strong>worker node</strong> there's no admin config by default — run kubectl from the control plane, or copy the config file over (<code>scp</code>) to the machine you want to use.</p>
+<h2 id="fix-2-k3s-rke2-microk8s">Fix 2: k3s / RKE2 / MicroK8s</h2>
+<pre><code class="language-bash"># k3s
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml      # readable by root by default
+sudo k3s kubectl get nodes                        # or use the bundled kubectl
+# make it permanent for your user:
+mkdir -p ~/.kube &amp;&amp; sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config &amp;&amp; sudo chown $USER ~/.kube/config
+
+# RKE2
+export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+
+# MicroK8s
+microk8s kubectl get nodes
+microk8s config &gt; ~/.kube/config
+</code></pre>
+<h2 id="fix-3-sudo-uses-roots-config">Fix 3: sudo uses root's config</h2>
+<p><code>sudo kubectl ...</code> reads <code>/root/.kube/config</code>, not yours. Don't use sudo with kubectl, or pass the config explicitly: <code>sudo kubectl --kubeconfig $HOME/.kube/config get pods</code>.</p>
+<h2 id="fix-4-managed-local-clusters">Fix 4: managed / local clusters</h2>
+<p>Regenerate the kubeconfig entry:</p>
+<pre><code class="language-bash">aws eks update-kubeconfig --region eu-west-1 --name my-cluster
+gcloud container clusters get-credentials my-cluster --region europe-west1
+az aks get-credentials --resource-group rg --name my-cluster
+minikube start          # writes the minikube context
+kind create cluster     # writes kind-kind context; or: kind export kubeconfig
+</code></pre>
+<p>Docker Desktop: enable Kubernetes in Settings, then <code>kubectl config use-context docker-desktop</code>.</p>
+<h2 id="fix-5-context-exists-but-isnt-selected">Fix 5: context exists but isn't selected</h2>
+<pre><code class="language-bash">kubectl config get-contexts
+kubectl config use-context my-cluster
+</code></pre>
+<h2 id="fix-6-kubeconfig-points-to-a-missing-file">Fix 6: KUBECONFIG points to a missing file</h2>
+<p>A typo in <code>~/.bashrc</code> (<code>export KUBECONFIG=~/.kube/conf</code>) makes kubectl ignore your real config. <code>echo $KUBECONFIG</code>, fix or <code>unset KUBECONFIG</code>.</p>
+<h2 id="if-the-api-server-is-actually-down">If the API server is actually down</h2>
+<p>If your kubeconfig is fine but the error shows your real API address (e.g. <code>10.0.0.10:6443 was refused</code>), the API server isn't running. On kubeadm nodes check:</p>
+<pre><code class="language-bash">sudo systemctl status kubelet
+sudo crictl ps -a | grep kube-apiserver
+sudo journalctl -u kubelet -n 100
+</code></pre>
+<p>Common culprits are swap being enabled after a reboot (<code>sudo swapoff -a</code>), an expired certificate (<code>sudo kubeadm certs check-expiration</code>) or the container runtime not running.</p>
+<p class="upd">Last updated 2026-11-03.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-error-from-server-forbidden/">Error from server (Forbidden): User cannot list resource in API group at the cluster scope</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li><li><a href="/kubernetes/k8s-error-converting-yaml-to-json-mapping-values-are-not-allowed/">error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

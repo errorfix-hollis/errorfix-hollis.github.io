@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>go: errors parsing go.mod: invalid go version: must match format 1.23 — how to fix</title>
+<meta name="description" content="Your go.mod uses a three-part go version (like 1.22.1) or a toolchain line, written by Go 1.21+, but you&#x27;re building with an older Go (1.20 or earlier) that only understands 1.N.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-invalid-go-version-must-match-format/">
+<meta property="og:title" content="go: errors parsing go.mod: invalid go version: must match format 1.23 — how to fix"><meta property="og:description" content="Your go.mod uses a three-part go version (like 1.22.1) or a toolchain line, written by Go 1.21+, but you&#x27;re building with an older Go (1.20 or earlier) that only understands 1.N.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-invalid-go-version-must-match-format/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "go: errors parsing go.mod: invalid go version: must match format 1.23 \u2014 how to fix", "description": "Your go.mod uses a three-part go version (like 1.22.1) or a toolchain line, written by Go 1.21+, but you're building with an older Go (1.20 or earlier) that only understands 1.N.", "dateModified": "2026-11-12", "url": "https://errorfix-hollis.github.io/go/go-invalid-go-version-must-match-format/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "go: errors parsing go.mod: invalid go version: must match format 1.23", "item": "https://errorfix-hollis.github.io/go/go-invalid-go-version-must-match-format/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>go: errors parsing go.mod: invalid go version: must match format 1.23 — how to fix</h1>
+<pre class="err"><code>go: errors parsing go.mod:
+/home/me/app/go.mod:3: invalid go version &#x27;1.22.1&#x27;: must match format 1.23
+go.mod:3: invalid go version &#x27;1.21.0&#x27;: must match format 1.23
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Best fix: upgrade Go to 1.21 or newer (<code>go version</code> to check), which understands <code>go 1.22.1</code> and auto-downloads the right toolchain. If you must stay on old Go, edit go.mod to <code>go 1.20</code> (two parts) and remove the <code>toolchain</code> line, or run <code>go mod edit -go=1.20 -toolchain=none</code> with a newer Go.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Since <strong>Go 1.21</strong>, the <code>go</code> line in <code>go.mod</code> can include a patch version (<code>go 1.22.1</code>), and there's a new <code>toolchain</code> directive:</p>
+<pre><code>module example.com/app
+
+go 1.22.1
+
+toolchain go1.23.4
+</code></pre>
+<p>Go 1.20 and earlier only accept <code>go 1.N</code>. When an old Go reads this file it fails with <em>invalid go version ... must match format 1.23</em> (the "1.23" in the message is just an example of the expected format, not a requirement).</p>
+<p>Typical situations: <code>go mod tidy</code> on a developer machine with new Go rewrote the line, and then CI, a Docker image or a colleague with older Go breaks.</p>
+<h2 id="fix-1-upgrade-go-recommended">Fix 1: upgrade Go (recommended)</h2>
+<p>Go before 1.21 is out of support. Check and upgrade:</p>
+<pre><code class="language-bash">go version
+</code></pre>
+<ul>
+<li><strong>Docker:</strong> bump the image, e.g. <code>FROM golang:1.23</code> instead of <code>golang:1.19</code>.</li>
+<li><strong>GitHub Actions:</strong> read the version from go.mod so it always matches:</li>
+</ul>
+<pre><code class="language-yaml">- uses: actions/setup-go@v5
+  with:
+    go-version-file: go.mod
+</code></pre>
+<ul>
+<li><strong>Linux tarball:</strong></li>
+</ul>
+<pre><code class="language-bash">curl -LO https://go.dev/dl/go1.23.4.linux-amd64.tar.gz
+sudo rm -rf /usr/local/go &amp;&amp; sudo tar -C /usr/local -xzf go1.23.4.linux-amd64.tar.gz
+</code></pre>
+<ul>
+<li>Debian/Ubuntu apt <code>golang</code> packages are often old; use the tarball, <code>snap install go --classic</code>, or a backports package.</li>
+</ul>
+<p>With Go 1.21+, if go.mod asks for a newer version than installed, Go downloads that toolchain automatically (controlled by <code>GOTOOLCHAIN</code>, default <code>auto</code>).</p>
+<h2 id="fix-2-make-gomod-readable-by-old-go">Fix 2: make go.mod readable by old Go</h2>
+<p>If you really must support Go 1.20 builds, use a two-part version and drop the toolchain line. With a new Go:</p>
+<pre><code class="language-bash">go mod edit -go=1.20 -toolchain=none
+go mod tidy
+</code></pre>
+<p>Or edit by hand:</p>
+<pre><code>go 1.20
+</code></pre>
+<p>This only works if your code and dependencies don't need newer language features or stdlib APIs. If a dependency requires a newer Go, <code>go mod tidy</code> will bump the line back up, so you'd have to downgrade that dependency (<code>go get example.com/dep@v1.4.0</code>).</p>
+<h2 id="fix-3-the-error-is-in-a-dependencys-gomod">Fix 3: the error is in a dependency's go.mod</h2>
+<p>If the path in the message is under <code>$GOPATH/pkg/mod/...</code>, a dependency was published with a three-part version. You can't edit it; upgrade your Go or pin an older release of that dependency.</p>
+<h2 id="fix-4-wrong-go-binary-on-path">Fix 4: wrong <code>go</code> binary on PATH</h2>
+<p>You may have installed new Go but an older one runs first:</p>
+<pre><code class="language-bash">which -a go
+go env GOROOT
+</code></pre>
+<p>Remove the old one or fix <code>PATH</code> (e.g. put <code>/usr/local/go/bin</code> before <code>/usr/bin</code>). IDEs (VS Code, GoLand) can be configured with their own GOROOT; check that too.</p>
+<h2 id="related-errors">Related errors</h2>
+<ul>
+<li><code>go.mod requires go &gt;= 1.23 (running go 1.21; GOTOOLCHAIN=local)</code>: see <a href="/go/go-module-requires-go-running-go/">module requires go ... running go</a>.</li>
+<li><code>unknown directive: toolchain</code>: also old Go (≤1.20) reading a <code>toolchain</code> line; same fixes.</li>
+</ul>
+<p class="upd">Last updated 2026-11-12.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-cannot-find-main-module/">go: cannot find main module, but found .git/config</a></li><li><a href="/go/go-module-requires-go-running-go/">go: go.mod requires go &gt;= 1.xx (running go 1.yy; GOTOOLCHAIN=local)</a></li><li><a href="/go/go-updates-to-go-mod-needed/">go: updates to go.mod needed; to update it: go mod tidy</a></li><li><a href="/go/go-all-goroutines-are-asleep-deadlock/">fatal error: all goroutines are asleep - deadlock!</a></li><li><a href="/go/go-cannot-use-as-value-in-assignment/">cannot use x (variable of type T) as U value in assignment</a></li><li><a href="/go/go-declared-and-not-used/">declared and not used</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>go: go.mod requires go &gt;= 1.xx (running go 1.yy; GOTOOLCHAIN=local) — how to fix</title>
+<meta name="description" content="The main module or one of its dependencies declares a newer Go version in its go.mod than the toolchain you are running, and automatic toolchain download is disabled (GOTOOLCHAIN=local).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-module-requires-go-running-go/">
+<meta property="og:title" content="go: go.mod requires go &gt;= 1.xx (running go 1.yy; GOTOOLCHAIN=local) — how to fix"><meta property="og:description" content="The main module or one of its dependencies declares a newer Go version in its go.mod than the toolchain you are running, and automatic toolchain download is disabled (GOTOOLCHAIN=local).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-module-requires-go-running-go/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "go: go.mod requires go >= 1.xx (running go 1.yy; GOTOOLCHAIN=local) \u2014 how to fix", "description": "The main module or one of its dependencies declares a newer Go version in its go.mod than the toolchain you are running, and automatic toolchain download is disabled (GOTOOLCHAIN=local).", "dateModified": "2026-11-10", "url": "https://errorfix-hollis.github.io/go/go-module-requires-go-running-go/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "go: go.mod requires go >= 1.xx (running go 1.yy; GOTOOLCHAIN=local)", "item": "https://errorfix-hollis.github.io/go/go-module-requires-go-running-go/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>go: go.mod requires go &gt;= 1.xx (running go 1.yy; GOTOOLCHAIN=local) — how to fix</h1>
+<pre class="err"><code>go: go.mod requires go &gt;= 1.23.0 (running go 1.21.6; GOTOOLCHAIN=local)
+go: github.com/example/lib@v1.4.0 requires go &gt;= 1.22 (running go 1.21.6; GOTOOLCHAIN=local)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install a newer Go (or let Go fetch it: <code>go env -w GOTOOLCHAIN=auto</code>), e.g. <code>go install golang.org/dl/go1.23.4@latest &amp;&amp; go1.23.4 download</code>. In CI/Docker, bump the image (<code>golang:1.23</code>) or <code>go-version</code> in setup-go. Only lower the <code>go</code> line in go.mod if no dependency needs the newer version.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Since Go 1.21, the <code>go</code> line in <code>go.mod</code> is a <strong>minimum requirement</strong>, not a hint:</p>
+<pre><code>module example.com/app
+
+go 1.23.0
+toolchain go1.23.4
+</code></pre>
+<p>If your installed toolchain is older, Go 1.21+ will by default download the required toolchain automatically (<code>GOTOOLCHAIN=auto</code>). You see this error when that switching is disabled (<code>GOTOOLCHAIN=local</code>) — common in Linux distro packages, some Docker images and corporate setups.</p>
+<p>The second form (<code>github.com/example/lib@v1.4.0 requires go &gt;= 1.22</code>) means a <strong>dependency</strong> needs the newer Go, so lowering your own <code>go</code> line won't help.</p>
+<h2 id="check-what-you-have">Check what you have</h2>
+<pre><code class="language-bash">go version
+go env GOTOOLCHAIN GOROOT
+grep -E '^(go|toolchain) ' go.mod
+</code></pre>
+<p><code>GOTOOLCHAIN</code> may be set in the environment, in <code>go env -w</code> config (<code>$(go env GOENV)</code>), or by the distro in <code>$GOROOT/go.env</code>.</p>
+<h2 id="fix-1-let-go-download-the-toolchain">Fix 1: let Go download the toolchain</h2>
+<pre><code class="language-bash">go env -w GOTOOLCHAIN=auto
+go version        # run inside the module; downloads the needed version
+</code></pre>
+<p>The toolchain is fetched as a module (<code>golang.org/toolchain</code>) through your <code>GOPROXY</code>. If you're behind a proxy that blocks it, use Fix 2.</p>
+<h2 id="fix-2-install-a-newer-go">Fix 2: install a newer Go</h2>
+<p>Official tarball (Linux amd64 example):</p>
+<pre><code class="language-bash">curl -LO https://go.dev/dl/go1.23.4.linux-amd64.tar.gz
+sudo rm -rf /usr/local/go &amp;&amp; sudo tar -C /usr/local -xzf go1.23.4.linux-amd64.tar.gz
+export PATH=/usr/local/go/bin:$PATH
+</code></pre>
+<p>Or install a side-by-side version with the existing toolchain:</p>
+<pre><code class="language-bash">go install golang.org/dl/go1.23.4@latest
+go1.23.4 download
+go1.23.4 build ./...
+</code></pre>
+<p>macOS: <code>brew upgrade go</code>. Ubuntu's <code>golang-go</code> package is often behind — use the tarball, <code>snap install go --classic</code>, or the <code>longsleep/golang-backports</code> PPA.</p>
+<h2 id="fix-3-ci-and-docker">Fix 3: CI and Docker</h2>
+<pre><code class="language-dockerfile">FROM golang:1.23 AS build      # match or exceed go.mod
+</code></pre>
+<p>GitHub Actions — read the version from go.mod so they never drift:</p>
+<pre><code class="language-yaml">- uses: actions/setup-go@v5
+  with:
+    go-version-file: go.mod
+</code></pre>
+<h2 id="fix-4-the-dependency-upgrade-was-unintended">Fix 4: the dependency upgrade was unintended</h2>
+<p>If <code>go get -u</code> raised the <code>go</code> line (Go bumps it when a dependency requires it), you can pin the dependency to an older version that supports your Go:</p>
+<pre><code class="language-bash">go get github.com/example/lib@v1.3.2
+go mod tidy
+</code></pre>
+<p>Then check the result with <code>go mod graph | grep example/lib</code>. Only lower the <code>go</code> directive by hand (<code>go mod edit -go=1.21</code>) if nothing in the module graph needs more — <code>go mod tidy</code> will tell you if it does.</p>
+<h2 id="related-invalid-go-version-1210-must-match-format-123">Related: <code>invalid go version '1.21.0': must match format 1.23</code></h2>
+<p>Go 1.20 and older don't understand three-part versions like <code>go 1.21.0</code> or the <code>toolchain</code> line, and fail with this message or <code>unknown directive: toolchain</code>. The only real fix is to upgrade to Go 1.21+; editing go.mod to <code>go 1.21</code> just moves the problem to the dependencies.</p>
+<p class="upd">Last updated 2026-11-10.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-cannot-find-main-module/">go: cannot find main module, but found .git/config</a></li><li><a href="/go/go-missing-go-sum-entry/">missing go.sum entry for module providing package</a></li><li><a href="/go/go-updates-to-go-mod-needed/">go: updates to go.mod needed; to update it: go mod tidy</a></li><li><a href="/go/go-all-goroutines-are-asleep-deadlock/">fatal error: all goroutines are asleep - deadlock!</a></li><li><a href="/go/go-cannot-use-as-value-in-assignment/">cannot use x (variable of type T) as U value in assignment</a></li><li><a href="/go/go-declared-and-not-used/">declared and not used</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

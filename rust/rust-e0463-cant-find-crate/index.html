@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error[E0463]: can&#x27;t find crate for `std` (Rust) — how to fix</title>
+<meta name="description" content="rustc could not find a crate it was told to link. For `std`/`core` the standard library for your target isn&#x27;t installed; for other crates you&#x27;re usually calling rustc directly or using `extern crate` without the dependency in Cargo.toml.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/rust/rust-e0463-cant-find-crate/">
+<meta property="og:title" content="error[E0463]: can&#x27;t find crate for `std` (Rust) — how to fix"><meta property="og:description" content="rustc could not find a crate it was told to link. For `std`/`core` the standard library for your target isn&#x27;t installed; for other crates you&#x27;re usually calling rustc directly or using `extern crate` without the dependency in Cargo.toml.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/rust/rust-e0463-cant-find-crate/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error[E0463]: can't find crate for `std` (Rust) \u2014 how to fix", "description": "rustc could not find a crate it was told to link. For `std`/`core` the standard library for your target isn't installed; for other crates you're usually calling rustc directly or using `extern crate` without the dependency in Cargo.toml.", "dateModified": "2026-11-08", "url": "https://errorfix-hollis.github.io/rust/rust-e0463-cant-find-crate/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Rust", "item": "https://errorfix-hollis.github.io/rust/"}, {"@type": "ListItem", "position": 3, "name": "error[E0463]: can't find crate for `std`", "item": "https://errorfix-hollis.github.io/rust/rust-e0463-cant-find-crate/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/rust/">Rust</a></p>
+<article><h1>error[E0463]: can&#x27;t find crate for `std` (Rust) — how to fix</h1>
+<pre class="err"><code>error[E0463]: can&#x27;t find crate for `std`
+  |
+  = note: the `wasm32-unknown-unknown` target may not be installed
+  = help: consider downloading the target with `rustup target add wasm32-unknown-unknown`
+error[E0463]: can&#x27;t find crate for `serde`
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> For <code>std</code>/<code>core</code>: install the target's standard library with <code>rustup target add &lt;target&gt;</code> (e.g. <code>rustup target add wasm32-unknown-unknown</code>), and make sure you use the rustup toolchain, not a distro rustc. For other crates: add them to Cargo.toml (<code>cargo add serde</code>) and build with <code>cargo build</code>, not plain <code>rustc</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>E0463 is a linking-stage lookup failure: the compiler needs the compiled metadata (<code>.rlib</code>/<code>.rmeta</code>) of a crate and can't find it in its search paths. There are two very different situations.</p>
+<h2 id="cause-1-cant-find-crate-for-std-core-when-cross-compiling">Cause 1: <code>can't find crate for std</code> / <code>core</code> when cross-compiling</h2>
+<p>You built for a target (<code>--target wasm32-unknown-unknown</code>, <code>aarch64-unknown-linux-gnu</code>, <code>thumbv7em-none-eabihf</code>, an Android/iOS target...) whose precompiled standard library isn't installed. rustup only installs the host target by default.</p>
+<p><strong>Fix:</strong></p>
+<pre><code class="language-bash">rustup target list --installed
+rustup target add wasm32-unknown-unknown
+# or for a specific toolchain
+rustup target add aarch64-unknown-linux-gnu --toolchain nightly
+</code></pre>
+<p>If the project has a <code>rust-toolchain.toml</code>, add the target there so everyone gets it:</p>
+<pre><code class="language-toml">[toolchain]
+channel = &quot;stable&quot;
+targets = [&quot;wasm32-unknown-unknown&quot;]
+</code></pre>
+<p>Note: the toolchain in use may differ from your default (because of <code>rust-toolchain.toml</code> or <code>rustup override</code>). Check with <code>rustup show</code> and add the target to <em>that</em> toolchain.</p>
+<h2 id="cause-2-a-rustc-that-isnt-managed-by-rustup">Cause 2: a rustc that isn't managed by rustup</h2>
+<p>If <code>which rustc</code> points at <code>/usr/bin/rustc</code> (apt, dnf, Homebrew), <code>rustup target add</code> doesn't affect it, and the distro may not ship std for other targets.</p>
+<pre><code class="language-bash">which -a rustc cargo
+rustup which rustc
+</code></pre>
+<p>Uninstall the distro package or put <code>~/.cargo/bin</code> first on <code>PATH</code>.</p>
+<h2 id="cause-3-no_std-targets-that-have-no-std-at-all">Cause 3: <code>#![no_std]</code> targets that have no std at all</h2>
+<p>Bare-metal targets (<code>thumbv*-none-*</code>, <code>riscv32imac-unknown-none-elf</code>) only ship <code>core</code> (and <code>alloc</code>). Any dependency pulling in <code>std</code> triggers E0463 for <code>std</code>. Mark your crate <code>#![no_std]</code> and disable default features of dependencies:</p>
+<pre><code class="language-toml">serde = { version = &quot;1&quot;, default-features = false, features = [&quot;derive&quot;] }
+</code></pre>
+<p>For targets without any prebuilt library (custom target JSON), build core yourself on nightly: <code>cargo +nightly build -Z build-std=core,alloc --target my-target.json</code> (needs <code>rustup component add rust-src</code>).</p>
+<h2 id="cause-4-cant-find-crate-for-serde-or-any-other-crate">Cause 4: <code>can't find crate for serde</code> (or any other crate)</h2>
+<p>You wrote <code>extern crate serde;</code> or <code>use serde::...</code> but the compiler wasn't given the crate.</p>
+<ul>
+<li>The dependency isn't in <code>Cargo.toml</code>. Add it:</li>
+</ul>
+<pre><code class="language-bash">cargo add serde --features derive
+</code></pre>
+<ul>
+<li>You compiled with <code>rustc main.rs</code> directly. Plain <code>rustc</code> knows nothing about Cargo dependencies; use <code>cargo build</code> / <code>cargo run</code>.</li>
+<li>The crate is a <code>[dev-dependencies]</code> entry used in normal (non-test) code, or a <code>[build-dependencies]</code> entry used outside <code>build.rs</code>. Move it to <code>[dependencies]</code>.</li>
+<li>It's an optional dependency whose feature isn't enabled.</li>
+</ul>
+<p>In Rust 2018+ editions you rarely need <code>extern crate</code> at all; a <code>use</code> path plus the Cargo.toml entry is enough. A missing crate in a <code>use</code> path usually appears as E0432/E0433 instead.</p>
+<h2 id="cause-5-stale-or-mixed-build-artifacts">Cause 5: stale or mixed build artifacts</h2>
+<p>After switching toolchains, artifacts compiled by a different rustc version can't be loaded. Run <code>cargo clean</code> and rebuild.</p>
+<p class="upd">Last updated 2026-11-08.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/rust/rust-e0425-cannot-find-value-in-this-scope/">error[E0425]: cannot find value `x` in this scope</a></li><li><a href="/rust/rust-e0599-no-method-named-found/">error[E0599]: no method named `x` found for struct `T` in the current scope</a></li><li><a href="/rust/rust-linker-cc-not-found/">error: linker `cc` not found</a></li><li><a href="/rust/rust-borrow-of-moved-value/">error[E0382]: borrow of moved value</a></li><li><a href="/rust/rust-cannot-borrow-as-mutable/">error[E0502]: cannot borrow as mutable because it is also borrowed as immutable</a></li><li><a href="/rust/rust-e0106-missing-lifetime-specifier/">error[E0106]: missing lifetime specifier</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

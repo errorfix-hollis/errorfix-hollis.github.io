@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error: unable to get local issuer certificate (UNABLE_TO_GET_ISSUER_CERT_LOCALLY) (Node.js) — how to fix</title>
+<meta name="description" content="Node.js could not build a trust chain for the server&#x27;s TLS certificate because the issuing CA is not in Node&#x27;s CA store. Almost always a corporate proxy or antivirus that re-signs HTTPS traffic with its own root certificate.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/node-unable-to-get-issuer-cert-locally/">
+<meta property="og:title" content="Error: unable to get local issuer certificate (UNABLE_TO_GET_ISSUER_CERT_LOCALLY) (Node.js) — how to fix"><meta property="og:description" content="Node.js could not build a trust chain for the server&#x27;s TLS certificate because the issuing CA is not in Node&#x27;s CA store. Almost always a corporate proxy or antivirus that re-signs HTTPS traffic with its own root certificate.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/node-unable-to-get-issuer-cert-locally/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error: unable to get local issuer certificate (UNABLE_TO_GET_ISSUER_CERT_LOCALLY) (Node.js) \u2014 how to fix", "description": "Node.js could not build a trust chain for the server's TLS certificate because the issuing CA is not in Node's CA store. Almost always a corporate proxy or antivirus that re-signs HTTPS traffic with its own root certificate.", "dateModified": "2026-11-11", "url": "https://errorfix-hollis.github.io/npm/node-unable-to-get-issuer-cert-locally/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "Error: unable to get local issuer certificate (UNABLE_TO_GET_ISSUER_CERT_LOCALLY)", "item": "https://errorfix-hollis.github.io/npm/node-unable-to-get-issuer-cert-locally/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>Error: unable to get local issuer certificate (UNABLE_TO_GET_ISSUER_CERT_LOCALLY) (Node.js) — how to fix</h1>
+<pre class="err"><code>npm ERR! code UNABLE_TO_GET_ISSUER_CERT_LOCALLY
+npm ERR! request to https://registry.npmjs.org/react failed, reason: unable to get local issuer certificate
+Error: unable to get local issuer certificate
+    at TLSSocket.onConnectSecure (node:_tls_wrap:1659:34) {
+  code: &#x27;UNABLE_TO_GET_ISSUER_CERT_LOCALLY&#x27;
+}
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Get your company's root CA as a PEM file and point Node at it: <code>export NODE_EXTRA_CA_CERTS=/path/corp-ca.pem</code> (npm also accepts <code>npm config set cafile /path/corp-ca.pem</code>). On recent Node versions you can use the OS store with <code>NODE_OPTIONS=--use-system-ca</code>. Don't use <code>NODE_TLS_REJECT_UNAUTHORIZED=0</code> except for a quick test.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>During the TLS handshake the server sends its certificate and (usually) intermediates. Node has to link them to a root CA it trusts. Node ships its own bundled Mozilla CA list and by default <strong>ignores the operating system's certificate store</strong>. If the chain ends at a CA Node doesn't know, you get <code>UNABLE_TO_GET_ISSUER_CERT_LOCALLY</code>.</p>
+<p>Common reasons:</p>
+<ol>
+<li>A corporate proxy / firewall / antivirus (Zscaler, Netskope, Palo Alto, Kaspersky, Avast...) intercepts HTTPS and re-signs it with a company root CA. Your browser trusts it (installed in the OS store), Node doesn't.</li>
+<li>An internal server or private registry uses a certificate from an internal CA.</li>
+<li>The server is misconfigured and doesn't send its intermediate certificate.</li>
+</ol>
+<p>Check who issued the certificate you actually receive:</p>
+<pre><code class="language-bash">openssl s_client -connect registry.npmjs.org:443 -servername registry.npmjs.org &lt;/dev/null 2&gt;/dev/null | grep -E 'subject=|issuer='
+</code></pre>
+<p>If the issuer is your company or security product rather than a public CA, it's cause 1.</p>
+<h2 id="fix-1-add-the-ca-with-node_extra_ca_certs-recommended">Fix 1: add the CA with NODE_EXTRA_CA_CERTS (recommended)</h2>
+<p>Export the root CA (ask IT, or export it from the browser's certificate viewer as Base64/PEM) and tell Node to trust it <strong>in addition</strong> to the bundled list:</p>
+<pre><code class="language-bash">export NODE_EXTRA_CA_CERTS=&quot;$HOME/certs/corp-root-ca.pem&quot;
+</code></pre>
+<p>Add it to <code>~/.bashrc</code>/<code>~/.zshrc</code>, or on Windows:</p>
+<pre><code class="language-powershell">setx NODE_EXTRA_CA_CERTS &quot;C:\certs\corp-root-ca.pem&quot;
+</code></pre>
+<p>This works for npm, yarn, pnpm, and any Node program (fetch, axios, Prisma downloads, Angular CLI). It is read only at process start, so open a new terminal.</p>
+<h2 id="fix-2-npms-cafile-setting">Fix 2: npm's cafile setting</h2>
+<p>For npm only:</p>
+<pre><code class="language-bash">npm config set cafile &quot;$HOME/certs/corp-root-ca.pem&quot;
+</code></pre>
+<p>Note: <code>cafile</code> <em>replaces</em> npm's CA list rather than extending it, so the file should contain every CA you need (for a proxy that re-signs everything, the corporate root is enough). Yarn classic uses <code>yarn config set cafile ...</code>; Yarn Berry uses <code>httpsCaFilePath</code> in <code>.yarnrc.yml</code>.</p>
+<h2 id="fix-3-use-the-operating-systems-store">Fix 3: use the operating system's store</h2>
+<p>Newer Node versions can trust the system store, where IT has usually installed the corporate CA already:</p>
+<pre><code class="language-bash">node --use-system-ca app.js
+export NODE_OPTIONS=--use-system-ca      # for npm and other tools
+</code></pre>
+<p><code>--use-system-ca</code> exists only in recent releases (added in 23.8 / 22.15; Linux support arrived later than Windows/macOS). Check with <code>node --help | grep system-ca</code>; if it's missing, use Fix 1. On Linux you can point at the system bundle directly:</p>
+<pre><code class="language-bash">export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+</code></pre>
+<h2 id="fix-4-server-missing-its-intermediate">Fix 4: server missing its intermediate</h2>
+<p>If you control the server and <code>openssl s_client</code> shows <code>verify error:num=20:unable to get local issuer certificate</code> from everywhere, configure it to send the full chain (e.g. nginx <code>ssl_certificate</code> should point to <code>fullchain.pem</code>, not <code>cert.pem</code>).</p>
+<h2 id="what-not-to-do">What not to do</h2>
+<pre><code class="language-bash">npm config set strict-ssl false
+export NODE_TLS_REJECT_UNAUTHORIZED=0
+</code></pre>
+<p>Both disable certificate checking entirely, so any man-in-the-middle can tamper with downloaded packages. Use them only to confirm the diagnosis, then switch to Fix 1.</p>
+<p>In Docker builds behind a proxy, copy the CA into the image and set the variable:</p>
+<pre><code class="language-dockerfile">COPY corp-root-ca.pem /usr/local/share/ca-certificates/corp-root-ca.crt
+RUN update-ca-certificates
+ENV NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/corp-root-ca.crt
+</code></pre>
+<p class="upd">Last updated 2026-11-11.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/npm-self-signed-cert-in-chain/">npm ERR! code SELF_SIGNED_CERT_IN_CHAIN</a></li><li><a href="/python/python-ssl-certificate-verify-failed/">ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Permission denied (publickey) (SSH) — how to fix</title>
+<meta name="description" content="The server only accepts key authentication and rejected every key you offered. Check the key, the username, file permissions and authorized_keys.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/ssh/ssh-permission-denied-publickey/">
+<meta property="og:title" content="Permission denied (publickey) (SSH) — how to fix"><meta property="og:description" content="The server only accepts key authentication and rejected every key you offered. Check the key, the username, file permissions and authorized_keys.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/ssh/ssh-permission-denied-publickey/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Permission denied (publickey) (SSH) \u2014 how to fix", "description": "The server only accepts key authentication and rejected every key you offered. Check the key, the username, file permissions and authorized_keys.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/ssh/ssh-permission-denied-publickey/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "SSH", "item": "https://errorfix-hollis.github.io/ssh/"}, {"@type": "ListItem", "position": 3, "name": "Permission denied (publickey)", "item": "https://errorfix-hollis.github.io/ssh/ssh-permission-denied-publickey/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/ssh/">SSH</a></p>
+<article><h1>Permission denied (publickey) (SSH) — how to fix</h1>
+<pre class="err"><code>user@203.0.113.10: Permission denied (publickey).
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Connect with the right key and user: <code>ssh -i ~/.ssh/mykey user@host</code>. Debug with <code>ssh -v</code>. On the server, the public key must be in <code>~/.ssh/authorized_keys</code> with permissions 700 on <code>~/.ssh</code> and 600 on the file.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The SSH server has password login disabled, and none of the keys your client sent match an entry in the target user's <code>~/.ssh/authorized_keys</code>.</p>
+<h2 id="step-1-see-whats-happening">Step 1: see what's happening</h2>
+<pre><code class="language-bash">ssh -v user@host
+</code></pre>
+<p>Look for <code>Offering public key:</code> lines (which keys were tried) and <code>Authentications that can continue: publickey</code>.</p>
+<h2 id="step-2-client-side-checks">Step 2: client-side checks</h2>
+<p><strong>Use the right username.</strong> Cloud images use a default user, not root:</p>
+<table>
+<thead>
+<tr>
+<th>Image</th>
+<th>User</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ubuntu</td>
+<td><code>ubuntu</code></td>
+</tr>
+<tr>
+<td>Amazon Linux, RHEL</td>
+<td><code>ec2-user</code></td>
+</tr>
+<tr>
+<td>Debian</td>
+<td><code>admin</code> (AWS) or <code>debian</code></td>
+</tr>
+<tr>
+<td>Fedora / CentOS</td>
+<td><code>fedora</code> / <code>centos</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Use the right key:</strong></p>
+<pre><code class="language-bash">ssh -i ~/.ssh/mykey.pem ubuntu@host
+</code></pre>
+<p><strong>Fix key file permissions</strong> (SSH ignores keys that others can read):</p>
+<pre><code class="language-bash">chmod 600 ~/.ssh/mykey.pem
+</code></pre>
+<p><strong>Too many keys in your agent.</strong> The server may disconnect after a few failed keys. Force one key: <code>ssh -o IdentitiesOnly=yes -i ~/.ssh/mykey user@host</code>.</p>
+<h2 id="step-3-server-side-checks-if-you-have-console-access">Step 3: server-side checks (if you have console access)</h2>
+<pre><code class="language-bash">chmod 700 ~/.ssh
+chmod 600 ~/.ssh/authorized_keys
+chown -R &quot;$USER&quot;:&quot;$USER&quot; ~/.ssh
+</code></pre>
+<p>The home directory must not be writable by others either (<code>chmod go-w ~</code>).</p>
+<p>Make sure the <strong>public</strong> key (the <code>.pub</code> line, starting with <code>ssh-ed25519</code> or <code>ssh-rsa</code>) is on a single line in <code>authorized_keys</code>. The easiest way to install it from the client is:</p>
+<pre><code class="language-bash">ssh-copy-id -i ~/.ssh/mykey.pub user@host
+</code></pre>
+<p>The server log says exactly why a key was refused:</p>
+<pre><code class="language-bash">sudo journalctl -u ssh -n 50      # or: sudo tail /var/log/auth.log
+</code></pre>
+<h2 id="old-rsa-keys">Old RSA keys</h2>
+<p>OpenSSH 8.8+ disables <code>ssh-rsa</code> signatures with SHA-1. Old servers or old keys can then fail. Best fix: create an Ed25519 key (<code>ssh-keygen -t ed25519</code>). Temporary workaround for an old server: <code>ssh -o PubkeyAcceptedAlgorithms=+ssh-rsa -o HostkeyAlgorithms=+ssh-rsa user@host</code>.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-permission-denied-publickey/">git@github.com: Permission denied (publickey).</a></li><li><a href="/ssh/ssh-unprotected-private-key-file/">WARNING: UNPROTECTED PRIVATE KEY FILE!</a></li><li><a href="/ssh/ssh-connect-to-host-port-22-connection-refused/">ssh: connect to host port 22: Connection refused</a></li><li><a href="/ssh/ssh-connection-closed-by-remote-host/">Connection closed by remote host</a></li><li><a href="/ssh/ssh-connection-timed-out/">ssh: connect to host port 22: Connection timed out</a></li><li><a href="/ssh/ssh-host-key-verification-failed/">Host key verification failed.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

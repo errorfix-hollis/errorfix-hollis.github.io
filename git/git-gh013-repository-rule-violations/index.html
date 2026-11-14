@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>remote: error: GH013: Repository rule violations found for refs/heads/main. (Git) — how to fix</title>
+<meta name="description" content="GitHub rejected the push because it breaks a repository ruleset: most often push protection found a secret (API key, token) in one of the commits, or a branch rule requires pull requests, signed commits or linear history.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-gh013-repository-rule-violations/">
+<meta property="og:title" content="remote: error: GH013: Repository rule violations found for refs/heads/main. (Git) — how to fix"><meta property="og:description" content="GitHub rejected the push because it breaks a repository ruleset: most often push protection found a secret (API key, token) in one of the commits, or a branch rule requires pull requests, signed commits or linear history.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-gh013-repository-rule-violations/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "remote: error: GH013: Repository rule violations found for refs/heads/main. (Git) \u2014 how to fix", "description": "GitHub rejected the push because it breaks a repository ruleset: most often push protection found a secret (API key, token) in one of the commits, or a branch rule requires pull requests, signed commits or linear history.", "dateModified": "2026-11-13", "url": "https://errorfix-hollis.github.io/git/git-gh013-repository-rule-violations/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "remote: error: GH013: Repository rule violations found for refs/heads/main.", "item": "https://errorfix-hollis.github.io/git/git-gh013-repository-rule-violations/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>remote: error: GH013: Repository rule violations found for refs/heads/main. (Git) — how to fix</h1>
+<pre class="err"><code>remote: error: GH013: Repository rule violations found for refs/heads/main.
+remote:
+remote: - GITHUB PUSH PROTECTION
+remote:   —————————————————————————————————————————
+remote:     Resolve the following violations before pushing again
+remote:
+remote:     - Push cannot contain secrets
+remote:
+remote:      —— GitHub Personal Access Token ——————————————————————
+remote:        locations:
+remote:          - commit: 8f3c2a1...
+remote:            path: config/settings.py:12
+remote:
+To https://github.com/user/repo.git
+ ! [remote rejected] main -&gt; main (push declined due to repository rule violations)
+error: failed to push some refs to &#x27;https://github.com/user/repo.git&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Read the rule listed under GH013. For secrets: revoke the key, remove it from the code, then rewrite the commit(s) that contain it (<code>git commit --amend</code> for the last one, <code>git rebase -i</code> for older ones) and push again. For branch rules (PR required, signed commits): push to a new branch and open a pull request, or ask an admin to change the ruleset.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>GitHub evaluates <em>rulesets</em> and <em>push protection</em> on every push. If any commit in the push violates a rule, the whole push is rejected with <code>GH013</code>. The lines after <code>remote:</code> tell you which rule. Removing the file in a new commit is <strong>not enough</strong> — the secret is still in the earlier commit, and every commit in the push is scanned.</p>
+<h2 id="cause-1-push-cannot-contain-secrets-push-protection">Cause 1: "Push cannot contain secrets" (push protection)</h2>
+<p>GitHub detected a token, API key or private key in your commits. The output lists the secret type, commit and file path.</p>
+<p><strong>First, treat the secret as leaked</strong>: revoke/rotate it at the provider (GitHub, AWS, Stripe, OpenAI...). Then move it out of the code, e.g. into an environment variable or an untracked <code>.env</code> file listed in <code>.gitignore</code>.</p>
+<p><strong>If the secret is in the latest commit:</strong></p>
+<pre><code class="language-bash"># edit the file to remove the secret
+git rm --cached .env 2&gt;/dev/null; echo &quot;.env&quot; &gt;&gt; .gitignore
+git add -A
+git commit --amend --no-edit
+git push
+</code></pre>
+<p><strong>If it's in an older, unpushed commit:</strong> find it and edit that commit with an interactive rebase:</p>
+<pre><code class="language-bash">git log --oneline origin/main..HEAD      # unpushed commits
+git rebase -i &lt;commit-before-the-secret&gt;
+# change &quot;pick&quot; to &quot;edit&quot; on the commit with the secret, save
+# remove the secret from the file
+git add -A
+git commit --amend --no-edit
+git rebase --continue
+git push
+</code></pre>
+<p><strong>If the secret is spread through history</strong> (or in many files), use <code>git filter-repo</code>:</p>
+<pre><code class="language-bash">pip install git-filter-repo
+echo 'ghp_YourLeakedToken==&gt;REMOVED' &gt; replacements.txt
+git filter-repo --replace-text replacements.txt
+</code></pre>
+<p>filter-repo removes the <code>origin</code> remote as a safety measure; add it back with <code>git remote add origin &lt;url&gt;</code> and push.</p>
+<p><strong>False positive or test credential?</strong> The error output includes a URL to allow that specific secret. Only use it for values that are genuinely not sensitive. Admins can configure push protection in <em>Settings → Code security</em>.</p>
+<h2 id="cause-2-changes-must-be-made-through-a-pull-request">Cause 2: changes must be made through a pull request</h2>
+<p>The ruleset on <code>main</code> requires PRs, so direct pushes are blocked:</p>
+<pre><code class="language-text">- Changes must be made through a pull request.
+</code></pre>
+<p>Push a branch and open a PR:</p>
+<pre><code class="language-bash">git switch -c fix/my-change
+git push -u origin fix/my-change
+</code></pre>
+<p>Then reset your local <code>main</code> to match the remote: <code>git switch main &amp;&amp; git reset --hard origin/main</code> (your commits are safe on the new branch).</p>
+<h2 id="cause-3-commits-must-have-verified-signatures">Cause 3: commits must have verified signatures</h2>
+<pre><code class="language-text">- Commits must have verified signatures.
+</code></pre>
+<p>Set up commit signing (SSH or GPG), add the key to GitHub as a <em>Signing key</em>, then re-sign the commits:</p>
+<pre><code class="language-bash">git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id_ed25519.pub
+git config --global commit.gpgsign true
+git rebase --exec &quot;git commit --amend --no-edit -S&quot; origin/main
+git push
+</code></pre>
+<h2 id="cause-4-other-ruleset-rules">Cause 4: other ruleset rules</h2>
+<ul>
+<li><em>This branch must not contain merge commits</em> → <code>git rebase origin/main</code> instead of merging, then push.</li>
+<li><em>Cannot force-push to this branch</em> / <em>Cannot delete this branch</em> → don't force-push to protected branches; use a new branch.</li>
+<li><em>Commit message / author email must match a pattern</em> → amend messages or author (<code>git commit --amend --reset-author</code>).</li>
+<li><em>File path restrictions / file size</em> → remove the file from the commits as in Cause 1.</li>
+</ul>
+<p>Repository admins can see and change rules under <em>Settings → Rules → Rulesets</em>.</p>
+<p class="upd">Last updated 2026-11-13.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-pre-receive-hook-declined/">! [remote rejected] main -&gt; main (pre-receive hook declined)</a></li><li><a href="/git/git-remote-rejected-protected-branch/">! [remote rejected] main -&gt; main (protected branch hook declined)</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

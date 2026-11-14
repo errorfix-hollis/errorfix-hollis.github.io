@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hydration failed because the initial UI does not match what was rendered on the server (JavaScript) — how to fix</title>
+<meta name="description" content="In Next.js (or any React SSR), the HTML React renders in the browser on first load differs from the HTML the server sent. Caused by browser-only values (window, Date, Math.random, localStorage) used during render, or invalid HTML nesting.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-hydration-failed-initial-ui-does-not-match/">
+<meta property="og:title" content="Hydration failed because the initial UI does not match what was rendered on the server (JavaScript) — how to fix"><meta property="og:description" content="In Next.js (or any React SSR), the HTML React renders in the browser on first load differs from the HTML the server sent. Caused by browser-only values (window, Date, Math.random, localStorage) used during render, or invalid HTML nesting.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-hydration-failed-initial-ui-does-not-match/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Hydration failed because the initial UI does not match what was rendered on the server (JavaScript) \u2014 how to fix", "description": "In Next.js (or any React SSR), the HTML React renders in the browser on first load differs from the HTML the server sent. Caused by browser-only values (window, Date, Math.random, localStorage) used during render, or invalid HTML nesting.", "dateModified": "2026-10-31", "url": "https://errorfix-hollis.github.io/javascript/js-hydration-failed-initial-ui-does-not-match/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "Hydration failed because the initial UI does not match what was rendered on the server", "item": "https://errorfix-hollis.github.io/javascript/js-hydration-failed-initial-ui-does-not-match/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>Hydration failed because the initial UI does not match what was rendered on the server (JavaScript) — how to fix</h1>
+<pre class="err"><code>Error: Hydration failed because the initial UI does not match what was rendered on the server.
+Error: Text content does not match server-rendered HTML.
+Error: Hydration failed because the server rendered HTML didn&#x27;t match the client.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Make the first client render identical to the server render: move browser-only values into <code>useEffect</code> (render a placeholder first), fix invalid nesting like <code>&lt;div&gt;</code> inside <code>&lt;p&gt;</code>, load client-only components with <code>dynamic(() =&gt; import(...), { ssr: false })</code>, and use <code>suppressHydrationWarning</code> only for unavoidable differences like timestamps.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>With server-side rendering, the server sends HTML, then React "hydrates" it in the browser: it renders the same components again and attaches to the existing DOM. React expects both renders to produce exactly the same markup. If they differ, it throws this error (React 18) or logs a diff (React 19), and re-renders the tree on the client.</p>
+<h2 id="cause-1-browser-only-values-during-render">Cause 1: browser-only values during render</h2>
+<p>Anything that is different on the server and in the browser:</p>
+<pre><code class="language-jsx">// Wrong: server has no window; time and random differ between renders
+&lt;p&gt;{typeof window !== 'undefined' ? 'client' : 'server'}&lt;/p&gt;
+&lt;p&gt;{new Date().toLocaleTimeString()}&lt;/p&gt;
+&lt;p&gt;{localStorage.getItem('name')}&lt;/p&gt;
+</code></pre>
+<p>Render the same thing on both sides first, then update in an effect (effects don't run on the server):</p>
+<pre><code class="language-jsx">const [name, setName] = useState(null);
+useEffect(() =&gt; { setName(localStorage.getItem('name')); }, []);
+return &lt;p&gt;{name ?? 'Guest'}&lt;/p&gt;;
+</code></pre>
+<p>A reusable pattern:</p>
+<pre><code class="language-jsx">function useMounted() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() =&gt; setMounted(true), []);
+  return mounted;
+}
+</code></pre>
+<h2 id="cause-2-invalid-html-nesting">Cause 2: invalid HTML nesting</h2>
+<p>The browser's HTML parser "repairs" invalid markup from the server, so the DOM no longer matches what React expects. Common ones:</p>
+<ul>
+<li><code>&lt;div&gt;</code> (or another <code>&lt;p&gt;</code>) inside <code>&lt;p&gt;</code></li>
+<li><code>&lt;a&gt;</code> inside <code>&lt;a&gt;</code></li>
+<li><code>&lt;tr&gt;</code> directly in <code>&lt;table&gt;</code> without <code>&lt;tbody&gt;</code></li>
+<li>block elements inside <code>&lt;button&gt;</code> in some cases</li>
+</ul>
+<pre><code class="language-jsx">// Wrong
+&lt;p&gt;&lt;div&gt;Price&lt;/div&gt;&lt;/p&gt;
+// Right
+&lt;div&gt;&lt;div&gt;Price&lt;/div&gt;&lt;/div&gt;
+</code></pre>
+<p>Watch for components like MUI <code>&lt;Typography&gt;</code> that render <code>&lt;p&gt;</code> by default; pass <code>component="div"</code>.</p>
+<h2 id="cause-3-a-component-that-only-works-in-the-browser">Cause 3: a component that only works in the browser</h2>
+<p>Charts, maps, editors and anything touching <code>window</code> at import time. In Next.js load them without SSR:</p>
+<pre><code class="language-jsx">import dynamic from 'next/dynamic';
+const Map = dynamic(() =&gt; import('../components/Map'), { ssr: false });
+</code></pre>
+<p>In the App Router, <code>ssr: false</code> must be used inside a Client Component (<code>'use client'</code>).</p>
+<h2 id="cause-4-dates-and-locales">Cause 4: dates and locales</h2>
+<p>Server and browser can run in different time zones and locales, so <code>toLocaleString()</code> produces different text. Format with an explicit zone (<code>timeZone: 'UTC'</code>), format on the client after mount, or for a single element:</p>
+<pre><code class="language-jsx">&lt;time suppressHydrationWarning&gt;{new Date().toLocaleString()}&lt;/time&gt;
+</code></pre>
+<p><code>suppressHydrationWarning</code> only works one level deep and only for text/attributes; don't use it to hide real bugs.</p>
+<h2 id="cause-5-browser-extensions">Cause 5: browser extensions</h2>
+<p>Extensions (Grammarly, password managers, translators, dark-mode tools) inject attributes into <code>&lt;html&gt;</code> or <code>&lt;body&gt;</code> before React hydrates. If the error mentions attributes you never wrote, test in an incognito window. For <code>&lt;html&gt;</code>/<code>&lt;body&gt;</code> attributes, adding <code>suppressHydrationWarning</code> to those tags in the root layout is the accepted workaround.</p>
+<h2 id="finding-the-mismatch">Finding the mismatch</h2>
+<p>Run in development mode: React 19 / Next.js 15 print a diff showing the server vs client value. In older versions, check the "Text content did not match. Server: ... Client: ..." warning that precedes the error.</p>
+<p class="upd">Last updated 2026-10-31.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-objects-are-not-valid-as-a-react-child/">Objects are not valid as a React child</a></li><li><a href="/javascript/js-referenceerror-is-not-defined/">ReferenceError: x is not defined</a></li><li><a href="/javascript/js-too-many-re-renders/">Too many re-renders. React limits the number of renders to prevent an infinite loop.</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

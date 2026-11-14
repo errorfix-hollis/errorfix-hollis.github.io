@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ssh: connect to host port 22: Connection timed out — how to fix</title>
+<meta name="description" content="Your SSH packets never got an answer. A firewall (cloud security group, ufw, corporate network) is dropping port 22, the server is down or has a different IP, or SSH listens on another port.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/ssh/ssh-connection-timed-out/">
+<meta property="og:title" content="ssh: connect to host port 22: Connection timed out — how to fix"><meta property="og:description" content="Your SSH packets never got an answer. A firewall (cloud security group, ufw, corporate network) is dropping port 22, the server is down or has a different IP, or SSH listens on another port.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/ssh/ssh-connection-timed-out/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ssh: connect to host port 22: Connection timed out \u2014 how to fix", "description": "Your SSH packets never got an answer. A firewall (cloud security group, ufw, corporate network) is dropping port 22, the server is down or has a different IP, or SSH listens on another port.", "dateModified": "2026-10-29", "url": "https://errorfix-hollis.github.io/ssh/ssh-connection-timed-out/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "SSH", "item": "https://errorfix-hollis.github.io/ssh/"}, {"@type": "ListItem", "position": 3, "name": "ssh: connect to host port 22: Connection timed out", "item": "https://errorfix-hollis.github.io/ssh/ssh-connection-timed-out/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/ssh/">SSH</a></p>
+<article><h1>ssh: connect to host port 22: Connection timed out — how to fix</h1>
+<pre class="err"><code>ssh: connect to host 203.0.113.10 port 22: Connection timed out
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the server is up and the IP is right, then open port 22 in the cloud firewall/security group and the server firewall (<code>sudo ufw allow OpenSSH</code>). If SSH runs on another port, use <code>ssh -p 2222 user@host</code>.</p>
+<h2 id="timed-out-vs-refused">Timed out vs refused</h2>
+<ul>
+<li><strong>Connection timed out</strong>: nothing answered. Usually a firewall silently dropping packets, wrong IP, or the machine is off.</li>
+<li><strong>Connection refused</strong>: the host answered "nothing listens on that port" — SSH isn't running or uses another port.</li>
+</ul>
+<h2 id="step-1-is-the-host-reachable-at-all">Step 1: is the host reachable at all?</h2>
+<pre><code class="language-bash">ping -c 3 203.0.113.10          # may be blocked, not conclusive
+nc -vz -w 5 203.0.113.10 22     # tests the SSH port specifically
+</code></pre>
+<p>Check in your cloud console that the instance is running and the <strong>public</strong> IP hasn't changed (AWS public IPs change on stop/start unless you use an Elastic IP).</p>
+<h2 id="step-2-cloud-firewall">Step 2: cloud firewall</h2>
+<ul>
+<li><strong>AWS EC2</strong>: the instance's Security Group needs an inbound rule TCP 22 from your IP. Also check Network ACLs and that the subnet has a route to an Internet Gateway.</li>
+<li><strong>GCP</strong>: VPC firewall rule allowing <code>tcp:22</code> (default <code>default-allow-ssh</code>).</li>
+<li><strong>Azure</strong>: Network Security Group inbound rule for 22.</li>
+<li><strong>DigitalOcean/Hetzner/Linode</strong>: Cloud Firewall attached to the droplet/server.</li>
+</ul>
+<h2 id="step-3-firewall-on-the-server">Step 3: firewall on the server</h2>
+<p>If you can get a console (cloud web console / VNC):</p>
+<pre><code class="language-bash">sudo ufw status
+sudo ufw allow OpenSSH
+sudo systemctl status ssh       # or sshd
+</code></pre>
+<p>Also check <code>firewalld</code> (<code>sudo firewall-cmd --list-all</code>) and <code>iptables -L</code>.</p>
+<h2 id="step-4-ssh-on-a-non-standard-port">Step 4: SSH on a non-standard port</h2>
+<pre><code class="language-bash">ssh -p 2222 user@host
+</code></pre>
+<p>Or in <code>~/.ssh/config</code>:</p>
+<pre><code>Host myserver
+    HostName 203.0.113.10
+    Port 2222
+    User ubuntu
+</code></pre>
+<h2 id="step-5-your-network-blocks-outgoing-port-22">Step 5: your network blocks outgoing port 22</h2>
+<p>Corporate, school and hotel Wi-Fi often block it. Test from another network (phone hotspot). For GitHub specifically, SSH over port 443 works: <code>ssh -T -p 443 git@ssh.github.com</code>.</p>
+<h2 id="other-causes">Other causes</h2>
+<ul>
+<li><code>fail2ban</code> banned your IP after failed logins: unban from the console (<code>sudo fail2ban-client set sshd unbanip &lt;ip&gt;</code>).</li>
+<li>IPv6 vs IPv4: force IPv4 with <code>ssh -4</code>.</li>
+</ul>
+<p class="upd">Last updated 2026-10-29.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/ssh/ssh-permission-denied-publickey/">Permission denied (publickey)</a></li><li><a href="/ssh/ssh-remote-host-identification-has-changed/">WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!</a></li><li><a href="/ssh/ssh-connect-to-host-port-22-connection-refused/">ssh: connect to host port 22: Connection refused</a></li><li><a href="/ssh/ssh-connection-closed-by-remote-host/">Connection closed by remote host</a></li><li><a href="/ssh/ssh-host-key-verification-failed/">Host key verification failed.</a></li><li><a href="/ssh/ssh-kex-exchange-identification-connection-closed/">kex_exchange_identification: Connection closed by remote host</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

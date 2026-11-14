@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: &#x27;dict&#x27; object is not callable (Python) — how to fix</title>
+<meta name="description" content="You put parentheses after a dictionary, so Python tried to call it like a function. Either you meant square brackets, or a variable named dict shadows the built-in.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-dict-object-is-not-callable/">
+<meta property="og:title" content="TypeError: &#x27;dict&#x27; object is not callable (Python) — how to fix"><meta property="og:description" content="You put parentheses after a dictionary, so Python tried to call it like a function. Either you meant square brackets, or a variable named dict shadows the built-in.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-dict-object-is-not-callable/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: 'dict' object is not callable (Python) \u2014 how to fix", "description": "You put parentheses after a dictionary, so Python tried to call it like a function. Either you meant square brackets, or a variable named dict shadows the built-in.", "dateModified": "2026-11-14", "url": "https://errorfix-hollis.github.io/python/python-typeerror-dict-object-is-not-callable/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: 'dict' object is not callable", "item": "https://errorfix-hollis.github.io/python/python-typeerror-dict-object-is-not-callable/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: &#x27;dict&#x27; object is not callable (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 4, in &lt;module&gt;
+    print(config(&quot;host&quot;))
+TypeError: &#x27;dict&#x27; object is not callable
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Use square brackets or <code>.get()</code> to read keys: <code>config["host"]</code> or <code>config.get("host")</code>, not <code>config("host")</code>. If the error comes from <code>dict(...)</code>, you assigned a variable called <code>dict</code> earlier: rename it and restart the interpreter/kernel (or <code>del dict</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>In Python, <code>x(...)</code> means "call <code>x</code>". Only functions, classes and objects with a <code>__call__</code> method can be called. A <code>dict</code> can't, so <code>some_dict(...)</code> raises <code>TypeError: 'dict' object is not callable</code>.</p>
+<p>The traceback line shows which expression has the parentheses. There are two usual reasons.</p>
+<h2 id="cause-1-parentheses-instead-of-square-brackets">Cause 1: parentheses instead of square brackets</h2>
+<pre><code class="language-python">user = {&quot;name&quot;: &quot;Ada&quot;, &quot;age&quot;: 36}
+
+print(user(&quot;name&quot;))      # TypeError
+</code></pre>
+<p>Fix: index with <code>[]</code>, or use <code>.get()</code> if the key might be missing:</p>
+<pre><code class="language-python">print(user[&quot;name&quot;])            # raises KeyError if missing
+print(user.get(&quot;name&quot;))        # returns None if missing
+print(user.get(&quot;email&quot;, &quot;&quot;))   # with a default
+</code></pre>
+<p>The same mistake happens with nested data from JSON:</p>
+<pre><code class="language-python">data = response.json()
+city = data(&quot;address&quot;)(&quot;city&quot;)      # wrong
+city = data[&quot;address&quot;][&quot;city&quot;]      # right
+</code></pre>
+<h2 id="cause-2-a-variable-named-dict-shadows-the-built-in">Cause 2: a variable named <code>dict</code> shadows the built-in</h2>
+<pre><code class="language-python">dict = {&quot;a&quot;: 1}          # overwrites the built-in dict type
+...
+counts = dict(zip(keys, values))   # TypeError: 'dict' object is not callable
+</code></pre>
+<p>After the first line, the name <code>dict</code> refers to your dictionary, not the type. Rename the variable:</p>
+<pre><code class="language-python">mapping = {&quot;a&quot;: 1}
+counts = dict(zip(keys, values))   # works again
+</code></pre>
+<p>In a Jupyter notebook or REPL the bad assignment stays in memory even after you fix the code. Either run <code>del dict</code> or restart the kernel (<strong>Kernel → Restart</strong>).</p>
+<p>Other built-ins people shadow the same way: <code>list</code>, <code>str</code>, <code>set</code>, <code>type</code>, <code>id</code>, <code>input</code>, <code>sum</code>, <code>max</code>. Linters catch this: <code>pylint</code> reports <code>redefined-builtin</code> (W0622) and Ruff has rule <code>A001</code> (flake8-builtins).</p>
+<h2 id="cause-3-a-function-name-reused-as-a-dict">Cause 3: a function name reused as a dict</h2>
+<pre><code class="language-python">def settings():
+    return {&quot;debug&quot;: True}
+
+settings = settings()     # now 'settings' is the dict
+settings()                # TypeError on the next call
+</code></pre>
+<p>Use different names for the function and its result:</p>
+<pre><code class="language-python">def load_settings():
+    return {&quot;debug&quot;: True}
+
+settings = load_settings()
+</code></pre>
+<h2 id="cause-4-an-attribute-that-is-a-dict-not-a-method">Cause 4: an attribute that is a dict, not a method</h2>
+<p>Some libraries expose dictionaries as attributes, and calling them fails:</p>
+<pre><code class="language-python">r = requests.get(url)
+r.headers(&quot;Content-Type&quot;)     # wrong: headers is a dict-like object
+r.headers[&quot;Content-Type&quot;]     # right
+r.json()                      # json IS a method, so () is correct here
+</code></pre>
+<p>If you are not sure what something is, check before calling it:</p>
+<pre><code class="language-python">print(type(r.headers), callable(r.headers))
+</code></pre>
+<h2 id="quick-checklist">Quick checklist</h2>
+<ol>
+<li>Find the line in the traceback and look for <code>name(</code> where <code>name</code> is a dict.</li>
+<li>Replace <code>(...)</code> with <code>[...]</code> or <code>.get(...)</code>.</li>
+<li>Search the file for <code>dict =</code> and rename it.</li>
+<li>Restart the notebook kernel after renaming.</li>
+</ol>
+<p class="upd">Last updated 2026-11-14.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-keyerror/">KeyError</a></li><li><a href="/python/python-typeerror-list-object-is-not-callable/">TypeError: &#x27;list&#x27; object is not callable</a></li><li><a href="/python/python-typeerror-str-object-is-not-callable/">TypeError: &#x27;str&#x27; object is not callable</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

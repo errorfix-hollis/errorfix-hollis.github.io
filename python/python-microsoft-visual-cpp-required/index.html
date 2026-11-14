@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: Microsoft Visual C++ 14.0 or greater is required. (Python) — how to fix</title>
+<meta name="description" content="pip is compiling a package from source on Windows and needs a C++ compiler. Usually there&#x27;s no prebuilt wheel for your Python version. Use a supported Python version or install the Build Tools.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-microsoft-visual-cpp-required/">
+<meta property="og:title" content="error: Microsoft Visual C++ 14.0 or greater is required. (Python) — how to fix"><meta property="og:description" content="pip is compiling a package from source on Windows and needs a C++ compiler. Usually there&#x27;s no prebuilt wheel for your Python version. Use a supported Python version or install the Build Tools.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-microsoft-visual-cpp-required/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: Microsoft Visual C++ 14.0 or greater is required. (Python) \u2014 how to fix", "description": "pip is compiling a package from source on Windows and needs a C++ compiler. Usually there's no prebuilt wheel for your Python version. Use a supported Python version or install the Build Tools.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/python/python-microsoft-visual-cpp-required/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "error: Microsoft Visual C++ 14.0 or greater is required.", "item": "https://errorfix-hollis.github.io/python/python-microsoft-visual-cpp-required/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>error: Microsoft Visual C++ 14.0 or greater is required. (Python) — how to fix</h1>
+<pre class="err"><code>error: Microsoft Visual C++ 14.0 or greater is required. Get it with &quot;Microsoft C++ Build Tools&quot;: https://visualstudio.microsoft.com/visual-cpp-build-tools/
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> First try getting a prebuilt wheel: <code>python -m pip install --upgrade pip</code> and use a Python version the package supports (often the newest Python is too new). Otherwise install <em>Microsoft C++ Build Tools</em> with the <em>Desktop development with C++</em> workload.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Packages with C/C++ extensions (numpy, pandas, lxml, psycopg2, pycryptodome…) are normally installed as prebuilt <strong>wheels</strong>. When pip can't find a wheel matching your Python version and platform, it downloads the source and tries to compile it, which on Windows needs Microsoft's C++ compiler.</p>
+<h2 id="fix-1-get-a-wheel-instead-usually-best">Fix 1: get a wheel instead (usually best)</h2>
+<pre><code class="language-bash">python -m pip install --upgrade pip setuptools wheel
+python -m pip install package-name
+</code></pre>
+<p>If it still compiles, check the package's PyPI page under <em>Download files</em>: is there a <code>.whl</code> for your Python (e.g. <code>cp313</code>) and for <code>win_amd64</code>? A brand-new Python release often doesn't have wheels yet for every package. Installing the previous Python version (e.g. 3.12 instead of 3.13) fixes it immediately.</p>
+<p>Also check you're not using 32-bit Python by accident: <code>python -c "import struct; print(struct.calcsize('P')*8)"</code> should print 64.</p>
+<h2 id="fix-2-an-alternative-package">Fix 2: an alternative package</h2>
+<p>Some packages have a binary variant: <code>psycopg2-binary</code> instead of <code>psycopg2</code>, <code>opencv-python-headless</code>, etc.</p>
+<h2 id="fix-3-install-the-compiler">Fix 3: install the compiler</h2>
+<ol>
+<li>Download <strong>Build Tools for Visual Studio</strong> from Microsoft's site.</li>
+<li>In the installer, select <strong>Desktop development with C++</strong> (it includes MSVC and the Windows SDK).</li>
+<li>Restart the terminal and run <code>pip install</code> again.</li>
+</ol>
+<h2 id="fix-4-conda">Fix 4: conda</h2>
+<p>conda-forge provides prebuilt binaries for many scientific packages: <code>conda install -c conda-forge package-name</code>.</p>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-pip-command-not-found/">pip: command not found</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

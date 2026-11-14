@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Init:CrashLoopBackOff (Kubernetes) — how to fix</title>
+<meta name="description" content="One of the pod&#x27;s init containers keeps exiting with a non-zero code, so Kubernetes restarts it with back-off and the main containers never start.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-init-crashloopbackoff/">
+<meta property="og:title" content="Init:CrashLoopBackOff (Kubernetes) — how to fix"><meta property="og:description" content="One of the pod&#x27;s init containers keeps exiting with a non-zero code, so Kubernetes restarts it with back-off and the main containers never start.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-init-crashloopbackoff/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Init:CrashLoopBackOff (Kubernetes) \u2014 how to fix", "description": "One of the pod's init containers keeps exiting with a non-zero code, so Kubernetes restarts it with back-off and the main containers never start.", "dateModified": "2026-11-09", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-init-crashloopbackoff/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "Init:CrashLoopBackOff", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-init-crashloopbackoff/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>Init:CrashLoopBackOff (Kubernetes) — how to fix</h1>
+<pre class="err"><code>NAME                     READY   STATUS                  RESTARTS      AGE
+web-6d4cf56db6-x7k2p     0/1     Init:CrashLoopBackOff   5 (40s ago)   4m
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find the failing init container with <code>kubectl describe pod &lt;pod&gt;</code> (Init Containers section, Last State / Exit Code), then read its logs: <code>kubectl logs &lt;pod&gt; -c &lt;init-container&gt; --previous</code>. Fix the command, dependency or config it is waiting for.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Init containers run <strong>in order, before</strong> the app containers, and each must exit with code 0. When one fails, the kubelet restarts it (for <code>restartPolicy: Always</code>/<code>OnFailure</code>) with increasing back-off — that's <code>Init:CrashLoopBackOff</code>. You may see it alternate with <code>Init:Error</code>. <code>Init:0/2</code> means none of two init containers has finished yet.</p>
+<p>Because the app container never started, <code>kubectl logs &lt;pod&gt;</code> shows nothing useful. You must ask for the init container's logs.</p>
+<h2 id="step-1-find-which-init-container-fails">Step 1: find which init container fails</h2>
+<pre><code class="language-bash">kubectl describe pod &lt;pod&gt;
+</code></pre>
+<p>Look under <strong>Init Containers</strong> for the one with <code>State: Waiting, Reason: CrashLoopBackOff</code> and check <code>Last State: Terminated</code>, <code>Exit Code</code> and <code>Reason</code>.</p>
+<p>List the names quickly:</p>
+<pre><code class="language-bash">kubectl get pod &lt;pod&gt; -o jsonpath='{.spec.initContainers[*].name}'
+</code></pre>
+<h2 id="step-2-read-its-logs">Step 2: read its logs</h2>
+<pre><code class="language-bash">kubectl logs &lt;pod&gt; -c &lt;init-container&gt;
+kubectl logs &lt;pod&gt; -c &lt;init-container&gt; --previous    # the last crashed run
+</code></pre>
+<h2 id="cause-1-waiting-for-a-dependency-that-isnt-there">Cause 1: waiting for a dependency that isn't there</h2>
+<p>A typical init container waits for a database or service:</p>
+<pre><code class="language-yaml">initContainers:
+  - name: wait-for-db
+    image: busybox:1.36
+    command: ['sh', '-c', 'until nc -z postgres 5432; do echo waiting; sleep 2; done']
+</code></pre>
+<p>A loop like this hangs (<code>Init:0/1</code>) rather than crashes. If it has a timeout or uses a tool that exits non-zero, it crashes instead. Check that the Service name, namespace and port are right:</p>
+<pre><code class="language-bash">kubectl get svc -n &lt;namespace&gt;
+kubectl get endpoints postgres -n &lt;namespace&gt;   # empty = no ready pods behind it
+</code></pre>
+<p>Use the full DNS name across namespaces: <code>postgres.db.svc.cluster.local</code>.</p>
+<h2 id="cause-2-migrations-or-setup-scripts-fail">Cause 2: migrations or setup scripts fail</h2>
+<p>Init containers often run <code>migrate</code>, <code>alembic upgrade head</code>, <code>prisma migrate deploy</code> or similar. The logs show the real error — usually bad credentials, a missing Secret value, or a failing migration. Fix the migration or the env vars, then the pod recovers on its own next retry.</p>
+<h2 id="cause-3-wrong-command-or-missing-binary">Cause 3: wrong command or missing binary</h2>
+<p>Exit code <code>127</code> = command not found, <code>126</code> = not executable. Common with minimal images (<code>distroless</code>, <code>scratch</code>) that have no shell, so <code>sh -c</code> fails. Use an image that contains the tools you call.</p>
+<h2 id="cause-4-permissions-on-shared-volumes">Cause 4: permissions on shared volumes</h2>
+<p>Init containers that <code>chown</code>/<code>chmod</code> or copy files into an <code>emptyDir</code> fail with "Permission denied" (exit 1) when the pod's <code>securityContext</code> sets <code>runAsNonRoot</code> or a <code>runAsUser</code>. Either run that init container as root explicitly, or use <code>fsGroup</code>:</p>
+<pre><code class="language-yaml">securityContext:
+  fsGroup: 1000
+</code></pre>
+<h2 id="cause-5-killed-for-memory">Cause 5: killed for memory</h2>
+<p><code>Reason: OOMKilled</code> (exit 137) means the init container's memory limit is too low. Init containers have their own <code>resources</code> — raise <code>limits.memory</code> on them. See <a href="/kubernetes/k8s-oomkilled/">OOMKilled</a>.</p>
+<h2 id="debugging-interactively">Debugging interactively</h2>
+<p>Run the same image and command by hand:</p>
+<pre><code class="language-bash">kubectl run debug --rm -it --image=busybox:1.36 --restart=Never -- sh
+# then run the init command and see what happens
+</code></pre>
+<p>After you change the Deployment, a new pod is created; delete a stuck one with <code>kubectl delete pod &lt;pod&gt;</code> if you only changed an external dependency.</p>
+<p class="upd">Last updated 2026-11-09.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li><li><a href="/kubernetes/k8s-imagepullbackoff/">ImagePullBackOff / ErrImagePull</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-error-converting-yaml-to-json-mapping-values-are-not-allowed/">error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

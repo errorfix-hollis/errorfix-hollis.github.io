@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>java.lang.NumberFormatException: For input string — how to fix</title>
+<meta name="description" content="Integer.parseInt, Long.parseLong or Double.parseDouble got a string that isn&#x27;t a valid number of that type: whitespace, an empty string, decimals for an int, thousands separators, or a value out of range.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-numberformatexception-for-input-string/">
+<meta property="og:title" content="java.lang.NumberFormatException: For input string — how to fix"><meta property="og:description" content="Integer.parseInt, Long.parseLong or Double.parseDouble got a string that isn&#x27;t a valid number of that type: whitespace, an empty string, decimals for an int, thousands separators, or a value out of range.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-numberformatexception-for-input-string/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "java.lang.NumberFormatException: For input string \u2014 how to fix", "description": "Integer.parseInt, Long.parseLong or Double.parseDouble got a string that isn't a valid number of that type: whitespace, an empty string, decimals for an int, thousands separators, or a value out of range.", "dateModified": "2026-11-14", "url": "https://errorfix-hollis.github.io/java/java-numberformatexception-for-input-string/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "java.lang.NumberFormatException: For input string", "item": "https://errorfix-hollis.github.io/java/java-numberformatexception-for-input-string/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>java.lang.NumberFormatException: For input string — how to fix</h1>
+<pre class="err"><code>Exception in thread &quot;main&quot; java.lang.NumberFormatException: For input string: &quot;42 &quot;
+	at java.base/java.lang.NumberFormatException.forInputString(NumberFormatException.java:67)
+	at java.base/java.lang.Integer.parseInt(Integer.java:662)
+	at java.base/java.lang.Integer.parseInt(Integer.java:778)
+	at com.example.App.main(App.java:12)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Look at the exact string in quotes. Trim it first: <code>Integer.parseInt(s.trim())</code>. Use <code>Double.parseDouble</code> for decimals, <code>Long.parseLong</code> (or <code>BigInteger</code>) for values above 2147483647, and strip separators like <code>,</code>. Wrap parsing of user input in <code>try { ... } catch (NumberFormatException e)</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The parse method only accepts a string that is <em>exactly</em> a number in its format. <code>Integer.parseInt</code> accepts an optional <code>+</code>/<code>-</code> followed by digits, and the value must fit in an <code>int</code> (−2147483648 to 2147483647). Anything else throws <code>NumberFormatException</code>.</p>
+<p>The string between the quotes in the message is the input that failed. Look at it closely, including spaces:</p>
+<table>
+<thead>
+<tr>
+<th>Message</th>
+<th>Problem</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>For input string: ""</code></td>
+<td>empty string</td>
+</tr>
+<tr>
+<td><code>For input string: "42 "</code></td>
+<td>trailing space or newline</td>
+</tr>
+<tr>
+<td><code>For input string: "3.14"</code></td>
+<td>decimal passed to parseInt</td>
+</tr>
+<tr>
+<td><code>For input string: "1,000"</code></td>
+<td>thousands separator</td>
+</tr>
+<tr>
+<td><code>For input string: "3000000000"</code></td>
+<td>larger than Integer.MAX_VALUE</td>
+</tr>
+<tr>
+<td><code>For input string: "null"</code></td>
+<td>the text "null", e.g. from <code>String.valueOf(null)</code></td>
+</tr>
+<tr>
+<td><code>Cannot parse null string: null</code></td>
+<td>the argument itself was <code>null</code></td>
+</tr>
+<tr>
+<td><code>For input string: "0x1F"</code></td>
+<td>hex prefix</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cause-1-whitespace-or-line-endings">Cause 1: whitespace or line endings</h2>
+<p>Input from files, <code>Scanner.nextLine()</code>, <code>BufferedReader</code> or HTTP params often carries spaces, <code>\r</code> (Windows line endings) or a BOM:</p>
+<pre><code class="language-java">int n = Integer.parseInt(line.trim());     // or line.strip() (Java 11+)
+</code></pre>
+<p><code>strip()</code> also removes Unicode whitespace; neither removes a BOM (<code>\uFEFF</code>), so strip it explicitly if your file has one. The <a href="/tools/line-ending-whitespace-inspector/">line ending inspector</a> shows hidden characters in a sample.</p>
+<h2 id="cause-2-empty-string-or-null">Cause 2: empty string or null</h2>
+<p>Blank form fields and empty CSV columns give <code>""</code>. Check before parsing:</p>
+<pre><code class="language-java">if (s == null || s.isBlank()) {
+    value = 0;            // or skip, or report an error
+} else {
+    value = Integer.parseInt(s.trim());
+}
+</code></pre>
+<h2 id="cause-3-wrong-numeric-type">Cause 3: wrong numeric type</h2>
+<pre><code class="language-java">Integer.parseInt(&quot;3.14&quot;);          // NumberFormatException
+double d = Double.parseDouble(&quot;3.14&quot;);
+BigDecimal money = new BigDecimal(&quot;19.99&quot;);   // for money, avoid double
+</code></pre>
+<p>For whole numbers above <code>Integer.MAX_VALUE</code>, use <code>Long.parseLong</code>, or <code>new BigInteger(s)</code> for arbitrary size. Phone numbers, IDs with leading zeros and credit-card numbers should stay <code>String</code>s.</p>
+<h2 id="cause-4-formatted-numbers-and-locales">Cause 4: formatted numbers and locales</h2>
+<p><code>parseInt</code> doesn't understand <code>1,000</code>, <code>1 000</code>, <code>$5</code> or <code>5%</code>. Either clean the string:</p>
+<pre><code class="language-java">int n = Integer.parseInt(s.replaceAll(&quot;[^0-9-]&quot;, &quot;&quot;));
+</code></pre>
+<p>or parse with a locale-aware formatter:</p>
+<pre><code class="language-java">NumberFormat nf = NumberFormat.getInstance(Locale.GERMANY);
+double d = nf.parse(&quot;1.234,5&quot;).doubleValue();   // 1234.5
+</code></pre>
+<h2 id="cause-5-hex-binary-or-other-bases">Cause 5: hex, binary or other bases</h2>
+<pre><code class="language-java">Integer.parseInt(&quot;1F&quot;, 16);          // 31
+Integer.decode(&quot;0x1F&quot;);              // 31, handles 0x / # / 0 prefixes
+Integer.parseInt(&quot;1010&quot;, 2);         // 10
+</code></pre>
+<p><code>Integer.parseInt("FFFFFFFF", 16)</code> overflows; use <code>Integer.parseUnsignedInt("FFFFFFFF", 16)</code> or <code>Long.parseLong</code>.</p>
+<h2 id="cause-6-spring-and-config-values">Cause 6: Spring and config values</h2>
+<p>In Spring, <code>Failed to convert value of type 'java.lang.String' to required type 'int'; nested exception is java.lang.NumberFormatException: For input string: "abc"</code> means a request parameter, path variable or <code>@Value</code> property had a non-numeric value. Check the URL (<code>/users/abc</code> vs <code>/users/{id}</code>), and for properties check for unresolved placeholders like <code>"${PORT}"</code> when an env var isn't set.</p>
+<h2 id="handle-bad-input-gracefully">Handle bad input gracefully</h2>
+<pre><code class="language-java">static OptionalInt tryParseInt(String s) {
+    try {
+        return OptionalInt.of(Integer.parseInt(s.trim()));
+    } catch (NumberFormatException | NullPointerException e) {
+        return OptionalInt.empty();
+    }
+}
+</code></pre>
+<p>With <code>Scanner</code>, check <code>sc.hasNextInt()</code> before <code>sc.nextInt()</code> (which throws <code>InputMismatchException</code>, not <code>NumberFormatException</code>).</p>
+<p class="upd">Last updated 2026-11-14.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-nullpointerexception/">java.lang.NullPointerException: Cannot invoke &quot;String.length()&quot; because &quot;&lt;local1&gt;&quot; is null</a></li><li><a href="/java/java-outofmemoryerror-java-heap-space/">java.lang.OutOfMemoryError: Java heap space</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-comparison-method-violates-its-general-contract/">java.lang.IllegalArgumentException: Comparison method violates its general contract!</a></li><li><a href="/java/java-concurrentmodificationexception/">java.util.ConcurrentModificationException</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

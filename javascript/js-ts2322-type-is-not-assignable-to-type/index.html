@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TS2322: Type &#x27;X&#x27; is not assignable to type &#x27;Y&#x27; (TypeScript) — how to fix</title>
+<meta name="description" content="TypeScript found a value whose type doesn&#x27;t fit the declared type of the variable, property, return value or prop it&#x27;s assigned to. The indented lines under the error tell you exactly which part doesn&#x27;t fit.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-ts2322-type-is-not-assignable-to-type/">
+<meta property="og:title" content="TS2322: Type &#x27;X&#x27; is not assignable to type &#x27;Y&#x27; (TypeScript) — how to fix"><meta property="og:description" content="TypeScript found a value whose type doesn&#x27;t fit the declared type of the variable, property, return value or prop it&#x27;s assigned to. The indented lines under the error tell you exactly which part doesn&#x27;t fit.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-ts2322-type-is-not-assignable-to-type/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TS2322: Type 'X' is not assignable to type 'Y' (TypeScript) \u2014 how to fix", "description": "TypeScript found a value whose type doesn't fit the declared type of the variable, property, return value or prop it's assigned to. The indented lines under the error tell you exactly which part doesn't fit.", "dateModified": "2026-11-06", "url": "https://errorfix-hollis.github.io/javascript/js-ts2322-type-is-not-assignable-to-type/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "TS2322: Type 'X' is not assignable to type 'Y'", "item": "https://errorfix-hollis.github.io/javascript/js-ts2322-type-is-not-assignable-to-type/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>TS2322: Type &#x27;X&#x27; is not assignable to type &#x27;Y&#x27; (TypeScript) — how to fix</h1>
+<pre class="err"><code>error TS2322: Type &#x27;string | undefined&#x27; is not assignable to type &#x27;string&#x27;.
+  Type &#x27;undefined&#x27; is not assignable to type &#x27;string&#x27;.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Read the last indented line — it names the exact mismatch. Then narrow the value (<code>if (x === undefined) return;</code>, <code>x ?? 'default'</code>), fix the declared type (<code>useState&lt;User | null&gt;(null)</code>), or convert (<code>Number(x)</code>, <code>String(x)</code>). Use <code>as const</code> for literal unions. Avoid <code>as any</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>TS2322 is TypeScript's general "this doesn't fit" error for <strong>assignments</strong>: <code>let x: T = value</code>, <code>obj.prop = value</code>, <code>return value</code> in a function with a return type, and JSX props. (When the value is a function argument you get the sibling error TS2345 instead.)</p>
+<p>The first line is the summary; the indented lines below drill down to the actual incompatible part. Always read the deepest one:</p>
+<pre><code class="language-text">Type '{ id: number; name: string | undefined; }' is not assignable to type 'User'.
+  Types of property 'name' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+</code></pre>
+<p>Here the real problem is only <code>name</code>.</p>
+<h2 id="cause-1-undefined-or-null-in-the-value-strictnullchecks">Cause 1: <code>undefined</code> or <code>null</code> in the value (strictNullChecks)</h2>
+<pre><code class="language-ts">const name: string = params.get(&quot;name&quot;);   // string | null
+const port: number = process.env.PORT;     // string | undefined -&gt; two problems
+</code></pre>
+<p>Fix by handling the missing case:</p>
+<pre><code class="language-ts">const name = params.get(&quot;name&quot;) ?? &quot;anonymous&quot;;      // string
+const port = Number(process.env.PORT ?? 3000);       // number
+
+const user = users.find(u =&gt; u.id === id);          // User | undefined
+if (!user) throw new Error(`no user ${id}`);
+const current: User = user;                         // narrowed to User
+</code></pre>
+<p>Use the non-null assertion <code>value!</code> only when you <em>know</em> it can't be null; it removes the check at compile time but not the crash at runtime.</p>
+<h2 id="cause-2-usestate-inferred-too-narrow-a-type">Cause 2: <code>useState</code> inferred too narrow a type</h2>
+<pre><code class="language-tsx">const [user, setUser] = useState(null);   // type is null
+setUser(data);                            // TS2322 / TS2345: User not assignable to null
+
+const [items, setItems] = useState([]);   // never[]
+setItems([&quot;a&quot;]);                          // Type 'string' is not assignable to type 'never'
+</code></pre>
+<p>Give the generic explicitly:</p>
+<pre><code class="language-tsx">const [user, setUser] = useState&lt;User | null&gt;(null);
+const [items, setItems] = useState&lt;string[]&gt;([]);
+</code></pre>
+<p><code>not assignable to type 'never'</code> almost always means an empty array or object was inferred without a type.</p>
+<h2 id="cause-3-string-literal-unions-widened-to-string">Cause 3: string literal unions widened to <code>string</code></h2>
+<pre><code class="language-ts">type Variant = &quot;primary&quot; | &quot;secondary&quot;;
+const config = { variant: &quot;primary&quot; };   // variant: string
+const v: Variant = config.variant;       // Type 'string' is not assignable to type 'Variant'
+</code></pre>
+<p>Keep the literal type:</p>
+<pre><code class="language-ts">const config = { variant: &quot;primary&quot; } as const;
+// or
+const config: { variant: Variant } = { variant: &quot;primary&quot; };
+// or (TS 4.9+)
+const config = { variant: &quot;primary&quot; } satisfies { variant: Variant };
+</code></pre>
+<h2 id="cause-4-wrong-primitive-type">Cause 4: wrong primitive type</h2>
+<pre><code class="language-ts">const age: number = input.value;   // string
+</code></pre>
+<p>Convert instead of asserting: <code>Number(input.value)</code>, <code>parseInt(input.value, 10)</code>, <code>String(n)</code>, <code>Boolean(x)</code>. A cast like <code>input.value as unknown as number</code> compiles but leaves a string at runtime.</p>
+<h2 id="cause-5-react-props-and-children">Cause 5: React props and children</h2>
+<pre><code class="language-tsx">&lt;Button size=&quot;huge&quot; /&gt;   // Type '&quot;huge&quot;' is not assignable to type '&quot;sm&quot; | &quot;md&quot; | &quot;lg&quot;'
+</code></pre>
+<p>Either pass an allowed value or widen the prop type in the component. For children, <code>Type 'Element[]' is not assignable to type 'Element'</code> means the prop is typed <code>JSX.Element</code> but you pass several elements — type it as <code>React.ReactNode</code>.</p>
+<h2 id="cause-6-function-return-types">Cause 6: function return types</h2>
+<pre><code class="language-ts">function getId(): number {
+  return localStorage.getItem(&quot;id&quot;);   // string | null
+}
+</code></pre>
+<p>Fix the implementation (<code>return Number(localStorage.getItem("id") ?? 0)</code>), or the signature if the function really can return null (<code>: number | null</code>).</p>
+<h2 id="cause-7-object-literal-has-extra-or-missing-properties">Cause 7: object literal has extra or missing properties</h2>
+<p><code>Object literal may only specify known properties</code> (TS2353) and <code>Property 'x' is missing in type ... but required in type ...</code> (TS2741) often show up as the detail under TS2322. Add the missing property, make it optional in the type (<code>x?: string</code>), or remove the typo'd one.</p>
+<h2 id="what-not-to-do">What not to do</h2>
+<p><code>as any</code> or <code>// @ts-ignore</code> silence the error but keep the bug. If you need an escape hatch, <code>as unknown as T</code> at least makes it explicit, and is easy to grep for later.</p>
+<p class="upd">Last updated 2026-11-06.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-ts2339-property-does-not-exist-on-type/">Property &#x27;x&#x27; does not exist on type &#x27;Y&#x27;</a></li><li><a href="/javascript/js-ts2345-argument-of-type-is-not-assignable-to-parameter/">TS2345: Argument of type &#x27;string | undefined&#x27; is not assignable to parameter of type &#x27;string&#x27;.</a></li><li><a href="/javascript/js-ts2532-object-is-possibly-undefined/">Object is possibly &#x27;undefined&#x27;. ts(2532)</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

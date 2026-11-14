@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;distutils&#x27; (Python) — how to fix</title>
+<meta name="description" content="distutils was removed in Python 3.12. Install setuptools (which provides a replacement), or upgrade the package that still imports distutils.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-no-module-named-distutils/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;distutils&#x27; (Python) — how to fix"><meta property="og:description" content="distutils was removed in Python 3.12. Install setuptools (which provides a replacement), or upgrade the package that still imports distutils.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-no-module-named-distutils/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=995965f2"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'distutils' (Python) \u2014 how to fix", "description": "distutils was removed in Python 3.12. Install setuptools (which provides a replacement), or upgrade the package that still imports distutils.", "dateModified": "2026-10-27", "url": "https://errorfix-hollis.github.io/python/python-no-module-named-distutils/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'distutils'", "item": "https://errorfix-hollis.github.io/python/python-no-module-named-distutils/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;distutils&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>ModuleNotFoundError: No module named &#x27;distutils&#x27;</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>python -m pip install setuptools</code> (it provides a <code>distutils</code> shim). Better long-term: upgrade the package that needs it (often old numpy, gyp/node-gyp, or virtualenv).</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>distutils</code> was deprecated by PEP 632 and <strong>removed from the standard library in Python 3.12</strong>. Old packages and build scripts that still <code>import distutils</code> fail on 3.12+.</p>
+<h2 id="fix-1-install-setuptools">Fix 1: install setuptools</h2>
+<p>setuptools ships a compatible <code>distutils</code> and makes it importable:</p>
+<pre><code class="language-bash">python -m pip install --upgrade setuptools
+</code></pre>
+<p>In a virtual environment, run that inside the venv. On Debian/Ubuntu system Python: <code>sudo apt install python3-setuptools</code>.</p>
+<h2 id="fix-2-upgrade-the-package-that-needs-it">Fix 2: upgrade the package that needs it</h2>
+<ul>
+<li><strong>numpy &lt; 1.26</strong> doesn't build on 3.12. Use <code>numpy&gt;=1.26</code>.</li>
+<li><strong>node-gyp</strong> (npm native modules): upgrade npm/node-gyp (<code>npm install -g node-gyp@latest</code>); recent versions bundle a fixed gyp.</li>
+<li><strong>Old pinned requirements</strong>: relax the pin to a version that supports 3.12.</li>
+</ul>
+<h2 id="fix-3-use-python-311">Fix 3: use Python 3.11</h2>
+<p>For an old project you can't update, create its venv with 3.11:</p>
+<pre><code class="language-bash">python3.11 -m venv .venv
+# or with uv:
+uv venv --python 3.11
+</code></pre>
+<h2 id="in-your-own-code">In your own code</h2>
+<p>Replace distutils imports:</p>
+<table>
+<thead>
+<tr>
+<th>Old</th>
+<th>New</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>distutils.version.LooseVersion</code></td>
+<td><code>packaging.version.Version</code></td>
+</tr>
+<tr>
+<td><code>distutils.util.strtobool</code></td>
+<td>write a small helper (it's 5 lines)</td>
+</tr>
+<tr>
+<td><code>distutils.dir_util.copy_tree</code></td>
+<td><code>shutil.copytree(src, dst, dirs_exist_ok=True)</code></td>
+</tr>
+<tr>
+<td><code>distutils.spawn.find_executable</code></td>
+<td><code>shutil.which</code></td>
+</tr>
+<tr>
+<td><code>from distutils.core import setup</code></td>
+<td><code>from setuptools import setup</code></td>
+</tr>
+</tbody>
+</table>
+<p class="upd">Last updated 2026-10-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li><li><a href="/python/python-attributeerror-str-object-has-no-attribute/">AttributeError: &#x27;str&#x27; object has no attribute</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

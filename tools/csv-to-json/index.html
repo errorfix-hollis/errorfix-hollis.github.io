@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CSV to JSON Converter (and JSON to CSV) — handles quotes, semicolons, newlines</title>
+<meta name="description" content="Convert CSV to JSON and JSON to CSV in your browser. RFC 4180 parsing with quoted fields, escaped quotes and line breaks, delimiter auto-detection (comma, semicolon, tab, pipe), header row and number/boolean type inference.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/csv-to-json/">
+<meta property="og:title" content="CSV to JSON Converter (and JSON to CSV) — handles quotes, semicolons, newlines"><meta property="og:description" content="Convert CSV to JSON and JSON to CSV in your browser. RFC 4180 parsing with quoted fields, escaped quotes and line breaks, delimiter auto-detection (comma, semicolon, tab, pipe), header row and number/boolean type inference.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/csv-to-json/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "CSV \u2194 JSON converter", "url": "https://errorfix-hollis.github.io/tools/csv-to-json/", "description": "Convert CSV to JSON and JSON to CSV in your browser. RFC 4180 parsing with quoted fields, escaped quotes and line breaks, delimiter auto-detection (comma, semicolon, tab, pipe), header row and number/boolean type inference.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-20", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": "CSV \u2194 JSON converter", "item": "https://errorfix-hollis.github.io/tools/csv-to-json/"}]}</script><script src="/tools.js?v=4ee891c8" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>CSV to JSON and JSON to CSV converter</h1>
+<p class="lead">Paste CSV or JSON, or open a file, and convert in either direction. Detects comma, semicolon, tab and pipe delimiters, handles quoted fields with commas and line breaks, and flattens nested JSON objects into columns.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="csv"><div class="row" id="csv-dir">
+<button data-dir="c2j">CSV → JSON</button><button data-dir="j2c" class="sec">JSON → CSV</button>
+<label>Delimiter <select id="csv-delim" class="inline"><option value="auto">Auto-detect</option><option value=",">Comma ,</option><option value=";">Semicolon ;</option><option value="tab">Tab</option><option value="|">Pipe |</option></select></label>
+<label><input type="checkbox" id="csv-header" checked> First row is a header</label>
+<label id="csv-infer-l"><input type="checkbox" id="csv-infer" checked> Convert numbers, true/false, empty → null</label>
+<label id="csv-crlf-l" hidden><input type="checkbox" id="csv-crlf"> CRLF line endings (RFC 4180, Excel)</label>
+<label id="csv-flat-l" hidden><input type="checkbox" id="csv-flat" checked> Flatten nested objects (a.b)</label>
+</div>
+<label for="csv-in" id="csv-in-l">Paste CSV</label>
+<textarea id="csv-in" spellcheck="false"></textarea>
+<div class="row"><label>…or open a file <input type="file" id="csv-file" accept=".csv,.tsv,.txt,.json,text/csv,application/json"></label><button id="csv-sample" class="sec">Example</button><button id="csv-swap" class="sec">Use output as input</button></div>
+<div id="csv-msg" class="msg" hidden></div>
+<ul id="csv-warn" class="warn" hidden></ul>
+<label for="csv-out">Output</label>
+<textarea id="csv-out" spellcheck="false" readonly></textarea>
+<div class="row"><button id="csv-copy" class="sec">Copy output</button><button id="csv-dl" class="sec">Download</button></div>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<h2 id="csv-rules-rfc-4180-in-short">CSV rules (RFC 4180) in short</h2>
+<ul>
+<li>Fields are separated by the delimiter, and records by line breaks (CRLF, LF or CR).</li>
+<li>A field that contains the delimiter, a double quote or a line break <strong>must be quoted</strong>: <code>"Smith, Anna"</code>.</li>
+<li>A double quote inside a quoted field is written twice: <code>"He said ""hi"""</code> means <code>He said "hi"</code>.</li>
+<li>Spaces count as part of the field. <code>a, b</code> gives <code>" b"</code> with a leading space, which is why converters quote fields that start or end with a space.</li>
+</ul>
+<h2 id="common-surprises">Common surprises</h2>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Everything is in one column</td>
+<td>Excel in many European locales saves CSV with <strong>semicolons</strong>, because the comma is the decimal separator</td>
+<td>auto-detect, or choose <code>;</code></td>
+</tr>
+<tr>
+<td><code>Ã©</code> instead of <code>é</code></td>
+<td>the file is Windows-1252 or Latin-1, not UTF-8</td>
+<td>re-save as UTF-8; in Python use <code>open(f, encoding="cp1252")</code> (see <a href="/python/python-unicodedecodeerror-utf-8/">UnicodeDecodeError</a>)</td>
+</tr>
+<tr>
+<td><code>ï»¿id</code> as the first header</td>
+<td>a UTF-8 byte order mark</td>
+<td>stripped automatically here; in Python use <code>encoding="utf-8-sig"</code></td>
+</tr>
+<tr>
+<td>Zip codes lose their leading zero</td>
+<td>type inference turned <code>007</code> into a number</td>
+<td>this tool keeps numbers with leading zeros as strings, or untick inference</td>
+</tr>
+<tr>
+<td>Rows split in the middle</td>
+<td>an unescaped quote or an unclosed quoted field</td>
+<td>check the warnings list</td>
+</tr>
+</tbody>
+</table>
+<h2 id="json-to-csv">JSON to CSV</h2>
+<p>The input should be an array of objects (<code>[{"id":1}, …]</code>) or an array of arrays. The columns are the union of all keys, in the order they first appear, so objects with missing keys just get empty cells. Nested objects become dotted columns (<code>address.city</code>), and arrays are written as JSON text inside the cell. If you have an object like <code>{"items": [...]}</code>, the converter uses the array inside it.</p>
+<p>In code: Python's <code>csv.DictReader</code> plus <code>json.dumps</code>, or <code>pandas.read_csv(...).to_json(orient="records")</code>. If the JSON side fails to parse, see <a href="/python/python-jsondecodeerror-expecting-value/">JSONDecodeError: Expecting value</a> and <a href="/javascript/js-unexpected-token-in-json/">Unexpected token in JSON</a>.</p>
+<p class="upd">Last updated 2026-11-20.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-unicodedecodeerror-utf-8/">UnicodeDecodeError: &#x27;utf-8&#x27; codec can&#x27;t decode byte 0xff in position 0: invalid start byte</a></li><li><a href="/python/python-jsondecodeerror-expecting-value/">json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)</a></li><li><a href="/javascript/js-unexpected-token-in-json/">SyntaxError: Unexpected token &#x27;&lt;&#x27;, &quot;&lt;!DOCTYPE &quot;... is not valid JSON</a></li><li><a href="/python/python-object-of-type-is-not-json-serializable/">TypeError: Object of type X is not JSON serializable</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/json-formatter/">JSON formatter &amp; validator</a></li><li><a href="/tools/cron-expression-explainer/">Cron expression explainer</a></li><li><a href="/tools/chmod-calculator/">chmod calculator</a></li><li><a href="/tools/unix-timestamp-converter/">Unix timestamp converter</a></li><li><a href="/tools/base64-encode-decode/">Base64 encode / decode</a></li><li><a href="/tools/url-encode-decode/">URL encode / decode</a></li><li><a href="/tools/jwt-decoder/">JWT decoder</a></li><li><a href="/tools/regex-tester/">Regex tester</a></li><li><a href="/tools/yaml-validator/">YAML validator &amp; YAML ↔ JSON converter</a></li><li><a href="/tools/uuid-generator/">UUID generator &amp; validator (v4, v7)</a></li><li><a href="/tools/text-diff/">Text diff checker</a></li><li><a href="/tools/http-status-codes/">HTTP status codes reference</a></li><li><a href="/tools/hash-generator/">Hash generator (MD5, SHA-256, SHA-512)</a></li><li><a href="/tools/line-ending-whitespace-inspector/">Line ending &amp; whitespace inspector</a></li><li><a href="/tools/sql-formatter/">SQL formatter</a></li><li><a href="/tools/curl-to-code/">cURL to code converter</a></li><li><a href="/tools/gitignore-generator/">.gitignore generator &amp; tester</a></li><li><a href="/tools/subnet-calculator/">Subnet / CIDR calculator</a></li><li><a href="/tools/docker-run-to-compose/">docker run to Compose converter</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

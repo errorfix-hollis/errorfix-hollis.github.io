@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory — how to fix</title>
+<meta name="description" content="`docker build` looks for a file named exactly `Dockerfile` in the build context directory and didn&#x27;t find it. You&#x27;re in the wrong directory, the file has a different name or extension, or the `-f` path is wrong.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-failed-to-read-dockerfile/">
+<meta property="og:title" content="failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory — how to fix"><meta property="og:description" content="`docker build` looks for a file named exactly `Dockerfile` in the build context directory and didn&#x27;t find it. You&#x27;re in the wrong directory, the file has a different name or extension, or the `-f` path is wrong.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-failed-to-read-dockerfile/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory \u2014 how to fix", "description": "`docker build` looks for a file named exactly `Dockerfile` in the build context directory and didn't find it. You're in the wrong directory, the file has a different name or extension, or the `-f` path is wrong.", "dateModified": "2026-11-19", "url": "https://errorfix-hollis.github.io/docker/docker-failed-to-read-dockerfile/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory", "item": "https://errorfix-hollis.github.io/docker/docker-failed-to-read-dockerfile/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory — how to fix</h1>
+<pre class="err"><code>ERROR: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory
+ERROR: failed to solve: failed to read dockerfile: open /var/lib/docker/tmp/buildkit-mount123/Dockerfile: no such file or directory
+unable to prepare context: unable to evaluate symlinks in Dockerfile path: lstat /home/me/app/Dockerfile: no such file or directory
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run the build from the folder containing the Dockerfile: <code>docker build -t myapp .</code>. If it lives elsewhere or has another name, pass it explicitly: <code>docker build -f path/to/Dockerfile.dev -t myapp .</code>. Check the name with <code>ls -la</code> (no <code>.txt</code> extension, capital D).</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>docker build &lt;context&gt;</code> defaults to reading <code>&lt;context&gt;/Dockerfile</code>. BuildKit reports the missing file as <code>failed to read dockerfile: open Dockerfile</code>; the legacy builder says <code>unable to evaluate symlinks in Dockerfile path</code>. Either way, nothing is wrong with Docker — the file just isn't where Docker looked.</p>
+<p>Check:</p>
+<pre><code class="language-bash">pwd
+ls -la            # is there a file named exactly &quot;Dockerfile&quot;?
+</code></pre>
+<h2 id="cause-1-running-the-build-from-the-wrong-directory">Cause 1: running the build from the wrong directory</h2>
+<p>The <code>.</code> in <code>docker build .</code> is the current directory. If your Dockerfile is in <code>./backend</code>:</p>
+<pre><code class="language-bash">cd backend &amp;&amp; docker build -t myapp .
+# or from the repo root:
+docker build -t myapp ./backend
+</code></pre>
+<p>When the Dockerfile is in a subfolder but needs files from the root, keep the root as context and point at the file:</p>
+<pre><code class="language-bash">docker build -f backend/Dockerfile -t myapp .
+</code></pre>
+<p><code>-f</code> paths are relative to your current directory, not to the context.</p>
+<h2 id="cause-2-wrong-file-name">Cause 2: wrong file name</h2>
+<p>Docker is case-sensitive on Linux and expects <code>Dockerfile</code> with no extension. Common mistakes:</p>
+<ul>
+<li><code>dockerfile</code> or <code>DockerFile</code> (works on Windows/macOS case-insensitive filesystems, fails on Linux CI)</li>
+<li><code>Dockerfile.txt</code> — Windows Notepad adds <code>.txt</code> and Explorer hides it. Check with <code>dir</code> in a terminal or <code>ls -la</code>.</li>
+<li><code>Dockerfile.dev</code>, <code>Dockerfile.prod</code> — fine, but need <code>-f</code>.</li>
+</ul>
+<pre><code class="language-bash">mv Dockerfile.txt Dockerfile
+git mv dockerfile Dockerfile     # if tracked in git
+</code></pre>
+<h2 id="cause-3-docker-compose-points-at-the-wrong-place">Cause 3: Docker Compose points at the wrong place</h2>
+<p>In Compose, <code>dockerfile:</code> is relative to <code>context:</code>:</p>
+<pre><code class="language-yaml">services:
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.dev    # means ./api/Dockerfile.dev
+</code></pre>
+<p>A common bug is writing <code>dockerfile: ./api/Dockerfile</code> <em>and</em> <code>context: ./api</code>, which resolves to <code>./api/api/Dockerfile</code>.</p>
+<h2 id="cause-4-ci-runs-in-a-different-directory">Cause 4: CI runs in a different directory</h2>
+<p>In CI, the job may run before checkout, or in a different working directory. Print it:</p>
+<pre><code class="language-yaml">- run: pwd &amp;&amp; ls -la
+- run: docker build -t myapp .
+</code></pre>
+<p>In GitHub Actions, <code>actions/checkout</code> must run before the build step, and <code>working-directory:</code> changes where <code>.</code> points.</p>
+<h2 id="reading-the-dockerfile-from-stdin">Reading the Dockerfile from stdin</h2>
+<p>You can bypass the file entirely:</p>
+<pre><code class="language-bash">docker build -t myapp -f- . &lt; Dockerfile
+</code></pre>
+<p>That's handy in scripts, but if <code>COPY</code> then fails with <code>not found</code>, the problem is the context, not the Dockerfile.</p>
+<p class="upd">Last updated 2026-11-19.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-failed-to-compute-cache-key-not-found/">failed to compute cache key: failed to calculate checksum of ref: not found</a></li><li><a href="/docker/docker-failed-to-solve-did-not-complete-successfully/">failed to solve: process &quot;/bin/sh -c ...&quot; did not complete successfully: exit code: 1</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-additional-property-is-not-allowed/">Additional property is not allowed</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

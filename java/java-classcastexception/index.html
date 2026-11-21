@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>java.lang.ClassCastException: class X cannot be cast to class Y — how to fix</title>
+<meta name="description" content="A cast (explicit, or one inserted by generics) found an object of a different runtime type. Common sources are raw or unchecked collections, JSON deserialized into LinkedHashMap, and the same class loaded by two class loaders.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-classcastexception/">
+<meta property="og:title" content="java.lang.ClassCastException: class X cannot be cast to class Y — how to fix"><meta property="og:description" content="A cast (explicit, or one inserted by generics) found an object of a different runtime type. Common sources are raw or unchecked collections, JSON deserialized into LinkedHashMap, and the same class loaded by two class loaders.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-classcastexception/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "java.lang.ClassCastException: class X cannot be cast to class Y \u2014 how to fix", "description": "A cast (explicit, or one inserted by generics) found an object of a different runtime type. Common sources are raw or unchecked collections, JSON deserialized into LinkedHashMap, and the same class loaded by two class loaders.", "dateModified": "2026-11-15", "url": "https://errorfix-hollis.github.io/java/java-classcastexception/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "java.lang.ClassCastException: class X cannot be cast to class Y", "item": "https://errorfix-hollis.github.io/java/java-classcastexception/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>java.lang.ClassCastException: class X cannot be cast to class Y — how to fix</h1>
+<pre class="err"><code>Exception in thread &quot;main&quot; java.lang.ClassCastException: class java.lang.Integer cannot be cast to class java.lang.String (java.lang.Integer and java.lang.String are in module java.base of loader &#x27;bootstrap&#x27;)
+	at com.example.App.main(App.java:14)
+
+java.lang.ClassCastException: class java.util.LinkedHashMap cannot be cast to class com.example.User (java.util.LinkedHashMap is in module java.base of loader &#x27;bootstrap&#x27;; com.example.User is in unnamed module of loader &#x27;app&#x27;)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Read the two class names: the object really is X. Fix where it was created instead of casting: use typed generics (no raw <code>List</code>/<code>Map</code>), convert values (<code>String.valueOf(n)</code>, not <code>(String) obj</code>), deserialize JSON with a concrete type or <code>TypeReference</code>, and check <code>instanceof</code> before casting. If X and Y have the same name, two class loaders loaded the class: remove the duplicate jar.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A cast <code>(Y) obj</code> checks the object's runtime class. If the object isn't a <code>Y</code> (or a subclass), the JVM throws <code>ClassCastException</code>. Casts don't convert values: <code>(String) someInteger</code> never turns <code>42</code> into <code>"42"</code>.</p>
+<p>The message tells you the real type (<code>class X</code>) and the target (<code>class Y</code>). The text in parentheses shows each class's module and class loader. It matters in Cause 4.</p>
+<p>The failing line may contain no visible cast. With generics, the compiler inserts the cast where you <em>read</em> the value, so the bug is wherever the wrong object was <em>put in</em>.</p>
+<h2 id="cause-1-casting-instead-of-converting">Cause 1: casting instead of converting</h2>
+<pre><code class="language-java">Object v = map.get(&quot;age&quot;);      // an Integer
+String s = (String) v;          // ClassCastException
+
+String s = String.valueOf(v);           // &quot;42&quot;
+int age = ((Number) v).intValue();      // works for Integer, Long, Double...
+long id = Long.parseLong(text);         // String -&gt; number
+</code></pre>
+<p><code>Integer cannot be cast to Long</code> is a classic one: JSON parsers and JDBC return <code>Integer</code> for small numbers. Cast to <code>Number</code> and call <code>.longValue()</code>.</p>
+<h2 id="cause-2-raw-types-and-unchecked-collections">Cause 2: raw types and unchecked collections</h2>
+<pre><code class="language-java">List list = new ArrayList();      // raw type
+list.add(42);
+List&lt;String&gt; names = list;        // unchecked warning only
+String first = names.get(0);      // ClassCastException here, far from the bug
+</code></pre>
+<p>Always use parameterized types (<code>List&lt;String&gt;</code>), and treat <code>unchecked</code> compiler warnings as errors (<code>-Xlint:unchecked -Werror</code>). For collections passed to old code, <code>Collections.checkedList(list, String.class)</code> makes the bad <code>add</code> fail immediately.</p>
+<h2 id="cause-3-json-deserialized-into-linkedhashmap">Cause 3: JSON deserialized into <code>LinkedHashMap</code></h2>
+<p>Jackson and Gson don't know the element type of a generic collection at runtime, so they build maps:</p>
+<pre><code class="language-java">List&lt;User&gt; users = mapper.readValue(json, List.class);
+User u = users.get(0);   // LinkedHashMap cannot be cast to class User
+</code></pre>
+<p>Give the full type:</p>
+<pre><code class="language-java">List&lt;User&gt; users = mapper.readValue(json, new TypeReference&lt;List&lt;User&gt;&gt;() {});
+// Gson
+List&lt;User&gt; users = gson.fromJson(json, new TypeToken&lt;List&lt;User&gt;&gt;(){}.getType());
+// already have a Map? convert it
+User u = mapper.convertValue(map, User.class);
+</code></pre>
+<p>The same applies to Spring <code>RestTemplate</code> (use <code>ParameterizedTypeReference</code> with <code>exchange</code>) and to Redis or cache serializers that store type-less JSON.</p>
+<h2 id="cause-4-same-class-name-different-class-loaders">Cause 4: same class name, different class loaders</h2>
+<pre><code>class com.example.User cannot be cast to class com.example.User
+(com.example.User is in unnamed module of loader 'app';
+ com.example.User is in unnamed module of loader org.springframework.boot.devtools.restart.classloader.RestartClassLoader @1a2b3c)
+</code></pre>
+<p>Two copies of the class were loaded by different loaders. The JVM treats them as unrelated types. Typical causes:</p>
+<ul>
+<li><strong>Spring Boot DevTools:</strong> objects cached or deserialized by a library on the base class loader. Remove DevTools to confirm, or add the library to <code>META-INF/spring-devtools.properties</code> with <code>restart.include</code>.</li>
+<li><strong>App servers (Tomcat, WildFly):</strong> the same jar exists in both <code>WEB-INF/lib</code> and the server's <code>lib</code>. Keep one copy. Mark container-provided APIs (servlet, JPA) as <code>provided</code> scope.</li>
+<li><strong>Plugin systems / OSGi:</strong> share interfaces through a common parent loader.</li>
+</ul>
+<h2 id="cause-5-wrong-subclass-assumption">Cause 5: wrong subclass assumption</h2>
+<pre><code class="language-java">Animal a = repo.find(id);     // actually returns a Cat
+Dog d = (Dog) a;              // ClassCastException
+</code></pre>
+<p>Check first. Java 16+ pattern matching makes it compact:</p>
+<pre><code class="language-java">if (a instanceof Dog d) {
+    d.bark();
+}
+</code></pre>
+<p>Hibernate lazy proxies are a special case: a proxy of <code>Animal</code> can't be cast to <code>Dog</code> even when the row is a dog. Use <code>Hibernate.unproxy(a)</code> before checking the type, or fetch with the concrete type.</p>
+<h2 id="cause-6-arrays">Cause 6: arrays</h2>
+<p><code>(String[]) list.toArray()</code> fails because <code>toArray()</code> returns <code>Object[]</code>. Use <code>list.toArray(new String[0])</code> or <code>list.toArray(String[]::new)</code> (Java 11+).</p>
+<p class="upd">Last updated 2026-11-15.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-concurrentmodificationexception/">java.util.ConcurrentModificationException</a></li><li><a href="/java/java-noclassdeffounderror/">java.lang.NoClassDefFoundError</a></li><li><a href="/java/java-nullpointerexception/">java.lang.NullPointerException: Cannot invoke &quot;String.length()&quot; because &quot;&lt;local1&gt;&quot; is null</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

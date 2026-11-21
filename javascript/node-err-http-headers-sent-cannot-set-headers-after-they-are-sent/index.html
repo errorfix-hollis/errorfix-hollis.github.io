@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client (JavaScript) — how to fix</title>
+<meta name="description" content="Your Node/Express handler tried to send a second response (or set a header) after the first response was already sent. Usually a missing return after res.send/res.json, or both a callback and the main path responding.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/node-err-http-headers-sent-cannot-set-headers-after-they-are-sent/">
+<meta property="og:title" content="Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client (JavaScript) — how to fix"><meta property="og:description" content="Your Node/Express handler tried to send a second response (or set a header) after the first response was already sent. Usually a missing return after res.send/res.json, or both a callback and the main path responding.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/node-err-http-headers-sent-cannot-set-headers-after-they-are-sent/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client (JavaScript) \u2014 how to fix", "description": "Your Node/Express handler tried to send a second response (or set a header) after the first response was already sent. Usually a missing return after res.send/res.json, or both a callback and the main path responding.", "dateModified": "2026-11-16", "url": "https://errorfix-hollis.github.io/javascript/node-err-http-headers-sent-cannot-set-headers-after-they-are-sent/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client", "item": "https://errorfix-hollis.github.io/javascript/node-err-http-headers-sent-cannot-set-headers-after-they-are-sent/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client (JavaScript) — how to fix</h1>
+<pre class="err"><code>Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client
+    at new NodeError (node:internal/errors:405:5)
+    at ServerResponse.setHeader (node:_http_outgoing:648:11)
+    at ServerResponse.header (/app/node_modules/express/lib/response.js:794:10)
+    at ServerResponse.send (/app/node_modules/express/lib/response.js:174:12)
+    at ServerResponse.json (/app/node_modules/express/lib/response.js:278:15)
+code: &#x27;ERR_HTTP_HEADERS_SENT&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Make sure every request path sends exactly one response: write <code>return res.status(400).json({...})</code> instead of <code>res.status(400).json({...})</code> in early exits, don't call <code>next()</code> after responding, and don't respond in both a <code>.then()</code> and a <code>.catch()</code>/after an <code>await</code>. Guard with <code>if (res.headersSent) return next(err);</code> in error handlers.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>An HTTP response has one status line and one set of headers, sent before the body. Once you call <code>res.send()</code>, <code>res.json()</code>, <code>res.end()</code>, <code>res.redirect()</code> or <code>res.render()</code>, the headers are flushed. Any later call that needs to set headers — another <code>res.json()</code>, <code>res.status()</code>, <code>res.setHeader()</code>, <code>res.cookie()</code> — throws <code>ERR_HTTP_HEADERS_SENT</code>.</p>
+<p>The stack trace shows <em>where the second write happened</em>; the bug is usually that the <em>first</em> write didn't stop the function.</p>
+<h2 id="cause-1-missing-return-after-an-early-response">Cause 1: missing <code>return</code> after an early response</h2>
+<pre><code class="language-js">// Wrong: execution continues after the 400
+app.post('/users', (req, res) =&gt; {
+  if (!req.body.email) {
+    res.status(400).json({ error: 'email required' });
+  }
+  res.status(201).json(createUser(req.body));   // second response -&gt; error
+});
+</code></pre>
+<p><code>res.json()</code> does not end the function. Return it:</p>
+<pre><code class="language-js">app.post('/users', (req, res) =&gt; {
+  if (!req.body.email) {
+    return res.status(400).json({ error: 'email required' });
+  }
+  return res.status(201).json(createUser(req.body));
+});
+</code></pre>
+<h2 id="cause-2-responding-inside-a-loop-or-callback">Cause 2: responding inside a loop or callback</h2>
+<pre><code class="language-js">// Wrong: responds once per item
+items.forEach(item =&gt; {
+  if (item.invalid) res.status(400).send('bad item');
+});
+res.send('ok');
+</code></pre>
+<p>Find the result first, then respond once:</p>
+<pre><code class="language-js">const bad = items.find(item =&gt; item.invalid);
+if (bad) return res.status(400).send('bad item');
+res.send('ok');
+</code></pre>
+<p>The same applies to callback APIs: a callback that responds <em>and</em> code after it that responds will race.</p>
+<h2 id="cause-3-calling-next-after-sending">Cause 3: calling <code>next()</code> after sending</h2>
+<pre><code class="language-js">// Wrong
+app.use((req, res, next) =&gt; {
+  if (!req.user) res.status(401).send('login required');
+  next();   // the route handler runs and responds again
+});
+
+// Right
+app.use((req, res, next) =&gt; {
+  if (!req.user) return res.status(401).send('login required');
+  next();
+});
+</code></pre>
+<h2 id="cause-4-async-code-that-responds-twice">Cause 4: async code that responds twice</h2>
+<pre><code class="language-js">// Wrong: if res.json throws or an await below fails, catch responds again
+try {
+  const user = await db.find(id);
+  res.json(user);
+  await audit.log(id);         // throws -&gt; catch -&gt; second response
+} catch (err) {
+  res.status(500).json({ error: err.message });
+}
+</code></pre>
+<p>Respond as the last step, or check <code>res.headersSent</code> in the catch:</p>
+<pre><code class="language-js">} catch (err) {
+  if (res.headersSent) return console.error(err);
+  res.status(500).json({ error: err.message });
+}
+</code></pre>
+<p>In an Express error-handling middleware, delegate to the default handler when headers are already out:</p>
+<pre><code class="language-js">app.use((err, req, res, next) =&gt; {
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: 'internal error' });
+});
+</code></pre>
+<h2 id="cause-5-setting-headers-after-streaming-started">Cause 5: setting headers after streaming started</h2>
+<p><code>res.write()</code> or <code>pipe(res)</code> sends headers on the first chunk. Call <code>res.setHeader()</code> / <code>res.status()</code> <em>before</em> writing anything, and don't call <code>res.json()</code> after a stream has been piped to <code>res</code>.</p>
+<h2 id="how-to-find-the-culprit">How to find the culprit</h2>
+<p>Search the route for every <code>res.</code> call and make sure each path reaches exactly one of them. A quick debugging aid:</p>
+<pre><code class="language-js">app.use((req, res, next) =&gt; {
+  const send = res.send;
+  res.send = function (...args) {
+    if (res.headersSent) console.trace('second response for', req.method, req.url);
+    return send.apply(this, args);
+  };
+  next();
+});
+</code></pre>
+<p class="upd">Last updated 2026-11-16.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-is-not-a-function/">TypeError: x is not a function</a></li><li><a href="/npm/node-error-listen-eaddrinuse-address-already-in-use/">Error: listen EADDRINUSE: address already in use :::3000</a></li><li><a href="/npm/node-error-socket-hang-up-econnreset/">Error: socket hang up (ECONNRESET)</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cannot-set-properties-of-null/">Uncaught TypeError: Cannot set properties of null (setting &#x27;innerHTML&#x27;)</a></li><li><a href="/javascript/js-cannot-set-properties-of-undefined/">TypeError: Cannot set properties of undefined (setting &#x27;...&#x27;)</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

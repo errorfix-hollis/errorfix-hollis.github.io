@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>the input device is not a TTY (Docker) — how to fix</title>
+<meta name="description" content="`docker run -t` / `docker exec -it` asked for a pseudo-terminal, but the command&#x27;s stdin isn&#x27;t a terminal — typically in CI, cron, scripts with piped input, or Git Bash (mintty) on Windows.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-the-input-device-is-not-a-tty/">
+<meta property="og:title" content="the input device is not a TTY (Docker) — how to fix"><meta property="og:description" content="`docker run -t` / `docker exec -it` asked for a pseudo-terminal, but the command&#x27;s stdin isn&#x27;t a terminal — typically in CI, cron, scripts with piped input, or Git Bash (mintty) on Windows.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-the-input-device-is-not-a-tty/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "the input device is not a TTY (Docker) \u2014 how to fix", "description": "`docker run -t` / `docker exec -it` asked for a pseudo-terminal, but the command's stdin isn't a terminal \u2014 typically in CI, cron, scripts with piped input, or Git Bash (mintty) on Windows.", "dateModified": "2026-11-20", "url": "https://errorfix-hollis.github.io/docker/docker-the-input-device-is-not-a-tty/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "the input device is not a TTY", "item": "https://errorfix-hollis.github.io/docker/docker-the-input-device-is-not-a-tty/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>the input device is not a TTY (Docker) — how to fix</h1>
+<pre class="err"><code>the input device is not a TTY
+the input device is not a TTY.  If you are using mintty, try prefixing the command with &#x27;winpty&#x27;
+cannot attach stdin to a TTY-enabled container because stdin is not a terminal
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Remove <code>-t</code> (keep <code>-i</code> if you pipe input) when running non-interactively: <code>docker exec -i mydb psql -U postgres &lt; dump.sql</code>. In CI use <code>docker compose exec -T</code>. In Git Bash on Windows prefix with <code>winpty</code>: <code>winpty docker exec -it app bash</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The two flags do different things:</p>
+<ul>
+<li><code>-i</code> (<code>--interactive</code>): keep the container's stdin open and connect it to yours.</li>
+<li><code>-t</code> (<code>--tty</code>): allocate a pseudo-terminal inside the container.</li>
+</ul>
+<p><code>-t</code> only works if <em>your</em> stdin is a real terminal. When the Docker CLI runs from a CI job, a cron job, a script with <code>&lt;</code> or <code>|</code> input, or a terminal emulator that doesn't expose a Windows console (mintty), there is no TTY to attach, so Docker refuses.</p>
+<h2 id="fix-1-drop-t-in-scripts-and-ci">Fix 1: drop -t in scripts and CI</h2>
+<p>If nobody is typing into the container, you don't need a TTY.</p>
+<pre><code class="language-bash"># output only
+docker exec mycontainer ls /app
+
+# feed input from a file or pipe: keep -i, drop -t
+docker exec -i mydb psql -U postgres -d app &lt; dump.sql
+cat backup.sql | docker exec -i mysql mysql -uroot -p&quot;$PW&quot; app
+docker exec -i mydb pg_dump -U postgres app &gt; dump.sql
+</code></pre>
+<p>This applies to Jenkins, GitHub Actions, GitLab CI, Ansible, systemd units and cron.</p>
+<h2 id="fix-2-docker-compose-exec-t">Fix 2: docker compose exec -T</h2>
+<p><code>docker compose exec</code> allocates a TTY <strong>by default</strong>, so it fails in CI even without <code>-t</code>. Disable it with <code>-T</code>:</p>
+<pre><code class="language-bash">docker compose exec -T db psql -U postgres -c &quot;select 1&quot;
+docker compose exec -T app npm test
+docker compose run --rm -T app python manage.py migrate
+</code></pre>
+<h2 id="fix-3-git-bash-mintty-on-windows">Fix 3: Git Bash / mintty on Windows</h2>
+<p>Git Bash's default terminal (mintty) isn't a Windows console, which is what the message hints at. Options:</p>
+<pre><code class="language-bash">winpty docker exec -it mycontainer bash
+winpty docker run -it ubuntu bash
+</code></pre>
+<p>Or create an alias in <code>~/.bashrc</code>: <code>alias docker='winpty docker'</code>. Alternatively run the command from PowerShell, Windows Terminal, or enable "Use Windows' default console window" when installing Git for Windows. Recent Git for Windows versions with ConPTY support often don't need <code>winpty</code>.</p>
+<h2 id="fix-4-only-use-t-when-there-is-a-terminal">Fix 4: only use -t when there is a terminal</h2>
+<p>For scripts that run both interactively and in CI, detect a TTY:</p>
+<pre><code class="language-bash">TTY_FLAG=&quot;&quot;
+[ -t 0 ] &amp;&amp; TTY_FLAG=&quot;-t&quot;
+docker exec -i $TTY_FLAG mycontainer bash -c &quot;./run.sh&quot;
+</code></pre>
+<p><code>[ -t 0 ]</code> is true when stdin is a terminal.</p>
+<h2 id="related-cannot-attach-stdin-to-a-tty-enabled-container">Related: "cannot attach stdin to a TTY-enabled container"</h2>
+<p>This appears with <code>docker attach</code> or <code>docker start -a -i</code> when the container was created with <code>-t</code> but your current stdin isn't a terminal. Run it from an interactive shell, or use <code>docker logs -f &lt;container&gt;</code> to just watch output. For a one-off command, <code>docker exec</code> (without <code>-t</code>) is simpler than attaching.</p>
+<p class="upd">Last updated 2026-11-20.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-container-name-already-in-use/">Conflict. The container name is already in use by container</a></li><li><a href="/docker/docker-oci-runtime-create-failed-executable-file-not-found/">OCI runtime create failed: exec: executable file not found in $PATH</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-compose-additional-property-is-not-allowed/">Additional property is not allowed</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

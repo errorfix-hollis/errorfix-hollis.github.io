@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>cURL to Code Converter — curl command to Python, JavaScript fetch, Go, PHP</title>
+<meta name="description" content="Paste a curl command (e.g. &#x27;Copy as cURL&#x27; from Chrome or Firefox DevTools) and get equivalent code for Python requests, JavaScript fetch, Node.js axios, Go net/http and PHP cURL. Handles headers, JSON, form data, file uploads, auth and cookies.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/curl-to-code/">
+<meta property="og:title" content="cURL to Code Converter — curl command to Python, JavaScript fetch, Go, PHP"><meta property="og:description" content="Paste a curl command (e.g. &#x27;Copy as cURL&#x27; from Chrome or Firefox DevTools) and get equivalent code for Python requests, JavaScript fetch, Node.js axios, Go net/http and PHP cURL. Handles headers, JSON, form data, file uploads, auth and cookies.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/curl-to-code/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "cURL to code converter", "url": "https://errorfix-hollis.github.io/tools/curl-to-code/", "description": "Paste a curl command (e.g. 'Copy as cURL' from Chrome or Firefox DevTools) and get equivalent code for Python requests, JavaScript fetch, Node.js axios, Go net/http and PHP cURL. Handles headers, JSON, form data, file uploads, auth and cookies.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-20", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": "cURL to code converter", "item": "https://errorfix-hollis.github.io/tools/curl-to-code/"}]}</script><script src="/tools.js?v=4ee891c8" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>Convert curl to Python, JavaScript, Go and PHP</h1>
+<p class="lead">Turn a curl command into ready-to-run Python, JavaScript (fetch), Node.js (axios), Go or PHP code. Supports -X, -H, -d/--data-raw/--data-binary/--data-urlencode, --json, -F file uploads, -u, -b, -L, -k, --compressed and multi-line commands.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="curl"><label for="curl-in">Paste a curl command <small>(e.g. from your browser's DevTools: Network › right-click › Copy as cURL (bash))</small></label>
+<textarea id="curl-in" spellcheck="false" placeholder="curl -X POST https://api.example.com/items -H 'Content-Type: application/json' -d '{&quot;name&quot;:&quot;test&quot;}'"></textarea>
+<div class="row" id="curl-langs">
+<button data-lang="python">Python requests</button><button data-lang="fetch" class="sec">JavaScript fetch</button><button data-lang="axios" class="sec">Node.js axios</button><button data-lang="go" class="sec">Go net/http</button><button data-lang="php" class="sec">PHP cURL</button>
+<button id="curl-sample" class="sec">Example</button>
+</div>
+<div id="curl-msg" class="msg" hidden></div>
+<ul id="curl-warn" class="warn" hidden></ul>
+<pre class="out ctx"><code id="curl-out"></code></pre>
+<div class="row"><button id="curl-copy" class="sec">Copy code</button></div>
+<table id="curl-sum" class="kv"></table>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<h2 id="what-gets-converted">What gets converted</h2>
+<table>
+<thead>
+<tr>
+<th>curl option</th>
+<th>Meaning</th>
+<th>Becomes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-X PUT</code></td>
+<td>request method</td>
+<td>the method (default <code>GET</code>, or <code>POST</code> when there is a body)</td>
+</tr>
+<tr>
+<td><code>-H 'K: V'</code></td>
+<td>header</td>
+<td>a header entry</td>
+</tr>
+<tr>
+<td><code>-d</code>, <code>--data-raw</code>, <code>--data-binary</code></td>
+<td>request body</td>
+<td>the body; several <code>-d</code> are joined with <code>&amp;</code></td>
+</tr>
+<tr>
+<td><code>--json '{…}'</code></td>
+<td>JSON body</td>
+<td>body + <code>Content-Type</code>/<code>Accept: application/json</code></td>
+</tr>
+<tr>
+<td><code>--data-urlencode</code></td>
+<td>URL-encoded field</td>
+<td>encoded <code>name=value</code></td>
+</tr>
+<tr>
+<td><code>-F name=@file</code></td>
+<td>multipart form / upload</td>
+<td><code>files=</code> / <code>FormData</code> / <code>CURLFile</code></td>
+</tr>
+<tr>
+<td><code>-u user:pass</code></td>
+<td>Basic auth</td>
+<td><code>auth=</code> / <code>Authorization: Basic …</code></td>
+</tr>
+<tr>
+<td><code>-b 'a=1; b=2'</code></td>
+<td>cookies</td>
+<td><code>cookies=</code> or a <code>Cookie</code> header</td>
+</tr>
+<tr>
+<td><code>-G</code></td>
+<td>put <code>-d</code> data in the query string</td>
+<td>appended to the URL</td>
+</tr>
+<tr>
+<td><code>-L</code>, <code>-k</code>, <code>--compressed</code>, <code>-m</code>, <code>-x</code></td>
+<td>redirects, TLS, gzip, timeout, proxy</td>
+<td>library options</td>
+</tr>
+</tbody>
+</table>
+<p>The command is parsed the way a POSIX shell would read it: single and double quotes, <code>$'…'</code> strings (which Chrome uses for bodies containing quotes or newlines), backslash escapes and <code>\</code> line continuations all work. Each generated program was checked against real curl: it sends the same method, URL, headers and body.</p>
+<h2 id="differences-to-keep-in-mind">Differences to keep in mind</h2>
+<ul>
+<li><strong>Redirects.</strong> curl does not follow redirects unless you pass <code>-L</code>, but requests, fetch, axios and Go follow them by default.</li>
+<li><strong><code>-d</code> sets a form content type.</strong> curl sends <code>Content-Type: application/x-www-form-urlencoded</code> with <code>-d</code> even when the body is JSON. If your API expects JSON, add <code>-H 'Content-Type: application/json'</code> or use <code>--json</code>, otherwise the server may reply with a 415 or fail to parse the body (see <a href="/python/python-jsondecodeerror-expecting-value/">JSONDecodeError: Expecting value</a>).</li>
+<li><strong><code>-k</code> turns off certificate checks.</strong> Use it for testing only. The real fix for <a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem</a> is to trust the right CA bundle.</li>
+<li><strong>Browsers are stricter than curl.</strong> A request that works with curl can still fail in the browser because of <a href="/web/web-cors-no-access-control-allow-origin/">CORS</a>, and browsers silently drop headers such as <code>Cookie</code>, <code>User-Agent</code> and <code>Host</code>.</li>
+</ul>
+<p>Secrets in the command (tokens, passwords, cookies) stay in this page: nothing is sent anywhere.</p>
+<p class="upd">Last updated 2026-11-20.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/python/python-ssl-certificate-verify-failed/">ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate</a></li><li><a href="/python/python-jsondecodeerror-expecting-value/">json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/json-formatter/">JSON formatter &amp; validator</a></li><li><a href="/tools/cron-expression-explainer/">Cron expression explainer</a></li><li><a href="/tools/chmod-calculator/">chmod calculator</a></li><li><a href="/tools/unix-timestamp-converter/">Unix timestamp converter</a></li><li><a href="/tools/base64-encode-decode/">Base64 encode / decode</a></li><li><a href="/tools/url-encode-decode/">URL encode / decode</a></li><li><a href="/tools/jwt-decoder/">JWT decoder</a></li><li><a href="/tools/regex-tester/">Regex tester</a></li><li><a href="/tools/yaml-validator/">YAML validator &amp; YAML ↔ JSON converter</a></li><li><a href="/tools/uuid-generator/">UUID generator &amp; validator (v4, v7)</a></li><li><a href="/tools/text-diff/">Text diff checker</a></li><li><a href="/tools/http-status-codes/">HTTP status codes reference</a></li><li><a href="/tools/hash-generator/">Hash generator (MD5, SHA-256, SHA-512)</a></li><li><a href="/tools/line-ending-whitespace-inspector/">Line ending &amp; whitespace inspector</a></li><li><a href="/tools/sql-formatter/">SQL formatter</a></li><li><a href="/tools/gitignore-generator/">.gitignore generator &amp; tester</a></li><li><a href="/tools/csv-to-json/">CSV ↔ JSON converter</a></li><li><a href="/tools/subnet-calculator/">Subnet / CIDR calculator</a></li><li><a href="/tools/docker-run-to-compose/">docker run to Compose converter</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

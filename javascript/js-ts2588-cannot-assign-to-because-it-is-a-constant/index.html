@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TS2588: Cannot assign to &#x27;x&#x27; because it is a constant. (TypeScript) — how to fix</title>
+<meta name="description" content="You reassigned a variable declared with `const`. TypeScript reports it at compile time; at runtime the same code throws `TypeError: Assignment to constant variable`.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-ts2588-cannot-assign-to-because-it-is-a-constant/">
+<meta property="og:title" content="TS2588: Cannot assign to &#x27;x&#x27; because it is a constant. (TypeScript) — how to fix"><meta property="og:description" content="You reassigned a variable declared with `const`. TypeScript reports it at compile time; at runtime the same code throws `TypeError: Assignment to constant variable`.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-ts2588-cannot-assign-to-because-it-is-a-constant/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TS2588: Cannot assign to 'x' because it is a constant. (TypeScript) \u2014 how to fix", "description": "You reassigned a variable declared with `const`. TypeScript reports it at compile time; at runtime the same code throws `TypeError: Assignment to constant variable`.", "dateModified": "2026-11-18", "url": "https://errorfix-hollis.github.io/javascript/js-ts2588-cannot-assign-to-because-it-is-a-constant/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "TS2588: Cannot assign to 'x' because it is a constant.", "item": "https://errorfix-hollis.github.io/javascript/js-ts2588-cannot-assign-to-because-it-is-a-constant/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>TS2588: Cannot assign to &#x27;x&#x27; because it is a constant. (TypeScript) — how to fix</h1>
+<pre class="err"><code>src/index.ts:4:1 - error TS2588: Cannot assign to &#x27;count&#x27; because it is a constant.
+
+4 count = count + 1;
+  ~~~~~
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Declare the variable with <code>let</code> instead of <code>const</code> if it really needs a new value (<code>let count = 0;</code>). For loop variables use <code>let</code> (<code>for (let i = 0; ...)</code>). If you only change properties or array elements, keep <code>const</code> — <code>obj.x = 1</code> and <code>arr.push(1)</code> are allowed. Imports are read-only bindings and can't be reassigned (TS2632).</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>const</code> creates a binding that can't be reassigned. TypeScript catches the reassignment at compile time:</p>
+<pre><code class="language-ts">const count = 0;
+count = count + 1;   // TS2588
+count++;             // TS2588
+count += 1;          // TS2588
+</code></pre>
+<p>In plain JavaScript the same code compiles but throws <code>TypeError: Assignment to constant variable.</code> when it runs.</p>
+<h2 id="fix-1-use-let-for-values-that-change">Fix 1: use let for values that change</h2>
+<pre><code class="language-ts">let count = 0;
+count = count + 1;
+</code></pre>
+<p>Only switch the one variable that's reassigned. Keeping <code>const</code> everywhere else is good practice (ESLint's <code>prefer-const</code> enforces it).</p>
+<h2 id="fix-2-loop-counters">Fix 2: loop counters</h2>
+<p>A classic <code>for</code> loop increments the counter, so it needs <code>let</code>:</p>
+<pre><code class="language-ts">for (const i = 0; i &lt; 10; i++) {}   // TS2588 on i++
+for (let i = 0; i &lt; 10; i++) {}     // OK
+</code></pre>
+<p><code>for...of</code> and <code>for...in</code> <em>can</em> use <code>const</code>, because each iteration gets a fresh binding:</p>
+<pre><code class="language-ts">for (const item of items) { console.log(item); }  // OK
+</code></pre>
+<p>But you can't reassign <code>item</code> inside that loop body.</p>
+<h2 id="fix-3-mutate-instead-of-reassign">Fix 3: mutate instead of reassign</h2>
+<p><code>const</code> prevents reassignment, not mutation. If you meant to change the contents, do that:</p>
+<pre><code class="language-ts">const user = { name: &quot;Ann&quot; };
+user.name = &quot;Bob&quot;;        // OK
+user = { name: &quot;Bob&quot; };   // TS2588
+
+const list: number[] = [];
+list.push(1);             // OK
+list = [...list, 1];      // TS2588
+</code></pre>
+<p>If you want the contents to be immutable too, use <code>as const</code> or <code>Readonly&lt;T&gt;</code>; that produces different errors (TS2540) when you try to change a property.</p>
+<h2 id="fix-4-reassigning-an-import">Fix 4: reassigning an import</h2>
+<p>Imported bindings are read-only, even if exported with <code>let</code>:</p>
+<pre><code class="language-ts">import { config } from &quot;./config&quot;;
+config = loadConfig();   // TS2632: Cannot assign to 'config' because it is an import.
+</code></pre>
+<p>Export a setter function from the module, or export an object and change its properties:</p>
+<pre><code class="language-ts">// config.ts
+export const config = { apiUrl: &quot;&quot; };
+// elsewhere
+config.apiUrl = &quot;https://api.example.com&quot;;
+</code></pre>
+<h2 id="fix-5-reassigning-in-a-callback-or-state-update">Fix 5: reassigning in a callback or state update</h2>
+<p>In React, state values are <code>const</code> from <code>useState</code>. Don't reassign them; call the setter:</p>
+<pre><code class="language-tsx">const [count, setCount] = useState(0);
+count = count + 1;          // TS2588
+setCount(c =&gt; c + 1);       // correct
+</code></pre>
+<h2 id="fix-6-destructured-constants">Fix 6: destructured constants</h2>
+<p>Destructuring with <code>const</code> makes every name constant:</p>
+<pre><code class="language-ts">const { page, size } = params;
+page = 1;   // TS2588
+
+let { page, size } = params;   // if you need to change them
+</code></pre>
+<p>Or destructure into a new variable: <code>const firstPage = page ?? 1;</code>.</p>
+<p class="upd">Last updated 2026-11-18.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-ts2304-cannot-find-name/">error TS2304: Cannot find name</a></li><li><a href="/javascript/js-ts2322-type-is-not-assignable-to-type/">TS2322: Type &#x27;X&#x27; is not assignable to type &#x27;Y&#x27;</a></li><li><a href="/javascript/js-typeerror-assignment-to-constant-variable/">TypeError: Assignment to constant variable.</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cannot-set-properties-of-null/">Uncaught TypeError: Cannot set properties of null (setting &#x27;innerHTML&#x27;)</a></li><li><a href="/javascript/js-cannot-set-properties-of-undefined/">TypeError: Cannot set properties of undefined (setting &#x27;...&#x27;)</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

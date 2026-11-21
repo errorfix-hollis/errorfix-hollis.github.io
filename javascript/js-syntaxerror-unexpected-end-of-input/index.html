@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SyntaxError: Unexpected end of input (JavaScript) — how to fix</title>
+<meta name="description" content="The parser reached the end of the code (or JSON text) while it still expected more — an unclosed `{`, `(`, `[`, string or template literal, or an empty/truncated JSON response.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-syntaxerror-unexpected-end-of-input/">
+<meta property="og:title" content="SyntaxError: Unexpected end of input (JavaScript) — how to fix"><meta property="og:description" content="The parser reached the end of the code (or JSON text) while it still expected more — an unclosed `{`, `(`, `[`, string or template literal, or an empty/truncated JSON response.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-syntaxerror-unexpected-end-of-input/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "SyntaxError: Unexpected end of input (JavaScript) \u2014 how to fix", "description": "The parser reached the end of the code (or JSON text) while it still expected more \u2014 an unclosed `{`, `(`, `[`, string or template literal, or an empty/truncated JSON response.", "dateModified": "2026-11-20", "url": "https://errorfix-hollis.github.io/javascript/js-syntaxerror-unexpected-end-of-input/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "SyntaxError: Unexpected end of input", "item": "https://errorfix-hollis.github.io/javascript/js-syntaxerror-unexpected-end-of-input/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>SyntaxError: Unexpected end of input (JavaScript) — how to fix</h1>
+<pre class="err"><code>Uncaught SyntaxError: Unexpected end of input
+SyntaxError: Unexpected end of JSON input
+SyntaxError: Failed to execute &#x27;json&#x27; on &#x27;Response&#x27;: Unexpected end of JSON input
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> For code: find the unclosed bracket, quote or backtick (format the file with Prettier or check matching braces in your editor). For <code>Unexpected end of JSON input</code>: the string you passed to <code>JSON.parse()</code> / <code>res.json()</code> is empty — check <code>res.ok</code> and <code>await res.text()</code> first, and don't call <code>.json()</code> on 204 or <code>no-cors</code> responses.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The JavaScript (or JSON) parser ran out of characters before the structure was complete. There are two very different situations with the same message:</p>
+<ul>
+<li><strong><code>Unexpected end of input</code></strong> — your <em>source code</em> has something unclosed.</li>
+<li><strong><code>Unexpected end of JSON input</code></strong> — <code>JSON.parse()</code> or <code>response.json()</code> got an empty or cut-off string.</li>
+</ul>
+<h2 id="cause-1-unclosed-brace-parenthesis-or-bracket">Cause 1: unclosed brace, parenthesis or bracket</h2>
+<pre><code class="language-js">function greet(name) {
+  if (name) {
+    console.log(`Hi ${name}`);
+  }
+// missing } for the function
+</code></pre>
+<p>The error points at the last line of the file, not where the brace is missing. To find it:</p>
+<ul>
+<li>Run Prettier (<code>npx prettier --check file.js</code>) or ESLint — they report the location more precisely.</li>
+<li>Use your editor's bracket matching / fold markers and look for the block that "swallows" the rest of the file.</li>
+<li>Check callbacks: <code>}, []);</code> and <code>});</code> are easy to get wrong in <code>useEffect</code>, <code>addEventListener</code>, and promise chains.</li>
+</ul>
+<h2 id="cause-2-unclosed-string-or-template-literal">Cause 2: unclosed string or template literal</h2>
+<p>A missing closing backtick makes the rest of the file one string:</p>
+<pre><code class="language-js">const html = `&lt;div&gt;${title}&lt;/div&gt;;
+</code></pre>
+<p>Syntax highlighting usually makes this obvious — everything after it is coloured as a string.</p>
+<h2 id="cause-3-inline-code-in-html-attributes">Cause 3: inline code in HTML attributes</h2>
+<p><code>onclick="doThing({a: 1)"</code> or code generated into a <code>&lt;script&gt;</code> tag can be truncated. Check what the browser actually received (DevTools → Sources), not your template.</p>
+<h2 id="cause-4-jsonparse-empty-input">Cause 4: <code>JSON.parse("")</code> — empty input</h2>
+<pre><code class="language-js">JSON.parse(&quot;&quot;);            // SyntaxError: Unexpected end of JSON input
+JSON.parse(localStorage.getItem(&quot;cart&quot;));   // fine for null, but &quot;&quot; fails
+</code></pre>
+<p>Guard against empty strings:</p>
+<pre><code class="language-js">const raw = localStorage.getItem(&quot;cart&quot;);
+const cart = raw ? JSON.parse(raw) : [];
+</code></pre>
+<h2 id="cause-5-responsejson-on-an-empty-body">Cause 5: <code>response.json()</code> on an empty body</h2>
+<p><code>fetch</code> responses with no body — <code>204 No Content</code>, many <code>DELETE</code>/<code>POST</code> endpoints, errors from the server, or <strong>any <code>mode: "no-cors"</code> response</strong> (opaque, always empty) — throw when you call <code>.json()</code>.</p>
+<pre><code class="language-js">const res = await fetch(&quot;/api/items&quot;, { method: &quot;POST&quot;, body });
+if (!res.ok) throw new Error(`HTTP ${res.status}`);
+const text = await res.text();
+const data = text ? JSON.parse(text) : null;
+</code></pre>
+<p>Don't use <code>mode: "no-cors"</code> to "fix" CORS; you can't read that response at all. Fix CORS on the server instead.</p>
+<p>On the server side (Express etc.), make sure the handler actually sends JSON: <code>res.json(obj)</code>, not <code>res.end()</code> or <code>res.sendStatus(200)</code>.</p>
+<h2 id="cause-6-a-truncated-file-or-download">Cause 6: a truncated file or download</h2>
+<p>A partially written JSON file, a timeout mid-response, or a bundler that crashed can leave incomplete content. Re-download / rebuild and check the file's end with <code>tail -c 200 file.json</code>.</p>
+<p class="upd">Last updated 2026-11-20.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-syntaxerror-identifier-has-already-been-declared/">SyntaxError: Identifier has already been declared</a></li><li><a href="/javascript/js-typeerror-failed-to-fetch/">TypeError: Failed to fetch</a></li><li><a href="/javascript/js-unexpected-token-in-json/">SyntaxError: Unexpected token &#x27;&lt;&#x27;, &quot;&lt;!DOCTYPE &quot;... is not valid JSON</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cannot-set-properties-of-null/">Uncaught TypeError: Cannot set properties of null (setting &#x27;innerHTML&#x27;)</a></li><li><a href="/javascript/js-cannot-set-properties-of-undefined/">TypeError: Cannot set properties of undefined (setting &#x27;...&#x27;)</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

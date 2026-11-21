@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Release file is not valid yet (Linux) — how to fix</title>
+<meta name="description" content="The repository&#x27;s Release file is dated in the future relative to your system clock. Your clock is behind — common in fresh VMs, Raspberry Pis without an RTC, WSL after sleep, and Docker builds on hosts with a wrong clock.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-apt-release-file-is-not-valid-yet/">
+<meta property="og:title" content="Release file is not valid yet (Linux) — how to fix"><meta property="og:description" content="The repository&#x27;s Release file is dated in the future relative to your system clock. Your clock is behind — common in fresh VMs, Raspberry Pis without an RTC, WSL after sleep, and Docker builds on hosts with a wrong clock.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-apt-release-file-is-not-valid-yet/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Release file is not valid yet (Linux) \u2014 how to fix", "description": "The repository's Release file is dated in the future relative to your system clock. Your clock is behind \u2014 common in fresh VMs, Raspberry Pis without an RTC, WSL after sleep, and Docker builds on hosts with a wrong clock.", "dateModified": "2026-11-19", "url": "https://errorfix-hollis.github.io/linux/linux-apt-release-file-is-not-valid-yet/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "Release file is not valid yet", "item": "https://errorfix-hollis.github.io/linux/linux-apt-release-file-is-not-valid-yet/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>Release file is not valid yet (Linux) — how to fix</h1>
+<pre class="err"><code>E: Release file for http://archive.ubuntu.com/ubuntu/dists/jammy-updates/InRelease is not valid yet (invalid for another 5h 12min 3s). Updates for this repository will not be applied.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Fix the clock: <code>sudo timedatectl set-ntp true</code> (or <code>sudo hwclock --hctosys</code>, or on WSL <code>wsl --shutdown</code>), check with <code>date</code>, then <code>sudo apt update</code>. As a one-off workaround: <code>sudo apt -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false update</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Each repository's <code>InRelease</code>/<code>Release</code> file has a <code>Date:</code> field. APT refuses files dated after the current system time, because a future date usually means the clock is wrong (and a wrong clock also breaks TLS and signature validity checks). The <code>invalid for another 5h 12min</code> part tells you roughly how far behind your clock is.</p>
+<p>Check:</p>
+<pre><code class="language-bash">date
+timedatectl
+</code></pre>
+<p>If the shown time is wrong (or the timezone is wrong <em>and</em> the hardware clock is set as local time), that's the cause.</p>
+<h2 id="fix-1-sync-the-clock-with-ntp-systemd-systems">Fix 1: sync the clock with NTP (systemd systems)</h2>
+<pre><code class="language-bash">sudo timedatectl set-ntp true
+timedatectl status        # look for &quot;System clock synchronized: yes&quot;
+sudo apt update
+</code></pre>
+<p>If sync doesn't happen, the NTP service may be missing or UDP 123 is blocked:</p>
+<pre><code class="language-bash">sudo apt install systemd-timesyncd     # if missing; may need Fix 3 first
+sudo systemctl restart systemd-timesyncd
+journalctl -u systemd-timesyncd -n 20
+</code></pre>
+<p>Or set the time manually as a stopgap:</p>
+<pre><code class="language-bash">sudo date -s &quot;2026-11-19 12:00:00&quot;
+</code></pre>
+<h2 id="fix-2-wsl-2-clock-drift">Fix 2: WSL 2 clock drift</h2>
+<p>WSL 2's clock can fall behind after the Windows host sleeps. From PowerShell:</p>
+<pre><code class="language-powershell">wsl --shutdown
+</code></pre>
+<p>Reopen the distro and check <code>date</code>. Alternatively, inside WSL: <code>sudo hwclock -s</code>.</p>
+<h2 id="fix-3-one-off-update-ignoring-the-date-check">Fix 3: one-off update ignoring the date check</h2>
+<p>If you can't fix the clock right now (e.g. a locked-down container):</p>
+<pre><code class="language-bash">sudo apt -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false update
+</code></pre>
+<p><code>Check-Date=false</code> is the option that covers "not valid yet"; <code>Check-Valid-Until=false</code> covers the opposite, expired Release files (common with snapshot/archive mirrors). This weakens replay protection, so don't make it permanent.</p>
+<h2 id="fix-4-docker-builds">Fix 4: Docker builds</h2>
+<p>Containers use the <strong>host's</strong> kernel clock; you can't fix it inside the container. On Docker Desktop (macOS/Windows), the VM clock drifts after sleep — restart Docker Desktop. On Linux hosts, fix the host clock with Fix 1. If you must, add the options in the Dockerfile temporarily:</p>
+<pre><code class="language-dockerfile">RUN apt-get -o Acquire::Check-Date=false update &amp;&amp; apt-get install -y curl
+</code></pre>
+<h2 id="fix-5-raspberry-pi-and-boards-without-an-rtc">Fix 5: Raspberry Pi and boards without an RTC</h2>
+<p>Boards without a battery-backed clock boot with an old time until NTP syncs. Make sure networking comes up and timesyncd runs; <code>fake-hwclock</code> (installed on Raspberry Pi OS) saves the last known time on shutdown so the clock is at least close on boot.</p>
+<h2 id="fix-6-dual-boot-with-windows">Fix 6: dual-boot with Windows</h2>
+<p>Windows stores local time in the hardware clock; Linux expects UTC. After booting Windows, Linux can be hours off. Either let NTP correct it, or tell Linux to use local time for the RTC:</p>
+<pre><code class="language-bash">timedatectl set-local-rtc 1 --adjust-system-clock
+</code></pre>
+<p>(Windows can also be switched to UTC with the <code>RealTimeIsUniversal</code> registry value.)</p>
+<p class="upd">Last updated 2026-11-19.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-apt-hash-sum-mismatch/">E: Failed to fetch ... Hash Sum mismatch</a></li><li><a href="/linux/linux-apt-no-pubkey/">The following signatures couldn&#x27;t be verified because the public key is not available: NO_PUBKEY</a></li><li><a href="/linux/linux-e-unable-to-locate-package/">E: Unable to locate package</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

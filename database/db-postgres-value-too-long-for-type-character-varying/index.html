@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR: value too long for type character varying(255) (PostgreSQL) — how to fix</title>
+<meta name="description" content="You inserted or updated a string longer than the column&#x27;s `varchar(n)` limit. PostgreSQL never silently truncates, so the statement fails with SQLSTATE 22001.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-value-too-long-for-type-character-varying/">
+<meta property="og:title" content="ERROR: value too long for type character varying(255) (PostgreSQL) — how to fix"><meta property="og:description" content="You inserted or updated a string longer than the column&#x27;s `varchar(n)` limit. PostgreSQL never silently truncates, so the statement fails with SQLSTATE 22001.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-value-too-long-for-type-character-varying/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR: value too long for type character varying(255) (PostgreSQL) \u2014 how to fix", "description": "You inserted or updated a string longer than the column's `varchar(n)` limit. PostgreSQL never silently truncates, so the statement fails with SQLSTATE 22001.", "dateModified": "2026-11-19", "url": "https://errorfix-hollis.github.io/database/db-postgres-value-too-long-for-type-character-varying/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR: value too long for type character varying(255)", "item": "https://errorfix-hollis.github.io/database/db-postgres-value-too-long-for-type-character-varying/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR: value too long for type character varying(255) (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>ERROR:  value too long for type character varying(255)
+SQL state: 22001
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Widen the column: <code>ALTER TABLE t ALTER COLUMN col TYPE varchar(1000);</code> or switch to <code>text</code> (no length limit, same performance): <code>ALTER TABLE t ALTER COLUMN col TYPE text;</code>. Or validate/truncate input in the app: <code>left(value, 255)</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The column is declared as <code>varchar(n)</code> (alias <code>character varying(n)</code>) and the value has more than <code>n</code> <strong>characters</strong>. PostgreSQL rejects it instead of cutting it off. The same error exists for <code>character(n)</code>: <code>value too long for type character(10)</code>.</p>
+<p>The message doesn't name the column. Find candidates:</p>
+<pre><code class="language-sql">SELECT table_name, column_name, character_maximum_length
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND character_maximum_length = 255;
+</code></pre>
+<p>Then compare with your data, e.g. <code>SELECT max(length(col)) FROM staging;</code> or log the values in the app.</p>
+<h2 id="cause-1-the-column-is-just-too-small">Cause 1: the column is just too small</h2>
+<p><strong>Fix:</strong> widen it or use <code>text</code>. In PostgreSQL <code>text</code> and <code>varchar</code> are stored identically and perform the same; <code>varchar(n)</code> only adds a length check.</p>
+<pre><code class="language-sql">ALTER TABLE users ALTER COLUMN bio TYPE text;
+-- or keep a limit
+ALTER TABLE users ALTER COLUMN bio TYPE varchar(2000);
+</code></pre>
+<p>Increasing a <code>varchar</code> length (or changing to <code>text</code>) doesn't rewrite the table, so it's fast. If a view depends on the column, you must drop and recreate the view first.</p>
+<p>If you want a limit but a friendlier failure, use <code>text</code> plus a check constraint:</p>
+<pre><code class="language-sql">ALTER TABLE users ADD CONSTRAINT bio_len CHECK (char_length(bio) &lt;= 5000);
+</code></pre>
+<h2 id="cause-2-orm-default-of-255">Cause 2: ORM default of 255</h2>
+<p>JPA/Hibernate maps <code>String</code> to <code>varchar(255)</code> by default. Django <code>CharField</code> requires <code>max_length</code>, and Rails/Laravel string columns default to 255 in many setups.</p>
+<pre><code class="language-java">@Column(length = 2000)           // or:
+@Column(columnDefinition = &quot;text&quot;)
+private String description;
+</code></pre>
+<pre><code class="language-python"># Django
+description = models.TextField()
+</code></pre>
+<p>Then generate and apply a migration — changing the annotation alone doesn't alter an existing table unless <code>ddl-auto=update</code> is used (and it often doesn't widen columns).</p>
+<h2 id="cause-3-wrong-value-in-the-wrong-column">Cause 3: wrong value in the wrong column</h2>
+<p>If a short column (e.g. <code>varchar(2)</code> country code) suddenly gets long values, check the column order in your <code>INSERT</code> or <code>COPY</code>. A missing column list maps values positionally:</p>
+<pre><code class="language-sql">-- Risky
+INSERT INTO users VALUES ('Alice', 'alice@example.com', 'ZA');
+-- Explicit
+INSERT INTO users (name, email, country) VALUES ('Alice', 'alice@example.com', 'ZA');
+</code></pre>
+<p>For CSV imports, check delimiters and quoting — an unquoted comma shifts every field.</p>
+<h2 id="cause-4-you-really-want-truncation">Cause 4: you really want truncation</h2>
+<p>Truncate explicitly:</p>
+<pre><code class="language-sql">INSERT INTO logs (message) VALUES (left($1, 255));
+</code></pre>
+<p>An explicit cast also truncates without error: <code>'long string'::varchar(255)</code>. Do this only when losing data is acceptable.</p>
+<h2 id="multi-byte-characters">Multi-byte characters</h2>
+<p>The limit counts characters, not bytes, so emoji and accented letters count as one each. If your app checks byte length (e.g. <code>len(s.encode())</code>), it may be stricter than the database — that's not the cause of this error.</p>
+<p class="upd">Last updated 2026-11-19.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-specified-key-was-too-long/">Specified key was too long; max key length is 767 bytes</a></li><li><a href="/database/db-postgres-column-does-not-exist/">ERROR: column does not exist</a></li><li><a href="/database/db-postgres-duplicate-key-value-violates-unique-constraint/">ERROR: duplicate key value violates unique constraint</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1046-no-database-selected/">ERROR 1046 (3D000): No database selected</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

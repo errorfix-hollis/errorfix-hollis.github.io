@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AttributeError: &#x27;list&#x27; object has no attribute (Python) — how to fix</title>
+<meta name="description" content="You called a method on a list that lists don&#x27;t have — usually a string, dict, NumPy or pandas method — because the variable holds a list when you expected a single item or another type.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-attributeerror-list-object-has-no-attribute/">
+<meta property="og:title" content="AttributeError: &#x27;list&#x27; object has no attribute (Python) — how to fix"><meta property="og:description" content="You called a method on a list that lists don&#x27;t have — usually a string, dict, NumPy or pandas method — because the variable holds a list when you expected a single item or another type.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-attributeerror-list-object-has-no-attribute/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "AttributeError: 'list' object has no attribute (Python) \u2014 how to fix", "description": "You called a method on a list that lists don't have \u2014 usually a string, dict, NumPy or pandas method \u2014 because the variable holds a list when you expected a single item or another type.", "dateModified": "2026-11-16", "url": "https://errorfix-hollis.github.io/python/python-attributeerror-list-object-has-no-attribute/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "AttributeError: 'list' object has no attribute", "item": "https://errorfix-hollis.github.io/python/python-attributeerror-list-object-has-no-attribute/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>AttributeError: &#x27;list&#x27; object has no attribute (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;main.py&quot;, line 5, in &lt;module&gt;
+    names.split(&quot;,&quot;)
+AttributeError: &#x27;list&#x27; object has no attribute &#x27;split&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Print <code>type(x)</code> to see what you actually have. Apply the method to each element (<code>[s.split(',') for s in names]</code>), pick one element (<code>names[0].split(',')</code>), or use the list equivalent (<code>append</code> not <code>add</code>/<code>push</code>, <code>len(x)</code> not <code>x.length</code>, <code>' '.join(x)</code> not <code>x.join()</code>). For <code>.shape</code>/<code>.reshape</code> convert with <code>np.array(x)</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The object on the left of the dot is a <code>list</code>, and lists only have these methods: <code>append</code>, <code>extend</code>, <code>insert</code>, <code>remove</code>, <code>pop</code>, <code>clear</code>, <code>index</code>, <code>count</code>, <code>sort</code>, <code>reverse</code>, <code>copy</code>. Anything else — <code>split</code>, <code>lower</code>, <code>items</code>, <code>shape</code>, <code>add</code>, <code>push</code>, <code>length</code> — raises this error.</p>
+<p>The fix depends on whether the variable <em>should</em> be a list.</p>
+<h2 id="cause-1-string-method-on-a-list-of-strings">Cause 1: string method on a list of strings</h2>
+<pre><code class="language-python">lines = f.readlines()          # list of strings
+lines.strip()                  # 'list' object has no attribute 'strip'
+</code></pre>
+<p>Apply it to each element:</p>
+<pre><code class="language-python">lines = [line.strip() for line in lines]
+
+# or read differently
+text = f.read()                # one string
+lines = text.splitlines()
+</code></pre>
+<p>Same for <code>lower</code>, <code>upper</code>, <code>replace</code>, <code>split</code>, <code>startswith</code>, <code>encode</code>:</p>
+<pre><code class="language-python">words = [&quot;Apple&quot;, &quot;Banana&quot;]
+lower = [w.lower() for w in words]
+</code></pre>
+<p>If you only want the first item, index it: <code>words[0].lower()</code>.</p>
+<h2 id="cause-2-methods-from-other-languages-or-other-types">Cause 2: methods from other languages or other types</h2>
+<table>
+<thead>
+<tr>
+<th>You wrote</th>
+<th>Python list equivalent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x.push(v)</code> / <code>x.add(v)</code></td>
+<td><code>x.append(v)</code> (<code>add</code> is for sets)</td>
+</tr>
+<tr>
+<td><code>x.length</code> / <code>x.size()</code></td>
+<td><code>len(x)</code></td>
+</tr>
+<tr>
+<td><code>x.join(", ")</code></td>
+<td><code>", ".join(x)</code> (join is a string method)</td>
+</tr>
+<tr>
+<td><code>x.contains(v)</code></td>
+<td><code>v in x</code></td>
+</tr>
+<tr>
+<td><code>x.find(v)</code></td>
+<td><code>x.index(v)</code> (raises if missing)</td>
+</tr>
+<tr>
+<td><code>x.isEmpty()</code></td>
+<td><code>not x</code></td>
+</tr>
+<tr>
+<td><code>x.items()</code> / <code>x.keys()</code></td>
+<td>it's not a dict — see Cause 3</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cause-3-you-expected-a-dict-but-got-a-list-json">Cause 3: you expected a dict but got a list (JSON)</h2>
+<p>APIs often return a list of objects:</p>
+<pre><code class="language-python">data = response.json()          # [{&quot;id&quot;: 1, ...}, {&quot;id&quot;: 2, ...}]
+data.get(&quot;id&quot;)                  # 'list' object has no attribute 'get'
+</code></pre>
+<p>Loop over it, or index the element you need:</p>
+<pre><code class="language-python">for item in data:
+    print(item.get(&quot;id&quot;))
+
+first_id = data[0][&quot;id&quot;]
+</code></pre>
+<p>Inspect the shape first: <code>print(type(data), len(data))</code> or paste the response into the <a href="/tools/json-formatter/">JSON formatter</a>.</p>
+<h2 id="cause-4-numpy-pandas-attributes-on-a-plain-list">Cause 4: NumPy / pandas attributes on a plain list</h2>
+<pre><code class="language-python">values = [1, 2, 3]
+values.shape        # AttributeError
+values.mean()       # AttributeError
+</code></pre>
+<p>Convert first:</p>
+<pre><code class="language-python">import numpy as np
+arr = np.array(values)
+arr.shape, arr.mean()
+
+import pandas as pd
+s = pd.Series(values)
+s.mean()
+</code></pre>
+<p>Some functions return lists even when given arrays — e.g. <code>arr.tolist()</code>, <code>sorted(arr)</code>, <code>list(df.columns)</code>. <code>sorted()</code> always returns a list; use <code>np.sort()</code> to stay in NumPy.</p>
+<h2 id="cause-5-a-function-returned-a-list-instead-of-an-object">Cause 5: a function returned a list instead of an object</h2>
+<p>Selenium's <code>find_elements</code> (plural) returns a list; <code>find_element</code> returns one element:</p>
+<pre><code class="language-python">driver.find_elements(By.ID, &quot;q&quot;).send_keys(&quot;x&quot;)   # 'list' object has no attribute 'send_keys'
+driver.find_element(By.ID, &quot;q&quot;).send_keys(&quot;x&quot;)    # OK
+</code></pre>
+<p>BeautifulSoup's <code>find_all</code> vs <code>find</code>, and <code>re.findall</code> vs <code>re.search</code>, behave the same way.</p>
+<h2 id="cause-6-the-variable-was-reassigned">Cause 6: the variable was reassigned</h2>
+<pre><code class="language-python">result = MyObject()
+...
+result = []                  # overwritten later in the function
+result.process()             # AttributeError
+</code></pre>
+<p>Search for every assignment to the variable and give different values different names.</p>
+<p class="upd">Last updated 2026-11-16.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li><li><a href="/python/python-attributeerror-str-object-has-no-attribute/">AttributeError: &#x27;str&#x27; object has no attribute</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

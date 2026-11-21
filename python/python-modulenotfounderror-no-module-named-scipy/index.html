@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;scipy&#x27; (Python) — how to fix</title>
+<meta name="description" content="SciPy is not installed for the Python interpreter running your code. It is not part of the standard library and is not installed automatically by numpy.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-scipy/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;scipy&#x27; (Python) — how to fix"><meta property="og:description" content="SciPy is not installed for the Python interpreter running your code. It is not part of the standard library and is not installed automatically by numpy.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-scipy/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'scipy' (Python) \u2014 how to fix", "description": "SciPy is not installed for the Python interpreter running your code. It is not part of the standard library and is not installed automatically by numpy.", "dateModified": "2026-11-16", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-scipy/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'scipy'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-scipy/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;scipy&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;analysis.py&quot;, line 2, in &lt;module&gt;
+    from scipy import stats
+ModuleNotFoundError: No module named &#x27;scipy&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>python -m pip install scipy</code> with the same interpreter (activate your venv first), or <code>conda install scipy</code> in conda. Verify with <code>python -c "import scipy; print(scipy.__version__)"</code>. If pip tries to build from source, upgrade pip first: <code>python -m pip install --upgrade pip</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Python searched <code>sys.path</code> and found no <code>scipy</code> package. Installing NumPy does not install SciPy; it's a separate package. If <code>scikit-learn</code> raises this error, your scikit-learn install is broken (SciPy is one of its dependencies) — reinstall both.</p>
+<h2 id="fix-1-install-it-with-the-interpreter-that-runs-your-code">Fix 1: install it with the interpreter that runs your code</h2>
+<pre><code class="language-bash">python -m pip install scipy
+python -c &quot;import scipy; print(scipy.__version__)&quot;
+</code></pre>
+<p>Using <code>python -m pip</code> guarantees the package goes into the same Python as <code>python</code>. A bare <code>pip</code> can belong to a different installation. Compare:</p>
+<pre><code class="language-bash">python -c &quot;import sys; print(sys.executable)&quot;
+python -m pip --version
+</code></pre>
+<h2 id="fix-2-use-a-virtual-environment">Fix 2: use a virtual environment</h2>
+<pre><code class="language-bash">python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip
+python -m pip install numpy scipy
+</code></pre>
+<p>On recent Debian/Ubuntu, the system Python refuses <code>pip install</code> (<code>externally-managed-environment</code>). Either use a venv, or install the distro package: <code>sudo apt install python3-scipy</code>.</p>
+<h2 id="fix-3-pip-tries-to-build-scipy-from-source-and-fails">Fix 3: pip tries to build SciPy from source and fails</h2>
+<p>If install output shows <code>Building wheel for scipy</code> followed by errors about Fortran, <code>gfortran</code>, <code>meson</code>, or <code>OpenBLAS</code>, pip didn't find a prebuilt wheel. Causes:</p>
+<ul>
+<li><strong>Old pip</strong> that doesn't understand modern wheel tags — run <code>python -m pip install --upgrade pip</code>.</li>
+<li><strong>Brand-new Python</strong> with no SciPy wheels yet — use the previous Python version, or wait for the next SciPy release.</li>
+<li><strong>32-bit Python</strong> or an unusual platform (e.g. Alpine/musl in older SciPy versions) — use 64-bit Python, or a <code>python:3.x-slim</code> Docker image instead of Alpine.</li>
+</ul>
+<p>Check whether a wheel exists for your setup:</p>
+<pre><code class="language-bash">python -m pip download scipy --only-binary=:all: --no-deps -d /tmp/x
+</code></pre>
+<h2 id="fix-4-jupyter-or-ide-uses-another-kernel">Fix 4: Jupyter or IDE uses another kernel</h2>
+<p>In a notebook:</p>
+<pre><code class="language-python">%pip install scipy
+</code></pre>
+<p>Restart the kernel afterwards. In VS Code pick the right interpreter via "Python: Select Interpreter"; in PyCharm install it under Settings → Project → Python Interpreter.</p>
+<h2 id="fix-5-conda">Fix 5: conda</h2>
+<pre><code class="language-bash">conda activate myenv
+conda install scipy
+</code></pre>
+<p>Don't mix <code>conda install numpy</code> with <code>pip install scipy</code> in the same environment if you can avoid it; mismatched BLAS builds can crash at import.</p>
+<h2 id="fix-6-shadowing-and-partial-installs">Fix 6: shadowing and partial installs</h2>
+<ul>
+<li>A local file named <code>scipy.py</code> or a folder named <code>scipy/</code> hides the real package — rename it.</li>
+<li><code>ImportError: cannot import name ... from scipy</code> or errors about <code>_ufuncs</code> after an interrupted install: reinstall cleanly:</li>
+</ul>
+<pre><code class="language-bash">python -m pip uninstall -y scipy
+python -m pip install --no-cache-dir scipy
+</code></pre>
+<h2 id="import-tip">Import tip</h2>
+<p>SciPy subpackages must usually be imported explicitly:</p>
+<pre><code class="language-python">import scipy
+scipy.stats            # works on SciPy 1.9+ (lazy loading), AttributeError on older versions
+
+from scipy import stats   # works everywhere
+</code></pre>
+<p class="upd">Last updated 2026-11-16.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-modulenotfounderror-no-module-named-numpy/">ModuleNotFoundError: No module named &#x27;numpy&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-sklearn/">ModuleNotFoundError: No module named &#x27;sklearn&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

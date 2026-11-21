@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: class X is public, should be declared in a file named X.java — how to fix</title>
+<meta name="description" content="A public top-level class must live in a file with exactly the same name (case-sensitive) plus `.java`. The file name and the class name don&#x27;t match.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-class-is-public-should-be-declared-in-a-file-named/">
+<meta property="og:title" content="error: class X is public, should be declared in a file named X.java — how to fix"><meta property="og:description" content="A public top-level class must live in a file with exactly the same name (case-sensitive) plus `.java`. The file name and the class name don&#x27;t match.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-class-is-public-should-be-declared-in-a-file-named/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: class X is public, should be declared in a file named X.java \u2014 how to fix", "description": "A public top-level class must live in a file with exactly the same name (case-sensitive) plus `.java`. The file name and the class name don't match.", "dateModified": "2026-11-20", "url": "https://errorfix-hollis.github.io/java/java-class-is-public-should-be-declared-in-a-file-named/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "error: class X is public, should be declared in a file named X.java", "item": "https://errorfix-hollis.github.io/java/java-class-is-public-should-be-declared-in-a-file-named/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>error: class X is public, should be declared in a file named X.java — how to fix</h1>
+<pre class="err"><code>Main.java:1: error: class HelloWorld is public, should be declared in a file named HelloWorld.java
+public class HelloWorld {
+       ^
+1 error
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Rename the file to match the class (<code>mv Main.java HelloWorld.java</code>), or rename the class to match the file (<code>public class Main</code>). Names are case-sensitive: <code>helloworld.java</code> won't work for <code>HelloWorld</code>. Only one public top-level class per file.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The Java Language Specification lets compilers require that a <code>public</code> top-level class <code>Foo</code> is declared in <code>Foo.java</code>, and <code>javac</code> enforces it. The error shows both names: the class (<code>HelloWorld</code>) and, in the prefix, the file you compiled (<code>Main.java</code>).</p>
+<h2 id="fix-1-rename-the-file">Fix 1: rename the file</h2>
+<pre><code class="language-bash">mv Main.java HelloWorld.java
+javac HelloWorld.java
+java HelloWorld
+</code></pre>
+<p>In an IDE, use refactor/rename on the file so references are updated.</p>
+<h2 id="fix-2-rename-the-class">Fix 2: rename the class</h2>
+<pre><code class="language-java">// Main.java
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(&quot;Hello&quot;);
+    }
+}
+</code></pre>
+<p>This is the fix for online compilers and coding platforms (OnlineGDB, Programiz, many judge systems) that save your code as <code>Main.java</code> — the public class must be named <code>Main</code> there.</p>
+<h2 id="cause-case-doesnt-match">Cause: case doesn't match</h2>
+<p><code>helloWorld.java</code> and <code>HelloWorld</code> are different names to <code>javac</code>, even on Windows and macOS where the filesystem is case-insensitive. Renaming only the case on those systems sometimes doesn't stick; do it in two steps:</p>
+<pre><code class="language-bash">git mv helloworld.java tmp.java
+git mv tmp.java HelloWorld.java
+</code></pre>
+<p>(Without Git: rename to a temporary name first, then to the final name.)</p>
+<h2 id="cause-two-public-classes-in-one-file">Cause: two public classes in one file</h2>
+<pre><code class="language-java">public class Main { ... }
+public class Helper { ... }     // error: Helper should be in Helper.java
+</code></pre>
+<p>Either move <code>Helper</code> to its own <code>Helper.java</code>, or drop <code>public</code> from it (package-private classes can share a file), or nest it:</p>
+<pre><code class="language-java">public class Main {
+    static class Helper { ... }   // nested classes can be public or not
+}
+</code></pre>
+<h2 id="cause-a-typo-or-extra-extension">Cause: a typo or extra extension</h2>
+<p>Watch for <code>HelloWorld.java.txt</code> (Windows hides known extensions by default — enable "File name extensions" in Explorer), spaces, or <code>HelloWorld (1).java</code> after a download. Check with:</p>
+<pre><code class="language-bash">ls -la
+</code></pre>
+<h2 id="packages-and-directories">Packages and directories</h2>
+<p>If the class has a <code>package com.example;</code> line, the file should also be in a matching directory, <code>com/example/HelloWorld.java</code>. That's not what this error is about, but mismatched directories cause <code>Could not find or load main class</code> later. Compile from the source root:</p>
+<pre><code class="language-bash">javac -d out com/example/HelloWorld.java
+java -cp out com.example.HelloWorld
+</code></pre>
+<p class="upd">Last updated 2026-11-20.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-could-not-find-or-load-main-class/">Error: Could not find or load main class</a></li><li><a href="/java/java-error-cannot-find-symbol/">error: cannot find symbol</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li><li><a href="/java/java-comparison-method-violates-its-general-contract/">java.lang.IllegalArgumentException: Comparison method violates its general contract!</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

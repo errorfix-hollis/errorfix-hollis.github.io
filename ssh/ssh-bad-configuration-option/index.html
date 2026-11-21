@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bad configuration option (SSH) — how to fix</title>
+<meta name="description" content="The OpenSSH client found a keyword in ~/.ssh/config (or /etc/ssh/ssh_config) that it doesn&#x27;t recognise, usually a macOS-only option like UseKeychain, a typo, a server-only (sshd_config) option, or an option your SSH version is too old or too new for.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/ssh/ssh-bad-configuration-option/">
+<meta property="og:title" content="Bad configuration option (SSH) — how to fix"><meta property="og:description" content="The OpenSSH client found a keyword in ~/.ssh/config (or /etc/ssh/ssh_config) that it doesn&#x27;t recognise, usually a macOS-only option like UseKeychain, a typo, a server-only (sshd_config) option, or an option your SSH version is too old or too new for.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/ssh/ssh-bad-configuration-option/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Bad configuration option (SSH) \u2014 how to fix", "description": "The OpenSSH client found a keyword in ~/.ssh/config (or /etc/ssh/ssh_config) that it doesn't recognise, usually a macOS-only option like UseKeychain, a typo, a server-only (sshd_config) option, or an option your SSH version is too old or too new for.", "dateModified": "2026-11-21", "url": "https://errorfix-hollis.github.io/ssh/ssh-bad-configuration-option/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "SSH", "item": "https://errorfix-hollis.github.io/ssh/"}, {"@type": "ListItem", "position": 3, "name": "Bad configuration option", "item": "https://errorfix-hollis.github.io/ssh/ssh-bad-configuration-option/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/ssh/">SSH</a></p>
+<article><h1>Bad configuration option (SSH) — how to fix</h1>
+<pre class="err"><code>/home/me/.ssh/config: line 7: Bad configuration option: usekeychain
+/home/me/.ssh/config: terminating, 1 bad configuration options
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Open the file and line from the message. For <code>UseKeychain</code> on non-macOS clients, add <code>IgnoreUnknown UseKeychain</code> at the top of <code>~/.ssh/config</code> (before any Host block). Fix typos, move sshd-only options to <code>/etc/ssh/sshd_config</code>, and check <code>ssh -V</code> for version-specific options. Test with <code>ssh -G host</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>ssh</code> parses its config before connecting. Any unknown keyword is a fatal error, so the connection never starts, and <code>git</code>, <code>scp</code>, <code>rsync</code> and VS Code Remote fail too. The message names the file, the line number and the option (lowercased). Keywords are case-insensitive; values are not.</p>
+<p>A similar message from the server side, <code>/etc/ssh/sshd_config line N: Bad configuration option</code>, means <code>sshd</code> won't start: check with <code>sudo sshd -t</code>.</p>
+<h2 id="cause-1-usekeychain-on-linux-windows-or-wsl">Cause 1: <code>UseKeychain</code> on Linux, Windows or WSL</h2>
+<p><code>UseKeychain</code> only exists in Apple's build of OpenSSH. If you copied a macOS config (or share dotfiles), other clients reject it. Tell them to ignore it. <code>IgnoreUnknown</code> must come <strong>before</strong> the line that uses the option, so put it at the very top:</p>
+<pre><code>IgnoreUnknown UseKeychain,AddKeysToAgent
+
+Host *
+  AddKeysToAgent yes
+  UseKeychain yes
+  IdentityFile ~/.ssh/id_ed25519
+</code></pre>
+<h2 id="cause-2-typo-or-wrong-syntax">Cause 2: typo or wrong syntax</h2>
+<p>Common mistakes: <code>Hostname</code> vs <code>HostName</code> is fine (case-insensitive), but <code>Host name</code>, <code>IdentitiyFile</code>, <code>Users</code> or <code>Key</code> are not options. A <code>=</code> is optional (<code>Port=2222</code> and <code>Port 2222</code> both work). Check option names with <code>man ssh_config</code>.</p>
+<p>Also look for invisible characters from copy-paste (non-breaking spaces, Windows CRLF when the file came from Windows):</p>
+<pre><code class="language-bash">cat -A ~/.ssh/config | sed -n '5,9p'     # ^M or M-BM- shows bad chars
+sed -i 's/\r$//' ~/.ssh/config
+</code></pre>
+<p>The <a href="/tools/line-ending-whitespace-inspector/">line ending / whitespace inspector</a> shows the same thing in the browser.</p>
+<h2 id="cause-3-server-options-in-the-client-config">Cause 3: server options in the client config</h2>
+<p>Options such as <code>PermitRootLogin</code>, <code>AllowUsers</code>, <code>UsePAM</code>, <code>MaxAuthTries</code>, <code>ClientAliveInterval</code> and <code>Subsystem</code> exist only for the server and belong in <code>/etc/ssh/sshd_config</code>. The client-side equivalent of <code>ClientAliveInterval</code> is <code>ServerAliveInterval</code>.</p>
+<h2 id="cause-4-ssh-version-too-old-or-too-new">Cause 4: SSH version too old or too new</h2>
+<p>Some options were added or renamed:</p>
+<ul>
+<li><code>PubkeyAcceptedAlgorithms</code> (OpenSSH 8.5+); older clients only know <code>PubkeyAcceptedKeyTypes</code>.</li>
+<li><code>Include</code> needs 7.3+, <code>ProxyJump</code> 7.3+.</li>
+<li>Removed options like <code>UseRoaming</code> or <code>Protocol</code> trigger errors or deprecation warnings on newer releases.</li>
+</ul>
+<pre><code class="language-bash">ssh -V
+</code></pre>
+<p>If the same config is used across machines, list version-specific options in <code>IgnoreUnknown</code>:</p>
+<pre><code>IgnoreUnknown UseKeychain,PubkeyAcceptedAlgorithms
+</code></pre>
+<h2 id="cause-5-the-error-is-in-an-included-or-system-file">Cause 5: the error is in an included or system file</h2>
+<p>The path in the message may be <code>/etc/ssh/ssh_config</code> or a file pulled in by <code>Include</code> (e.g. <code>~/.ssh/config.d/work</code>). Edit that file instead. On Windows the user config is <code>C:\Users\&lt;you&gt;\.ssh\config</code>.</p>
+<h2 id="test-the-config">Test the config</h2>
+<p><code>ssh -G</code> parses the config and prints the effective settings without connecting:</p>
+<pre><code class="language-bash">ssh -G myserver | grep -Ei 'hostname|user|identityfile|port'
+</code></pre>
+<p class="upd">Last updated 2026-11-21.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/ssh/ssh-bad-owner-or-permissions-on-ssh-config/">Bad owner or permissions on ~/.ssh/config</a></li><li><a href="/ssh/ssh-no-matching-host-key-type-found/">no matching host key type found. Their offer: ssh-rsa</a></li><li><a href="/ssh/ssh-permission-denied-publickey/">Permission denied (publickey)</a></li><li><a href="/ssh/ssh-connect-to-host-port-22-connection-refused/">ssh: connect to host port 22: Connection refused</a></li><li><a href="/ssh/ssh-connection-closed-by-remote-host/">Connection closed by remote host</a></li><li><a href="/ssh/ssh-connection-timed-out/">ssh: connect to host port 22: Connection timed out</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: Assignment to constant variable. (JavaScript) — how to fix</title>
+<meta name="description" content="You reassigned a variable declared with const. const forbids rebinding the name (x = ..., x++, x += ...), though it still lets you mutate the object or array it points to.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-typeerror-assignment-to-constant-variable/">
+<meta property="og:title" content="TypeError: Assignment to constant variable. (JavaScript) — how to fix"><meta property="og:description" content="You reassigned a variable declared with const. const forbids rebinding the name (x = ..., x++, x += ...), though it still lets you mutate the object or array it points to.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-typeerror-assignment-to-constant-variable/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: Assignment to constant variable. (JavaScript) \u2014 how to fix", "description": "You reassigned a variable declared with const. const forbids rebinding the name (x = ..., x++, x += ...), though it still lets you mutate the object or array it points to.", "dateModified": "2026-11-16", "url": "https://errorfix-hollis.github.io/javascript/js-typeerror-assignment-to-constant-variable/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: Assignment to constant variable.", "item": "https://errorfix-hollis.github.io/javascript/js-typeerror-assignment-to-constant-variable/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>TypeError: Assignment to constant variable. (JavaScript) — how to fix</h1>
+<pre class="err"><code>Uncaught TypeError: Assignment to constant variable.
+    at counter (app.js:4:9)
+    at app.js:8:1
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Declare variables you need to reassign with <code>let</code> instead of <code>const</code>: <code>let total = 0; total += 5;</code>. In loops use <code>for (let i = 0; ...)</code>, not <code>const i</code>. To change objects/arrays declared with const, mutate them (<code>arr.push(x)</code>, <code>obj.key = v</code>) rather than reassigning. Imported bindings are read-only — export a setter function instead.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>const</code> creates a binding that can't be pointed at a different value after initialisation. Any of these on a <code>const</code> throws at runtime:</p>
+<pre><code class="language-js">const count = 0;
+count = 1;        // TypeError: Assignment to constant variable.
+count++;          // same
+count += 1;       // same
+</code></pre>
+<p>Browsers word it differently: Firefox says <code>TypeError: invalid assignment to const 'count'</code>, Safari says <code>TypeError: Attempted to assign to readonly property.</code> TypeScript catches it at compile time as <code>TS2588: Cannot assign to 'count' because it is a constant.</code></p>
+<h2 id="fix-1-use-let-for-values-that-change">Fix 1: use <code>let</code> for values that change</h2>
+<pre><code class="language-js">let count = 0;
+count += 1;       // OK
+</code></pre>
+<p>Rule of thumb: start with <code>const</code>; switch to <code>let</code> only for variables you actually reassign (counters, accumulators, values set in <code>if</code>/<code>else</code> branches). Avoid <code>var</code> — it's function-scoped and hoisted.</p>
+<h2 id="fix-2-const-in-a-classic-for-loop">Fix 2: <code>const</code> in a classic for loop</h2>
+<pre><code class="language-js">for (const i = 0; i &lt; 10; i++) { }   // TypeError on i++
+
+for (let i = 0; i &lt; 10; i++) { }     // OK
+</code></pre>
+<p><code>for...of</code> and <code>for...in</code> are fine with <code>const</code>, because each iteration creates a new binding:</p>
+<pre><code class="language-js">for (const item of items) { console.log(item); }
+</code></pre>
+<h2 id="fix-3-mutate-instead-of-reassign">Fix 3: mutate instead of reassign</h2>
+<p><code>const</code> only freezes the <em>binding</em>, not the value. Arrays and objects can still change:</p>
+<pre><code class="language-js">const list = [];
+list.push(1);          // OK
+list = [...list, 2];   // TypeError
+
+const user = { name: 'Ann' };
+user.name = 'Bob';     // OK
+user = { name: 'Bob' };// TypeError
+</code></pre>
+<p>Either mutate in place, or declare with <code>let</code> if you prefer the immutable "replace the whole value" style. (To make the object itself unchangeable, use <code>Object.freeze(obj)</code>.)</p>
+<h2 id="fix-4-react-state">Fix 4: React state</h2>
+<p>Reassigning state variables from <code>useState</code> throws, because they're <code>const</code> destructured:</p>
+<pre><code class="language-jsx">const [count, setCount] = useState(0);
+count = count + 1;              // TypeError
+setCount(c =&gt; c + 1);           // correct
+</code></pre>
+<p>Even if you used <code>let</code>, reassigning would not re-render — always use the setter.</p>
+<h2 id="fix-5-reassigning-an-import">Fix 5: reassigning an import</h2>
+<p>ES module imports are live, read-only bindings:</p>
+<pre><code class="language-js">import { config } from './config.js';
+config = loadConfig();        // TypeError: Assignment to constant variable.
+config.debug = true;          // OK if config is an object (mutates the shared object)
+</code></pre>
+<p>To replace the value, export a function from the module that owns it:</p>
+<pre><code class="language-js">// config.js
+export let config = {};
+export function setConfig(c) { config = c; }
+
+// app.js
+import { config, setConfig } from './config.js';
+setConfig(loadConfig());
+</code></pre>
+<h2 id="fix-6-same-name-declared-twice-in-different-scopes">Fix 6: same name declared twice in different scopes</h2>
+<p>Sometimes you <em>meant</em> to assign to an outer <code>let</code>, but an inner <code>const</code> with the same name shadows it:</p>
+<pre><code class="language-js">let result;
+if (ok) {
+  const result = compute();   // new inner variable
+  result = normalise(result); // TypeError: this is the inner const
+}
+</code></pre>
+<p>Remove the inner <code>const</code> keyword (<code>result = compute();</code>) so the outer variable is assigned. Linters flag this: ESLint <code>no-const-assign</code> (in <code>eslint:recommended</code>) and <code>no-shadow</code>.</p>
+<p class="upd">Last updated 2026-11-16.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-is-not-a-function/">TypeError: x is not a function</a></li><li><a href="/javascript/js-referenceerror-is-not-defined/">ReferenceError: x is not defined</a></li><li><a href="/javascript/js-cannot-set-properties-of-null/">Uncaught TypeError: Cannot set properties of null (setting &#x27;innerHTML&#x27;)</a></li><li><a href="/javascript/js-cannot-set-properties-of-undefined/">TypeError: Cannot set properties of undefined (setting &#x27;...&#x27;)</a></li><li><a href="/javascript/js-cannot-update-a-component-while-rendering-a-different-component/">Warning: Cannot update a component while rendering a different component</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>npm ERR! Missing script: &quot;start&quot; — how to fix</title>
+<meta name="description" content="`npm start` (or `npm run &lt;name&gt;`) looks up the script in the `scripts` section of package.json in the current directory, and it isn&#x27;t there. You&#x27;re in the wrong folder, the script has a different name (e.g. `dev`), or package.json has no scripts.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-err-missing-script-start/">
+<meta property="og:title" content="npm ERR! Missing script: &quot;start&quot; — how to fix"><meta property="og:description" content="`npm start` (or `npm run &lt;name&gt;`) looks up the script in the `scripts` section of package.json in the current directory, and it isn&#x27;t there. You&#x27;re in the wrong folder, the script has a different name (e.g. `dev`), or package.json has no scripts.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-err-missing-script-start/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "npm ERR! Missing script: \"start\" \u2014 how to fix", "description": "`npm start` (or `npm run <name>`) looks up the script in the `scripts` section of package.json in the current directory, and it isn't there. You're in the wrong folder, the script has a different name (e.g. `dev`), or package.json has no scripts.", "dateModified": "2026-11-19", "url": "https://errorfix-hollis.github.io/npm/npm-err-missing-script-start/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "npm ERR! Missing script: \"start\"", "item": "https://errorfix-hollis.github.io/npm/npm-err-missing-script-start/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>npm ERR! Missing script: &quot;start&quot; — how to fix</h1>
+<pre class="err"><code>npm ERR! Missing script: &quot;start&quot;
+npm ERR!
+npm ERR! Did you mean one of these?
+npm ERR!     npm star # Mark your favorite packages
+npm ERR!     npm stars # View packages marked as favorites
+npm ERR!
+npm ERR! To see a list of scripts, run:
+npm ERR!   npm run
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>npm run</code> to list the available scripts, then use the right one (Vite/Next projects use <code>npm run dev</code>). Make sure you're in the folder that contains the project's package.json (<code>ls package.json</code>). Or add the script: <code>"scripts": { "start": "node index.js" }</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>npm start</code> is shorthand for <code>npm run start</code>. npm reads <code>package.json</code> in the <strong>current directory</strong> and looks for <code>scripts.start</code>. If it's missing, npm stops with this error and suggests similarly named commands (the <code>npm star</code> hint is just fuzzy matching — ignore it). Newer npm prints <code>npm error Missing script: "start"</code>.</p>
+<p>See what's actually available:</p>
+<pre><code class="language-bash">pwd
+npm run          # lists every script in this package.json
+cat package.json
+</code></pre>
+<h2 id="cause-1-the-project-uses-a-different-script-name">Cause 1: the project uses a different script name</h2>
+<p>Most modern templates don't define <code>start</code> for development:</p>
+<table>
+<thead>
+<tr>
+<th>Project</th>
+<th>Dev command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Vite (React, Vue, Svelte)</td>
+<td><code>npm run dev</code></td>
+</tr>
+<tr>
+<td>Next.js</td>
+<td><code>npm run dev</code> (<code>npm start</code> only serves a production build)</td>
+</tr>
+<tr>
+<td>Create React App</td>
+<td><code>npm start</code></td>
+</tr>
+<tr>
+<td>Angular CLI</td>
+<td><code>npm start</code> (runs <code>ng serve</code>)</td>
+</tr>
+<tr>
+<td>Vue CLI</td>
+<td><code>npm run serve</code></td>
+</tr>
+<tr>
+<td>Nuxt / Astro / SvelteKit</td>
+<td><code>npm run dev</code></td>
+</tr>
+</tbody>
+</table>
+<p>So for Vite: <code>npm run dev</code>. Only <code>start</code>, <code>test</code>, <code>stop</code> and <code>restart</code> can be run without <code>run</code>; everything else needs <code>npm run &lt;name&gt;</code>.</p>
+<h2 id="cause-2-wrong-directory">Cause 2: wrong directory</h2>
+<p>If you cloned a repo with <code>frontend/</code> and <code>backend/</code> folders, the root <code>package.json</code> may have no scripts (or not exist — then you get <code>ENOENT ... package.json</code>). Change into the right folder:</p>
+<pre><code class="language-bash">cd frontend
+npm install
+npm run dev
+</code></pre>
+<p>In monorepos with workspaces, run it from the root with <code>npm run dev --workspace=frontend</code> (or <code>-w frontend</code>).</p>
+<h2 id="cause-3-packagejson-has-no-start-script-node-apps">Cause 3: package.json has no start script (Node apps)</h2>
+<p>A plain Node project created with <code>npm init -y</code> only has a <code>test</code> script. Add one:</p>
+<pre><code class="language-json">{
+  &quot;scripts&quot;: {
+    &quot;start&quot;: &quot;node index.js&quot;,
+    &quot;dev&quot;: &quot;node --watch index.js&quot;
+  }
+}
+</code></pre>
+<p>Use the file that's really your entry point (<code>server.js</code>, <code>app.js</code>, <code>dist/index.js</code>...). If there's <strong>no</strong> <code>scripts.start</code> but a <code>server.js</code> exists in the folder, npm runs <code>node server.js</code> by default — so this error also means there's no <code>server.js</code>.</p>
+<p>You can add scripts from the command line too:</p>
+<pre><code class="language-bash">npm pkg set scripts.start=&quot;node index.js&quot;
+</code></pre>
+<h2 id="cause-4-deployment-platform-runs-npm-start">Cause 4: deployment platform runs npm start</h2>
+<p>Heroku, Render, Railway, Azure App Service and many Docker images run <code>npm start</code> by default. Make sure <code>start</code> launches the <strong>production</strong> server and isn't a dev server:</p>
+<pre><code class="language-json">&quot;scripts&quot;: {
+  &quot;build&quot;: &quot;tsc&quot;,
+  &quot;start&quot;: &quot;node dist/index.js&quot;
+}
+</code></pre>
+<p>For a static frontend (Vite/CRA build output) you usually don't need <code>npm start</code> at all — serve the <code>dist/</code> or <code>build/</code> folder as static files, or configure the platform's start command explicitly.</p>
+<h2 id="cause-5-invalid-or-duplicated-packagejson">Cause 5: invalid or duplicated package.json</h2>
+<p>If <code>scripts</code> appears twice, the later one wins and the first is silently ignored. If the JSON is broken, npm reports <code>EJSONPARSE</code> instead. Check it with the <a href="/tools/json-formatter/">JSON formatter</a> or <code>node -e "require('./package.json')"</code>.</p>
+<p class="upd">Last updated 2026-11-19.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/npm-elifecycle/">npm ERR! code ELIFECYCLE</a></li><li><a href="/npm/npm-enoent-package-json/">npm ERR! enoent Could not read package.json</a></li><li><a href="/npm/npm-sh-vite-not-found/">sh: vite: not found</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

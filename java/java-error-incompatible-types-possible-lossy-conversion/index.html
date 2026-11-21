@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: incompatible types: possible lossy conversion from double to int (Java) — how to fix</title>
+<meta name="description" content="You assigned a wider numeric type (double, float, long) to a narrower one (int, short, byte, char). Java won&#x27;t silently drop the fraction or high bits, so you must cast or round explicitly, or use a wider variable type.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-error-incompatible-types-possible-lossy-conversion/">
+<meta property="og:title" content="error: incompatible types: possible lossy conversion from double to int (Java) — how to fix"><meta property="og:description" content="You assigned a wider numeric type (double, float, long) to a narrower one (int, short, byte, char). Java won&#x27;t silently drop the fraction or high bits, so you must cast or round explicitly, or use a wider variable type.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-error-incompatible-types-possible-lossy-conversion/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: incompatible types: possible lossy conversion from double to int (Java) \u2014 how to fix", "description": "You assigned a wider numeric type (double, float, long) to a narrower one (int, short, byte, char). Java won't silently drop the fraction or high bits, so you must cast or round explicitly, or use a wider variable type.", "dateModified": "2026-11-18", "url": "https://errorfix-hollis.github.io/java/java-error-incompatible-types-possible-lossy-conversion/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "error: incompatible types: possible lossy conversion from double to int", "item": "https://errorfix-hollis.github.io/java/java-error-incompatible-types-possible-lossy-conversion/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>error: incompatible types: possible lossy conversion from double to int (Java) — how to fix</h1>
+<pre class="err"><code>Main.java:5: error: incompatible types: possible lossy conversion from double to int
+        int total = price * 1.2;
+                          ^
+1 error
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Either keep the wider type (<code>double total = price * 1.2;</code>) or convert explicitly: <code>int total = (int) (price * 1.2);</code> (truncates), <code>int total = (int) Math.round(price * 1.2);</code> (rounds), or <code>Math.toIntExact(longValue)</code> (throws on overflow). Watch for <code>long</code>/<code>double</code> results from <code>Math.pow</code>, <code>Math.round(double)</code> and <code>list.size() * 1.0</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Java allows <em>widening</em> conversions automatically (<code>int</code> → <code>long</code> → <code>float</code> → <code>double</code>) but not <em>narrowing</em> ones, because they can lose information. Common variants:</p>
+<ul>
+<li><code>possible lossy conversion from double to int</code></li>
+<li><code>possible lossy conversion from long to int</code></li>
+<li><code>possible lossy conversion from int to byte</code> / <code>int to char</code> / <code>int to short</code></li>
+<li><code>possible lossy conversion from double to float</code></li>
+</ul>
+<p>The compiler points at the expression whose type is too wide.</p>
+<h2 id="cause-1-arithmetic-with-a-double-literal">Cause 1: arithmetic with a double literal</h2>
+<p>Any operation involving a <code>double</code> produces a <code>double</code>:</p>
+<pre><code class="language-java">int price = 100;
+int total = price * 1.2;          // error: result is double
+</code></pre>
+<p>Choose what you want:</p>
+<pre><code class="language-java">double total = price * 1.2;                 // keep the fraction
+int total = (int) (price * 1.2);            // truncate toward zero: 119.99 -&gt; 119
+int total = (int) Math.round(price * 1.2);  // round to nearest
+</code></pre>
+<p>Note the parentheses: <code>(int) price * 1.2</code> casts only <code>price</code> and still yields a double.</p>
+<p>For money, use <code>BigDecimal</code> or integer cents rather than <code>double</code>.</p>
+<h2 id="cause-2-math-methods-return-double-or-long">Cause 2: Math methods return double or long</h2>
+<pre><code class="language-java">int sq = Math.pow(n, 2);          // Math.pow returns double
+int r  = Math.round(3.7);         // Math.round(double) returns long
+int r2 = Math.round(3.7f);        // OK: Math.round(float) returns int
+int c  = Math.ceil(x / 2.0);      // ceil/floor return double
+</code></pre>
+<p>Fixes:</p>
+<pre><code class="language-java">int sq = n * n;
+int r  = (int) Math.round(3.7);
+int c  = (int) Math.ceil(x / 2.0);
+</code></pre>
+<h2 id="cause-3-long-to-int">Cause 3: long to int</h2>
+<p><code>System.currentTimeMillis()</code>, <code>File.length()</code>, <code>Duration.toMillis()</code> and stream <code>count()</code> return <code>long</code>:</p>
+<pre><code class="language-java">int n = list.stream().filter(x -&gt; x &gt; 0).count();   // error
+</code></pre>
+<p>Use a <code>long</code> variable, or convert safely:</p>
+<pre><code class="language-java">long n = list.stream().filter(x -&gt; x &gt; 0).count();
+int n2 = Math.toIntExact(n);     // throws ArithmeticException if it overflows int
+</code></pre>
+<p>A plain <code>(int) n</code> cast silently wraps around for values above 2,147,483,647.</p>
+<h2 id="cause-4-byte-short-and-char-arithmetic">Cause 4: byte, short and char arithmetic</h2>
+<p>Arithmetic on <code>byte</code>, <code>short</code> and <code>char</code> is done in <code>int</code>, so the result needs a cast back:</p>
+<pre><code class="language-java">byte b = 10;
+b = b + 1;          // error: int to byte
+b += 1;             // OK: compound assignment includes an implicit cast
+b = (byte) (b + 1); // OK
+
+char c = 'a';
+c = c + 1;          // error: int to char
+c = (char) (c + 1); // 'b'
+</code></pre>
+<p>Constant expressions that fit are allowed: <code>byte x = 100;</code> compiles, <code>byte y = 200;</code> does not.</p>
+<h2 id="cause-5-array-index-or-method-argument">Cause 5: array index or method argument</h2>
+<p>Array indexes must be <code>int</code>, and arguments aren't narrowed automatically:</p>
+<pre><code class="language-java">long i = 3;
+arr[i] = 5;                 // error: long to int
+arr[(int) i] = 5;           // OK
+
+void setAge(int age) {}
+setAge(25.0);               // error
+setAge(25);                 // OK
+</code></pre>
+<h2 id="cause-6-switch-or-ternary-mixing-types">Cause 6: switch or ternary mixing types</h2>
+<p><code>int x = flag ? 1 : 2.5;</code> is a <code>double</code> expression. Make both branches the same type.</p>
+<h2 id="which-conversion-to-pick">Which conversion to pick</h2>
+<p>Truncation <code>(int)</code> drops the fraction; <code>Math.round</code> rounds half up; <code>Math.floor</code>/<code>Math.ceil</code> round down/up but still need a cast. If overflow would be a bug, prefer <code>Math.toIntExact</code>, which fails loudly.</p>
+<p class="upd">Last updated 2026-11-18.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li><li><a href="/java/java-error-cannot-find-symbol/">error: cannot find symbol</a></li><li><a href="/java/java-numberformatexception-for-input-string/">java.lang.NumberFormatException: For input string</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

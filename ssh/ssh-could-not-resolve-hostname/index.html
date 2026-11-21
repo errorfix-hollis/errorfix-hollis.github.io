@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ssh: Could not resolve hostname: Name or service not known — how to fix</title>
+<meta name="description" content="ssh couldn&#x27;t turn the host part of the command into an IP address. Usually a typo or wrong command syntax, a Host alias missing from ~/.ssh/config, or broken DNS on the client.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/ssh/ssh-could-not-resolve-hostname/">
+<meta property="og:title" content="ssh: Could not resolve hostname: Name or service not known — how to fix"><meta property="og:description" content="ssh couldn&#x27;t turn the host part of the command into an IP address. Usually a typo or wrong command syntax, a Host alias missing from ~/.ssh/config, or broken DNS on the client.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/ssh/ssh-could-not-resolve-hostname/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ssh: Could not resolve hostname: Name or service not known \u2014 how to fix", "description": "ssh couldn't turn the host part of the command into an IP address. Usually a typo or wrong command syntax, a Host alias missing from ~/.ssh/config, or broken DNS on the client.", "dateModified": "2026-11-17", "url": "https://errorfix-hollis.github.io/ssh/ssh-could-not-resolve-hostname/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "SSH", "item": "https://errorfix-hollis.github.io/ssh/"}, {"@type": "ListItem", "position": 3, "name": "ssh: Could not resolve hostname: Name or service not known", "item": "https://errorfix-hollis.github.io/ssh/ssh-could-not-resolve-hostname/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/ssh/">SSH</a></p>
+<article><h1>ssh: Could not resolve hostname: Name or service not known — how to fix</h1>
+<pre class="err"><code>ssh: Could not resolve hostname myserver: Name or service not known
+ssh: Could not resolve hostname github.com: Temporary failure in name resolution
+ssh: Could not resolve hostname example.com: nodename nor servname provided, or not known
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the syntax is <code>ssh user@host</code> (no <code>https://</code>, no <code>:path</code>) and the name resolves: <code>getent hosts myserver</code> or <code>nslookup myserver</code>. Use the IP directly, add a <code>Host</code> block with <code>HostName</code> to <code>~/.ssh/config</code>, or fix DNS (<code>/etc/resolv.conf</code>). 'Temporary failure' means DNS on your machine is down.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Before connecting, ssh resolves the hostname with the system resolver (<code>/etc/hosts</code>, DNS, mDNS). The three wordings come from the OS:</p>
+<ul>
+<li><strong>Name or service not known</strong> (Linux) / <strong>nodename nor servname provided, or not known</strong> (macOS): the name doesn't exist anywhere the resolver looked.</li>
+<li><strong>Temporary failure in name resolution</strong>: DNS servers couldn't be reached at all - a network/DNS problem on your machine.</li>
+</ul>
+<p>The name ssh tried is printed in the message. Look at it closely: often it's not what you think.</p>
+<h2 id="cause-1-wrong-command-syntax">Cause 1: wrong command syntax</h2>
+<pre><code class="language-bash">ssh https://example.com          # &quot;Could not resolve hostname https&quot;
+ssh me@example.com:2222          # tries to resolve &quot;example.com:2222&quot;
+ssh me@example.com/home/me       # tries &quot;example.com/home/me&quot;
+</code></pre>
+<h2 id="fix-1-plain-host-port-with-p">Fix 1: plain host, port with <code>-p</code></h2>
+<pre><code class="language-bash">ssh me@example.com
+ssh -p 2222 me@example.com
+ssh ssh://me@example.com:2222    # URL form is also accepted
+</code></pre>
+<p>For <code>scp</code>/<code>rsync</code>, the path goes after a colon: <code>scp file.txt me@example.com:/home/me/</code>.</p>
+<h2 id="cause-2-alias-not-in-sshconfig">Cause 2: alias not in <code>~/.ssh/config</code></h2>
+<p><code>ssh myserver</code> only works if <code>myserver</code> is defined:</p>
+<pre><code>Host myserver
+    HostName 203.0.113.10
+    User deploy
+    Port 22
+    IdentityFile ~/.ssh/id_ed25519
+</code></pre>
+<p>Check what ssh actually resolves to:</p>
+<pre><code class="language-bash">ssh -G myserver | grep -i '^hostname'
+</code></pre>
+<p>Common mistakes: <code>Hostname</code> typed under the wrong <code>Host</code> block, config file at the wrong path (must be <code>~/.ssh/config</code>, no extension), or running with <code>sudo</code> (root reads <code>/root/.ssh/config</code>, not yours).</p>
+<h2 id="cause-3-the-name-doesnt-exist-in-dns">Cause 3: the name doesn't exist in DNS</h2>
+<pre><code class="language-bash">getent hosts example.com      # what ssh will see (Linux)
+nslookup example.com
+dig +short example.com @1.1.1.1
+</code></pre>
+<p>If public DNS doesn't know it either, fix the DNS record or use the IP: <code>ssh me@203.0.113.10</code>. For machines on your LAN without DNS, add them to <code>/etc/hosts</code>:</p>
+<pre><code>192.168.1.50   nas
+</code></pre>
+<p>or use mDNS names like <code>raspberrypi.local</code> (needs Avahi on Linux, built into macOS).</p>
+<h2 id="cause-4-vpn-internal-hostnames">Cause 4: VPN / internal hostnames</h2>
+<p>Internal names (e.g. <code>db01.corp.internal</code>) only resolve while the VPN is connected and its DNS is in use. Reconnect, or check <code>resolvectl status</code> to see which DNS server handles that domain.</p>
+<h2 id="cause-5-temporary-failure-in-name-resolution">Cause 5: "Temporary failure in name resolution"</h2>
+<p>DNS is broken on the client - test with <code>ping 1.1.1.1</code> (network OK?) and <code>ping google.com</code> (DNS OK?). See <a href="/linux/linux-temporary-failure-in-name-resolution/">Temporary failure in name resolution</a> for fixing <code>/etc/resolv.conf</code> / systemd-resolved, WSL and Docker.</p>
+<h2 id="git-over-ssh">Git over SSH</h2>
+<p><code>git clone git@github.com:user/repo.git</code> failing with <code>Could not resolve hostname github.com</code> is the same DNS problem. If you use an alias such as <code>git@github-work:user/repo.git</code>, that <code>Host github-work</code> block must exist in <code>~/.ssh/config</code> with <code>HostName github.com</code>.</p>
+<h2 id="proxyjump-hosts">ProxyJump hosts</h2>
+<p>With <code>ProxyJump bastion</code>, the target hostname is resolved <strong>on the bastion</strong>, not locally. A name that resolves on your laptop may fail there - use an IP or a name the bastion knows.</p>
+<p class="upd">Last updated 2026-11-17.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-temporary-failure-in-name-resolution/">Temporary failure in name resolution</a></li><li><a href="/ssh/ssh-connect-to-host-port-22-connection-refused/">ssh: connect to host port 22: Connection refused</a></li><li><a href="/ssh/ssh-connection-timed-out/">ssh: connect to host port 22: Connection timed out</a></li><li><a href="/ssh/ssh-bad-configuration-option/">Bad configuration option</a></li><li><a href="/ssh/ssh-bad-owner-or-permissions-on-ssh-config/">Bad owner or permissions on ~/.ssh/config</a></li><li><a href="/ssh/ssh-connection-closed-by-remote-host/">Connection closed by remote host</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

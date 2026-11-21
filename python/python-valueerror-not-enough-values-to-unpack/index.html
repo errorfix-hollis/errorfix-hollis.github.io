@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ValueError: not enough values to unpack (expected 2, got 1) (Python) — how to fix</title>
+<meta name="description" content="You unpacked an iterable into more variables than it has items, e.g. a, b = something that only contains one value. Common with str.split on lines that lack the separator, and with dict iteration or function returns.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-valueerror-not-enough-values-to-unpack/">
+<meta property="og:title" content="ValueError: not enough values to unpack (expected 2, got 1) (Python) — how to fix"><meta property="og:description" content="You unpacked an iterable into more variables than it has items, e.g. a, b = something that only contains one value. Common with str.split on lines that lack the separator, and with dict iteration or function returns.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-valueerror-not-enough-values-to-unpack/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ValueError: not enough values to unpack (expected 2, got 1) (Python) \u2014 how to fix", "description": "You unpacked an iterable into more variables than it has items, e.g. a, b = something that only contains one value. Common with str.split on lines that lack the separator, and with dict iteration or function returns.", "dateModified": "2026-11-16", "url": "https://errorfix-hollis.github.io/python/python-valueerror-not-enough-values-to-unpack/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ValueError: not enough values to unpack (expected 2, got 1)", "item": "https://errorfix-hollis.github.io/python/python-valueerror-not-enough-values-to-unpack/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ValueError: not enough values to unpack (expected 2, got 1) (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;parse.py&quot;, line 4, in &lt;module&gt;
+    key, value = line.split(&quot;=&quot;)
+ValueError: not enough values to unpack (expected 2, got 1)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Make the right side produce exactly as many items as names: use <code>key, sep, value = line.partition("=")</code> or <code>line.split("=", 1)</code> and skip lines without the separator, loop dicts with <code>.items()</code>, and check what the function really returns with <code>print(repr(x))</code>. Use <code>a, *rest = x</code> when the length varies.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Tuple unpacking assigns each item of an iterable to a name:</p>
+<pre><code class="language-python">a, b = [1, 2]     # fine
+a, b = [1]        # ValueError: not enough values to unpack (expected 2, got 1)
+a, b = []         # (expected 2, got 0)
+a, b = &quot;x&quot;        # (expected 2, got 1) - strings unpack per character
+</code></pre>
+<p>"expected" is the number of names on the left, "got" is how many items the right side had. The opposite problem is <a href="/python/python-valueerror-too-many-values-to-unpack/">too many values to unpack</a>.</p>
+<h2 id="cause-1-split-on-a-line-without-the-separator">Cause 1: <code>split()</code> on a line without the separator</h2>
+<p>The classic case — parsing <code>key=value</code> lines when one line is blank, a comment, or malformed:</p>
+<pre><code class="language-python">for line in open(&quot;config.txt&quot;):
+    key, value = line.strip().split(&quot;=&quot;)   # blank line -&gt; [''] -&gt; got 1
+</code></pre>
+<p>Skip or handle those lines, and limit the split so values containing <code>=</code> don't cause the opposite error:</p>
+<pre><code class="language-python">for line in open(&quot;config.txt&quot;):
+    line = line.strip()
+    if not line or line.startswith(&quot;#&quot;) or &quot;=&quot; not in line:
+        continue
+    key, value = line.split(&quot;=&quot;, 1)
+</code></pre>
+<p><code>str.partition</code> always returns 3 items, so it never raises:</p>
+<pre><code class="language-python">key, sep, value = line.partition(&quot;=&quot;)
+if not sep:
+    continue          # no '=' in the line
+</code></pre>
+<p>For CSV data use the <code>csv</code> module instead of <code>split(",")</code> — it handles quoted commas.</p>
+<h2 id="cause-2-iterating-a-dict-without-items">Cause 2: iterating a dict without <code>.items()</code></h2>
+<pre><code class="language-python">scores = {&quot;ann&quot;: 90, &quot;bob&quot;: 85}
+for name, score in scores:       # iterates keys: 'ann' -&gt; unpack 3 chars into 2 names
+    ...
+</code></pre>
+<p>With 2-character keys this "works" by accident; with 1-character keys you get <em>not enough</em>, otherwise <em>too many</em>. Use:</p>
+<pre><code class="language-python">for name, score in scores.items():
+    ...
+</code></pre>
+<h2 id="cause-3-a-function-returns-fewer-values-than-you-think">Cause 3: a function returns fewer values than you think</h2>
+<pre><code class="language-python">def find_user(uid):
+    if uid not in users:
+        return None              # caller expects (name, email)
+    return users[uid].name, users[uid].email
+
+name, email = find_user(42)      # TypeError: cannot unpack non-iterable NoneType object
+</code></pre>
+<p>When a function returns a single string or a one-element list, you get this ValueError instead. Make every return path return the same shape, or check before unpacking:</p>
+<pre><code class="language-python">result = find_user(42)
+if result is None:
+    ...
+name, email = result
+</code></pre>
+<p>Debug with <code>print(repr(result))</code> right before the unpacking line.</p>
+<h2 id="cause-4-library-api-returned-a-different-shape">Cause 4: library API returned a different shape</h2>
+<p>Examples you'll meet:</p>
+<ul>
+<li><strong>OpenCV 3 vs 4</strong>: <code>cv2.findContours</code> returns 3 values in OpenCV 3 and 2 in OpenCV 4. Version-proof: <code>contours = cv2.findContours(img, mode, method)[-2]</code>.</li>
+<li><strong><code>enumerate</code></strong> gives pairs: <code>for i, (x, y) in enumerate(points)</code> — forgetting the inner parentheses causes unpack errors.</li>
+<li><strong><code>zip</code> / <code>dict.items()</code></strong> yield pairs; <strong><code>os.walk</code></strong> yields triples <code>(root, dirs, files)</code>.</li>
+<li><strong>PyTorch/Keras</strong>: a dataset that returns only inputs when the loop expects <code>inputs, labels</code>.</li>
+</ul>
+<h2 id="cause-5-variable-length-data">Cause 5: variable-length data</h2>
+<p>If the number of items legitimately varies, use star-unpacking to collect the rest:</p>
+<pre><code class="language-python">first, *rest = parts            # works for 1 or more items
+first, *_, last = parts         # needs at least 2
+</code></pre>
+<p>Or check the length explicitly:</p>
+<pre><code class="language-python">if len(parts) != 2:
+    raise ValueError(f&quot;bad line: {line!r}&quot;)
+</code></pre>
+<p class="upd">Last updated 2026-11-16.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-indexerror-list-index-out-of-range/">IndexError: list index out of range</a></li><li><a href="/python/python-typeerror-nonetype-object-is-not-iterable/">TypeError: &#x27;NoneType&#x27; object is not iterable</a></li><li><a href="/python/python-valueerror-too-many-values-to-unpack/">ValueError: too many values to unpack (expected 2)</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

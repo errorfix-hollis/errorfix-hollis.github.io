@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: cannot unpack non-iterable NoneType object (Python) — how to fix</title>
+<meta name="description" content="You tried to unpack a value into several variables (`a, b = ...`), but the value was None. Almost always a function that returns a tuple on one path and falls off the end (returning None) on another.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-cannot-unpack-non-iterable-nonetype-object/">
+<meta property="og:title" content="TypeError: cannot unpack non-iterable NoneType object (Python) — how to fix"><meta property="og:description" content="You tried to unpack a value into several variables (`a, b = ...`), but the value was None. Almost always a function that returns a tuple on one path and falls off the end (returning None) on another.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-cannot-unpack-non-iterable-nonetype-object/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: cannot unpack non-iterable NoneType object (Python) \u2014 how to fix", "description": "You tried to unpack a value into several variables (`a, b = ...`), but the value was None. Almost always a function that returns a tuple on one path and falls off the end (returning None) on another.", "dateModified": "2026-11-17", "url": "https://errorfix-hollis.github.io/python/python-typeerror-cannot-unpack-non-iterable-nonetype-object/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: cannot unpack non-iterable NoneType object", "item": "https://errorfix-hollis.github.io/python/python-typeerror-cannot-unpack-non-iterable-nonetype-object/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: cannot unpack non-iterable NoneType object (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 12, in &lt;module&gt;
+    name, age = get_user(42)
+TypeError: cannot unpack non-iterable NoneType object
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find the function on the right side of the assignment and make every path return a tuple, e.g. add <code>return None, None</code> or raise an exception instead of returning nothing. Or check before unpacking: <code>result = f(); if result is None: ...; a, b = result</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Tuple unpacking (<code>a, b = value</code>) iterates over <code>value</code> and assigns each item. <code>None</code> is not iterable, so Python raises this <code>TypeError</code>. The bug is never in the unpacking line itself: it is wherever <code>None</code> came from.</p>
+<p>Variants of the same problem:</p>
+<ul>
+<li><code>TypeError: cannot unpack non-iterable int object</code> - the value was an int (e.g. <code>a, b = 5</code>).</li>
+<li><code>TypeError: cannot unpack non-iterable bool object</code> - a function returned <code>False</code> instead of a tuple.</li>
+</ul>
+<h2 id="cause-1-a-code-path-with-no-return">Cause 1: a code path with no <code>return</code></h2>
+<pre><code class="language-python">def get_user(user_id):
+    row = db.fetch(user_id)
+    if row:
+        return row[&quot;name&quot;], row[&quot;age&quot;]
+    # no return here -&gt; function returns None
+
+name, age = get_user(42)   # TypeError when the user doesn't exist
+</code></pre>
+<h2 id="fix-1-return-a-tuple-or-raise-on-every-path">Fix 1: return a tuple (or raise) on every path</h2>
+<pre><code class="language-python">def get_user(user_id):
+    row = db.fetch(user_id)
+    if row:
+        return row[&quot;name&quot;], row[&quot;age&quot;]
+    return None, None          # caller can still unpack
+</code></pre>
+<p>Raising is often better, because the caller cannot silently continue with bad data:</p>
+<pre><code class="language-python">    raise LookupError(f&quot;user {user_id} not found&quot;)
+</code></pre>
+<p>Or check before unpacking:</p>
+<pre><code class="language-python">result = get_user(42)
+if result is None:
+    print(&quot;not found&quot;)
+else:
+    name, age = result
+</code></pre>
+<h2 id="cause-2-unpacking-the-result-of-an-in-place-method">Cause 2: unpacking the result of an in-place method</h2>
+<p>Methods that modify an object in place return <code>None</code>:</p>
+<pre><code class="language-python">a, b = my_list.sort()        # sort() returns None
+x, y = my_dict.update(other) # update() returns None
+</code></pre>
+<h2 id="fix-2-use-the-non-mutating-version">Fix 2: use the non-mutating version</h2>
+<pre><code class="language-python">a, b = sorted(my_list)
+</code></pre>
+<h2 id="cause-3-database-regex-library-calls-that-return-none">Cause 3: database / regex / library calls that return None</h2>
+<p>Common sources of <code>None</code>:</p>
+<pre><code class="language-python">row = cursor.fetchone()          # None when no rows match
+id_, name = row                  # TypeError
+
+m = re.match(r&quot;(\w+)-(\d+)&quot;, s)  # None when no match
+word, num = m.groups()           # AttributeError, but same idea
+</code></pre>
+<p>Check the result first:</p>
+<pre><code class="language-python">row = cursor.fetchone()
+if row is not None:
+    id_, name = row
+</code></pre>
+<h2 id="cause-4-a-function-you-overrode-or-mocked-returns-none">Cause 4: a function you overrode or mocked returns None</h2>
+<p>In tests, <code>unittest.mock.MagicMock()</code> returns a <code>MagicMock</code>, but a plain function stub with <code>pass</code> returns <code>None</code>. Set the return value explicitly:</p>
+<pre><code class="language-python">mock_get_user.return_value = (&quot;alice&quot;, 30)
+</code></pre>
+<h2 id="how-to-find-the-source-quickly">How to find the source quickly</h2>
+<p>Print the value right before the failing line:</p>
+<pre><code class="language-python">result = get_user(42)
+print(repr(result), type(result))
+</code></pre>
+<p>Type checkers catch this too: annotate the function as <code>-&gt; tuple[str, int] | None</code> and <code>mypy</code> will flag the unchecked unpack.</p>
+<p class="upd">Last updated 2026-11-17.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li><li><a href="/python/python-typeerror-nonetype-object-is-not-iterable/">TypeError: &#x27;NoneType&#x27; object is not iterable</a></li><li><a href="/python/python-valueerror-not-enough-values-to-unpack/">ValueError: not enough values to unpack (expected 2, got 1)</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

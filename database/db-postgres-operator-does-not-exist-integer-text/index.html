@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR: operator does not exist: integer = text (PostgreSQL) — how to fix</title>
+<meta name="description" content="PostgreSQL won&#x27;t implicitly convert between text and numeric (or uuid, date) types when comparing. One side of the =, IN or JOIN condition has the wrong type; cast it explicitly or fix the column/parameter type.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-operator-does-not-exist-integer-text/">
+<meta property="og:title" content="ERROR: operator does not exist: integer = text (PostgreSQL) — how to fix"><meta property="og:description" content="PostgreSQL won&#x27;t implicitly convert between text and numeric (or uuid, date) types when comparing. One side of the =, IN or JOIN condition has the wrong type; cast it explicitly or fix the column/parameter type.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-operator-does-not-exist-integer-text/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR: operator does not exist: integer = text (PostgreSQL) \u2014 how to fix", "description": "PostgreSQL won't implicitly convert between text and numeric (or uuid, date) types when comparing. One side of the =, IN or JOIN condition has the wrong type; cast it explicitly or fix the column/parameter type.", "dateModified": "2026-11-18", "url": "https://errorfix-hollis.github.io/database/db-postgres-operator-does-not-exist-integer-text/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR: operator does not exist: integer = text", "item": "https://errorfix-hollis.github.io/database/db-postgres-operator-does-not-exist-integer-text/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR: operator does not exist: integer = text (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>ERROR:  operator does not exist: integer = text
+LINE 1: SELECT * FROM orders o JOIN users u ON o.user_id = u.id_text;
+                                                        ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Cast one side so both match: <code>WHERE user_id = '42'::integer</code> or <code>WHERE user_id::text = $1</code>. Prefer casting the parameter, not the column, so indexes still work. In application code bind the value as a number (not a string). If a column stores numbers as text, migrate it: <code>ALTER TABLE t ALTER COLUMN c TYPE integer USING c::integer;</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>In PostgreSQL every operator is defined for specific argument types. There is an <code>integer = integer</code> and a <code>text = text</code>, but no <code>integer = text</code>, and Postgres deliberately doesn't guess a conversion (unlike MySQL). The same error appears in many forms:</p>
+<ul>
+<li><code>operator does not exist: integer = character varying</code></li>
+<li><code>operator does not exist: uuid = text</code></li>
+<li><code>operator does not exist: bigint = text</code></li>
+<li><code>operator does not exist: text = integer[]</code></li>
+</ul>
+<p>The caret in <code>LINE 1</code> points to the operator that failed.</p>
+<h2 id="cause-1-query-parameter-sent-as-a-string">Cause 1: query parameter sent as a string</h2>
+<p>Most often the SQL is fine but the driver sends the value as text/varchar:</p>
+<pre><code class="language-java">// JDBC: wrong
+ps.setString(1, &quot;42&quot;);     // with WHERE id = ?
+// right
+ps.setInt(1, 42);
+</code></pre>
+<pre><code class="language-python"># psycopg: pass an int, not &quot;42&quot;
+cur.execute(&quot;SELECT * FROM users WHERE id = %s&quot;, (int(user_id),))
+</code></pre>
+<p>With Node <code>pg</code>, values are sent untyped and normally coerced, but if a query has an explicit <code>$1::text</code> or the parameter is used in two places with different types, you'll see this. Add a cast in SQL: <code>WHERE id = $1::int</code>.</p>
+<p>In Spring Data / Hibernate, check that the entity field type matches the column (<code>Long</code> for <code>bigint</code>, <code>UUID</code> for <code>uuid</code>), and for native queries don't pass <code>String</code> where the column is numeric.</p>
+<h2 id="cause-2-joining-columns-of-different-types">Cause 2: joining columns of different types</h2>
+<pre><code class="language-sql">SELECT * FROM orders o JOIN users u ON o.user_id = u.external_id;  -- int vs text
+</code></pre>
+<p>Cast in the query:</p>
+<pre><code class="language-sql">ON o.user_id::text = u.external_id
+</code></pre>
+<p>Or fix the schema so related columns share a type (better for indexes and foreign keys):</p>
+<pre><code class="language-sql">ALTER TABLE users
+  ALTER COLUMN external_id TYPE integer USING external_id::integer;
+</code></pre>
+<p><code>USING</code> fails if any row isn't a valid integer; find those first:</p>
+<pre><code class="language-sql">SELECT external_id FROM users WHERE external_id !~ '^-?[0-9]+$';
+</code></pre>
+<h2 id="cause-3-cast-the-right-side">Cause 3: cast the right side</h2>
+<p>Casting the column (<code>WHERE id::text = '42'</code>) works but stops Postgres from using an index on <code>id</code>. Cast the literal or parameter instead:</p>
+<pre><code class="language-sql">WHERE id = '42'::integer      -- or CAST('42' AS integer)
+WHERE id = 42                 -- simply unquoted
+</code></pre>
+<h2 id="cause-4-uuid-compared-with-text">Cause 4: uuid compared with text</h2>
+<pre><code class="language-sql">WHERE id = $1          -- id is uuid, $1 bound as varchar
+WHERE id = $1::uuid    -- fix
+</code></pre>
+<p>In JDBC use <code>ps.setObject(1, UUID.fromString(s))</code>, or add <code>stringtype=unspecified</code> to the JDBC URL so string parameters are sent untyped and Postgres infers the type:</p>
+<pre><code>jdbc:postgresql://localhost:5432/mydb?stringtype=unspecified
+</code></pre>
+<h2 id="cause-5-in-any-with-an-array-of-the-wrong-type">Cause 5: IN / ANY with an array of the wrong type</h2>
+<pre><code class="language-sql">WHERE id = ANY($1)          -- $1 is text[] -&gt; integer = text
+WHERE id = ANY($1::int[])   -- fix
+</code></pre>
+<h2 id="cause-6-date-and-enum-comparisons">Cause 6: date and enum comparisons</h2>
+<p><code>date = text</code> usually comes from comparing to a formatted string parameter; cast <code>$1::date</code>. For enum columns: <code>WHERE status = $1::order_status</code>.</p>
+<h2 id="check-the-types">Check the types</h2>
+<pre><code class="language-sql">SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'users';
+SELECT pg_typeof(user_id) FROM orders LIMIT 1;
+</code></pre>
+<p class="upd">Last updated 2026-11-18.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-postgres-column-does-not-exist/">ERROR: column does not exist</a></li><li><a href="/database/db-postgres-current-transaction-is-aborted/">ERROR: current transaction is aborted, commands ignored until end of transaction block</a></li><li><a href="/database/db-postgres-relation-does-not-exist/">ERROR: relation does not exist</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1046-no-database-selected/">ERROR 1046 (3D000): No database selected</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

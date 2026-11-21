@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>java.lang.StringIndexOutOfBoundsException: String index out of range — how to fix</title>
+<meta name="description" content="A String method got a position outside 0..length-1 (charAt) or 0..length (substring). Usually an off-by-one loop, a string shorter than expected, or indexOf returning -1.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-stringindexoutofboundsexception/">
+<meta property="og:title" content="java.lang.StringIndexOutOfBoundsException: String index out of range — how to fix"><meta property="og:description" content="A String method got a position outside 0..length-1 (charAt) or 0..length (substring). Usually an off-by-one loop, a string shorter than expected, or indexOf returning -1.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-stringindexoutofboundsexception/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "java.lang.StringIndexOutOfBoundsException: String index out of range \u2014 how to fix", "description": "A String method got a position outside 0..length-1 (charAt) or 0..length (substring). Usually an off-by-one loop, a string shorter than expected, or indexOf returning -1.", "dateModified": "2026-11-15", "url": "https://errorfix-hollis.github.io/java/java-stringindexoutofboundsexception/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "java.lang.StringIndexOutOfBoundsException: String index out of range", "item": "https://errorfix-hollis.github.io/java/java-stringindexoutofboundsexception/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>java.lang.StringIndexOutOfBoundsException: String index out of range — how to fix</h1>
+<pre class="err"><code>Exception in thread &quot;main&quot; java.lang.StringIndexOutOfBoundsException: begin 0, end 10, length 5
+	at java.base/java.lang.String.checkBoundsBeginEnd(String.java:4606)
+	at java.base/java.lang.String.substring(String.java:2709)
+	at com.example.App.main(App.java:7)
+
+java.lang.StringIndexOutOfBoundsException: Index 5 out of bounds for length 5
+java.lang.StringIndexOutOfBoundsException: index 5, length 5
+java.lang.StringIndexOutOfBoundsException: String index out of range: -1
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Read the numbers in the message: <code>begin 0, end 10, length 5</code> means substring(0, 10) on a 5-char string. Check lengths first (<code>s.substring(0, Math.min(10, s.length()))</code>), loop with <code>i &lt; s.length()</code> not <code>&lt;=</code>, and test <code>indexOf(...)</code> for -1 before using it.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>String positions run from <code>0</code> to <code>length() - 1</code>. <code>charAt(i)</code> needs <code>0 &lt;= i &lt; length()</code>. <code>substring(begin, end)</code> needs <code>0 &lt;= begin &lt;= end &lt;= length()</code>. Any other value throws <code>StringIndexOutOfBoundsException</code>, a subclass of <code>IndexOutOfBoundsException</code>.</p>
+<p>The message depends on the JDK version and the method, but it always contains the numbers you need:</p>
+<table>
+<thead>
+<tr>
+<th>Message</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>begin 0, end 10, length 5</code></td>
+<td><code>substring(0, 10)</code> on a 5-character string</td>
+</tr>
+<tr>
+<td><code>begin 3, end 2, length 5</code></td>
+<td><code>begin</code> is greater than <code>end</code></td>
+</tr>
+<tr>
+<td><code>Index 5 out of bounds for length 5</code> / <code>index 5, length 5</code></td>
+<td><code>charAt(5)</code> on a 5-character string</td>
+</tr>
+<tr>
+<td><code>String index out of range: -1</code></td>
+<td>a negative index, usually from <code>indexOf</code> (older JDKs)</td>
+</tr>
+</tbody>
+</table>
+<p>The first <code>at</code> line from your own package is the call that failed.</p>
+<h2 id="cause-1-off-by-one-in-a-loop">Cause 1: off-by-one in a loop</h2>
+<pre><code class="language-java">for (int i = 0; i &lt;= s.length(); i++) {   // wrong: i == length is out of range
+    char c = s.charAt(i);
+}
+for (int i = 0; i &lt; s.length(); i++) {    // right
+    char c = s.charAt(i);
+}
+</code></pre>
+<p>Looking ahead with <code>s.charAt(i + 1)</code> needs <code>i &lt; s.length() - 1</code>. Reversing needs <code>s.charAt(s.length() - 1 - i)</code>.</p>
+<h2 id="cause-2-the-string-is-shorter-than-you-assume">Cause 2: the string is shorter than you assume</h2>
+<pre><code class="language-java">String code = input.substring(0, 3);       // fails for &quot;ab&quot; or &quot;&quot;
+</code></pre>
+<p>Guard it, or clamp the end:</p>
+<pre><code class="language-java">String code = input.length() &gt;= 3 ? input.substring(0, 3) : input;
+String preview = text.substring(0, Math.min(100, text.length()));
+</code></pre>
+<p>Empty strings are a common trigger: <code>"".charAt(0)</code> fails. Check <code>s.isEmpty()</code> first. User input, CSV fields and <code>split()</code> results are often empty or shorter than expected.</p>
+<h2 id="cause-3-indexof-returned-1">Cause 3: <code>indexOf</code> returned -1</h2>
+<pre><code class="language-java">String email = &quot;no-at-sign&quot;;
+String user = email.substring(0, email.indexOf('@'));   // substring(0, -1)
+</code></pre>
+<p><code>indexOf</code> and <code>lastIndexOf</code> return <code>-1</code> when the text isn't found:</p>
+<pre><code class="language-java">int at = email.indexOf('@');
+if (at &lt; 0) throw new IllegalArgumentException(&quot;not an email: &quot; + email);
+String user = email.substring(0, at);
+String domain = email.substring(at + 1);
+</code></pre>
+<h2 id="cause-4-scannernextcharat0-on-empty-input">Cause 4: <code>Scanner.next().charAt(0)</code> on empty input</h2>
+<pre><code class="language-java">char c = scanner.nextLine().charAt(0);   // fails if the user just hits Enter
+</code></pre>
+<p><code>nextLine()</code> after <code>nextInt()</code> returns the leftover empty line. Read the line, <code>trim()</code> it and check <code>isEmpty()</code> before <code>charAt(0)</code>.</p>
+<h2 id="cause-5-stringbuilder-positions">Cause 5: <code>StringBuilder</code> positions</h2>
+<p><code>sb.deleteCharAt(sb.length())</code>, <code>sb.insert(pos, ...)</code> with <code>pos &gt; length()</code>, and <code>sb.setCharAt(i, c)</code> follow the same rules. A common bug is removing a trailing comma when the builder is empty:</p>
+<pre><code class="language-java">if (sb.length() &gt; 0) sb.setLength(sb.length() - 1);
+</code></pre>
+<p>Better: use <code>String.join(", ", items)</code> or a <code>StringJoiner</code> and skip the manual trimming.</p>
+<h2 id="cause-6-index-computed-in-bytes-or-code-points">Cause 6: index computed in bytes or code points</h2>
+<p><code>s.length()</code> counts UTF-16 <code>char</code>s, not bytes or visible characters. An emoji uses two chars. Positions from <code>getBytes()</code> lengths, a database byte offset, or a regex on another string don't match <code>charAt</code> positions. Use <code>Matcher.start()</code>/<code>end()</code> on the same string, or <code>s.codePointCount(...)</code> / <code>s.offsetByCodePoints(...)</code> for code points.</p>
+<h2 id="debugging-tip">Debugging tip</h2>
+<p>Log the string and the computed indexes just before the call:</p>
+<pre><code class="language-java">System.err.printf(&quot;s=[%s] len=%d begin=%d end=%d%n&quot;, s, s.length(), begin, end);
+</code></pre>
+<p>Brackets around <code>s</code> show leading and trailing spaces. Most "impossible" cases turn out to be an extra space or newline.</p>
+<p class="upd">Last updated 2026-11-15.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-nullpointerexception/">java.lang.NullPointerException: Cannot invoke &quot;String.length()&quot; because &quot;&lt;local1&gt;&quot; is null</a></li><li><a href="/java/java-numberformatexception-for-input-string/">java.lang.NumberFormatException: For input string</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

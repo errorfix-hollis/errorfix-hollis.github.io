@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>panic: runtime error: slice bounds out of range (Go) — how to fix</title>
+<meta name="description" content="A slice expression s[low:high] used a bound larger than the slice&#x27;s capacity, or low greater than high. Check lengths before slicing, or clamp the bounds.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-slice-bounds-out-of-range/">
+<meta property="og:title" content="panic: runtime error: slice bounds out of range (Go) — how to fix"><meta property="og:description" content="A slice expression s[low:high] used a bound larger than the slice&#x27;s capacity, or low greater than high. Check lengths before slicing, or clamp the bounds.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-slice-bounds-out-of-range/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "panic: runtime error: slice bounds out of range (Go) \u2014 how to fix", "description": "A slice expression s[low:high] used a bound larger than the slice's capacity, or low greater than high. Check lengths before slicing, or clamp the bounds.", "dateModified": "2026-11-18", "url": "https://errorfix-hollis.github.io/go/go-slice-bounds-out-of-range/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "panic: runtime error: slice bounds out of range", "item": "https://errorfix-hollis.github.io/go/go-slice-bounds-out-of-range/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>panic: runtime error: slice bounds out of range (Go) — how to fix</h1>
+<pre class="err"><code>panic: runtime error: slice bounds out of range [:5] with capacity 3
+
+goroutine 1 [running]:
+main.main()
+    /home/me/app/main.go:9 +0x1d
+exit status 2
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Guard the slice: <code>if len(s) &gt;= n { s = s[:n] }</code> or clamp with <code>s[:min(n, len(s))]</code> (Go 1.21+). For <code>[a:b]</code> with <code>a &gt; b</code> errors, make sure start &lt;= end. The message tells you the offending bound and the capacity/length; the stack trace gives the line.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A slice expression <code>s[low:high]</code> (or <code>s[low:high:max]</code>) requires <code>0 &lt;= low &lt;= high &lt;= cap(s)</code>. For strings and when slicing with a low bound only (<code>s[low:]</code>), the limit is <code>len(s)</code>. Breaking that rule panics at runtime. The message says which rule:</p>
+<ul>
+<li><code>slice bounds out of range [:5] with capacity 3</code> – high bound 5 &gt; cap 3</li>
+<li><code>slice bounds out of range [:5] with length 3</code> – high bound &gt; len (strings, or arrays)</li>
+<li><code>slice bounds out of range [4:] with length 3</code> – low bound &gt; len</li>
+<li><code>slice bounds out of range [3:2]</code> – low &gt; high</li>
+</ul>
+<p>The stack trace's first line in your code (here <code>main.go:9</code>) is the expression.</p>
+<h2 id="cause-1-assuming-input-is-long-enough">Cause 1: assuming input is long enough</h2>
+<pre><code class="language-go">name := &quot;Go&quot;
+short := name[:5]          // panic: [:5] with length 2
+</code></pre>
+<p>Clamp to the length:</p>
+<pre><code class="language-go">short := name[:min(5, len(name))]   // Go 1.21+ built-in min
+</code></pre>
+<p>Before Go 1.21:</p>
+<pre><code class="language-go">n := 5
+if len(name) &lt; n {
+    n = len(name)
+}
+short := name[:n]
+</code></pre>
+<p>Note that string slicing is by <strong>bytes</strong>, not characters. To truncate to 5 characters safely with non-ASCII text, convert to runes: <code>r := []rune(name); r = r[:min(5, len(r))]; short := string(r)</code>.</p>
+<h2 id="cause-2-computed-bounds-from-stringsindex">Cause 2: computed bounds from strings.Index</h2>
+<p><code>strings.Index</code> returns <code>-1</code> when not found, which produces a negative or inverted range:</p>
+<pre><code class="language-go">line := &quot;key=value&quot;
+i := strings.Index(line, &quot;:&quot;)     // -1
+val := line[i+1:]                 // works by accident ([0:])
+key := line[:i]                   // panic: [:-1]
+</code></pre>
+<p>Check the result, or use <code>strings.Cut</code> (Go 1.18+), which can't panic:</p>
+<pre><code class="language-go">key, val, found := strings.Cut(line, &quot;=&quot;)
+if !found {
+    return fmt.Errorf(&quot;bad line %q&quot;, line)
+}
+</code></pre>
+<h2 id="cause-3-start-greater-than-end">Cause 3: start greater than end</h2>
+<pre><code class="language-go">s[start:end]   // panic: slice bounds out of range [7:4]
+</code></pre>
+<p>Usually off-by-one logic or swapped arguments in pagination:</p>
+<pre><code class="language-go">start := page * size
+if start &gt; len(items) {
+    start = len(items)
+}
+end := min(start+size, len(items))
+pageItems := items[start:end]
+</code></pre>
+<h2 id="cause-4-reading-n-bytes-from-a-buffer">Cause 4: reading n bytes from a buffer</h2>
+<p><code>Read</code> returns how many bytes it actually read. Slice by that, not by the buffer size or what you expected:</p>
+<pre><code class="language-go">buf := make([]byte, 1024)
+n, err := r.Read(buf)
+data := buf[:n]          // not buf[:1024] or buf[:expected]
+</code></pre>
+<p>When parsing binary data, check <code>len(b) &gt;= needed</code> before <code>b[off:off+4]</code>; malformed input should return an error, not panic. Or use <code>io.ReadFull</code>.</p>
+<h2 id="cause-5-slicing-past-capacity-after-append">Cause 5: slicing past capacity after append</h2>
+<p><code>s[:cap(s)]</code> is fine, but larger values panic even if you plan to append. Use <code>append</code> to grow, or <code>make([]T, n)</code> to get the length you need, or <code>slices.Grow(s, n)</code> (Go 1.21+).</p>
+<h2 id="cause-6-concurrent-modification">Cause 6: concurrent modification</h2>
+<p>If one goroutine shrinks a slice while another slices it, bounds checked earlier can be stale. Protect shared slices with a <code>sync.Mutex</code>, and run tests with <code>go test -race</code>.</p>
+<h2 id="debugging">Debugging</h2>
+<p>Print the values just before the expression:</p>
+<pre><code class="language-go">log.Printf(&quot;len=%d cap=%d start=%d end=%d&quot;, len(s), cap(s), start, end)
+</code></pre>
+<p>For panics in production, <code>recover()</code> in a deferred function can turn the panic into an error at a request boundary, but fix the bounds check rather than relying on it.</p>
+<p class="upd">Last updated 2026-11-18.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-invalid-memory-address-or-nil-pointer-dereference/">panic: runtime error: invalid memory address or nil pointer dereference</a></li><li><a href="/go/go-panic-assignment-to-entry-in-nil-map/">panic: assignment to entry in nil map</a></li><li><a href="/go/go-panic-runtime-error-index-out-of-range/">panic: runtime error: index out of range [5] with length 5</a></li><li><a href="/go/go-all-goroutines-are-asleep-deadlock/">fatal error: all goroutines are asleep - deadlock!</a></li><li><a href="/go/go-cannot-find-main-module/">go: cannot find main module, but found .git/config</a></li><li><a href="/go/go-cannot-use-as-value-in-assignment/">cannot use x (variable of type T) as U value in assignment</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERR_CONNECTION_TIMED_OUT — how to fix</title>
+<meta name="description" content="The browser sent a connection request but got no reply at all before giving up. Packets are being dropped somewhere: a firewall or cloud security group, a server that is down or listening on the wrong interface, wrong DNS pointing at a dead IP, or a local proxy/VPN problem.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-err-connection-timed-out/">
+<meta property="og:title" content="ERR_CONNECTION_TIMED_OUT — how to fix"><meta property="og:description" content="The browser sent a connection request but got no reply at all before giving up. Packets are being dropped somewhere: a firewall or cloud security group, a server that is down or listening on the wrong interface, wrong DNS pointing at a dead IP, or a local proxy/VPN problem.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-err-connection-timed-out/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERR_CONNECTION_TIMED_OUT \u2014 how to fix", "description": "The browser sent a connection request but got no reply at all before giving up. Packets are being dropped somewhere: a firewall or cloud security group, a server that is down or listening on the wrong interface, wrong DNS pointing at a dead IP, or a local proxy/VPN problem.", "dateModified": "2026-11-19", "url": "https://errorfix-hollis.github.io/web/web-err-connection-timed-out/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "ERR_CONNECTION_TIMED_OUT", "item": "https://errorfix-hollis.github.io/web/web-err-connection-timed-out/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>ERR_CONNECTION_TIMED_OUT — how to fix</h1>
+<pre class="err"><code>This site can&#x27;t be reached
+example.com took too long to respond.
+ERR_CONNECTION_TIMED_OUT
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Test from a terminal: <code>curl -v --connect-timeout 10 https://example.com</code> and <code>nc -vz example.com 443</code>. If it times out everywhere, open the port in the server firewall (<code>sudo ufw allow 443/tcp</code>) and the cloud security group, and check the service is listening on <code>0.0.0.0</code> (<code>sudo ss -tlnp</code>). If only your machine fails, disable proxy/VPN and flush DNS.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>DNS resolved the hostname to an IP, the browser sent a TCP SYN, and <strong>nothing came back</strong> — not even a rejection. Compare:</p>
+<ul>
+<li><code>ERR_CONNECTION_REFUSED</code>: the host answered "nothing listens on this port" (fast).</li>
+<li><code>ERR_CONNECTION_TIMED_OUT</code>: silence until the timeout (slow, ~20–30 s). Something drops the packets.</li>
+</ul>
+<p>First find out whether the problem is the server or your side:</p>
+<pre><code class="language-bash">dig +short example.com               # which IP are we hitting?
+curl -v --connect-timeout 10 https://example.com
+nc -vz -w 5 example.com 443          # just test TCP
+</code></pre>
+<p>Try from another network (phone on mobile data) or an online "check host" service. If it works elsewhere, skip to Cause 5.</p>
+<h2 id="cause-1-firewall-drops-the-port-most-common-on-new-servers">Cause 1: firewall drops the port (most common on new servers)</h2>
+<p>A firewall with a DROP policy produces exactly this symptom. On the server:</p>
+<pre><code class="language-bash">sudo ufw status
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+# firewalld
+sudo firewall-cmd --permanent --add-service=http --add-service=https &amp;&amp; sudo firewall-cmd --reload
+</code></pre>
+<p>On cloud VMs there is a <strong>second</strong> firewall outside the machine: AWS security groups / NACLs, GCP VPC firewall rules, Azure NSGs, Oracle Cloud security lists (Oracle images also ship restrictive iptables rules). Add an inbound rule for TCP 80/443 from <code>0.0.0.0/0</code>.</p>
+<h2 id="cause-2-service-not-reachable-on-the-public-interface">Cause 2: service not reachable on the public interface</h2>
+<p>If the app listens only on <code>127.0.0.1</code>, connections from outside are usually refused, but behind some NAT/firewall setups they time out instead. Check:</p>
+<pre><code class="language-bash">sudo ss -tlnp | grep -E ':80|:443|:3000'
+</code></pre>
+<p><code>127.0.0.1:3000</code> means localhost only — bind to <code>0.0.0.0</code> or put nginx in front. Also confirm the server is actually up (<code>systemctl status nginx</code>) and the VM isn't stopped.</p>
+<h2 id="cause-3-dns-points-at-the-wrong-or-old-ip">Cause 3: DNS points at the wrong or old IP</h2>
+<p>After migrating hosts, the A record may still point at an old server that silently drops traffic.</p>
+<pre><code class="language-bash">dig +short example.com A
+dig +short example.com AAAA
+</code></pre>
+<p>A stale <strong>AAAA</strong> record is a classic: browsers prefer IPv6, the IPv6 address is unreachable, and the site times out for some users. Fix or delete the record.</p>
+<h2 id="cause-4-wrong-port-or-url">Cause 4: wrong port or URL</h2>
+<p>Typing <code>https://</code> for a server that only serves HTTP on a non-standard port, or using a port only open on the internal network (e.g. <code>:8080</code> blocked by the security group), times out. Check the exact URL and port you expect to be open.</p>
+<h2 id="cause-5-only-your-machine-proxy-vpn-local-firewall">Cause 5: only your machine — proxy, VPN, local firewall</h2>
+<ul>
+<li>Disable VPN and browser proxy extensions; in Chrome check <em>Settings → System → Open your computer's proxy settings</em>.</li>
+<li>Corporate networks often block outbound ports other than 80/443.</li>
+<li>Flush DNS and sockets: Windows <code>ipconfig /flushdns</code> then <code>netsh winsock reset</code> (reboot); macOS <code>sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder</code>; Chrome <code>chrome://net-internals/#dns</code> → <em>Clear host cache</em>.</li>
+<li>Antivirus "web shield" features can also hang connections — try disabling briefly.</li>
+</ul>
+<h2 id="cause-6-server-overloaded">Cause 6: server overloaded</h2>
+<p>If the TCP connection succeeds but the response never arrives, you'll often get a timeout or a 504 from a proxy. Check server load (<code>uptime</code>, <code>top</code>) and the app's logs. See the <a href="/tools/http-status-codes/">HTTP status codes</a> reference for what a proxy's 502/504 means.</p>
+<p class="upd">Last updated 2026-11-19.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/ssh/ssh-connection-timed-out/">ssh: connect to host port 22: Connection timed out</a></li><li><a href="/web/web-err-connection-refused/">ERR_CONNECTION_REFUSED</a></li><li><a href="/web/web-err-name-not-resolved/">ERR_NAME_NOT_RESOLVED</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

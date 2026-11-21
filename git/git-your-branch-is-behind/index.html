@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your branch is behind &#x27;origin/main&#x27; by N commits, and can be fast-forwarded. (Git) — how to fix</title>
+<meta name="description" content="Not an error: the remote branch has commits you don&#x27;t have locally, and you have no local commits of your own, so Git can simply move your branch forward. Related states are &#x27;ahead&#x27; (you have unpushed commits) and &#x27;have diverged&#x27; (both).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-your-branch-is-behind/">
+<meta property="og:title" content="Your branch is behind &#x27;origin/main&#x27; by N commits, and can be fast-forwarded. (Git) — how to fix"><meta property="og:description" content="Not an error: the remote branch has commits you don&#x27;t have locally, and you have no local commits of your own, so Git can simply move your branch forward. Related states are &#x27;ahead&#x27; (you have unpushed commits) and &#x27;have diverged&#x27; (both).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-your-branch-is-behind/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Your branch is behind 'origin/main' by N commits, and can be fast-forwarded. (Git) \u2014 how to fix", "description": "Not an error: the remote branch has commits you don't have locally, and you have no local commits of your own, so Git can simply move your branch forward. Related states are 'ahead' (you have unpushed commits) and 'have diverged' (both).", "dateModified": "2026-11-17", "url": "https://errorfix-hollis.github.io/git/git-your-branch-is-behind/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "Your branch is behind 'origin/main' by N commits, and can be fast-forwarded.", "item": "https://errorfix-hollis.github.io/git/git-your-branch-is-behind/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>Your branch is behind &#x27;origin/main&#x27; by N commits, and can be fast-forwarded. (Git) — how to fix</h1>
+<pre class="err"><code>On branch main
+Your branch is behind &#x27;origin/main&#x27; by 3 commits, and can be fast-forwarded.
+  (use &quot;git pull&quot; to update your local branch)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>git pull</code> (or <code>git merge --ff-only origin/main</code>). If it says 'ahead by N', run <code>git push</code>. If the branches 'have diverged', use <code>git pull --rebase</code> or <code>git pull --no-rebase</code>, and if you want to throw local work away, <code>git reset --hard origin/main</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>git status</code> compares your local branch with its upstream (the remote-tracking branch <code>origin/main</code>) <em>as of the last fetch</em>. There are three possible messages:</p>
+<table>
+<thead>
+<tr>
+<th>Message</th>
+<th>Meaning</th>
+<th>Usual command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>behind ... by N commits, and can be fast-forwarded</code></td>
+<td>remote has new commits, you have none</td>
+<td><code>git pull</code></td>
+</tr>
+<tr>
+<td><code>ahead of 'origin/main' by N commits</code></td>
+<td>you have commits not pushed yet</td>
+<td><code>git push</code></td>
+</tr>
+<tr>
+<td><code>have diverged, and have X and Y different commits each</code></td>
+<td>both sides have new commits</td>
+<td><code>git pull --rebase</code> or merge</td>
+</tr>
+</tbody>
+</table>
+<p>Remember that <code>origin/main</code> only updates on <code>git fetch</code> / <code>git pull</code>. "Up to date" can be stale; run <code>git fetch</code> first to get the real picture.</p>
+<h2 id="fix-1-behind-fast-forward">Fix 1: behind - fast-forward</h2>
+<pre><code class="language-bash">git pull
+# or, safest (never creates a merge commit):
+git fetch
+git merge --ff-only origin/main
+</code></pre>
+<p>If <code>git pull</code> refuses because of local uncommitted changes (<code>Your local changes would be overwritten</code>), stash them:</p>
+<pre><code class="language-bash">git stash
+git pull
+git stash pop
+</code></pre>
+<h2 id="fix-2-ahead-push">Fix 2: ahead - push</h2>
+<pre><code class="language-bash">git log origin/main..HEAD --oneline   # what you're about to push
+git push
+</code></pre>
+<p>If you are "ahead" but didn't mean to commit to <code>main</code>, move the commits to a branch:</p>
+<pre><code class="language-bash">git branch my-feature            # keep the commits on a new branch
+git reset --hard origin/main     # put main back where the remote is
+git switch my-feature
+</code></pre>
+<h2 id="fix-3-diverged">Fix 3: diverged</h2>
+<p>See what's on each side:</p>
+<pre><code class="language-bash">git log --oneline --left-right --graph HEAD...origin/main
+</code></pre>
+<p>Then either replay your commits on top of the remote:</p>
+<pre><code class="language-bash">git pull --rebase
+</code></pre>
+<p>or create a merge commit:</p>
+<pre><code class="language-bash">git pull --no-rebase
+</code></pre>
+<p>To make one behavior the default: <code>git config --global pull.rebase true</code> (or <code>false</code>, or <code>pull.ff only</code>).</p>
+<h2 id="fix-4-discard-local-commits-and-match-the-remote-exactly">Fix 4: discard local commits and match the remote exactly</h2>
+<p>Only if you're sure you don't need your local commits or changes:</p>
+<pre><code class="language-bash">git fetch origin
+git reset --hard origin/main
+</code></pre>
+<p><code>git reflog</code> can still recover the old commits for a while if you change your mind.</p>
+<h2 id="behind-right-after-you-pushed">"Behind" right after you pushed?</h2>
+<p>If <code>git status</code> says you're behind after a force push by someone else, or after the remote was rewritten, a plain <code>git pull</code> will create a messy merge. Check with the <code>--graph</code> command above; if the remote was rewritten on purpose, use <code>git reset --hard origin/main</code> (after saving any local work on a branch).</p>
+<h2 id="seeing-how-far-behind-without-pulling">Seeing how far behind without pulling</h2>
+<pre><code class="language-bash">git fetch
+git rev-list --left-right --count HEAD...origin/main   # prints: ahead behind
+</code></pre>
+<p class="upd">Last updated 2026-11-17.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-need-to-specify-how-to-reconcile-divergent-branches/">fatal: Need to specify how to reconcile divergent branches.</a></li><li><a href="/git/git-not-possible-to-fast-forward-aborting/">fatal: Not possible to fast-forward, aborting.</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>.gitignore Generator &amp; Tester — build a .gitignore and check if a file is ignored</title>
+<meta name="description" content="Generate a .gitignore for Node, Python, Java, Go, Rust, Docker, Terraform, macOS, Windows, VS Code, JetBrains and more, then test which paths it ignores and which line matches, using git&#x27;s exact pattern rules.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/gitignore-generator/">
+<meta property="og:title" content=".gitignore Generator &amp; Tester — build a .gitignore and check if a file is ignored"><meta property="og:description" content="Generate a .gitignore for Node, Python, Java, Go, Rust, Docker, Terraform, macOS, Windows, VS Code, JetBrains and more, then test which paths it ignores and which line matches, using git&#x27;s exact pattern rules.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/gitignore-generator/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": ".gitignore generator & tester", "url": "https://errorfix-hollis.github.io/tools/gitignore-generator/", "description": "Generate a .gitignore for Node, Python, Java, Go, Rust, Docker, Terraform, macOS, Windows, VS Code, JetBrains and more, then test which paths it ignores and which line matches, using git's exact pattern rules.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-20", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": ".gitignore generator & tester", "item": "https://errorfix-hollis.github.io/tools/gitignore-generator/"}]}</script><script src="/tools.js?v=4ee891c8" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>.gitignore generator and tester</h1>
+<p class="lead">Tick the languages, tools and operating systems in your project to get a combined, de-duplicated .gitignore. Then paste file paths to see whether git would ignore them and which pattern decides, like git check-ignore -v.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="gitignore"><h3>1. Pick your stack</h3>
+<div id="gi-boxes" class="gigrid"></div>
+<label for="gi-extra">Your own patterns <small>(optional, added at the end)</small></label>
+<textarea id="gi-extra" class="short" spellcheck="false" placeholder="/uploads/&#10;*.sqlite3"></textarea>
+<label for="gi-out">.gitignore</label>
+<textarea id="gi-out" spellcheck="false"></textarea>
+<div class="row"><button id="gi-copy">Copy</button><button id="gi-dl" class="sec">Download .gitignore</button><span class="small" id="gi-stat"></span></div>
+<h3>2. Test it: is this path ignored? <small>(checks the .gitignore above, edit it freely)</small></h3>
+<label for="gi-paths">Paths, one per line, relative to the repository root <small>(end directories with /)</small></label>
+<textarea id="gi-paths" class="short" spellcheck="false">node_modules/react/index.js
+src/app.js
+.env
+.env.example
+build/
+.vscode/settings.json</textarea>
+<table id="gi-res" class="kv"></table>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<h2 id="pattern-rules-what-the-tester-implements">Pattern rules (what the tester implements)</h2>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Matches</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>*.log</code></td>
+<td>any file or folder ending in <code>.log</code>, at any depth (no slash means "match the name anywhere")</td>
+</tr>
+<tr>
+<td><code>build/</code></td>
+<td>a <strong>directory</strong> named <code>build</code> anywhere, plus everything inside it, but not a file called <code>build</code></td>
+</tr>
+<tr>
+<td><code>/todo.txt</code></td>
+<td>only <code>todo.txt</code> at the repository root (a leading slash anchors the pattern)</td>
+</tr>
+<tr>
+<td><code>docs/*.md</code></td>
+<td><code>.md</code> files directly in <code>docs/</code>, not in <code>docs/api/</code> (a slash in the middle also anchors)</td>
+</tr>
+<tr>
+<td><code>**/temp</code></td>
+<td><code>temp</code> at any depth; <code>logs/**</code> = everything inside <code>logs</code>; <code>a/**/b</code> = <code>a/b</code>, <code>a/x/b</code>, <code>a/x/y/b</code></td>
+</tr>
+<tr>
+<td><code>!keep.log</code></td>
+<td>re-include something an earlier pattern excluded (the last matching line wins)</td>
+</tr>
+<tr>
+<td><code>\#file</code>, <code>\!file</code></td>
+<td>a name that really starts with <code>#</code> or <code>!</code></td>
+</tr>
+</tbody>
+</table>
+<p>The tester was checked against <code>git ls-files --ignored</code> and <code>git check-ignore</code> on more than a hundred paths.</p>
+<h2 id="why-is-my-gitignore-not-working">Why is my .gitignore not working?</h2>
+<ul>
+<li><strong>The file is already tracked.</strong> .gitignore only affects untracked files. Stop tracking it but keep the local copy with <code>git rm --cached path</code> (add <code>-r</code> for a folder) and commit.</li>
+<li><strong>A parent directory is excluded.</strong> <code>!</code> cannot re-include a file inside an ignored directory, because git never looks inside it. Write <code>dir/*</code> and <code>!dir/keep.txt</code> instead of <code>dir/</code> and <code>!dir/keep.txt</code>.</li>
+<li><strong>Trailing spaces or a BOM.</strong> <code>*.log</code> with a trailing space does not match <code>a.log</code>. Windows editors sometimes save the file as UTF-16, which git cannot read.</li>
+<li><strong>Wrong place.</strong> Patterns are relative to the folder the .gitignore lives in. Machine-specific junk (<code>.DS_Store</code>, IDE folders) can also go in a global file: <code>git config --global core.excludesFile ~/.gitignore_global</code>.</li>
+</ul>
+<p>Ignore <code>node_modules/</code>, build output, large binaries and <code>.env</code> files <em>before</em> the first commit. Committing them is how people end up with <a href="/git/git-gh001-large-files-detected/">GH001: large files detected</a> or <a href="/git/git-gh013-repository-rule-violations/">GH013 secret-scanning rejections</a>, and removing them later means rewriting history.</p>
+<p class="upd">Last updated 2026-11-20.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-gh001-large-files-detected/">remote: error: GH001: Large files detected. You may want to try Git Large File Storage</a></li><li><a href="/git/git-gh013-repository-rule-violations/">remote: error: GH013: Repository rule violations found for refs/heads/main.</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-lf-will-be-replaced-by-crlf/">warning: LF will be replaced by CRLF the next time Git touches it</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/json-formatter/">JSON formatter &amp; validator</a></li><li><a href="/tools/cron-expression-explainer/">Cron expression explainer</a></li><li><a href="/tools/chmod-calculator/">chmod calculator</a></li><li><a href="/tools/unix-timestamp-converter/">Unix timestamp converter</a></li><li><a href="/tools/base64-encode-decode/">Base64 encode / decode</a></li><li><a href="/tools/url-encode-decode/">URL encode / decode</a></li><li><a href="/tools/jwt-decoder/">JWT decoder</a></li><li><a href="/tools/regex-tester/">Regex tester</a></li><li><a href="/tools/yaml-validator/">YAML validator &amp; YAML ↔ JSON converter</a></li><li><a href="/tools/uuid-generator/">UUID generator &amp; validator (v4, v7)</a></li><li><a href="/tools/text-diff/">Text diff checker</a></li><li><a href="/tools/http-status-codes/">HTTP status codes reference</a></li><li><a href="/tools/hash-generator/">Hash generator (MD5, SHA-256, SHA-512)</a></li><li><a href="/tools/line-ending-whitespace-inspector/">Line ending &amp; whitespace inspector</a></li><li><a href="/tools/sql-formatter/">SQL formatter</a></li><li><a href="/tools/curl-to-code/">cURL to code converter</a></li><li><a href="/tools/csv-to-json/">CSV ↔ JSON converter</a></li><li><a href="/tools/subnet-calculator/">Subnet / CIDR calculator</a></li><li><a href="/tools/docker-run-to-compose/">docker run to Compose converter</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

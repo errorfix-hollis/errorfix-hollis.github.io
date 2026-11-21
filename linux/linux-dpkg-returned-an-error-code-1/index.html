@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>E: Sub-process /usr/bin/dpkg returned an error code (1) (Linux) — how to fix</title>
+<meta name="description" content="apt handed packages to dpkg and dpkg failed while unpacking or configuring one of them. The real error is a few lines above; usually a broken post-install script, an interrupted install, or a file conflict between packages.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-dpkg-returned-an-error-code-1/">
+<meta property="og:title" content="E: Sub-process /usr/bin/dpkg returned an error code (1) (Linux) — how to fix"><meta property="og:description" content="apt handed packages to dpkg and dpkg failed while unpacking or configuring one of them. The real error is a few lines above; usually a broken post-install script, an interrupted install, or a file conflict between packages.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-dpkg-returned-an-error-code-1/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "E: Sub-process /usr/bin/dpkg returned an error code (1) (Linux) \u2014 how to fix", "description": "apt handed packages to dpkg and dpkg failed while unpacking or configuring one of them. The real error is a few lines above; usually a broken post-install script, an interrupted install, or a file conflict between packages.", "dateModified": "2026-11-17", "url": "https://errorfix-hollis.github.io/linux/linux-dpkg-returned-an-error-code-1/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "E: Sub-process /usr/bin/dpkg returned an error code (1)", "item": "https://errorfix-hollis.github.io/linux/linux-dpkg-returned-an-error-code-1/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>E: Sub-process /usr/bin/dpkg returned an error code (1) (Linux) — how to fix</h1>
+<pre class="err"><code>Errors were encountered while processing:
+ mysql-server-8.0
+E: Sub-process /usr/bin/dpkg returned an error code (1)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Scroll up for the package named in 'Errors were encountered while processing'. Then run <code>sudo dpkg --configure -a</code> and <code>sudo apt-get install -f</code>. If a package's maintainer script keeps failing, fix the underlying service problem or purge it: <code>sudo apt-get purge PACKAGE &amp;&amp; sudo apt-get autoremove</code>. For file conflicts use <code>sudo dpkg -i --force-overwrite /var/cache/apt/archives/PKG.deb</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>apt</code> downloads packages, then calls <code>dpkg</code> to unpack and configure them. Exit code 1 from dpkg just means "something failed". The useful information is earlier in the output:</p>
+<pre><code>Setting up mysql-server-8.0 (8.0.39-0ubuntu0.24.04.1) ...
+Job for mysql.service failed because the control process exited with error code.
+dpkg: error processing package mysql-server-8.0 (--configure):
+ installed mysql-server-8.0 package post-installation script subprocess returned error exit status 1
+Errors were encountered while processing:
+ mysql-server-8.0
+</code></pre>
+<p>Find the <code>dpkg: error processing package</code> line - it tells you the package and the phase.</p>
+<h2 id="fix-1-finish-interrupted-installs">Fix 1: finish interrupted installs</h2>
+<p>If an earlier <code>apt</code> was killed (closed terminal, reboot, out of disk), packages are left half-configured:</p>
+<pre><code class="language-bash">sudo dpkg --configure -a
+sudo apt-get install -f
+sudo apt-get update &amp;&amp; sudo apt-get upgrade
+</code></pre>
+<p>Check disk space too (<code>df -h /</code>); a full disk causes exactly this.</p>
+<h2 id="cause-2-a-packages-post-install-script-fails">Cause 2: a package's post-install script fails</h2>
+<p><code>post-installation script subprocess returned error exit status 1</code> means the package's own setup script failed - often because the service it installs can't start (port in use, broken config file, missing directory). Look at the service:</p>
+<pre><code class="language-bash">sudo systemctl status mysql
+sudo journalctl -xeu mysql --no-pager | tail -50
+</code></pre>
+<p>Fix the cause (free the port, repair the config in <code>/etc/...</code>), then re-run <code>sudo dpkg --configure -a</code>.</p>
+<h2 id="fix-2-purge-and-reinstall-the-package">Fix 2: purge and reinstall the package</h2>
+<p>If you don't need the package's existing config/data:</p>
+<pre><code class="language-bash">sudo apt-get purge mysql-server-8.0
+sudo apt-get autoremove
+sudo apt-get install mysql-server
+</code></pre>
+<p>Warning: purging database server packages can remove their configuration, and some prompt about deleting data directories - back up first.</p>
+<h2 id="fix-3-the-maintainer-script-itself-is-broken">Fix 3: the maintainer script itself is broken</h2>
+<p>If the script fails no matter what and purging fails for the same reason, inspect the scripts in <code>/var/lib/dpkg/info/</code>:</p>
+<pre><code class="language-bash">ls /var/lib/dpkg/info/ | grep PACKAGE
+</code></pre>
+<p>As a last resort, move the failing script aside (e.g. <code>PACKAGE.postinst</code>, <code>PACKAGE.prerm</code>) and retry:</p>
+<pre><code class="language-bash">sudo mv /var/lib/dpkg/info/PACKAGE.postinst /tmp/
+sudo dpkg --configure -a
+</code></pre>
+<p>This skips the package's setup steps, so only do it to remove a package or when you know what the script would do.</p>
+<h2 id="cause-4-file-conflict-between-packages">Cause 4: file conflict between packages</h2>
+<pre><code>dpkg: error processing archive /var/cache/apt/archives/foo_2.0_amd64.deb (--unpack):
+ trying to overwrite '/usr/lib/x86_64-linux-gnu/libfoo.so', which is also in package bar 1.0
+</code></pre>
+<p>Usually from mixing PPAs or third-party repos. Either remove the other package (<code>sudo apt-get remove bar</code>), or force the overwrite once:</p>
+<pre><code class="language-bash">sudo dpkg -i --force-overwrite /var/cache/apt/archives/foo_2.0_amd64.deb
+sudo apt-get install -f
+</code></pre>
+<p>Then consider removing the PPA that ships the conflicting version.</p>
+<h2 id="cause-5-locked-dpkg">Cause 5: locked dpkg</h2>
+<p>If instead you see <code>Could not get lock /var/lib/dpkg/lock-frontend</code>, another apt process is running - see <a href="/linux/linux-could-not-get-lock-dpkg/">Could not get lock</a>.</p>
+<h2 id="getting-more-detail">Getting more detail</h2>
+<pre><code class="language-bash">sudo apt-get install -o Debug::pkgProblemResolver=yes -f
+grep -A5 &quot;error&quot; /var/log/dpkg.log | tail -40
+less /var/log/apt/term.log
+</code></pre>
+<p class="upd">Last updated 2026-11-17.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-could-not-get-lock-dpkg/">E: Could not get lock /var/lib/dpkg/lock-frontend</a></li><li><a href="/linux/linux-e-unable-to-locate-package/">E: Unable to locate package</a></li><li><a href="/linux/linux-no-space-left-on-device/">No space left on device</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-apt-hash-sum-mismatch/">E: Failed to fetch ... Hash Sum mismatch</a></li><li><a href="/linux/linux-apt-no-pubkey/">The following signatures couldn&#x27;t be verified because the public key is not available: NO_PUBKEY</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error from server (NotFound): pods &quot;...&quot; not found (Kubernetes) — how to fix</title>
+<meta name="description" content="The API server has no object of that kind with that name in the namespace (and cluster) kubectl is using. Most often it&#x27;s the wrong namespace or context, or a pod name that changed after a restart.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-error-from-server-notfound/">
+<meta property="og:title" content="Error from server (NotFound): pods &quot;...&quot; not found (Kubernetes) — how to fix"><meta property="og:description" content="The API server has no object of that kind with that name in the namespace (and cluster) kubectl is using. Most often it&#x27;s the wrong namespace or context, or a pod name that changed after a restart.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-error-from-server-notfound/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error from server (NotFound): pods \"...\" not found (Kubernetes) \u2014 how to fix", "description": "The API server has no object of that kind with that name in the namespace (and cluster) kubectl is using. Most often it's the wrong namespace or context, or a pod name that changed after a restart.", "dateModified": "2026-11-21", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-error-from-server-notfound/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "Error from server (NotFound): pods \"...\" not found", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-error-from-server-notfound/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>Error from server (NotFound): pods &quot;...&quot; not found (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Error from server (NotFound): pods &quot;web-7c9d8b6f4-x2k9p&quot; not found
+Error from server (NotFound): deployments.apps &quot;web&quot; not found
+Error from server (NotFound): namespaces &quot;staging&quot; not found
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find it across namespaces: <code>kubectl get pods -A | grep web</code>. Then pass the namespace: <code>kubectl -n staging logs &lt;pod&gt;</code>, or set it: <code>kubectl config set-context --current --namespace=staging</code>. Check <code>kubectl config current-context</code>. Use <code>deploy/web</code> instead of a pod name: <code>kubectl logs deploy/web</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>kubectl reached the cluster, the resource <em>type</em> exists, but there is no object with that name in the namespace being queried. (If the type itself is unknown you get <code>the server doesn't have a resource type</code> instead.) Every kubectl command uses one cluster context and one namespace, <code>default</code> unless configured otherwise.</p>
+<pre><code class="language-bash">kubectl config current-context
+kubectl config view --minify -o jsonpath='{..namespace}'; echo
+</code></pre>
+<h2 id="cause-1-wrong-namespace">Cause 1: wrong namespace</h2>
+<p>The object exists, but in another namespace:</p>
+<pre><code class="language-bash">kubectl get pods -A | grep web
+kubectl get deploy -A --field-selector metadata.name=web
+</code></pre>
+<p>Then either pass <code>-n</code> every time or change the default namespace for the current context:</p>
+<pre><code class="language-bash">kubectl -n staging get pods
+kubectl config set-context --current --namespace=staging
+</code></pre>
+<p><code>kubectl apply -f</code> also respects <code>metadata.namespace</code> in the manifest, so an object may have been created somewhere other than where you're looking.</p>
+<h2 id="cause-2-wrong-cluster-context">Cause 2: wrong cluster context</h2>
+<p>You're talking to a different cluster (local kind/minikube vs. staging vs. prod):</p>
+<pre><code class="language-bash">kubectl config get-contexts
+kubectl config use-context my-staging
+</code></pre>
+<h2 id="cause-3-the-pod-name-changed">Cause 3: the pod name changed</h2>
+<p>Pods managed by a Deployment, ReplicaSet or Job get new random suffixes each time they're recreated (rollout, crash, node drain, scaling). An old name copied from earlier output no longer exists. Refer to the controller instead:</p>
+<pre><code class="language-bash">kubectl logs deploy/web
+kubectl logs deploy/web --previous        # last crashed container
+kubectl exec -it deploy/web -- sh
+kubectl get pods -l app=web               # by label
+</code></pre>
+<h2 id="cause-4-the-object-really-was-deleted">Cause 4: the object really was deleted</h2>
+<p>Check events and the controller that owned it:</p>
+<pre><code class="language-bash">kubectl get events -n staging --sort-by=.lastTimestamp | tail -20
+kubectl get rs,deploy,job -n staging
+</code></pre>
+<p>Helm <code>uninstall</code>, <code>kubectl delete -f</code>, Argo CD/Flux pruning, TTL on finished Jobs (<code>ttlSecondsAfterFinished</code>) and namespace deletion all remove objects.</p>
+<h2 id="cause-5-namespace-not-found-on-apply">Cause 5: namespace not found on apply</h2>
+<p><code>Error from server (NotFound): error when creating "app.yaml": namespaces "staging" not found</code> means the namespace must exist first:</p>
+<pre><code class="language-bash">kubectl create namespace staging
+# or with Helm
+helm install web ./chart -n staging --create-namespace
+</code></pre>
+<p>In a single manifest, put the <code>Namespace</code> object first, or apply namespaces in a separate step.</p>
+<h2 id="cause-6-name-typos-and-resource-types">Cause 6: name typos and resource types</h2>
+<p>Names are case-sensitive and must be exact. Make sure the kind matches: a Service named <code>web</code> won't be found with <code>kubectl get deploy web</code>. List names:</p>
+<pre><code class="language-bash">kubectl get all -n staging
+kubectl api-resources --namespaced=true | less
+</code></pre>
+<h2 id="avoid-the-error-in-scripts">Avoid the error in scripts</h2>
+<p><code>kubectl get ... --ignore-not-found</code> and <code>kubectl delete ... --ignore-not-found</code> return success when the object is missing.</p>
+<p class="upd">Last updated 2026-11-21.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-error-from-server-forbidden/">Error from server (Forbidden): User cannot list resource in API group at the cluster scope</a></li><li><a href="/kubernetes/k8s-the-server-doesnt-have-a-resource-type/">error: the server doesn&#x27;t have a resource type</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

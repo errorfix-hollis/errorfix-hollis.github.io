@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SyntaxError: Unexpected token &#x27;export&#x27; (JavaScript) — how to fix</title>
+<meta name="description" content="ES module syntax (`export`/`import`) is being run by something that treats the file as a classic script or CommonJS: Node without `&quot;type&quot;: &quot;module&quot;`, a browser `&lt;script&gt;` without `type=&quot;module&quot;`, or Jest without transforming ESM dependencies.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-syntaxerror-unexpected-token-export/">
+<meta property="og:title" content="SyntaxError: Unexpected token &#x27;export&#x27; (JavaScript) — how to fix"><meta property="og:description" content="ES module syntax (`export`/`import`) is being run by something that treats the file as a classic script or CommonJS: Node without `&quot;type&quot;: &quot;module&quot;`, a browser `&lt;script&gt;` without `type=&quot;module&quot;`, or Jest without transforming ESM dependencies.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-syntaxerror-unexpected-token-export/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "SyntaxError: Unexpected token 'export' (JavaScript) \u2014 how to fix", "description": "ES module syntax (`export`/`import`) is being run by something that treats the file as a classic script or CommonJS: Node without `\"type\": \"module\"`, a browser `<script>` without `type=\"module\"`, or Jest without transforming ESM dependencies.", "dateModified": "2026-11-19", "url": "https://errorfix-hollis.github.io/javascript/js-syntaxerror-unexpected-token-export/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "SyntaxError: Unexpected token 'export'", "item": "https://errorfix-hollis.github.io/javascript/js-syntaxerror-unexpected-token-export/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>SyntaxError: Unexpected token &#x27;export&#x27; (JavaScript) — how to fix</h1>
+<pre class="err"><code>/home/me/app/node_modules/some-lib/index.js:1
+export default function foo() {
+^^^^^^
+
+SyntaxError: Unexpected token &#x27;export&#x27;
+    at internalCompileFunction (node:internal/vm:76:18)
+    at wrapSafe (node:internal/modules/cjs/loader:1283:20)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> In Node, add <code>"type": "module"</code> to package.json or rename the file to <code>.mjs</code>. In the browser, load it with <code>&lt;script type="module" src="app.js"&gt;&lt;/script&gt;</code>. In Jest, transform the ESM package: <code>transformIgnorePatterns: ['/node_modules/(?!some-lib)']</code>, or use Vitest.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>export</code> is only valid inside an <strong>ES module</strong>. When the engine parses a file as a classic script (browser) or CommonJS (Node), <code>export</code> is an unknown token at the very first line and parsing stops. It's the sibling of <code>Cannot use import statement outside a module</code>.</p>
+<p>Look at the file in the stack trace: is it your code, or a file inside <code>node_modules</code>? That decides the fix.</p>
+<h2 id="cause-1-node-treats-your-file-as-commonjs">Cause 1: Node treats your file as CommonJS</h2>
+<p>Node uses CommonJS for <code>.js</code> files unless the nearest <code>package.json</code> says otherwise.</p>
+<p><strong>Fix A:</strong> declare the package as ESM:</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;module&quot;
+}
+</code></pre>
+<p>Then use <code>import</code>/<code>export</code> everywhere, and include file extensions in relative imports (<code>import { x } from './utils.js'</code>).</p>
+<p><strong>Fix B:</strong> rename just that file to <code>.mjs</code> (ESM) — or, if the rest of your project is CommonJS, rewrite the export:</p>
+<pre><code class="language-js">// ESM
+export function add(a, b) { return a + b; }
+// CommonJS equivalent
+function add(a, b) { return a + b; }
+module.exports = { add };
+</code></pre>
+<p>Newer Node versions (22.7+ / 23) can auto-detect ESM syntax in ambiguous <code>.js</code> files, but relying on that is slower and noisier than setting <code>"type"</code>.</p>
+<h2 id="cause-2-browser-script-without-typemodule">Cause 2: browser script without type="module"</h2>
+<pre><code class="language-html">&lt;!-- Wrong --&gt;
+&lt;script src=&quot;app.js&quot;&gt;&lt;/script&gt;
+&lt;!-- Right --&gt;
+&lt;script type=&quot;module&quot; src=&quot;app.js&quot;&gt;&lt;/script&gt;
+</code></pre>
+<p>Module scripts must be served over HTTP(S) — opening <code>index.html</code> via <code>file://</code> causes CORS errors instead. Use any local server (<code>npx serve</code>, <code>python3 -m http.server</code>).</p>
+<h2 id="cause-3-jest-and-esm-only-packages">Cause 3: Jest and ESM-only packages</h2>
+<p>Jest (with babel-jest) doesn't transform <code>node_modules</code> by default. When a dependency ships only ESM (e.g. <code>nanoid</code>, <code>uuid</code> in some versions, <code>lodash-es</code>, <code>d3</code>), tests fail with this error in a <code>node_modules</code> path.</p>
+<pre><code class="language-js">// jest.config.js
+module.exports = {
+  transformIgnorePatterns: ['/node_modules/(?!(lodash-es|nanoid)/)'],
+};
+</code></pre>
+<p>You also need a Babel config that converts ESM (<code>@babel/preset-env</code>). Alternatives: map the module to its CommonJS build with <code>moduleNameMapper</code> (e.g. <code>'^lodash-es$': 'lodash'</code>), run Jest in native ESM mode (<code>node --experimental-vm-modules node_modules/.bin/jest</code>), or switch to Vitest, which handles ESM natively.</p>
+<h2 id="cause-4-typescript-compiled-to-the-wrong-module-format">Cause 4: TypeScript compiled to the wrong module format</h2>
+<p>If <code>tsc</code> output keeps <code>export</code> but Node loads it as CommonJS (or vice versa), align <code>tsconfig.json</code> with <code>package.json</code>:</p>
+<pre><code class="language-json">{
+  &quot;compilerOptions&quot;: {
+    &quot;module&quot;: &quot;NodeNext&quot;,
+    &quot;moduleResolution&quot;: &quot;NodeNext&quot;
+  }
+}
+</code></pre>
+<p>With <code>"module": "NodeNext"</code>, TypeScript emits ESM or CommonJS based on the <code>"type"</code> field and file extension, so they can't disagree. For <code>ts-node</code>, use <code>node --loader ts-node/esm</code> or a runner like <code>tsx</code>.</p>
+<h2 id="cause-5-nextjs-importing-an-esm-only-package">Cause 5: Next.js importing an ESM-only package</h2>
+<p>Older Next.js versions may not transpile a dependency. Add it to <code>transpilePackages</code>:</p>
+<pre><code class="language-js">// next.config.js
+module.exports = { transpilePackages: ['some-lib'] };
+</code></pre>
+<h2 id="check-what-a-package-ships">Check what a package ships</h2>
+<pre><code class="language-bash">cat node_modules/some-lib/package.json | grep -E '&quot;(type|main|module|exports)&quot;'
+</code></pre>
+<p><code>"type": "module"</code> with no <code>require</code> condition in <code>exports</code> means the package is ESM-only — you must import it from ESM, or use dynamic <code>await import('some-lib')</code> from CommonJS.</p>
+<p class="upd">Last updated 2026-11-19.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-require-is-not-defined/">ReferenceError: require is not defined</a></li><li><a href="/javascript/node-cannot-use-import-statement-outside-a-module/">SyntaxError: Cannot use import statement outside a module</a></li><li><a href="/npm/node-err-require-esm/">Error [ERR_REQUIRE_ESM]: require() of ES Module not supported</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cannot-set-properties-of-null/">Uncaught TypeError: Cannot set properties of null (setting &#x27;innerHTML&#x27;)</a></li><li><a href="/javascript/js-cannot-set-properties-of-undefined/">TypeError: Cannot set properties of undefined (setting &#x27;...&#x27;)</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

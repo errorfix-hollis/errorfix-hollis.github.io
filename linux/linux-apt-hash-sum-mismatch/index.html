@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>E: Failed to fetch ... Hash Sum mismatch (Linux) — how to fix</title>
+<meta name="description" content="The file apt downloaded doesn&#x27;t match the checksum listed in the repository&#x27;s Release file. Usually a mirror is mid-sync, a proxy/cache served a stale or altered file, or the local lists are corrupt.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-apt-hash-sum-mismatch/">
+<meta property="og:title" content="E: Failed to fetch ... Hash Sum mismatch (Linux) — how to fix"><meta property="og:description" content="The file apt downloaded doesn&#x27;t match the checksum listed in the repository&#x27;s Release file. Usually a mirror is mid-sync, a proxy/cache served a stale or altered file, or the local lists are corrupt.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-apt-hash-sum-mismatch/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "E: Failed to fetch ... Hash Sum mismatch (Linux) \u2014 how to fix", "description": "The file apt downloaded doesn't match the checksum listed in the repository's Release file. Usually a mirror is mid-sync, a proxy/cache served a stale or altered file, or the local lists are corrupt.", "dateModified": "2026-11-18", "url": "https://errorfix-hollis.github.io/linux/linux-apt-hash-sum-mismatch/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "E: Failed to fetch ... Hash Sum mismatch", "item": "https://errorfix-hollis.github.io/linux/linux-apt-hash-sum-mismatch/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>E: Failed to fetch ... Hash Sum mismatch (Linux) — how to fix</h1>
+<pre class="err"><code>E: Failed to fetch http://archive.ubuntu.com/ubuntu/dists/jammy-updates/main/binary-amd64/by-hash/SHA256/3f1c...  Hash Sum mismatch
+   Hashes of expected file:
+    - SHA256:3f1c9a...
+   Hashes of received file:
+    - SHA256:a07be2...
+E: Some index files failed to download. They have been ignored, or old ones used instead.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Clear the cached lists and retry: <code>sudo rm -rf /var/lib/apt/lists/* &amp;&amp; sudo apt-get clean &amp;&amp; sudo apt-get update</code>. If it keeps failing, wait a few minutes (mirror sync), switch to another mirror in /etc/apt/sources.list, or bypass a caching proxy. For Docker builds, add <code>--no-cache</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Every apt repository publishes a signed <code>Release</code>/<code>InRelease</code> file listing the SHA256 of each index (<code>Packages</code>, <code>Sources</code>, ...) and every <code>.deb</code>. apt downloaded a file whose hash differs from the expected one, so it refuses to use it. That's a safety feature: the file is incomplete, stale or tampered with.</p>
+<p>It is almost never your fault, and almost never fixed by retrying <code>apt-get install</code> with flags.</p>
+<h2 id="fix-1-clear-the-lists-and-update-again">Fix 1: clear the lists and update again</h2>
+<pre><code class="language-bash">sudo rm -rf /var/lib/apt/lists/*
+sudo apt-get clean
+sudo apt-get update
+</code></pre>
+<p>This removes partially downloaded or corrupt index files. Re-run <code>apt-get install</code> afterwards.</p>
+<h2 id="fix-2-the-mirror-is-in-the-middle-of-syncing">Fix 2: the mirror is in the middle of syncing</h2>
+<p>Mirrors update every few hours. During a sync the <code>Release</code> file and the indexes can briefly disagree. Wait 10–30 minutes and retry, or switch mirror. On Ubuntu edit <code>/etc/apt/sources.list</code> (or <code>/etc/apt/sources.list.d/ubuntu.sources</code> on 24.04+):</p>
+<pre><code class="language-bash">sudo sed -i 's|http://[a-z]*\.\?archive.ubuntu.com|http://archive.ubuntu.com|g' /etc/apt/sources.list
+sudo apt-get update
+</code></pre>
+<p>Country mirrors like <code>de.archive.ubuntu.com</code> lag more often than the main archive. On Debian, <code>deb.debian.org</code> is a CDN and usually a good default.</p>
+<h2 id="fix-3-a-proxy-or-cache-altered-the-file">Fix 3: a proxy or cache altered the file</h2>
+<p>Transparent proxies, corporate filters, apt-cacher-ng and some hotel/office networks serve cached or modified responses. Signs: it fails on one network and works on another. Options:</p>
+<ul>
+<li>Use HTTPS sources (<code>https://archive.ubuntu.com/ubuntu</code> needs <code>apt-transport-https</code> on old releases; it's built in since apt 1.5), which proxies can't rewrite.</li>
+<li>Tell apt to bypass caches:</li>
+</ul>
+<pre><code class="language-bash">sudo apt-get update -o Acquire::http::No-Cache=true -o Acquire::http::Pipeline-Depth=0
+</code></pre>
+<ul>
+<li>Check for a configured proxy: <code>grep -ri proxy /etc/apt/apt.conf /etc/apt/apt.conf.d/</code>.</li>
+</ul>
+<h2 id="fix-4-docker-builds">Fix 4: Docker builds</h2>
+<p>A cached <code>RUN apt-get update</code> layer can be old while a later install step fetches new files. Always combine them in one <code>RUN</code> and clean up:</p>
+<pre><code class="language-dockerfile">RUN apt-get update \
+ &amp;&amp; apt-get install -y --no-install-recommends curl ca-certificates \
+ &amp;&amp; rm -rf /var/lib/apt/lists/*
+</code></pre>
+<p>Rebuild with <code>docker build --no-cache .</code>. On Docker Desktop/WSL with a flaky network, the same proxy issues as Fix 3 apply.</p>
+<h2 id="fix-5-disk-or-memory-problems">Fix 5: disk or memory problems</h2>
+<p>If the mismatch moves between different files on every attempt, on every mirror, suspect the local machine: a full disk (<code>df -h /var</code>), bad RAM, or a failing drive. Run <code>sudo apt-get check</code> and check <code>dmesg</code> for I/O errors.</p>
+<h2 id="dont">Don't</h2>
+<p>Don't disable verification (<code>Acquire::Check-Valid-Until</code> or <code>--allow-unauthenticated</code> are for different errors and don't fix hash mismatches anyway). The mismatch means the data is wrong; get a correct copy.</p>
+<p class="upd">Last updated 2026-11-18.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-could-not-get-lock-dpkg/">E: Could not get lock /var/lib/dpkg/lock-frontend</a></li><li><a href="/linux/linux-dpkg-returned-an-error-code-1/">E: Sub-process /usr/bin/dpkg returned an error code (1)</a></li><li><a href="/linux/linux-e-unable-to-locate-package/">E: Unable to locate package</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-apt-no-pubkey/">The following signatures couldn&#x27;t be verified because the public key is not available: NO_PUBKEY</a></li><li><a href="/linux/linux-apt-release-file-is-not-valid-yet/">Release file is not valid yet</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>mount: wrong fs type, bad option, bad superblock (Linux) — how to fix</title>
+<meta name="description" content="mount could not mount the device: the filesystem type is unsupported or wrong, a helper package (for NFS, CIFS, exFAT, NTFS) is missing, an option is invalid, or the filesystem is damaged.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-mount-wrong-fs-type-bad-option-bad-superblock/">
+<meta property="og:title" content="mount: wrong fs type, bad option, bad superblock (Linux) — how to fix"><meta property="og:description" content="mount could not mount the device: the filesystem type is unsupported or wrong, a helper package (for NFS, CIFS, exFAT, NTFS) is missing, an option is invalid, or the filesystem is damaged.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-mount-wrong-fs-type-bad-option-bad-superblock/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "mount: wrong fs type, bad option, bad superblock (Linux) \u2014 how to fix", "description": "mount could not mount the device: the filesystem type is unsupported or wrong, a helper package (for NFS, CIFS, exFAT, NTFS) is missing, an option is invalid, or the filesystem is damaged.", "dateModified": "2026-11-21", "url": "https://errorfix-hollis.github.io/linux/linux-mount-wrong-fs-type-bad-option-bad-superblock/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "mount: wrong fs type, bad option, bad superblock", "item": "https://errorfix-hollis.github.io/linux/linux-mount-wrong-fs-type-bad-option-bad-superblock/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>mount: wrong fs type, bad option, bad superblock (Linux) — how to fix</h1>
+<pre class="err"><code>mount: /mnt/data: wrong fs type, bad option, bad superblock on /dev/sdb1, missing codepage or helper program, or other error.
+       dmesg(1) may have more information after failed mount system call.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>sudo dmesg | tail</code> and <code>lsblk -f</code> to see the real reason and filesystem type. Install the helper: <code>sudo apt install nfs-common</code> (NFS), <code>cifs-utils</code> (SMB), <code>exfatprogs</code>/<code>ntfs-3g</code>. Mount the partition (<code>/dev/sdb1</code>), not the disk (<code>/dev/sdb</code>). For corruption, run <code>sudo fsck -f /dev/sdb1</code> while unmounted.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The kernel's <code>mount()</code> call failed with <code>EINVAL</code>, and <code>mount</code> prints this generic message listing every possible cause. The real reason is in the kernel log:</p>
+<pre><code class="language-bash">sudo dmesg | tail -20
+lsblk -f               # shows FSTYPE for every partition
+sudo blkid /dev/sdb1
+</code></pre>
+<h2 id="cause-1-nfs-or-smbcifs-helper-not-installed">Cause 1: NFS or SMB/CIFS helper not installed</h2>
+<p>Network filesystems need user-space helpers (<code>/sbin/mount.nfs</code>, <code>/sbin/mount.cifs</code>). Without them you get exactly this error.</p>
+<pre><code class="language-bash"># Debian/Ubuntu
+sudo apt install nfs-common      # NFS
+sudo apt install cifs-utils      # SMB / Windows shares
+# RHEL/Fedora
+sudo dnf install nfs-utils cifs-utils
+</code></pre>
+<p>Then:</p>
+<pre><code class="language-bash">sudo mount -t nfs server:/export /mnt/data
+sudo mount -t cifs //server/share /mnt/share -o username=me,uid=$(id -u),gid=$(id -g)
+</code></pre>
+<h2 id="cause-2-mounting-the-whole-disk-instead-of-the-partition">Cause 2: mounting the whole disk instead of the partition</h2>
+<p><code>/dev/sdb</code> is the disk; the filesystem is usually on <code>/dev/sdb1</code>. Same for <code>/dev/nvme0n1</code> vs <code>/dev/nvme0n1p1</code>.</p>
+<pre><code class="language-bash">lsblk
+sudo mount /dev/sdb1 /mnt/data
+</code></pre>
+<p>If <code>lsblk -f</code> shows no FSTYPE at all, the partition is unformatted (format it only if it's new and empty: <code>sudo mkfs.ext4 /dev/sdb1</code>).</p>
+<h2 id="cause-3-wrong-or-unsupported-filesystem-type">Cause 3: wrong or unsupported filesystem type</h2>
+<p>Passing <code>-t ext4</code> for an XFS, NTFS or exFAT volume fails. Let mount detect it, or use the type from <code>lsblk -f</code>. Install support for Windows/USB filesystems:</p>
+<pre><code class="language-bash">sudo apt install exfatprogs ntfs-3g
+sudo mount -t ntfs3 /dev/sdb1 /mnt/win     # kernel 5.15+ driver, or -t ntfs-3g
+</code></pre>
+<p>An NTFS volume from a Windows machine with Fast Startup/hibernation enabled may refuse to mount; shut Windows down fully (or disable Fast Startup).</p>
+<h2 id="cause-4-invalid-mount-option">Cause 4: invalid mount option</h2>
+<p>An option valid for one filesystem is rejected by another, e.g. <code>uid=</code>/<code>gid=</code> work for vfat/ntfs/cifs but not ext4, and a typo in <code>/etc/fstab</code> breaks the entry. <code>dmesg</code> usually names it (<code>ext4: Unrecognized mount option "uid=1000"</code>). Test fstab changes safely:</p>
+<pre><code class="language-bash">sudo findmnt --verify
+sudo mount -a
+</code></pre>
+<h2 id="cause-5-corrupted-filesystem-or-bad-superblock">Cause 5: corrupted filesystem or bad superblock</h2>
+<p><code>dmesg</code> shows things like <code>bad geometry</code> or <code>VFS: Can't find ext4 filesystem</code>. With the device <strong>unmounted</strong>:</p>
+<pre><code class="language-bash">sudo fsck -f /dev/sdb1            # ext2/3/4
+sudo xfs_repair /dev/sdb1         # XFS
+</code></pre>
+<p>For ext4 with a damaged primary superblock, list backups and use one:</p>
+<pre><code class="language-bash">sudo mke2fs -n /dev/sdb1          # -n = dry run, only prints backup locations
+sudo e2fsck -b 32768 /dev/sdb1
+</code></pre>
+<p>Back up important data (e.g. <code>ddrescue</code>) before repairing a failing disk.</p>
+<h2 id="cause-6-loop-devices-and-images">Cause 6: loop devices and images</h2>
+<p>For ISO or disk images use a loop mount, and for whole-disk images pick the partition:</p>
+<pre><code class="language-bash">sudo mount -o loop image.iso /mnt/iso
+sudo losetup -fP --show disk.img   # creates /dev/loop0p1 ...
+sudo mount /dev/loop0p1 /mnt/img
+</code></pre>
+<p class="upd">Last updated 2026-11-21.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-device-or-resource-busy/">umount: target is busy / Device or resource busy</a></li><li><a href="/linux/linux-no-space-left-on-device/">No space left on device</a></li><li><a href="/linux/linux-read-only-file-system/">Read-only file system</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-apt-hash-sum-mismatch/">E: Failed to fetch ... Hash Sum mismatch</a></li><li><a href="/linux/linux-apt-no-pubkey/">The following signatures couldn&#x27;t be verified because the public key is not available: NO_PUBKEY</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SSL certificate problem: unable to get local issuer certificate (Git) — how to fix</title>
+<meta name="description" content="Git (via curl/OpenSSL or Schannel) couldn&#x27;t verify the server&#x27;s HTTPS certificate against the CA certificates it trusts. Almost always a corporate proxy/antivirus that re-signs TLS, a self-hosted server with a private CA, or an outdated CA bundle.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-ssl-certificate-problem-unable-to-get-local-issuer-certificate/">
+<meta property="og:title" content="SSL certificate problem: unable to get local issuer certificate (Git) — how to fix"><meta property="og:description" content="Git (via curl/OpenSSL or Schannel) couldn&#x27;t verify the server&#x27;s HTTPS certificate against the CA certificates it trusts. Almost always a corporate proxy/antivirus that re-signs TLS, a self-hosted server with a private CA, or an outdated CA bundle.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-ssl-certificate-problem-unable-to-get-local-issuer-certificate/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "SSL certificate problem: unable to get local issuer certificate (Git) \u2014 how to fix", "description": "Git (via curl/OpenSSL or Schannel) couldn't verify the server's HTTPS certificate against the CA certificates it trusts. Almost always a corporate proxy/antivirus that re-signs TLS, a self-hosted server with a private CA, or an outdated CA bundle.", "dateModified": "2026-11-20", "url": "https://errorfix-hollis.github.io/git/git-ssl-certificate-problem-unable-to-get-local-issuer-certificate/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "SSL certificate problem: unable to get local issuer certificate", "item": "https://errorfix-hollis.github.io/git/git-ssl-certificate-problem-unable-to-get-local-issuer-certificate/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>SSL certificate problem: unable to get local issuer certificate (Git) — how to fix</h1>
+<pre class="err"><code>fatal: unable to access &#x27;https://github.com/user/repo.git/&#x27;: SSL certificate problem: unable to get local issuer certificate
+fatal: unable to access &#x27;https://gitlab.company.com/group/repo.git/&#x27;: SSL certificate problem: self signed certificate in certificate chain
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> On Windows switch Git to the system certificate store: <code>git config --global http.sslBackend schannel</code>. Elsewhere, add your company/root CA: <code>git config --global http.sslCAInfo /path/to/company-ca.pem</code> (or per host with <code>http.https://git.company.com/.sslCAInfo</code>). Update CA certificates (<code>sudo apt install --reinstall ca-certificates</code>). Don't disable verification globally.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When you clone, fetch or push over HTTPS, Git checks that the server's certificate chain leads to a trusted root CA. "Unable to get local issuer certificate" means it couldn't find the issuer of the presented certificate in its CA bundle. The certificate isn't necessarily bad — your Git just doesn't trust whoever signed it.</p>
+<p>See what certificate you're actually getting:</p>
+<pre><code class="language-bash">openssl s_client -connect github.com:443 -servername github.com &lt;/dev/null 2&gt;/dev/null | openssl x509 -noout -issuer -subject
+</code></pre>
+<p>If the issuer is your company, Zscaler, Netskope, Fortinet, or an antivirus (Avast, Kaspersky...) instead of a public CA, the traffic is being intercepted and re-signed.</p>
+<h2 id="fix-1-windows-use-the-windows-certificate-store">Fix 1: Windows — use the Windows certificate store</h2>
+<p>Git for Windows ships its own CA bundle that doesn't include CAs your IT department pushed into Windows. Tell Git to use Schannel, which reads the Windows store:</p>
+<pre><code class="language-bash">git config --global http.sslBackend schannel
+</code></pre>
+<p>This fixes most corporate laptops immediately. (On macOS, Homebrew/Apple Git use their own bundles — use Fix 2.)</p>
+<h2 id="fix-2-trust-your-company-or-private-ca">Fix 2: trust your company or private CA</h2>
+<p>Get the root CA certificate (PEM, <code>-----BEGIN CERTIFICATE-----</code>) from IT, or export it from your browser's certificate viewer. Then point Git at it.</p>
+<p>Only for one server (recommended):</p>
+<pre><code class="language-bash">git config --global http.&quot;https://git.company.com/&quot;.sslCAInfo /home/me/certs/company-ca.pem
+</code></pre>
+<p>For all hosts, combine it with the normal bundle so public sites still work:</p>
+<pre><code class="language-bash">cat /etc/ssl/certs/ca-certificates.crt ~/certs/company-ca.pem &gt; ~/certs/git-bundle.pem
+git config --global http.sslCAInfo ~/certs/git-bundle.pem
+</code></pre>
+<p>Or add it to the system store (Debian/Ubuntu), which Git uses by default on Linux:</p>
+<pre><code class="language-bash">sudo cp company-ca.crt /usr/local/share/ca-certificates/
+sudo update-ca-certificates
+</code></pre>
+<p>On RHEL/Fedora: copy to <code>/etc/pki/ca-trust/source/anchors/</code> and run <code>sudo update-ca-trust</code>.</p>
+<h2 id="fix-3-the-ca-bundle-is-missing-or-outdated">Fix 3: the CA bundle is missing or outdated</h2>
+<p>Minimal Docker images and old systems may have no CA certificates at all:</p>
+<pre><code class="language-bash">sudo apt-get install --reinstall ca-certificates   # Debian/Ubuntu
+apk add ca-certificates                             # Alpine
+</code></pre>
+<p>Also check whether something already overrides the path with a wrong file:</p>
+<pre><code class="language-bash">git config --show-origin --get-all http.sslCAInfo
+echo $GIT_SSL_CAINFO $SSL_CERT_FILE
+</code></pre>
+<p>Upgrading Git for Windows also refreshes its bundled certificates.</p>
+<h2 id="fix-4-self-hosted-server-with-an-incomplete-chain">Fix 4: self-hosted server with an incomplete chain</h2>
+<p>If everyone gets the error for your own GitLab/Gitea/Bitbucket server, the server probably sends only its leaf certificate without the intermediate. Configure the web server with the full chain (e.g. nginx <code>ssl_certificate</code> pointing to <code>fullchain.pem</code>, not <code>cert.pem</code>).</p>
+<h2 id="about-disabling-verification">About disabling verification</h2>
+<p><code>git config --global http.sslVerify false</code> makes the error go away by accepting any certificate, including an attacker's. If you must use it temporarily, limit it to one command and one host:</p>
+<pre><code class="language-bash">git -c http.sslVerify=false clone https://git.company.com/group/repo.git
+</code></pre>
+<p>Or use SSH remotes (<code>git@github.com:user/repo.git</code>), which don't depend on HTTPS certificates at all.</p>
+<p class="upd">Last updated 2026-11-20.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-could-not-resolve-proxy/">fatal: unable to access &#x27;...&#x27;: Could not resolve proxy: proxy.example.com</a></li><li><a href="/npm/node-unable-to-get-issuer-cert-locally/">Error: unable to get local issuer certificate (UNABLE_TO_GET_ISSUER_CERT_LOCALLY)</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

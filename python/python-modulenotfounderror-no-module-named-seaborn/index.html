@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;seaborn&#x27; (Python) — how to fix</title>
+<meta name="description" content="The seaborn plotting library is not installed for the Python interpreter (or Jupyter kernel) that runs your code. It is not bundled with matplotlib or pandas.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-seaborn/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;seaborn&#x27; (Python) — how to fix"><meta property="og:description" content="The seaborn plotting library is not installed for the Python interpreter (or Jupyter kernel) that runs your code. It is not bundled with matplotlib or pandas.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-seaborn/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'seaborn' (Python) \u2014 how to fix", "description": "The seaborn plotting library is not installed for the Python interpreter (or Jupyter kernel) that runs your code. It is not bundled with matplotlib or pandas.", "dateModified": "2026-11-16", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-seaborn/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'seaborn'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-seaborn/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;seaborn&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;plot.py&quot;, line 2, in &lt;module&gt;
+    import seaborn as sns
+ModuleNotFoundError: No module named &#x27;seaborn&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install it into the same interpreter: <code>python -m pip install seaborn</code> (or <code>%pip install seaborn</code> inside Jupyter, then restart the kernel; <code>conda install seaborn</code> in conda). Verify with <code>python -c "import seaborn; print(seaborn.__version__)"</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>import seaborn</code> searched every directory on <code>sys.path</code> and didn't find the package. Seaborn is a separate install — having matplotlib, pandas or numpy doesn't include it. Nearly always it's either not installed or installed for a different Python.</p>
+<h2 id="fix-1-install-with-the-right-interpreter">Fix 1: install with the right interpreter</h2>
+<pre><code class="language-bash">python -m pip install seaborn
+python -c &quot;import seaborn; print(seaborn.__version__)&quot;
+</code></pre>
+<p><code>python -m pip</code> installs into exactly the Python that <code>python</code> runs. If you run scripts with <code>python3</code> or <code>py</code>, use <code>python3 -m pip</code> / <code>py -m pip</code>. Seaborn pulls in numpy, pandas and matplotlib automatically.</p>
+<p>Check which interpreter you're actually using:</p>
+<pre><code class="language-bash">python -c &quot;import sys; print(sys.executable)&quot;
+python -m pip --version
+</code></pre>
+<h2 id="fix-2-jupyter-notebook-jupyterlab">Fix 2: Jupyter Notebook / JupyterLab</h2>
+<p>The notebook kernel can be a different Python from your terminal. Install from a cell so it goes into the kernel's environment:</p>
+<pre><code class="language-python">%pip install seaborn
+</code></pre>
+<p>Then <strong>restart the kernel</strong> (Kernel → Restart). Avoid <code>!pip install</code>, which may use a different pip.</p>
+<p>To check the kernel's interpreter:</p>
+<pre><code class="language-python">import sys; print(sys.executable)
+</code></pre>
+<h2 id="fix-3-anaconda-conda">Fix 3: Anaconda / conda</h2>
+<pre><code class="language-bash">conda activate myenv
+conda install seaborn
+# or from conda-forge
+conda install -c conda-forge seaborn
+</code></pre>
+<p>If Jupyter is installed in <code>base</code> but your packages are in <code>myenv</code>, register the env as a kernel:</p>
+<pre><code class="language-bash">conda activate myenv
+conda install ipykernel
+python -m ipykernel install --user --name myenv
+</code></pre>
+<p>and pick "myenv" in the notebook's kernel menu.</p>
+<h2 id="fix-4-virtual-environments-and-system-python">Fix 4: virtual environments and system Python</h2>
+<p>On Debian 12+/Ubuntu 23.04+ the system Python rejects pip (<code>externally-managed-environment</code>). Use a venv:</p>
+<pre><code class="language-bash">python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+python -m pip install seaborn
+</code></pre>
+<p>Or install the distro package: <code>sudo apt install python3-seaborn</code>.</p>
+<h2 id="fix-5-vs-code-pycharm-uses-another-interpreter">Fix 5: VS Code / PyCharm uses another interpreter</h2>
+<ul>
+<li><strong>VS Code</strong>: Ctrl+Shift+P → "Python: Select Interpreter" → choose the venv or conda env where seaborn is installed. For notebooks, also pick the kernel in the top-right corner.</li>
+<li><strong>PyCharm</strong>: Settings → Project → Python Interpreter → <code>+</code> → seaborn.</li>
+</ul>
+<h2 id="fix-6-a-file-named-seabornpy">Fix 6: a file named seaborn.py</h2>
+<p>If your own script is called <code>seaborn.py</code>, <code>import seaborn</code> imports your file instead (resulting in errors like <code>AttributeError: module 'seaborn' has no attribute 'set_theme'</code>). Rename it and delete <code>__pycache__/</code>.</p>
+<h2 id="version-notes">Version notes</h2>
+<ul>
+<li><code>sns.set()</code> still works but <code>sns.set_theme()</code> is the current name.</li>
+<li><code>sns.distplot</code> was deprecated in 0.11 — use <code>sns.histplot</code> or <code>sns.displot</code>. If old tutorial code fails after installing, that's why.</li>
+<li>Built-in example datasets (<code>sns.load_dataset("tips")</code>) are downloaded from GitHub and need internet access.</li>
+</ul>
+<p class="upd">Last updated 2026-11-16.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-modulenotfounderror-no-module-named-matplotlib/">ModuleNotFoundError: No module named &#x27;matplotlib&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-pandas/">ModuleNotFoundError: No module named &#x27;pandas&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

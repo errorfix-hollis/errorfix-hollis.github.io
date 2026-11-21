@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error response from daemon: conflict: unable to delete (cannot be forced) - image has dependent child images (Docker) — how to fix</title>
+<meta name="description" content="Other local images were built on top of this image (it&#x27;s a parent layer of them), so Docker refuses to delete it, even with -f. Remove the child images first, or remove by tag instead of by ID.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-image-has-dependent-child-images/">
+<meta property="og:title" content="Error response from daemon: conflict: unable to delete (cannot be forced) - image has dependent child images (Docker) — how to fix"><meta property="og:description" content="Other local images were built on top of this image (it&#x27;s a parent layer of them), so Docker refuses to delete it, even with -f. Remove the child images first, or remove by tag instead of by ID.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-image-has-dependent-child-images/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error response from daemon: conflict: unable to delete (cannot be forced) - image has dependent child images (Docker) \u2014 how to fix", "description": "Other local images were built on top of this image (it's a parent layer of them), so Docker refuses to delete it, even with -f. Remove the child images first, or remove by tag instead of by ID.", "dateModified": "2026-11-18", "url": "https://errorfix-hollis.github.io/docker/docker-image-has-dependent-child-images/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "Error response from daemon: conflict: unable to delete (cannot be forced) - image has dependent child images", "item": "https://errorfix-hollis.github.io/docker/docker-image-has-dependent-child-images/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>Error response from daemon: conflict: unable to delete (cannot be forced) - image has dependent child images (Docker) — how to fix</h1>
+<pre class="err"><code>Error response from daemon: conflict: unable to delete 4f2a1c8e9b3d (cannot be forced) - image has dependent child images
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find the children with <code>docker images --filter since=&lt;IMAGE_ID&gt; -q</code> (or inspect <code>.Parent</code>), delete them first, then the parent. Usually simplest: <code>docker image prune -a</code> to remove all unused images, or <code>docker rmi repo:tag</code> to untag without deleting shared layers. Never delete files in /var/lib/docker by hand.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Docker images are stacks of layers. When you build image B <code>FROM</code> image A locally (or with the classic builder, every intermediate build step), B references A as its <em>parent</em>. Deleting A would break B, so <code>docker rmi</code> refuses — and <code>-f</code> doesn't help, hence "cannot be forced".</p>
+<p>You usually hit this when deleting by <strong>image ID</strong>, especially IDs of <code>&lt;none&gt;</code> images left over from builds.</p>
+<h2 id="fix-1-remove-unused-images-with-prune">Fix 1: remove unused images with prune</h2>
+<p>If you just want to free space, let Docker work out the order:</p>
+<pre><code class="language-bash">docker image prune        # dangling (&lt;none&gt;) images only
+docker image prune -a     # every image not used by a container
+docker system prune -a    # also stopped containers, unused networks, build cache
+</code></pre>
+<p>Prune deletes children before parents automatically. It won't touch images used by existing containers (including stopped ones), so remove those containers first if needed: <code>docker container prune</code>.</p>
+<h2 id="fix-2-find-and-delete-the-child-images">Fix 2: find and delete the child images</h2>
+<p>List images created after the parent; children are among them:</p>
+<pre><code class="language-bash">docker images --filter since=4f2a1c8e9b3d
+</code></pre>
+<p>To find exact children by parent ID (works for images built with the classic builder, which records <code>.Parent</code>):</p>
+<pre><code class="language-bash">for i in $(docker images -aq); do
+  docker inspect --format '{{.Id}} {{.Parent}}' &quot;$i&quot;
+done | grep 4f2a1c8e9b3d
+</code></pre>
+<p>Delete the children (by tag if they have one), then the parent:</p>
+<pre><code class="language-bash">docker rmi myapp:latest
+docker rmi 4f2a1c8e9b3d
+</code></pre>
+<h2 id="fix-3-delete-by-tag-not-by-id">Fix 3: delete by tag, not by ID</h2>
+<p>If an image ID has several tags, or is the base of another tagged image, removing a tag just untags it:</p>
+<pre><code class="language-bash">docker rmi node-base:old      # &quot;Untagged: node-base:old&quot;
+</code></pre>
+<p>The layers stay as long as something uses them, which is what you want. Listing with <code>docker images</code> shows which repository:tag pairs share an ID.</p>
+<h2 id="fix-4-intermediate-images-with-docker-images-a">Fix 4: intermediate images with docker images -a</h2>
+<p><code>docker images -a</code> shows intermediate layers (<code>&lt;none&gt;:&lt;none&gt;</code>) from classic builds. These are <em>meant</em> to be children of each other and of your final image; you don't need to delete them one by one. They disappear when the final image is removed, or with <code>docker image prune</code>.</p>
+<h2 id="fix-5-remove-everything-dev-machines-only">Fix 5: remove everything (dev machines only)</h2>
+<pre><code class="language-bash">docker rm -f $(docker ps -aq)          # all containers
+docker rmi -f $(docker images -aq)     # all images; repeat if some fail on order
+</code></pre>
+<p>Run the <code>rmi</code> line a second time if the first pass hits ordering conflicts — children removed in the first pass free their parents.</p>
+<h2 id="dont">Don't</h2>
+<p>Don't delete directories under <code>/var/lib/docker</code> manually to get rid of an image. It corrupts Docker's metadata and causes errors like <code>layer does not exist</code>. Use <code>docker system prune</code> or, as a last resort on a dev box, Docker Desktop's "Clean / Purge data".</p>
+<p class="upd">Last updated 2026-11-18.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-conflict-unable-to-delete-image-is-being-used/">Error response from daemon: conflict: unable to delete image - image is being used by stopped container</a></li><li><a href="/docker/docker-container-name-already-in-use/">Conflict. The container name is already in use by container</a></li><li><a href="/docker/docker-no-space-left-on-device/">no space left on device (Docker)</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-additional-property-is-not-allowed/">Additional property is not allowed</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

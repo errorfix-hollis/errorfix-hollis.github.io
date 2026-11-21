@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CONFLICT (modify/delete): deleted in HEAD and modified in ... (Git) — how to fix</title>
+<meta name="description" content="One side of a merge, rebase or cherry-pick deleted a file while the other side changed it. Git can&#x27;t combine a deletion with an edit, so you must decide whether the file stays or goes.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-conflict-modify-delete/">
+<meta property="og:title" content="CONFLICT (modify/delete): deleted in HEAD and modified in ... (Git) — how to fix"><meta property="og:description" content="One side of a merge, rebase or cherry-pick deleted a file while the other side changed it. Git can&#x27;t combine a deletion with an edit, so you must decide whether the file stays or goes.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-conflict-modify-delete/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "CONFLICT (modify/delete): deleted in HEAD and modified in ... (Git) \u2014 how to fix", "description": "One side of a merge, rebase or cherry-pick deleted a file while the other side changed it. Git can't combine a deletion with an edit, so you must decide whether the file stays or goes.", "dateModified": "2026-11-21", "url": "https://errorfix-hollis.github.io/git/git-conflict-modify-delete/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "CONFLICT (modify/delete): deleted in HEAD and modified in ...", "item": "https://errorfix-hollis.github.io/git/git-conflict-modify-delete/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>CONFLICT (modify/delete): deleted in HEAD and modified in ... (Git) — how to fix</h1>
+<pre class="err"><code>CONFLICT (modify/delete): src/old.js deleted in HEAD and modified in feature. Version feature of src/old.js left in tree.
+Automatic merge failed; fix conflicts and then commit the result.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Keep the file: <code>git add path/to/file</code>. Delete it: <code>git rm path/to/file</code>. Then <code>git commit</code> (merge), <code>git rebase --continue</code> (rebase) or <code>git cherry-pick --continue</code>. Check <code>git status</code> for every <code>deleted by us</code> / <code>deleted by them</code> entry first.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A normal content conflict has two versions of the same lines. A <em>modify/delete</em> conflict has one side where the file no longer exists. There are no conflict markers to edit; Git leaves the modified version in your working tree and waits for you to either keep it (<code>git add</code>) or remove it (<code>git rm</code>).</p>
+<p>The message tells you which side did what:</p>
+<ul>
+<li><code>deleted in HEAD and modified in feature</code>: your current branch deleted it, the branch being merged changed it.</li>
+<li><code>deleted in feature and modified in HEAD</code>: the reverse.</li>
+</ul>
+<pre><code class="language-bash">git status
+#   deleted by us:   src/old.js
+#   deleted by them: docs/setup.md
+</code></pre>
+<p>During a <strong>rebase</strong> "us" and "them" are swapped: "us" is the branch you're rebasing onto, "them" is your commit being replayed.</p>
+<h2 id="fix-1-keep-the-modified-file">Fix 1: keep the modified file</h2>
+<p>The changes matter and the file should stay:</p>
+<pre><code class="language-bash">git add src/old.js
+</code></pre>
+<h2 id="fix-2-accept-the-deletion">Fix 2: accept the deletion</h2>
+<p>The file was removed on purpose and the edits are no longer needed:</p>
+<pre><code class="language-bash">git rm src/old.js
+</code></pre>
+<p>Before throwing the edits away, look at what they were, so you can port them if needed:</p>
+<pre><code class="language-bash">git log --oneline -p MERGE_HEAD -- src/old.js | head -50     # during a merge
+git diff HEAD...MERGE_HEAD -- src/old.js
+</code></pre>
+<h2 id="fix-3-the-file-was-moved-not-deleted">Fix 3: the file was moved, not deleted</h2>
+<p>If one branch renamed or split the file and Git didn't detect the rename (too many changes), you get modify/delete instead of a clean merge. Apply the edits to the new location, then remove the old path:</p>
+<pre><code class="language-bash">git show MERGE_HEAD:src/old.js &gt; /tmp/old.js   # their version
+# copy the relevant changes into src/new.js
+git add src/new.js
+git rm src/old.js
+</code></pre>
+<p>Lowering the rename threshold sometimes lets Git do it automatically:</p>
+<pre><code class="language-bash">git merge --abort
+git merge -X find-renames=30% feature
+</code></pre>
+<h2 id="finish-the-operation">Finish the operation</h2>
+<p>After every conflicted path is resolved (<code>git status</code> shows none under "Unmerged paths"):</p>
+<pre><code class="language-bash">git commit                   # merge
+git rebase --continue        # rebase
+git cherry-pick --continue   # cherry-pick
+git stash drop               # after a conflicting &quot;git stash pop&quot; (resolve, then drop)
+</code></pre>
+<p>To start over: <code>git merge --abort</code>, <code>git rebase --abort</code> or <code>git cherry-pick --abort</code>.</p>
+<h2 id="many-files-at-once">Many files at once</h2>
+<p>Resolving lots of these in one direction (e.g. a big directory that was deleted on main):</p>
+<pre><code class="language-bash"># accept all deletions done by &quot;us&quot;
+git status --porcelain | awk '$1==&quot;DU&quot;{print $2}' | xargs -r git rm
+# keep all files deleted by &quot;them&quot;
+git status --porcelain | awk '$1==&quot;UD&quot;{print $2}' | xargs -r git add
+</code></pre>
+<p>In porcelain output, <code>DU</code> = deleted by us, <code>UD</code> = deleted by them.</p>
+<p class="upd">Last updated 2026-11-21.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-merge-conflict/">CONFLICT (content): Merge conflict in</a></li><li><a href="/git/git-you-have-not-concluded-your-merge-merge-head-exists/">fatal: You have not concluded your merge (MERGE_HEAD exists).</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

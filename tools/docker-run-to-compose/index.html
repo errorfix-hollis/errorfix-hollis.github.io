@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>docker run to docker-compose Converter — convert commands to compose.yaml</title>
+<meta name="description" content="Paste docker run commands and get a compose.yaml: ports, volumes, bind mounts, environment, env files, networks, restart policy, healthchecks, GPUs, ulimits and more, with warnings for flags that behave differently in Compose.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/docker-run-to-compose/">
+<meta property="og:title" content="docker run to docker-compose Converter — convert commands to compose.yaml"><meta property="og:description" content="Paste docker run commands and get a compose.yaml: ports, volumes, bind mounts, environment, env files, networks, restart policy, healthchecks, GPUs, ulimits and more, with warnings for flags that behave differently in Compose.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/docker-run-to-compose/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "docker run to Compose converter", "url": "https://errorfix-hollis.github.io/tools/docker-run-to-compose/", "description": "Paste docker run commands and get a compose.yaml: ports, volumes, bind mounts, environment, env files, networks, restart policy, healthchecks, GPUs, ulimits and more, with warnings for flags that behave differently in Compose.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-20", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": "docker run to Compose converter", "item": "https://errorfix-hollis.github.io/tools/docker-run-to-compose/"}]}</script><script src="/tools.js?v=4ee891c8" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>Convert docker run to docker compose</h1>
+<p class="lead">Convert one or more docker run commands into a docker compose file. Handles -p, -v, --mount, -e, --env-file, --name, --restart, --network, -w, -u, --entrypoint, healthchecks, --gpus and the image&#x27;s command, and explains what has no Compose equivalent.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="dockerrun"><label for="dr-in">Paste one or more <code>docker run</code> commands</label>
+<textarea id="dr-in" spellcheck="false" placeholder="docker run -d --name web -p 8080:80 -v ./html:/usr/share/nginx/html:ro --restart unless-stopped nginx:alpine"></textarea>
+<div class="row"><button id="dr-conv">Convert</button><button id="dr-sample" class="sec">Example</button><button id="dr-sample2" class="sec">Example: app + database</button></div>
+<div id="dr-msg" class="msg" hidden></div>
+<label for="dr-out">compose.yaml</label>
+<textarea id="dr-out" spellcheck="false" readonly></textarea>
+<div class="row"><button id="dr-copy" class="sec">Copy</button><button id="dr-dl" class="sec">Download compose.yaml</button></div>
+<ul id="dr-warn" class="warn" hidden></ul>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<h2 id="how-flags-map-to-compose-keys">How flags map to Compose keys</h2>
+<table>
+<thead>
+<tr>
+<th>docker run</th>
+<th>compose.yaml</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--name web</code></td>
+<td><code>container_name: web</code>, and the service is named <code>web</code></td>
+</tr>
+<tr>
+<td><code>-p 8080:80</code></td>
+<td><code>ports: ["8080:80"]</code></td>
+</tr>
+<tr>
+<td><code>-v ./data:/data</code>, <code>-v pgdata:/data</code></td>
+<td><code>volumes:</code>; named volumes are also declared at the top level</td>
+</tr>
+<tr>
+<td><code>--mount type=bind,…</code></td>
+<td>long-syntax volume (<code>type</code>, <code>source</code>, <code>target</code>, <code>read_only</code>)</td>
+</tr>
+<tr>
+<td><code>-e KEY=value</code>, <code>--env-file .env</code></td>
+<td><code>environment:</code>, <code>env_file:</code></td>
+</tr>
+<tr>
+<td><code>--network mynet</code></td>
+<td><code>networks: [mynet]</code> + top-level <code>external: true</code></td>
+</tr>
+<tr>
+<td><code>--network host</code></td>
+<td><code>network_mode: "host"</code></td>
+</tr>
+<tr>
+<td><code>--restart unless-stopped</code></td>
+<td><code>restart: unless-stopped</code></td>
+</tr>
+<tr>
+<td><code>-w</code>, <code>-u</code>, <code>--entrypoint</code></td>
+<td><code>working_dir</code>, <code>user</code>, <code>entrypoint</code></td>
+</tr>
+<tr>
+<td>arguments after the image</td>
+<td><code>command: [...]</code></td>
+</tr>
+<tr>
+<td><code>-it</code></td>
+<td><code>stdin_open: true</code>, <code>tty: true</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="gotchas-the-converter-handles">Gotchas the converter handles</h2>
+<ul>
+<li><strong>Always quote ports.</strong> YAML 1.1 reads <code>22:22</code> as a base-60 number (1342), so the converter always writes ports as strings.</li>
+<li><strong><code>$</code> must be doubled.</strong> Compose substitutes <code>${VAR}</code> and <code>$VAR</code> from your shell and <code>.env</code>, so a password like <code>pa$word</code> must be written <code>pa$$word</code>. The converter does this for you.</li>
+<li><strong><code>restart: "no"</code></strong> needs quotes, because a bare <code>no</code> is a boolean in YAML.</li>
+<li><strong><code>$(pwd)</code> becomes <code>.</code></strong>. Relative paths in compose.yaml are relative to the file itself.</li>
+<li><strong><code>--rm</code> and <code>-d</code> are not file settings.</strong> Use <code>docker compose up -d</code>, and <code>docker compose run --rm service</code> for one-off tasks.</li>
+<li><strong>Named volumes get a project prefix.</strong> <code>pgdata</code> becomes <code>myproject_pgdata</code>, so add <code>external: true</code> to reuse data created by <code>docker run</code>.</li>
+</ul>
+<p>You don't need a top-level <code>version:</code> key any more (see <a href="/docker/docker-compose-version-is-obsolete/">the attribute <code>version</code> is obsolete</a>). If <code>docker compose up</code> then fails with <a href="/docker/docker-port-is-already-allocated/">port is already allocated</a>, the old <code>docker run</code> container is probably still running: <code>docker rm -f &lt;name&gt;</code> first.</p>
+<p class="upd">Last updated 2026-11-20.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-port-is-already-allocated/">Bind for 0.0.0.0:8080 failed: port is already allocated</a></li><li><a href="/docker/docker-compose-additional-property-is-not-allowed/">Additional property is not allowed</a></li><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li><li><a href="/docker/docker-compose-version-is-obsolete/">the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/json-formatter/">JSON formatter &amp; validator</a></li><li><a href="/tools/cron-expression-explainer/">Cron expression explainer</a></li><li><a href="/tools/chmod-calculator/">chmod calculator</a></li><li><a href="/tools/unix-timestamp-converter/">Unix timestamp converter</a></li><li><a href="/tools/base64-encode-decode/">Base64 encode / decode</a></li><li><a href="/tools/url-encode-decode/">URL encode / decode</a></li><li><a href="/tools/jwt-decoder/">JWT decoder</a></li><li><a href="/tools/regex-tester/">Regex tester</a></li><li><a href="/tools/yaml-validator/">YAML validator &amp; YAML ↔ JSON converter</a></li><li><a href="/tools/uuid-generator/">UUID generator &amp; validator (v4, v7)</a></li><li><a href="/tools/text-diff/">Text diff checker</a></li><li><a href="/tools/http-status-codes/">HTTP status codes reference</a></li><li><a href="/tools/hash-generator/">Hash generator (MD5, SHA-256, SHA-512)</a></li><li><a href="/tools/line-ending-whitespace-inspector/">Line ending &amp; whitespace inspector</a></li><li><a href="/tools/sql-formatter/">SQL formatter</a></li><li><a href="/tools/curl-to-code/">cURL to code converter</a></li><li><a href="/tools/gitignore-generator/">.gitignore generator &amp; tester</a></li><li><a href="/tools/csv-to-json/">CSV ↔ JSON converter</a></li><li><a href="/tools/subnet-calculator/">Subnet / CIDR calculator</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

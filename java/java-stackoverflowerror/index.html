@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Exception in thread &quot;main&quot; java.lang.StackOverflowError — how to fix</title>
+<meta name="description" content="A thread&#x27;s call stack ran out of space, almost always because of infinite or very deep recursion: a missing base case, two methods calling each other, or toString/equals/hashCode/JSON serialization looping over a bidirectional relationship.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-stackoverflowerror/">
+<meta property="og:title" content="Exception in thread &quot;main&quot; java.lang.StackOverflowError — how to fix"><meta property="og:description" content="A thread&#x27;s call stack ran out of space, almost always because of infinite or very deep recursion: a missing base case, two methods calling each other, or toString/equals/hashCode/JSON serialization looping over a bidirectional relationship.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-stackoverflowerror/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Exception in thread \"main\" java.lang.StackOverflowError \u2014 how to fix", "description": "A thread's call stack ran out of space, almost always because of infinite or very deep recursion: a missing base case, two methods calling each other, or toString/equals/hashCode/JSON serialization looping over a bidirectional relationship.", "dateModified": "2026-11-20", "url": "https://errorfix-hollis.github.io/java/java-stackoverflowerror/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "Exception in thread \"main\" java.lang.StackOverflowError", "item": "https://errorfix-hollis.github.io/java/java-stackoverflowerror/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>Exception in thread &quot;main&quot; java.lang.StackOverflowError — how to fix</h1>
+<pre class="err"><code>Exception in thread &quot;main&quot; java.lang.StackOverflowError
+	at com.example.Main.factorial(Main.java:8)
+	at com.example.Main.factorial(Main.java:8)
+	at com.example.Main.factorial(Main.java:8)
+	...
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Look at the repeating lines in the stack trace: they show the recursive method(s). Add or fix the base case, break cycles (e.g. <code>@JsonIgnore</code>/<code>@JsonManagedReference</code> on JPA bidirectional relations, exclude the back-reference from Lombok <code>@ToString</code>/<code>@EqualsAndHashCode</code>), or convert deep recursion to a loop. Raising the stack with <code>-Xss4m</code> only helps for legitimately deep (finite) recursion.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Every method call pushes a frame onto the thread's stack. The stack has a fixed size (typically 512 KB–1 MB per thread on 64-bit JVMs). When calls nest too deeply, the JVM throws <code>StackOverflowError</code>. It's an <code>Error</code>, not an <code>Exception</code> — don't try to catch it as a fix.</p>
+<p>The stack trace is the key: it repeats the same one, two or few lines thousands of times. Those lines are the loop.</p>
+<h2 id="cause-1-recursion-without-a-reachable-base-case">Cause 1: recursion without a (reachable) base case</h2>
+<pre><code class="language-java">static long factorial(int n) {
+    return n * factorial(n - 1);      // never stops
+}
+</code></pre>
+<p>Fix the base case, and make sure every path moves toward it:</p>
+<pre><code class="language-java">static long factorial(int n) {
+    if (n &lt;= 1) return 1;
+    return n * factorial(n - 1);
+}
+</code></pre>
+<p>Common variants: the base case compares with <code>==</code> but the value skips over it (<code>n -= 2</code> with an odd start), the argument isn't changed (<code>helper(n)</code> instead of <code>helper(n - 1)</code>), or the input is negative.</p>
+<h2 id="cause-2-a-method-that-accidentally-calls-itself">Cause 2: a method that accidentally calls itself</h2>
+<p>Getters, setters and overrides that refer to themselves:</p>
+<pre><code class="language-java">public String getName() {
+    return getName();          // meant: return name;
+}
+
+public void setAge(int age) {
+    setAge(age);               // meant: this.age = age;
+}
+
+@Override
+public String toString() {
+    return &quot;User &quot; + this;     // &quot;this&quot; calls toString() again
+}
+</code></pre>
+<p>Constructors that create an instance of their own class (<code>new Node()</code> inside <code>Node()</code>'s constructor or a field initializer) cause the same thing.</p>
+<h2 id="cause-3-cycles-in-tostring-equals-hashcode-or-json">Cause 3: cycles in toString, equals, hashCode or JSON</h2>
+<p>Two objects referring to each other, e.g. a JPA <code>@OneToMany</code>/<code>@ManyToOne</code> pair:</p>
+<pre><code class="language-java">class Order  { @ManyToOne Customer customer; }
+class Customer { @OneToMany(mappedBy = &quot;customer&quot;) List&lt;Order&gt; orders; }
+</code></pre>
+<p><code>Customer.toString()</code> prints orders, each order prints its customer, and so on. Lombok's <code>@Data</code> generates exactly this for <code>toString</code>, <code>equals</code> and <code>hashCode</code>. Exclude the back-reference:</p>
+<pre><code class="language-java">@ToString.Exclude
+@EqualsAndHashCode.Exclude
+@ManyToOne
+private Customer customer;
+</code></pre>
+<p>With Jackson (Spring REST controllers) the symptom is <code>Infinite recursion (StackOverflowError)</code> / <code>Document nesting depth exceeds</code>. Break the cycle:</p>
+<pre><code class="language-java">@OneToMany(mappedBy = &quot;customer&quot;)
+@JsonManagedReference
+private List&lt;Order&gt; orders;
+
+@ManyToOne
+@JsonBackReference
+private Customer customer;
+</code></pre>
+<p>or <code>@JsonIgnore</code> on one side — better still, return DTOs instead of entities.</p>
+<h2 id="cause-4-spring-configuration-loops">Cause 4: Spring configuration loops</h2>
+<p>A bean whose method calls itself through a proxy, an <code>@Async</code>/AOP advice that triggers itself, or a <code>WebSecurityConfigurer</code> that delegates to itself can recurse during startup. The repeating frames will show Spring classes around your method; look for your own class name in the loop.</p>
+<h2 id="cause-5-recursion-that-is-correct-but-too-deep">Cause 5: recursion that is correct but too deep</h2>
+<p>Walking a 100,000-node linked list or a deep tree recursively may simply exceed the stack. Prefer an explicit loop or stack:</p>
+<pre><code class="language-java">Deque&lt;Node&gt; stack = new ArrayDeque&lt;&gt;();
+stack.push(root);
+while (!stack.isEmpty()) {
+    Node n = stack.pop();
+    // process n
+    n.children.forEach(stack::push);
+}
+</code></pre>
+<p>Or increase the stack size: for the main thread <code>java -Xss8m -jar app.jar</code>, for a specific thread <code>new Thread(null, task, "worker", 64L * 1024 * 1024)</code>. This only buys depth; it won't fix infinite recursion.</p>
+<p class="upd">Last updated 2026-11-20.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-failed-to-load-applicationcontext/">java.lang.IllegalStateException: Failed to load ApplicationContext</a></li><li><a href="/java/java-nullpointerexception/">java.lang.NullPointerException: Cannot invoke &quot;String.length()&quot; because &quot;&lt;local1&gt;&quot; is null</a></li><li><a href="/java/java-outofmemoryerror-java-heap-space/">java.lang.OutOfMemoryError: Java heap space</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

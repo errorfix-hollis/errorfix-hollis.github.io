@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>panic: runtime error: index out of range [5] with length 5 (Go) — how to fix</title>
+<meta name="description" content="You indexed a slice, array or string at a position that doesn&#x27;t exist. Valid indexes are 0 to len-1; Go checks bounds at runtime and panics instead of reading past the end.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-panic-runtime-error-index-out-of-range/">
+<meta property="og:title" content="panic: runtime error: index out of range [5] with length 5 (Go) — how to fix"><meta property="og:description" content="You indexed a slice, array or string at a position that doesn&#x27;t exist. Valid indexes are 0 to len-1; Go checks bounds at runtime and panics instead of reading past the end.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-panic-runtime-error-index-out-of-range/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "panic: runtime error: index out of range [5] with length 5 (Go) \u2014 how to fix", "description": "You indexed a slice, array or string at a position that doesn't exist. Valid indexes are 0 to len-1; Go checks bounds at runtime and panics instead of reading past the end.", "dateModified": "2026-11-17", "url": "https://errorfix-hollis.github.io/go/go-panic-runtime-error-index-out-of-range/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "panic: runtime error: index out of range [5] with length 5", "item": "https://errorfix-hollis.github.io/go/go-panic-runtime-error-index-out-of-range/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>panic: runtime error: index out of range [5] with length 5 (Go) — how to fix</h1>
+<pre class="err"><code>panic: runtime error: index out of range [5] with length 5
+
+goroutine 1 [running]:
+main.main()
+	/home/me/app/main.go:9 +0x1d
+exit status 2
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Look at the file:line in the goroutine trace and check the index against <code>len()</code>: use <code>i &lt; len(s)</code> (not <code>&lt;=</code>) in loops, check <code>len(s) &gt; 0</code> before <code>s[0]</code>, and check <code>len(os.Args)</code> before reading arguments. For slicing errors (<code>slice bounds out of range</code>), make sure <code>low &lt;= high &lt;= cap(s)</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Go slices, arrays and strings are bounds-checked. Accessing <code>s[i]</code> with <code>i &lt; 0</code> or <code>i &gt;= len(s)</code> panics. The message tells you both numbers: <code>index out of range [5] with length 5</code> means you used index 5 on a 5-element slice (valid: 0-4). <code>with length 0</code> means the slice was empty.</p>
+<p>The first <code>main.go:LINE</code> in the stack trace below the panic is where it happened.</p>
+<p>Related messages from the same check:</p>
+<ul>
+<li><code>slice bounds out of range [:7] with capacity 5</code> - slicing <code>s[low:high]</code> past <code>cap</code>.</li>
+<li><code>slice bounds out of range [3:2]</code> - <code>low &gt; high</code>.</li>
+</ul>
+<h2 id="cause-1-off-by-one-in-a-loop">Cause 1: off-by-one in a loop</h2>
+<pre><code class="language-go">for i := 0; i &lt;= len(items); i++ {   // &lt;= goes one past the end
+    fmt.Println(items[i])
+}
+</code></pre>
+<h2 id="fix-1-use-or-range">Fix 1: use <code>&lt;</code> or <code>range</code></h2>
+<pre><code class="language-go">for i := 0; i &lt; len(items); i++ { ... }
+
+for i, item := range items {          // can't go out of range
+    fmt.Println(i, item)
+}
+</code></pre>
+<h2 id="cause-2-empty-slice">Cause 2: empty slice</h2>
+<pre><code class="language-go">users := fetchUsers()      // returned nothing
+first := users[0]          // index out of range [0] with length 0
+</code></pre>
+<h2 id="fix-2-check-the-length-first">Fix 2: check the length first</h2>
+<pre><code class="language-go">if len(users) == 0 {
+    return errors.New(&quot;no users&quot;)
+}
+first := users[0]
+</code></pre>
+<h2 id="cause-3-command-line-arguments">Cause 3: command-line arguments</h2>
+<p><code>os.Args[0]</code> is the program name; the first argument is <code>os.Args[1]</code>. Running without arguments panics:</p>
+<pre><code class="language-go">name := os.Args[1]   // index out of range [1] with length 1
+</code></pre>
+<pre><code class="language-go">if len(os.Args) &lt; 2 {
+    fmt.Fprintln(os.Stderr, &quot;usage: app &lt;name&gt;&quot;)
+    os.Exit(1)
+}
+name := os.Args[1]
+</code></pre>
+<p>The <code>flag</code> package handles this more robustly (<code>flag.Arg(0)</code> returns <code>""</code> when missing).</p>
+<h2 id="cause-4-make-with-length-vs-capacity">Cause 4: <code>make</code> with length vs capacity</h2>
+<pre><code class="language-go">s := make([]int, 0, 10)   // length 0, capacity 10
+s[0] = 1                  // panic: index out of range [0] with length 0
+</code></pre>
+<p>Capacity is not length. Either <code>append</code>, or create the length you need:</p>
+<pre><code class="language-go">s = append(s, 1)
+// or
+s := make([]int, 10)
+s[0] = 1
+</code></pre>
+<h2 id="cause-5-splitting-strings">Cause 5: splitting strings</h2>
+<pre><code class="language-go">parts := strings.Split(line, &quot;=&quot;)
+key, value := parts[0], parts[1]   // panics when the line has no &quot;=&quot;
+</code></pre>
+<pre><code class="language-go">key, value, ok := strings.Cut(line, &quot;=&quot;)
+if !ok { /* handle bad line */ }
+</code></pre>
+<h2 id="cause-6-indexing-strings-by-character">Cause 6: indexing strings by character</h2>
+<p><code>s[i]</code> indexes <strong>bytes</strong>, and <code>len(s)</code> counts bytes. With non-ASCII text, convert to runes first:</p>
+<pre><code class="language-go">r := []rune(s)
+if len(r) &gt; 3 {
+    fmt.Println(string(r[3]))
+}
+</code></pre>
+<h2 id="cause-7-concurrent-modification">Cause 7: concurrent modification</h2>
+<p>If one goroutine shrinks a slice while another indexes it, you get intermittent panics. Run tests with <code>go test -race</code> and protect shared slices with a <code>sync.Mutex</code>.</p>
+<h2 id="recovering-instead-of-crashing">Recovering instead of crashing</h2>
+<p>For servers, <code>net/http</code> already recovers panics per request. Elsewhere you can <code>defer func() { if r := recover(); r != nil { ... } }()</code>, but fix the bounds check - recovering hides the bug.</p>
+<p class="upd">Last updated 2026-11-17.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-all-goroutines-are-asleep-deadlock/">fatal error: all goroutines are asleep - deadlock!</a></li><li><a href="/go/go-invalid-memory-address-or-nil-pointer-dereference/">panic: runtime error: invalid memory address or nil pointer dereference</a></li><li><a href="/go/go-panic-assignment-to-entry-in-nil-map/">panic: assignment to entry in nil map</a></li><li><a href="/go/go-cannot-find-main-module/">go: cannot find main module, but found .git/config</a></li><li><a href="/go/go-cannot-use-as-value-in-assignment/">cannot use x (variable of type T) as U value in assignment</a></li><li><a href="/go/go-declared-and-not-used/">declared and not used</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

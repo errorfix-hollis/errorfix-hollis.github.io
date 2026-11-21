@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NET::ERR_CERT_COMMON_NAME_INVALID — how to fix</title>
+<meta name="description" content="The site&#x27;s TLS certificate is valid, but not for the hostname in the address bar: the domain (e.g. `www.` vs bare domain, a subdomain, or an IP) isn&#x27;t listed in the certificate&#x27;s Subject Alternative Names.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-err-cert-common-name-invalid/">
+<meta property="og:title" content="NET::ERR_CERT_COMMON_NAME_INVALID — how to fix"><meta property="og:description" content="The site&#x27;s TLS certificate is valid, but not for the hostname in the address bar: the domain (e.g. `www.` vs bare domain, a subdomain, or an IP) isn&#x27;t listed in the certificate&#x27;s Subject Alternative Names.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-err-cert-common-name-invalid/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "NET::ERR_CERT_COMMON_NAME_INVALID \u2014 how to fix", "description": "The site's TLS certificate is valid, but not for the hostname in the address bar: the domain (e.g. `www.` vs bare domain, a subdomain, or an IP) isn't listed in the certificate's Subject Alternative Names.", "dateModified": "2026-11-20", "url": "https://errorfix-hollis.github.io/web/web-err-cert-common-name-invalid/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "NET::ERR_CERT_COMMON_NAME_INVALID", "item": "https://errorfix-hollis.github.io/web/web-err-cert-common-name-invalid/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>NET::ERR_CERT_COMMON_NAME_INVALID — how to fix</h1>
+<pre class="err"><code>Your connection is not private
+Attackers might be trying to steal your information from www.example.com (for example, passwords, messages, or credit cards).
+NET::ERR_CERT_COMMON_NAME_INVALID
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check which names the cert covers: `openssl s_client -connect example.com:443 -servername example.com </p>
+<h2 id="what-it-means">What it means</h2>
+<p>A certificate lists the hostnames it's valid for in the <strong>Subject Alternative Name</strong> (SAN) extension. Chrome (and Edge) compare that list with the hostname you visited. If it isn't there, you get <code>ERR_CERT_COMMON_NAME_INVALID</code>. Firefox calls it <code>SSL_ERROR_BAD_CERT_DOMAIN</code>; curl says <code>no alternative certificate subject name matches target host name</code>.</p>
+<p>Since Chrome 58, the old Common Name (CN) field is <strong>ignored</strong> — only SANs count.</p>
+<p>See what the server sends:</p>
+<pre><code class="language-bash">openssl s_client -connect www.example.com:443 -servername www.example.com &lt;/dev/null 2&gt;/dev/null \
+  | openssl x509 -noout -subject -ext subjectAltName
+</code></pre>
+<p>In Chrome: click "Not secure" → <em>Certificate is not valid</em> → <em>Details</em> → <em>Subject Alternative Name</em>.</p>
+<h2 id="cause-1-www-vs-non-www-or-a-missing-subdomain">Cause 1: www vs non-www (or a missing subdomain)</h2>
+<p>The certificate covers <code>example.com</code> but you visited <code>www.example.com</code>, or the other way round. Reissue with all names. With Certbot:</p>
+<pre><code class="language-bash">sudo certbot --nginx -d example.com -d www.example.com
+# or extend the existing cert
+sudo certbot --expand -d example.com -d www.example.com -d api.example.com
+</code></pre>
+<p>A wildcard <code>*.example.com</code> covers <code>www.example.com</code> and <code>api.example.com</code>, but <strong>not</strong> <code>example.com</code> itself or <code>a.b.example.com</code>; it needs the DNS-01 challenge.</p>
+<p>Both names also need DNS records pointing at your server.</p>
+<h2 id="cause-2-the-wrong-certificate-is-served">Cause 2: the wrong certificate is served</h2>
+<p>If several sites share one IP, the server picks a certificate by SNI. When no <code>server</code>/<code>VirtualHost</code> matches the requested name, it falls back to the default one — another site's certificate. In nginx, check that the name is in <code>server_name</code> of the 443 block that has the right <code>ssl_certificate</code>:</p>
+<pre><code class="language-nginx">server {
+    listen 443 ssl;
+    server_name example.com www.example.com;
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+}
+</code></pre>
+<pre><code class="language-bash">sudo nginx -t &amp;&amp; sudo systemctl reload nginx
+</code></pre>
+<p>Common on shared hosting and CDNs too: after adding a custom domain (GitHub Pages, Netlify, Cloudflare, Heroku), the platform shows its own <code>*.github.io</code>-style cert until it has issued one for your domain. Wait for provisioning, or re-trigger it in the dashboard (e.g. GitHub Pages: re-save the custom domain, then tick <em>Enforce HTTPS</em>).</p>
+<h2 id="cause-3-visiting-by-ip-address-or-an-internal-name">Cause 3: visiting by IP address or an internal name</h2>
+<p><code>https://192.168.1.10</code> or <code>https://server01</code> fails if the cert only names <code>server01.corp.example.com</code>. Use the hostname the cert was issued for, or include the IP / short name as SAN entries in an internal certificate.</p>
+<h2 id="cause-4-self-signed-or-dev-certificate-without-a-san">Cause 4: self-signed or dev certificate without a SAN</h2>
+<p>Certificates generated with an old <code>openssl req</code> command put the name only in the CN. Create one with a SAN:</p>
+<pre><code class="language-bash">openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
+  -keyout key.pem -out cert.pem \
+  -subj &quot;/CN=localhost&quot; \
+  -addext &quot;subjectAltName=DNS:localhost,IP:127.0.0.1&quot;
+</code></pre>
+<p>For local development, <code>mkcert localhost 127.0.0.1</code> creates a trusted certificate with correct SANs.</p>
+<h2 id="cause-5-interception-or-a-wrong-dns-answer">Cause 5: interception or a wrong DNS answer</h2>
+<p>If a site that works for everyone else fails only for you, something else answered: a captive portal (hotel Wi-Fi), antivirus HTTPS scanning, a proxy, or a stale <code>/etc/hosts</code> entry pointing the domain at another server. Check <code>ping example.com</code> resolves to the expected IP and try another network.</p>
+<p class="upd">Last updated 2026-11-20.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/web/web-err-ssl-protocol-error/">ERR_SSL_PROTOCOL_ERROR</a></li><li><a href="/web/web-net-err-cert-authority-invalid/">NET::ERR_CERT_AUTHORITY_INVALID</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-dns-probe-finished-no-internet/">DNS_PROBE_FINISHED_NO_INTERNET</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

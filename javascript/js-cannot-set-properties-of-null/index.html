@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Uncaught TypeError: Cannot set properties of null (setting &#x27;innerHTML&#x27;) (JavaScript) — how to fix</title>
+<meta name="description" content="`document.getElementById()` or `querySelector()` returned `null` because no matching element existed when the code ran: the script runs before the HTML is parsed, or the id/selector is wrong.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-cannot-set-properties-of-null/">
+<meta property="og:title" content="Uncaught TypeError: Cannot set properties of null (setting &#x27;innerHTML&#x27;) (JavaScript) — how to fix"><meta property="og:description" content="`document.getElementById()` or `querySelector()` returned `null` because no matching element existed when the code ran: the script runs before the HTML is parsed, or the id/selector is wrong.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-cannot-set-properties-of-null/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Uncaught TypeError: Cannot set properties of null (setting 'innerHTML') (JavaScript) \u2014 how to fix", "description": "`document.getElementById()` or `querySelector()` returned `null` because no matching element existed when the code ran: the script runs before the HTML is parsed, or the id/selector is wrong.", "dateModified": "2026-11-20", "url": "https://errorfix-hollis.github.io/javascript/js-cannot-set-properties-of-null/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "Uncaught TypeError: Cannot set properties of null (setting 'innerHTML')", "item": "https://errorfix-hollis.github.io/javascript/js-cannot-set-properties-of-null/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>Uncaught TypeError: Cannot set properties of null (setting &#x27;innerHTML&#x27;) (JavaScript) — how to fix</h1>
+<pre class="err"><code>Uncaught TypeError: Cannot set properties of null (setting &#x27;innerHTML&#x27;)
+Uncaught TypeError: Cannot set properties of null (setting &#x27;textContent&#x27;)
+Uncaught TypeError: Cannot read properties of null (reading &#x27;addEventListener&#x27;)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Load the script after the DOM is ready: add <code>defer</code> to the tag (<code>&lt;script src="app.js" defer&gt;&lt;/script&gt;</code>), move it before <code>&lt;/body&gt;</code>, or wrap code in <code>document.addEventListener('DOMContentLoaded', ...)</code>. Then check the id/selector matches exactly (case-sensitive, no <code>#</code> in <code>getElementById</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Something like this evaluated to <code>null</code>:</p>
+<pre><code class="language-js">document.getElementById(&quot;output&quot;).innerHTML = &quot;Hi&quot;;
+// TypeError: Cannot set properties of null (setting 'innerHTML')
+</code></pre>
+<p><code>getElementById</code>, <code>querySelector</code> and <code>closest</code> return <code>null</code> when nothing matches. Setting (or reading) any property on <code>null</code> throws. The property name in parentheses (<code>innerHTML</code>, <code>textContent</code>, <code>value</code>, <code>onclick</code>, <code>src</code>...) tells you which line it is.</p>
+<h2 id="cause-1-the-script-runs-before-the-element-exists">Cause 1: the script runs before the element exists</h2>
+<p>A <code>&lt;script&gt;</code> in <code>&lt;head&gt;</code> runs immediately, before the browser has parsed the <code>&lt;body&gt;</code>:</p>
+<pre><code class="language-html">&lt;head&gt;
+  &lt;script src=&quot;app.js&quot;&gt;&lt;/script&gt;   &lt;!-- #output doesn't exist yet --&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;div id=&quot;output&quot;&gt;&lt;/div&gt;
+&lt;/body&gt;
+</code></pre>
+<p>Fix with any of these:</p>
+<pre><code class="language-html">&lt;script src=&quot;app.js&quot; defer&gt;&lt;/script&gt;     &lt;!-- best: runs after parsing --&gt;
+&lt;script type=&quot;module&quot; src=&quot;app.js&quot;&gt;&lt;/script&gt;  &lt;!-- modules are deferred by default --&gt;
+</code></pre>
+<p>or put the script tag just before <code>&lt;/body&gt;</code>, or wait for the DOM in code:</p>
+<pre><code class="language-js">document.addEventListener(&quot;DOMContentLoaded&quot;, () =&gt; {
+  document.getElementById(&quot;output&quot;).textContent = &quot;Hi&quot;;
+});
+</code></pre>
+<h2 id="cause-2-the-id-or-selector-doesnt-match">Cause 2: the id or selector doesn't match</h2>
+<pre><code class="language-js">document.getElementById(&quot;#output&quot;);   // wrong: no # with getElementById
+document.querySelector(&quot;output&quot;);     // wrong: that's a tag selector
+document.querySelector(&quot;#output&quot;);    // right
+document.getElementById(&quot;Output&quot;);    // ids are case-sensitive
+</code></pre>
+<p>Check in DevTools console: <code>document.querySelector("#output")</code>. If it prints <code>null</code>, the element isn't in the DOM with that id. Also watch for duplicated ids, typos, and <code>class</code> vs <code>id</code>.</p>
+<h2 id="cause-3-the-element-is-created-later">Cause 3: the element is created later</h2>
+<p>In React, Vue, or any code that renders HTML dynamically, the element appears after your script ran, or only under some condition. Don't query the DOM directly in these frameworks — use a ref:</p>
+<pre><code class="language-jsx">const ref = useRef(null);
+useEffect(() =&gt; {
+  ref.current.textContent = &quot;Hi&quot;;   // runs after mount
+}, []);
+return &lt;div ref={ref} /&gt;;
+</code></pre>
+<p>For content loaded via <code>fetch</code>, query the elements after inserting the HTML.</p>
+<h2 id="cause-4-the-script-is-shared-by-several-pages">Cause 4: the script is shared by several pages</h2>
+<p>A single <code>app.js</code> included on every page will fail on pages that don't have the element. Guard it:</p>
+<pre><code class="language-js">const el = document.getElementById(&quot;output&quot;);
+if (el) {
+  el.textContent = &quot;Hi&quot;;
+}
+// or
+document.querySelector(&quot;#btn&quot;)?.addEventListener(&quot;click&quot;, onClick);
+</code></pre>
+<p>Note optional chaining works for reading/calling (<code>?.</code>), but you can't assign through it (<code>el?.textContent = "x"</code> is a syntax error), so use an <code>if</code> for assignments.</p>
+<p class="upd">Last updated 2026-11-20.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-is-not-a-function/">TypeError: x is not a function</a></li><li><a href="/javascript/js-referenceerror-is-not-defined/">ReferenceError: x is not defined</a></li><li><a href="/javascript/js-cannot-set-properties-of-undefined/">TypeError: Cannot set properties of undefined (setting &#x27;...&#x27;)</a></li><li><a href="/javascript/js-cannot-update-a-component-while-rendering-a-different-component/">Warning: Cannot update a component while rendering a different component</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

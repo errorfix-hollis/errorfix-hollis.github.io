@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: cannot find symbol (Java) — how to fix</title>
+<meta name="description" content="The Java compiler saw a name (class, variable or method) it can&#x27;t resolve. Usually a typo, a missing import, a variable used outside its scope, or a dependency that isn&#x27;t on the classpath.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-error-cannot-find-symbol/">
+<meta property="og:title" content="error: cannot find symbol (Java) — how to fix"><meta property="og:description" content="The Java compiler saw a name (class, variable or method) it can&#x27;t resolve. Usually a typo, a missing import, a variable used outside its scope, or a dependency that isn&#x27;t on the classpath.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-error-cannot-find-symbol/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: cannot find symbol (Java) \u2014 how to fix", "description": "The Java compiler saw a name (class, variable or method) it can't resolve. Usually a typo, a missing import, a variable used outside its scope, or a dependency that isn't on the classpath.", "dateModified": "2026-11-17", "url": "https://errorfix-hollis.github.io/java/java-error-cannot-find-symbol/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "error: cannot find symbol", "item": "https://errorfix-hollis.github.io/java/java-error-cannot-find-symbol/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>error: cannot find symbol (Java) — how to fix</h1>
+<pre class="err"><code>Main.java:5: error: cannot find symbol
+        List&lt;String&gt; names = new ArrayList&lt;&gt;();
+        ^
+  symbol:   class List
+  location: class Main
+1 error
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Read the <code>symbol:</code> and <code>location:</code> lines. For a class, add the import (e.g. <code>import java.util.List;</code>) or the missing dependency to Maven/Gradle; for a variable/method, fix the spelling or scope. In IDEs, if the code looks right, rebuild: <code>mvn clean compile</code> or <code>./gradlew clean build</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>javac</code> resolves every identifier at compile time. If it can't find a declaration for a name, it stops with <code>cannot find symbol</code>. The two lines under the error tell you exactly what's missing:</p>
+<pre><code>  symbol:   variable count          &lt;- kind and name
+  location: class Counter           &lt;- where it looked
+</code></pre>
+<p>The kind is one of <code>class</code>, <code>variable</code>, <code>method</code>, or <code>constructor</code>. Diagnose based on it.</p>
+<h2 id="cause-1-missing-import-symbol-class">Cause 1: missing import (<code>symbol: class ...</code>)</h2>
+<pre><code class="language-java">public class Main {
+    public static void main(String[] args) {
+        List&lt;String&gt; names = new ArrayList&lt;&gt;();   // cannot find symbol: class List
+    }
+}
+</code></pre>
+<h2 id="fix-1-import-the-class">Fix 1: import the class</h2>
+<pre><code class="language-java">import java.util.ArrayList;
+import java.util.List;
+</code></pre>
+<p>Common ones: <code>java.util.*</code> (List, Map, Scanner, Arrays), <code>java.io.*</code> (File, IOException), <code>java.time.*</code> (LocalDate). In IntelliJ press <code>Alt+Enter</code> on the red name; in Eclipse <code>Ctrl+Shift+O</code>.</p>
+<h2 id="cause-2-typo-or-wrong-case">Cause 2: typo or wrong case</h2>
+<p>Java is case-sensitive. <code>string</code>, <code>system.out.println</code>, <code>Arraylist</code> and <code>myVar</code> vs <code>myvar</code> all fail:</p>
+<pre><code class="language-java">string name = &quot;a&quot;;             // symbol: class string  -&gt; String
+System.out.printn(&quot;hi&quot;);       // symbol: method printn(String) -&gt; println
+</code></pre>
+<h2 id="cause-3-variable-out-of-scope">Cause 3: variable out of scope</h2>
+<pre><code class="language-java">for (int i = 0; i &lt; 10; i++) {
+    int total = i * 2;
+}
+System.out.println(total);     // cannot find symbol: variable total
+</code></pre>
+<h2 id="fix-3-declare-it-in-the-outer-scope">Fix 3: declare it in the outer scope</h2>
+<pre><code class="language-java">int total = 0;
+for (int i = 0; i &lt; 10; i++) {
+    total = i * 2;
+}
+System.out.println(total);
+</code></pre>
+<p>Same for variables declared inside <code>try { }</code> and used in <code>catch</code>/<code>finally</code>.</p>
+<h2 id="cause-4-wrong-method-arguments-or-calling-on-the-wrong-type">Cause 4: wrong method arguments or calling on the wrong type</h2>
+<pre><code>  symbol:   method add(int,int)
+  location: variable list of type List&lt;String&gt;
+</code></pre>
+<p>The method exists, but not with those parameter types, or not on that type. Check the signature. A frequent case: calling an instance method from <code>static main</code> without an object, or calling a subclass method through a superclass reference - cast or change the declared type.</p>
+<h2 id="cause-5-class-from-a-dependencyother-module-isnt-on-the-classpath">Cause 5: class from a dependency/other module isn't on the classpath</h2>
+<p>If the import itself fails (<code>error: package org.apache.commons.lang3 does not exist</code> plus <code>cannot find symbol</code>), the library isn't available at compile time. Add it to <code>pom.xml</code> / <code>build.gradle</code>:</p>
+<pre><code class="language-xml">&lt;dependency&gt;
+  &lt;groupId&gt;org.apache.commons&lt;/groupId&gt;
+  &lt;artifactId&gt;commons-lang3&lt;/artifactId&gt;
+  &lt;version&gt;3.14.0&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<p>Check its scope isn't <code>runtime</code> or <code>test</code> when used from main code. When compiling by hand:</p>
+<pre><code class="language-bash">javac -cp lib/commons-lang3-3.14.0.jar -d out src/Main.java
+</code></pre>
+<h2 id="cause-6-lombok-getterssetters-missing">Cause 6: Lombok getters/setters "missing"</h2>
+<p><code>cannot find symbol: method getName()</code> on a class annotated with <code>@Data</code>/<code>@Getter</code> means Lombok's annotation processor isn't running. In Maven, make sure <code>lombok</code> is a dependency (scope <code>provided</code>) and, on JDK 23+, listed in <code>annotationProcessorPaths</code> of <code>maven-compiler-plugin</code>. In IntelliJ enable <strong>Settings -&gt; Build -&gt; Compiler -&gt; Annotation Processors -&gt; Enable annotation processing</strong>.</p>
+<h2 id="cause-7-stale-build-output">Cause 7: stale build output</h2>
+<p>If the code is correct and the IDE shows no error, clean and rebuild:</p>
+<pre><code class="language-bash">mvn clean compile
+./gradlew clean build
+</code></pre>
+<p>In IntelliJ: <strong>Build -&gt; Rebuild Project</strong>, or <strong>File -&gt; Invalidate Caches</strong>. Also check the file's <code>package</code> line matches its folder.</p>
+<p class="upd">Last updated 2026-11-17.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-gradle-could-not-resolve-all-dependencies/">Could not resolve all dependencies for configuration</a></li><li><a href="/java/java-noclassdeffounderror/">java.lang.NoClassDefFoundError</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

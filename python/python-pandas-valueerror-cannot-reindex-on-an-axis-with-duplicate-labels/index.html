@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ValueError: cannot reindex on an axis with duplicate labels (Python) — how to fix</title>
+<meta name="description" content="pandas had to align two objects by index (or by columns) and one side has repeated labels, so the match is ambiguous. Older pandas says cannot reindex from a duplicate axis.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-pandas-valueerror-cannot-reindex-on-an-axis-with-duplicate-labels/">
+<meta property="og:title" content="ValueError: cannot reindex on an axis with duplicate labels (Python) — how to fix"><meta property="og:description" content="pandas had to align two objects by index (or by columns) and one side has repeated labels, so the match is ambiguous. Older pandas says cannot reindex from a duplicate axis.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-pandas-valueerror-cannot-reindex-on-an-axis-with-duplicate-labels/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ValueError: cannot reindex on an axis with duplicate labels (Python) \u2014 how to fix", "description": "pandas had to align two objects by index (or by columns) and one side has repeated labels, so the match is ambiguous. Older pandas says cannot reindex from a duplicate axis.", "dateModified": "2026-11-15", "url": "https://errorfix-hollis.github.io/python/python-pandas-valueerror-cannot-reindex-on-an-axis-with-duplicate-labels/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ValueError: cannot reindex on an axis with duplicate labels", "item": "https://errorfix-hollis.github.io/python/python-pandas-valueerror-cannot-reindex-on-an-axis-with-duplicate-labels/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ValueError: cannot reindex on an axis with duplicate labels (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;report.py&quot;, line 12, in &lt;module&gt;
+    df[&quot;total&quot;] = other[&quot;total&quot;]
+ValueError: cannot reindex on an axis with duplicate labels
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find the duplicates with <code>df.index[df.index.duplicated()]</code> (or <code>df.columns[df.columns.duplicated()]</code>). Then drop them (<code>df = df[~df.index.duplicated(keep='first')]</code>), reset the index (<code>df.reset_index(drop=True)</code>), or assign by position instead of label (<code>df['total'] = other['total'].to_numpy()</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Many pandas operations <em>align by label</em>. If you assign a Series to a column, add two frames, <code>reindex</code>, or <code>concat(axis=1)</code>, pandas matches rows by index value. If an index has the same label twice, pandas can't decide which row goes where, so it raises this error. pandas before 1.3 had different wording: <code>cannot reindex from a duplicate axis</code>.</p>
+<p>Find the duplicates:</p>
+<pre><code class="language-python">print(df.index.is_unique)
+print(df.index[df.index.duplicated(keep=False)])      # duplicated row labels
+print(df.columns[df.columns.duplicated()])            # duplicated column names
+</code></pre>
+<p>Check both objects in the failing line. Either side can have the duplicates.</p>
+<h2 id="cause-1-assigning-a-column-from-another-frame">Cause 1: assigning a column from another frame</h2>
+<pre><code class="language-python">df[&quot;total&quot;] = other[&quot;total&quot;]     # aligns on index; fails if either index has duplicates
+</code></pre>
+<p>If the rows are already in the same order, assign by position:</p>
+<pre><code class="language-python">df[&quot;total&quot;] = other[&quot;total&quot;].to_numpy()     # lengths must match
+</code></pre>
+<p>If they should be matched by a key, use <code>merge</code> on that key column instead of relying on the index:</p>
+<pre><code class="language-python">df = df.merge(other[[&quot;id&quot;, &quot;total&quot;]], on=&quot;id&quot;, how=&quot;left&quot;)
+</code></pre>
+<h2 id="cause-2-the-index-has-duplicates-from-concat-or-set_index">Cause 2: the index has duplicates from concat or set_index</h2>
+<p><code>pd.concat([a, b])</code> keeps both frames' indexes, so you get 0, 1, 2, 0, 1, 2. <code>set_index("date")</code> on data with repeated dates does the same.</p>
+<pre><code class="language-python">df = pd.concat([a, b], ignore_index=True)      # fresh 0..n-1 index
+df = df.reset_index(drop=True)                 # or reset afterwards
+</code></pre>
+<p>If the duplicates are real duplicate records, drop them:</p>
+<pre><code class="language-python">df = df[~df.index.duplicated(keep=&quot;first&quot;)]
+# or, for full duplicate rows
+df = df.drop_duplicates()
+</code></pre>
+<h2 id="cause-3-duplicate-column-names">Cause 3: duplicate column names</h2>
+<p>Reading a CSV with two columns of the same name, or <code>concat(axis=1)</code> of frames that share column names, gives duplicate columns. Assigning to those columns or reindexing them then fails.</p>
+<pre><code class="language-python">df = df.loc[:, ~df.columns.duplicated()]        # keep first of each name
+# or rename them
+df.columns = [f&quot;{c}_{i}&quot; if dup else c
+              for i, (c, dup) in enumerate(zip(df.columns, df.columns.duplicated()))]
+</code></pre>
+<p><code>pd.read_csv</code> normally renames repeated headers to <code>name.1</code>, <code>name.2</code>. Duplicates usually come from code that sets <code>df.columns</code> or concatenates.</p>
+<h2 id="cause-4-reindex-asfreq-resample-on-time-series">Cause 4: <code>reindex</code> / <code>asfreq</code> / <code>resample</code> on time series</h2>
+<p><code>df.reindex(new_index)</code> and <code>df.asfreq("D")</code> require a unique index. Aggregate the duplicate timestamps first:</p>
+<pre><code class="language-python">df = df.groupby(level=0).mean()        # or .sum(), .last()
+df = df.asfreq(&quot;D&quot;)
+</code></pre>
+<h2 id="cause-5-groupbyapply-returning-misaligned-results">Cause 5: <code>groupby().apply()</code> returning misaligned results</h2>
+<p>If a function in <code>groupby(...).apply(...)</code> returns objects whose indexes overlap, assigning the result back can trigger this. Use <code>transform</code> for same-length results:</p>
+<pre><code class="language-python">df[&quot;share&quot;] = df.groupby(&quot;team&quot;)[&quot;points&quot;].transform(lambda s: s / s.sum())
+</code></pre>
+<h2 id="prevent-it">Prevent it</h2>
+<p>When the index should be unique, enforce it so the error appears where the duplicate is created:</p>
+<pre><code class="language-python">df = df.set_index(&quot;id&quot;, verify_integrity=True)
+df = df.set_flags(allows_duplicate_labels=False)   # pandas 1.2+, experimental
+</code></pre>
+<p class="upd">Last updated 2026-11-15.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-keyerror/">KeyError</a></li><li><a href="/python/python-pandas-settingwithcopywarning/">SettingWithCopyWarning: A value is trying to be set on a copy of a slice from a DataFrame</a></li><li><a href="/python/python-pandas-truth-value-of-a-series-is-ambiguous/">ValueError: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Additional property is not allowed (Docker) — how to fix</title>
+<meta name="description" content="Docker Compose validated your compose file against its schema and found a key it doesn&#x27;t recognise at that position — usually a typo, wrong indentation, or a key placed under the wrong parent.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-compose-additional-property-is-not-allowed/">
+<meta property="og:title" content="Additional property is not allowed (Docker) — how to fix"><meta property="og:description" content="Docker Compose validated your compose file against its schema and found a key it doesn&#x27;t recognise at that position — usually a typo, wrong indentation, or a key placed under the wrong parent.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-compose-additional-property-is-not-allowed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Additional property is not allowed (Docker) \u2014 how to fix", "description": "Docker Compose validated your compose file against its schema and found a key it doesn't recognise at that position \u2014 usually a typo, wrong indentation, or a key placed under the wrong parent.", "dateModified": "2026-11-16", "url": "https://errorfix-hollis.github.io/docker/docker-compose-additional-property-is-not-allowed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "Additional property is not allowed", "item": "https://errorfix-hollis.github.io/docker/docker-compose-additional-property-is-not-allowed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>Additional property is not allowed (Docker) — how to fix</h1>
+<pre class="err"><code>validating /app/docker-compose.yml: services.web Additional property enviroment is not allowed
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Read the path in the message (<code>services.web</code> = the key is directly under the web service) and fix the named key: check spelling (<code>environment</code>, <code>depends_on</code>, <code>volumes</code>), indentation (2 spaces, no tabs) and nesting. Validate with <code>docker compose config</code>. Top-level custom keys must start with <code>x-</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Compose checks your file against the Compose Specification JSON schema before doing anything. Each level only allows certain keys. The message tells you where and what:</p>
+<pre><code>services.web Additional property enviroment is not allowed
+└── path ──┘                     └ the bad key ┘
+</code></pre>
+<p>Older docker-compose v1 printed the same thing as <code>Unsupported config option for services.web: 'enviroment'</code> or <code>Additional properties are not allowed ('enviroment' was unexpected)</code>.</p>
+<p>Run this to see the error and, once fixed, the fully resolved file:</p>
+<pre><code class="language-bash">docker compose config
+</code></pre>
+<p>You can also check plain YAML syntax in the <a href="/tools/yaml-validator/">YAML validator</a>.</p>
+<h2 id="cause-1-typo-in-a-key-name">Cause 1: typo in a key name</h2>
+<p>Common misspellings:</p>
+<table>
+<thead>
+<tr>
+<th>Wrong</th>
+<th>Right</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>enviroment</code>, <code>environments</code></td>
+<td><code>environment</code></td>
+</tr>
+<tr>
+<td><code>depends-on</code>, <code>dependsOn</code></td>
+<td><code>depends_on</code></td>
+</tr>
+<tr>
+<td><code>volume</code> (inside a service)</td>
+<td><code>volumes</code></td>
+</tr>
+<tr>
+<td><code>port</code></td>
+<td><code>ports</code></td>
+</tr>
+<tr>
+<td><code>env-file</code></td>
+<td><code>env_file</code></td>
+</tr>
+<tr>
+<td><code>restart_policy</code> (service level)</td>
+<td><code>restart</code> (or <code>deploy.restart_policy</code>)</td>
+</tr>
+<tr>
+<td><code>container-name</code></td>
+<td><code>container_name</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="cause-2-wrong-indentation-moves-a-key-to-the-wrong-level">Cause 2: wrong indentation moves a key to the wrong level</h2>
+<pre><code class="language-yaml">services:
+  web:
+    image: nginx
+  ports:            # wrong: now 'ports' looks like a service named 'ports'
+    - &quot;80:80&quot;
+</code></pre>
+<p>That gives <code>services.ports Additional property ...</code> or a different validation error. Indent it under the service:</p>
+<pre><code class="language-yaml">services:
+  web:
+    image: nginx
+    ports:
+      - &quot;80:80&quot;
+</code></pre>
+<p>Use spaces, never tabs. A key like <code>services.web.build Additional property dockerfile ...</code> usually means the key is fine but got attached to the wrong parent — compare with the documented structure.</p>
+<h2 id="cause-3-key-belongs-under-a-different-section">Cause 3: key belongs under a different section</h2>
+<p>Examples:</p>
+<pre><code class="language-yaml"># Wrong: networks definition inside the service
+services:
+  api:
+    image: api
+    networks:
+      backend:
+        driver: bridge      # 'driver' is not allowed here
+
+# Right: define at top level, reference from the service
+services:
+  api:
+    image: api
+    networks: [backend]
+networks:
+  backend:
+    driver: bridge
+</code></pre>
+<p>Similarly <code>memory</code>, <code>cpus</code> limits go under <code>deploy.resources.limits</code> (or use the service-level <code>mem_limit</code>, <code>cpus</code>), and build options like <code>dockerfile</code>, <code>args</code>, <code>target</code> belong under <code>build:</code>.</p>
+<h2 id="cause-4-custom-top-level-keys">Cause 4: custom top-level keys</h2>
+<p>YAML anchors are often defined in a dummy top-level key. Compose only allows custom keys that start with <code>x-</code>:</p>
+<pre><code class="language-yaml">x-common-env: &amp;common-env      # must start with x-
+  TZ: UTC
+  LOG_LEVEL: info
+
+services:
+  api:
+    environment: *common-env
+</code></pre>
+<p>A key like <code>common:</code> at top level gives <code>(root) Additional property common is not allowed</code>.</p>
+<h2 id="cause-5-key-is-too-new-or-too-old-for-your-compose-version">Cause 5: key is too new or too old for your Compose version</h2>
+<p>Newer keys (<code>develop</code>, <code>include</code>, <code>models</code>, <code>gw_priority</code>, ...) are rejected by older Compose releases, and the old v1-only syntax may be rejected by v2. Check your version and upgrade if needed:</p>
+<pre><code class="language-bash">docker compose version
+</code></pre>
+<p>If you're still using the standalone <code>docker-compose</code> v1 (Python), switch to the <code>docker compose</code> plugin. The top-level <code>version:</code> key is obsolete — it no longer selects a schema.</p>
+<p class="upd">Last updated 2026-11-16.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li><li><a href="/docker/docker-compose-version-is-obsolete/">the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion</a></li><li><a href="/kubernetes/k8s-error-converting-yaml-to-json-mapping-values-are-not-allowed/">error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal: You have not concluded your merge (MERGE_HEAD exists). (Git) — how to fix</title>
+<meta name="description" content="A previous `git merge` or `git pull` stopped partway (usually on conflicts) and is still in progress. Git won&#x27;t start another merge or pull until you finish or abort that one.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-you-have-not-concluded-your-merge-merge-head-exists/">
+<meta property="og:title" content="fatal: You have not concluded your merge (MERGE_HEAD exists). (Git) — how to fix"><meta property="og:description" content="A previous `git merge` or `git pull` stopped partway (usually on conflicts) and is still in progress. Git won&#x27;t start another merge or pull until you finish or abort that one.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-you-have-not-concluded-your-merge-merge-head-exists/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal: You have not concluded your merge (MERGE_HEAD exists). (Git) \u2014 how to fix", "description": "A previous `git merge` or `git pull` stopped partway (usually on conflicts) and is still in progress. Git won't start another merge or pull until you finish or abort that one.", "dateModified": "2026-11-19", "url": "https://errorfix-hollis.github.io/git/git-you-have-not-concluded-your-merge-merge-head-exists/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "fatal: You have not concluded your merge (MERGE_HEAD exists).", "item": "https://errorfix-hollis.github.io/git/git-you-have-not-concluded-your-merge-merge-head-exists/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>fatal: You have not concluded your merge (MERGE_HEAD exists). (Git) — how to fix</h1>
+<pre class="err"><code>error: You have not concluded your merge (MERGE_HEAD exists).
+hint: Please, commit your changes before merging.
+fatal: Exiting because of unfinished merge.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> To finish: resolve conflicts, <code>git add &lt;files&gt;</code>, then <code>git commit</code> (or <code>git merge --continue</code>). To throw the merge away: <code>git merge --abort</code> (or <code>git reset --merge</code>). Then run your <code>git pull</code> again.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When a merge can't complete automatically, Git writes <code>.git/MERGE_HEAD</code> (the commit being merged in) and leaves the working tree with conflict markers, waiting for you. Any new <code>git pull</code> or <code>git merge</code> sees <code>MERGE_HEAD</code> and refuses, because starting another merge would mix two merges together.</p>
+<p>See where you are:</p>
+<pre><code class="language-bash">git status
+</code></pre>
+<p>You'll see <code>You have unmerged paths</code> (conflicts left) or <code>All conflicts fixed but you are still merging</code>.</p>
+<h2 id="fix-1-finish-the-merge">Fix 1: finish the merge</h2>
+<p>Resolve every conflicted file — remove the <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>, <code>=======</code>, <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code> markers and keep the right content — then stage and commit:</p>
+<pre><code class="language-bash">git diff --name-only --diff-filter=U    # list files still conflicted
+# edit them, then:
+git add path/to/file
+git commit                               # or: git merge --continue
+</code></pre>
+<p><code>git commit</code> with no <code>-m</code> opens the prepared merge message; save and close the editor. You can also take one side wholesale:</p>
+<pre><code class="language-bash">git checkout --ours   path/to/file      # keep your version
+git checkout --theirs path/to/file      # keep the incoming version
+git add path/to/file
+</code></pre>
+<p>Then rerun the command that failed, e.g. <code>git pull</code>.</p>
+<h2 id="fix-2-abort-and-go-back-to-before-the-merge">Fix 2: abort and go back to before the merge</h2>
+<p>If you don't want the merge (or don't know what state you're in):</p>
+<pre><code class="language-bash">git merge --abort
+</code></pre>
+<p>This restores the branch to where it was before the merge started. If you had uncommitted changes before merging, <code>--abort</code> tries to keep them but can't always reconstruct them — commit or stash before merging next time.</p>
+<p>If <code>--abort</code> fails (e.g. <code>MERGE_HEAD missing</code> or a broken state), use:</p>
+<pre><code class="language-bash">git reset --merge
+</code></pre>
+<p><code>git reset --hard HEAD</code> also clears it, but <strong>discards all uncommitted changes</strong> in the working tree.</p>
+<h2 id="fix-3-the-merge-was-a-pull-from-an-ide-or-gui">Fix 3: the "merge" was a pull from an IDE or GUI</h2>
+<p>VS Code, IntelliJ and GitHub Desktop run <code>git pull</code> in the background. If it hit conflicts, the repository is mid-merge even though you never typed <code>git merge</code>. Open the terminal in that folder and use Fix 1 or 2. In VS Code, the Source Control panel lists conflicted files under <em>Merge Changes</em>.</p>
+<h2 id="similar-messages-for-rebase-and-cherry-pick">Similar messages for rebase and cherry-pick</h2>
+<p>The same idea applies to other operations, with different state files:</p>
+<table>
+<thead>
+<tr>
+<th>Message mentions</th>
+<th>In progress</th>
+<th>Finish</th>
+<th>Abort</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MERGE_HEAD</code></td>
+<td>merge</td>
+<td><code>git commit</code></td>
+<td><code>git merge --abort</code></td>
+</tr>
+<tr>
+<td><code>rebase-merge</code> / <code>rebase-apply</code></td>
+<td>rebase</td>
+<td><code>git rebase --continue</code></td>
+<td><code>git rebase --abort</code></td>
+</tr>
+<tr>
+<td><code>CHERRY_PICK_HEAD</code></td>
+<td>cherry-pick</td>
+<td><code>git cherry-pick --continue</code></td>
+<td><code>git cherry-pick --abort</code></td>
+</tr>
+<tr>
+<td><code>REVERT_HEAD</code></td>
+<td>revert</td>
+<td><code>git revert --continue</code></td>
+<td><code>git revert --abort</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="avoiding-it">Avoiding it</h2>
+<ul>
+<li>Commit or <code>git stash</code> local work before pulling.</li>
+<li>Pick a pull strategy once: <code>git config --global pull.rebase false</code> (merge) or <code>true</code> (rebase) — this also silences the "divergent branches" hint.</li>
+<li>Don't delete <code>.git/MERGE_HEAD</code> by hand: Git would then let you commit conflict markers as if nothing happened.</li>
+</ul>
+<p class="upd">Last updated 2026-11-19.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-merge-conflict/">CONFLICT (content): Merge conflict in</a></li><li><a href="/git/git-need-to-specify-how-to-reconcile-divergent-branches/">fatal: Need to specify how to reconcile divergent branches.</a></li><li><a href="/git/git-your-local-changes-would-be-overwritten/">error: Your local changes to the following files would be overwritten by merge</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

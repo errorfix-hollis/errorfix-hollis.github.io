@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERR_NAME_NOT_RESOLVED — how to fix</title>
+<meta name="description" content="The browser couldn&#x27;t turn the hostname into an IP address: the DNS lookup failed. Either the name is wrong or not yet published, or DNS on this machine/network is broken or blocked.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-err-name-not-resolved/">
+<meta property="og:title" content="ERR_NAME_NOT_RESOLVED — how to fix"><meta property="og:description" content="The browser couldn&#x27;t turn the hostname into an IP address: the DNS lookup failed. Either the name is wrong or not yet published, or DNS on this machine/network is broken or blocked.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-err-name-not-resolved/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERR_NAME_NOT_RESOLVED \u2014 how to fix", "description": "The browser couldn't turn the hostname into an IP address: the DNS lookup failed. Either the name is wrong or not yet published, or DNS on this machine/network is broken or blocked.", "dateModified": "2026-11-17", "url": "https://errorfix-hollis.github.io/web/web-err-name-not-resolved/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "ERR_NAME_NOT_RESOLVED", "item": "https://errorfix-hollis.github.io/web/web-err-name-not-resolved/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>ERR_NAME_NOT_RESOLVED — how to fix</h1>
+<pre class="err"><code>This site can&#x27;t be reached
+Check if there is a typo in example.com.
+DNS_PROBE_FINISHED_NXDOMAIN
+net::ERR_NAME_NOT_RESOLVED
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the hostname for typos, then test with <code>nslookup example.com 1.1.1.1</code>. If public DNS resolves it, flush your local cache (<code>ipconfig /flushdns</code> on Windows, <code>sudo resolvectl flush-caches</code> on Linux, <code>sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder</code> on macOS) and fix your DNS server. If nobody resolves it, add or fix the DNS record.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Before connecting, the browser asks DNS for the IP of the hostname. <code>ERR_NAME_NOT_RESOLVED</code> (often shown with <code>DNS_PROBE_FINISHED_NXDOMAIN</code>) means that lookup returned "no such domain" or nothing at all. No connection to the server was ever attempted, so it's not a server/firewall problem.</p>
+<p>In the console of a web app you may see it as <code>GET https://api.example.com/... net::ERR_NAME_NOT_RESOLVED</code> for a single request; the same causes apply to that API hostname.</p>
+<h2 id="step-1-is-it-only-you">Step 1: is it only you?</h2>
+<pre><code class="language-bash">nslookup example.com            # your configured DNS
+nslookup example.com 1.1.1.1    # Cloudflare public DNS
+dig +short example.com @8.8.8.8 # Google public DNS
+</code></pre>
+<ul>
+<li><strong>Public DNS fails too</strong> -&gt; the record doesn't exist (Cause 1/2).</li>
+<li><strong>Public DNS works, yours fails</strong> -&gt; local DNS problem (Cause 3/4).</li>
+</ul>
+<h2 id="cause-1-typo-or-wrong-hostname">Cause 1: typo or wrong hostname</h2>
+<p>Check spelling, the TLD (<code>.com</code> vs <code>.co</code>), and for apps the config: an env var like <code>API_URL=https://api.exmple.com</code> or a leftover <code>localhost</code>-style internal hostname (e.g. a Docker service name like <code>http://backend:8000</code> used from the browser, which only resolves inside the Docker network - use the public URL or a dev-server proxy).</p>
+<h2 id="cause-2-the-dns-record-doesnt-exist-yet">Cause 2: the DNS record doesn't exist (yet)</h2>
+<p>For your own domain:</p>
+<ul>
+<li>Make sure an <code>A</code>/<code>AAAA</code> or <code>CNAME</code> record exists for the exact name (<code>www</code> and the apex <code>@</code> are separate records).</li>
+<li>Check the domain's nameservers point to the DNS provider where you added the records: <code>dig NS example.com +short</code>.</li>
+<li>New domains and nameserver changes can take minutes to hours to propagate. Expired domains also stop resolving - check <code>whois example.com</code>.</li>
+</ul>
+<h2 id="cause-3-stale-local-dns-cache">Cause 3: stale local DNS cache</h2>
+<p>Flush it, then restart the browser:</p>
+<pre><code class="language-bash"># Windows
+ipconfig /flushdns
+# macOS
+sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
+# Linux (systemd-resolved)
+sudo resolvectl flush-caches
+</code></pre>
+<p>Chrome has its own cache: open <code>chrome://net-internals/#dns</code> and click <strong>Clear host cache</strong>.</p>
+<h2 id="cause-4-broken-or-blocking-dns-server">Cause 4: broken or blocking DNS server</h2>
+<p>Your router/ISP resolver may be down or filtering. Switch to a public resolver (1.1.1.1, 8.8.8.8):</p>
+<ul>
+<li><strong>Windows</strong>: Settings -&gt; Network -&gt; adapter -&gt; DNS server assignment -&gt; Manual.</li>
+<li><strong>macOS</strong>: System Settings -&gt; Network -&gt; Details -&gt; DNS.</li>
+<li><strong>Linux</strong>: see <a href="/linux/linux-temporary-failure-in-name-resolution/">Temporary failure in name resolution</a>.</li>
+</ul>
+<p>Also check:</p>
+<ul>
+<li><strong>VPN / corporate network</strong>: internal names only resolve while connected to the VPN; some VPNs break DNS after disconnecting (reconnect or restart the network adapter).</li>
+<li><strong>Ad blockers / Pi-hole / NextDNS</strong> blocking the domain.</li>
+<li><strong>Chrome "Secure DNS"</strong> (Settings -&gt; Privacy and security -&gt; Security -&gt; Use secure DNS) pointing at a provider that fails; try turning it off.</li>
+</ul>
+<h2 id="cause-5-hosts-file-entries">Cause 5: hosts file entries</h2>
+<p>A wrong or leftover entry overrides DNS:</p>
+<ul>
+<li>Linux/macOS: <code>/etc/hosts</code></li>
+<li>Windows: <code>C:\Windows\System32\drivers\etc\hosts</code></li>
+</ul>
+<p>Remove lines for the hostname you're trying to reach.</p>
+<h2 id="cause-6-no-network-at-all">Cause 6: no network at all</h2>
+<p>If <em>every</em> site fails with this, you're probably offline or connected to a captive portal (hotel/airport Wi-Fi). Open <code>http://neverssl.com</code> to trigger the login page.</p>
+<p class="upd">Last updated 2026-11-17.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-could-not-resolve-host/">fatal: unable to access ... Could not resolve host: github.com</a></li><li><a href="/linux/linux-temporary-failure-in-name-resolution/">Temporary failure in name resolution</a></li><li><a href="/web/web-err-connection-refused/">ERR_CONNECTION_REFUSED</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

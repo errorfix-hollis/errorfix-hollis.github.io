@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: Cannot set properties of undefined (setting &#x27;...&#x27;) (JavaScript) — how to fix</title>
+<meta name="description" content="You assigned a property on something that is undefined, e.g. obj.a.b = 1 when obj.a doesn&#x27;t exist yet, an array slot that was never created, or `this` lost in a callback.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-cannot-set-properties-of-undefined/">
+<meta property="og:title" content="TypeError: Cannot set properties of undefined (setting &#x27;...&#x27;) (JavaScript) — how to fix"><meta property="og:description" content="You assigned a property on something that is undefined, e.g. obj.a.b = 1 when obj.a doesn&#x27;t exist yet, an array slot that was never created, or `this` lost in a callback.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-cannot-set-properties-of-undefined/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: Cannot set properties of undefined (setting '...') (JavaScript) \u2014 how to fix", "description": "You assigned a property on something that is undefined, e.g. obj.a.b = 1 when obj.a doesn't exist yet, an array slot that was never created, or `this` lost in a callback.", "dateModified": "2026-11-21", "url": "https://errorfix-hollis.github.io/javascript/js-cannot-set-properties-of-undefined/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: Cannot set properties of undefined (setting '...')", "item": "https://errorfix-hollis.github.io/javascript/js-cannot-set-properties-of-undefined/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>TypeError: Cannot set properties of undefined (setting &#x27;...&#x27;) (JavaScript) — how to fix</h1>
+<pre class="err"><code>Uncaught TypeError: Cannot set properties of undefined (setting &#x27;name&#x27;)
+TypeError: Cannot set property &#x27;name&#x27; of undefined
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Create the parent before assigning: <code>obj.a ??= {}; obj.a.b = 1;</code>. For nested arrays initialise every row (<code>Array.from({length: n}, () =&gt; [])</code>). In classes, bind methods or use arrow functions so <code>this</code> isn't undefined. Log the object just before the line to see which part is undefined.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>In <code>x.y = value</code>, <code>x</code> is <code>undefined</code>, so there is nothing to put the property on. The name in parentheses is the property being <strong>set</strong> (<code>'name'</code>), not the variable that is undefined; the undefined thing is whatever is to the left of <code>.name</code>. Older engines print <code>Cannot set property 'name' of undefined</code>.</p>
+<p>The <code>null</code> version (<code>Cannot set properties of null</code>) is usually a DOM element that wasn't found.</p>
+<h2 id="cause-1-nested-object-path-that-doesnt-exist-yet">Cause 1: nested object path that doesn't exist yet</h2>
+<pre><code class="language-js">const config = {};
+config.db.host = &quot;localhost&quot;;      // config.db is undefined
+</code></pre>
+<p>Create each level first:</p>
+<pre><code class="language-js">config.db ??= {};                  // ES2021 logical nullish assignment
+config.db.host = &quot;localhost&quot;;
+
+// or build it in one go
+const config = { db: { host: &quot;localhost&quot; } };
+</code></pre>
+<p>For dynamic keys (grouping, counting):</p>
+<pre><code class="language-js">const groups = {};
+for (const item of items) {
+  (groups[item.type] ??= []).push(item);
+}
+</code></pre>
+<h2 id="cause-2-array-element-that-doesnt-exist">Cause 2: array element that doesn't exist</h2>
+<pre><code class="language-js">const grid = [];
+grid[0][0] = 1;                    // grid[0] is undefined
+</code></pre>
+<p>Initialise every row. Avoid <code>new Array(n).fill([])</code>, which shares one array between all rows:</p>
+<pre><code class="language-js">const grid = Array.from({ length: rows }, () =&gt; Array(cols).fill(0));
+grid[0][0] = 1;
+</code></pre>
+<p>Also check off-by-one indexes: <code>arr[arr.length].x = 1</code> is always undefined.</p>
+<h2 id="cause-3-this-is-undefined-in-a-callback">Cause 3: <code>this</code> is undefined in a callback</h2>
+<p>Class bodies run in strict mode, so a method passed as a callback loses <code>this</code>:</p>
+<pre><code class="language-js">class Counter {
+  count = 0;
+  increment() { this.count++; }    // 'this' undefined when detached
+}
+const c = new Counter();
+button.addEventListener(&quot;click&quot;, c.increment);       // TypeError
+</code></pre>
+<p>Fix with an arrow function field, <code>bind</code>, or a wrapper:</p>
+<pre><code class="language-js">class Counter {
+  count = 0;
+  increment = () =&gt; { this.count++; };
+}
+// or
+button.addEventListener(&quot;click&quot;, () =&gt; c.increment());
+</code></pre>
+<p>Same in old React class components: bind handlers in the constructor or use arrow-function fields.</p>
+<h2 id="cause-4-data-not-loaded-yet">Cause 4: data not loaded yet</h2>
+<pre><code class="language-js">let user;
+fetch(&quot;/api/me&quot;).then(r =&gt; r.json()).then(d =&gt; { user = d; });
+user.lastSeen = Date.now();        // runs before the fetch resolves
+</code></pre>
+<p>Do the work after the data arrives (<code>await</code>, or inside <code>.then</code>). In React, never mutate state objects; create a new one:</p>
+<pre><code class="language-js">setUser(prev =&gt; ({ ...prev, profile: { ...prev?.profile, name } }));
+</code></pre>
+<h2 id="cause-5-a-function-returned-nothing">Cause 5: a function returned nothing</h2>
+<pre><code class="language-js">function makeUser(name) { const u = { name }; }   // forgot &quot;return u&quot;
+const u = makeUser(&quot;ana&quot;);
+u.age = 30;                        // TypeError
+</code></pre>
+<p>Check that the function, <code>Array.find()</code> (returns <code>undefined</code> when nothing matches) or the module export you are using actually returns an object:</p>
+<pre><code class="language-js">const user = users.find(u =&gt; u.id === id);
+if (user) user.active = true;
+</code></pre>
+<h2 id="debugging">Debugging</h2>
+<p>Put <code>console.log(obj, obj?.a)</code> (or a breakpoint) on the line before the error and walk the chain left to right. The first <code>undefined</code> in the chain is the one to fix.</p>
+<p class="upd">Last updated 2026-11-21.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cannot-set-properties-of-null/">Uncaught TypeError: Cannot set properties of null (setting &#x27;innerHTML&#x27;)</a></li><li><a href="/javascript/js-is-not-a-function/">TypeError: x is not a function</a></li><li><a href="/javascript/js-cannot-update-a-component-while-rendering-a-different-component/">Warning: Cannot update a component while rendering a different component</a></li><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

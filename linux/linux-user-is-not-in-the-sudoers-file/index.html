@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>user is not in the sudoers file. This incident will be reported. (Linux) — how to fix</title>
+<meta name="description" content="Your account has no sudo rights: it&#x27;s not in the `sudo` (Debian/Ubuntu) or `wheel` (Fedora/RHEL/Arch) group and has no rule in /etc/sudoers. Someone with root access has to add it.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-user-is-not-in-the-sudoers-file/">
+<meta property="og:title" content="user is not in the sudoers file. This incident will be reported. (Linux) — how to fix"><meta property="og:description" content="Your account has no sudo rights: it&#x27;s not in the `sudo` (Debian/Ubuntu) or `wheel` (Fedora/RHEL/Arch) group and has no rule in /etc/sudoers. Someone with root access has to add it.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-user-is-not-in-the-sudoers-file/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "user is not in the sudoers file. This incident will be reported. (Linux) \u2014 how to fix", "description": "Your account has no sudo rights: it's not in the `sudo` (Debian/Ubuntu) or `wheel` (Fedora/RHEL/Arch) group and has no rule in /etc/sudoers. Someone with root access has to add it.", "dateModified": "2026-11-20", "url": "https://errorfix-hollis.github.io/linux/linux-user-is-not-in-the-sudoers-file/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "user is not in the sudoers file. This incident will be reported.", "item": "https://errorfix-hollis.github.io/linux/linux-user-is-not-in-the-sudoers-file/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>user is not in the sudoers file. This incident will be reported. (Linux) — how to fix</h1>
+<pre class="err"><code>alice is not in the sudoers file.  This incident will be reported.
+alice is not in the sudoers file.
+Sorry, user alice is not allowed to execute &#x27;/usr/bin/apt update&#x27; as root on myhost.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Become root (<code>su -</code> with the root password, or a recovery shell), then add the user to the admin group: <code>usermod -aG sudo alice</code> (Debian/Ubuntu) or <code>usermod -aG wheel alice</code> (Fedora/RHEL/Arch, make sure <code>%wheel ALL=(ALL:ALL) ALL</code> is enabled via <code>visudo</code>). Log out and back in, then check with <code>groups</code> and <code>sudo -l</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>sudo</code> checks <code>/etc/sudoers</code> and files in <code>/etc/sudoers.d/</code> for a rule that lets your user run commands as root. There was none. "This incident will be reported" just means the attempt is logged (to the auth log/journal); nobody gets an email on a typical desktop.</p>
+<p>Check what you have:</p>
+<pre><code class="language-bash">id
+groups
+sudo -l
+</code></pre>
+<p>You can't fix this from your own account — by design. You need root another way.</p>
+<h2 id="step-1-get-a-root-shell">Step 1: get a root shell</h2>
+<p><strong>Root password is set</strong> (common on Debian installed with a root password, where the first user doesn't get sudo):</p>
+<pre><code class="language-bash">su -
+</code></pre>
+<p>Use <code>su -</code> (with the dash) so root's <code>PATH</code> includes <code>/usr/sbin</code>, where <code>usermod</code> lives.</p>
+<p><strong>Another admin account exists</strong>: log in as that user and use <code>sudo</code>.</p>
+<p><strong>No root password, no other admin</strong> (desktop): boot into recovery mode. On Ubuntu hold <code>Shift</code> (BIOS) or press <code>Esc</code> (UEFI) at boot → <em>Advanced options</em> → <em>(recovery mode)</em> → <em>root</em>. Then remount the disk writable:</p>
+<pre><code class="language-bash">mount -o remount,rw /
+</code></pre>
+<p><strong>WSL</strong>: from Windows run <code>wsl -u root</code>.</p>
+<p><strong>Cloud VM / container</strong>: use the provider's console, or <code>docker exec -u root -it &lt;container&gt; bash</code>.</p>
+<h2 id="step-2-add-the-user-to-the-admin-group">Step 2: add the user to the admin group</h2>
+<p>Debian, Ubuntu, Mint, Kali:</p>
+<pre><code class="language-bash">usermod -aG sudo alice
+</code></pre>
+<p>Fedora, RHEL, CentOS, Rocky, Alma, Arch:</p>
+<pre><code class="language-bash">usermod -aG wheel alice
+</code></pre>
+<p>The <code>-a</code> is important: <code>usermod -G wheel alice</code> without it <em>replaces</em> all the user's other groups.</p>
+<p>On Arch, the <code>wheel</code> rule is commented out by default. Enable it with <code>EDITOR=nano visudo</code> and uncomment:</p>
+<pre><code class="language-text">%wheel ALL=(ALL:ALL) ALL
+</code></pre>
+<p>On Debian/Ubuntu the <code>%sudo ALL=(ALL:ALL) ALL</code> line is already present.</p>
+<h2 id="alternative-a-drop-in-rule-for-one-user">Alternative: a drop-in rule for one user</h2>
+<pre><code class="language-bash">echo 'alice ALL=(ALL:ALL) ALL' &gt; /etc/sudoers.d/alice
+chmod 440 /etc/sudoers.d/alice
+visudo -c        # validate syntax
+</code></pre>
+<p>Always validate — a syntax error in sudoers breaks sudo for everyone. Edit the main file only with <code>visudo</code>, never with a plain editor.</p>
+<h2 id="step-3-log-out-and-back-in">Step 3: log out and back in</h2>
+<p>Group membership is read at login. Until you start a new session, <code>groups</code> won't show <code>sudo</code>/<code>wheel</code> and sudo still fails. Log out completely (or reboot); for a quick test in the current terminal, <code>su - alice</code> or <code>newgrp sudo</code>.</p>
+<p>Then:</p>
+<pre><code class="language-bash">sudo -v &amp;&amp; sudo whoami     # prints: root
+</code></pre>
+<h2 id="minimal-systems-without-sudo">Minimal systems without sudo</h2>
+<p>If <code>sudo</code> itself isn't installed you get <code>sudo: command not found</code> instead. As root: <code>apt install sudo</code> (Debian) or <code>dnf install sudo</code>, then follow the steps above.</p>
+<p class="upd">Last updated 2026-11-20.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-permission-denied-running-script/">bash: ./script.sh: Permission denied</a></li><li><a href="/linux/linux-sudo-command-not-found/">sudo: command not found</a></li><li><a href="/linux/linux-sudo-unable-to-resolve-host/">sudo: unable to resolve host</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-apt-hash-sum-mismatch/">E: Failed to fetch ... Hash Sum mismatch</a></li><li><a href="/linux/linux-apt-no-pubkey/">The following signatures couldn&#x27;t be verified because the public key is not available: NO_PUBKEY</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

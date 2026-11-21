@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;transformers&#x27; (Python) — how to fix</title>
+<meta name="description" content="The Hugging Face transformers package is not installed in the Python interpreter that is running your code. Usually it was installed into a different environment, or a local file shadows it.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-transformers/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;transformers&#x27; (Python) — how to fix"><meta property="og:description" content="The Hugging Face transformers package is not installed in the Python interpreter that is running your code. Usually it was installed into a different environment, or a local file shadows it.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-transformers/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'transformers' (Python) \u2014 how to fix", "description": "The Hugging Face transformers package is not installed in the Python interpreter that is running your code. Usually it was installed into a different environment, or a local file shadows it.", "dateModified": "2026-11-18", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-transformers/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'transformers'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-transformers/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;transformers&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 1, in &lt;module&gt;
+    from transformers import AutoTokenizer, AutoModelForCausalLM
+ModuleNotFoundError: No module named &#x27;transformers&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install it into the interpreter you actually run: <code>python -m pip install transformers</code> (plus a backend such as <code>python -m pip install torch</code>). In Jupyter use <code>%pip install transformers</code> and restart the kernel. Check with <code>python -c "import sys, transformers; print(sys.executable, transformers.__version__)"</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Python searched every directory on <code>sys.path</code> and found no package called <code>transformers</code>. The PyPI package and the import name are the same (<code>transformers</code>), so this is almost never a naming problem: the package is missing from <em>this</em> interpreter.</p>
+<h2 id="cause-1-not-installed-at-all">Cause 1: not installed at all</h2>
+<pre><code class="language-bash">python -m pip install transformers
+</code></pre>
+<p><code>transformers</code> needs a deep learning backend to load models. Most people want PyTorch:</p>
+<pre><code class="language-bash">python -m pip install &quot;transformers[torch]&quot;
+# or separately
+python -m pip install transformers torch
+</code></pre>
+<p>Without a backend the import succeeds, but loading a model prints <code>None of PyTorch, TensorFlow &gt;= 2.0, or Flax have been found</code>.</p>
+<h2 id="cause-2-installed-into-a-different-python">Cause 2: installed into a different Python</h2>
+<p><code>pip install</code> and <code>python</code> can point to different interpreters (system Python, a venv, conda, pyenv). Always install with <code>python -m pip</code> using the same <code>python</code> that runs your script, and check:</p>
+<pre><code class="language-bash">which python            # Windows: where python
+python -m pip show transformers
+python -c &quot;import sys; print(sys.executable)&quot;
+</code></pre>
+<p>If you use a virtual environment, activate it first:</p>
+<pre><code class="language-bash">python -m venv .venv
+source .venv/bin/activate       # Windows: .venv\Scripts\activate
+python -m pip install transformers torch
+</code></pre>
+<p>On Debian/Ubuntu, installing into system Python fails with <code>externally-managed-environment</code>. Use a venv as above rather than <code>--break-system-packages</code>.</p>
+<h2 id="cause-3-jupyter-colab-uses-another-kernel">Cause 3: Jupyter / Colab uses another kernel</h2>
+<p>A notebook kernel often isn't the Python in your terminal. Install from inside the notebook so it goes to the kernel's interpreter:</p>
+<pre><code class="language-python">%pip install transformers torch
+</code></pre>
+<p>Then restart the kernel (Kernel → Restart). <code>!pip install</code> may install into the wrong environment; <code>%pip</code> does not. In VS Code, check the interpreter selected at the top right of the notebook.</p>
+<h2 id="cause-4-conda-environment-not-active">Cause 4: conda environment not active</h2>
+<pre><code class="language-bash">conda activate myenv
+conda install -c conda-forge transformers
+# or
+python -m pip install transformers
+</code></pre>
+<p>Packages installed in <code>base</code> aren't visible in other envs and vice versa.</p>
+<h2 id="cause-5-a-local-file-named-transformerspy">Cause 5: a local file named transformers.py</h2>
+<p>If your project has a <code>transformers.py</code> file or a <code>transformers/</code> folder, Python may import that instead, or fail inside it. The error then often becomes <code>ImportError: cannot import name 'AutoTokenizer' from 'transformers'</code>. Rename the file and delete any <code>__pycache__</code>:</p>
+<pre><code class="language-bash">python -c &quot;import transformers; print(transformers.__file__)&quot;
+</code></pre>
+<p>The path should end in <code>site-packages/transformers/__init__.py</code>.</p>
+<h2 id="cause-6-old-version-missing-a-class">Cause 6: old version missing a class</h2>
+<p>If the module imports but a specific name fails (<code>cannot import name 'AutoModelForImageTextToText'</code>), your version is too old. Upgrade:</p>
+<pre><code class="language-bash">python -m pip install -U transformers
+</code></pre>
+<h2 id="verify">Verify</h2>
+<pre><code class="language-bash">python -c &quot;import transformers, torch; print(transformers.__version__, torch.__version__)&quot;
+</code></pre>
+<p class="upd">Last updated 2026-11-18.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-externally-managed-environment/">error: externally-managed-environment</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-torch/">ModuleNotFoundError: No module named &#x27;torch&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

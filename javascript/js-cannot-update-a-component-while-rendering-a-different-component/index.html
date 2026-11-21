@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Warning: Cannot update a component while rendering a different component (JavaScript) — how to fix</title>
+<meta name="description" content="A component called a state setter that belongs to another component (usually a parent&#x27;s setter passed as a prop, or a store/context update) during its render. Move that update into an event handler or useEffect.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-cannot-update-a-component-while-rendering-a-different-component/">
+<meta property="og:title" content="Warning: Cannot update a component while rendering a different component (JavaScript) — how to fix"><meta property="og:description" content="A component called a state setter that belongs to another component (usually a parent&#x27;s setter passed as a prop, or a store/context update) during its render. Move that update into an event handler or useEffect.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-cannot-update-a-component-while-rendering-a-different-component/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Warning: Cannot update a component while rendering a different component (JavaScript) \u2014 how to fix", "description": "A component called a state setter that belongs to another component (usually a parent's setter passed as a prop, or a store/context update) during its render. Move that update into an event handler or useEffect.", "dateModified": "2026-11-18", "url": "https://errorfix-hollis.github.io/javascript/js-cannot-update-a-component-while-rendering-a-different-component/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "Warning: Cannot update a component while rendering a different component", "item": "https://errorfix-hollis.github.io/javascript/js-cannot-update-a-component-while-rendering-a-different-component/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>Warning: Cannot update a component while rendering a different component (JavaScript) — how to fix</h1>
+<pre class="err"><code>Warning: Cannot update a component (`App`) while rendering a different component (`Child`). To locate the bad setState() call inside `Child`, follow the stack trace as described in https://reactjs.org/link/setstate-in-render
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Don't call a parent's setter in the child's render body. Wrap it in <code>useEffect(() =&gt; { onChange(value); }, [value]);</code>, call it from an event handler, or better, compute the value in the parent instead of syncing it. Also check for <code>onClick={setX(1)}</code> (should be <code>onClick={() =&gt; setX(1)}</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Rendering must be pure: while React renders <code>Child</code>, it must not change the state of <code>App</code>. React detected a <code>setState</code> (or a store update that re-renders another component) that ran <em>during</em> <code>Child</code>'s render and warns, because the result depends on render order and can cause extra renders or loops.</p>
+<p>The first component in the message (<code>App</code>) owns the state; the second (<code>Child</code>) is where the bad call happens. The stack trace below the warning points to the exact line.</p>
+<h2 id="cause-1-calling-a-parent-setter-in-the-render-body">Cause 1: calling a parent setter in the render body</h2>
+<pre><code class="language-jsx">function Child({ items, onCount }) {
+  onCount(items.length);          // runs during render -&gt; warning
+  return &lt;ul&gt;{items.map(i =&gt; &lt;li key={i.id}&gt;{i.name}&lt;/li&gt;)}&lt;/ul&gt;;
+}
+</code></pre>
+<p>Best fix: the parent doesn't need this state at all, it can derive it:</p>
+<pre><code class="language-jsx">function App() {
+  const [items] = useState([]);
+  const count = items.length;     // derived, no setter needed
+  return &lt;&gt;&lt;p&gt;{count}&lt;/p&gt;&lt;Child items={items} /&gt;&lt;/&gt;;
+}
+</code></pre>
+<p>If the parent genuinely needs a notification, do it after render:</p>
+<pre><code class="language-jsx">useEffect(() =&gt; {
+  onCount(items.length);
+}, [items.length, onCount]);
+</code></pre>
+<p>Make sure <code>onCount</code> is stable (a state setter, or wrapped in <code>useCallback</code>) to avoid an effect loop.</p>
+<h2 id="cause-2-handler-called-instead-of-passed">Cause 2: handler called instead of passed</h2>
+<pre><code class="language-jsx">&lt;button onClick={onSelect(id)}&gt;Pick&lt;/button&gt;        // calls parent setter during render
+&lt;button onClick={() =&gt; onSelect(id)}&gt;Pick&lt;/button&gt;  // correct
+</code></pre>
+<h2 id="cause-3-dispatching-to-a-store-during-render">Cause 3: dispatching to a store during render</h2>
+<p>Redux <code>dispatch</code>, Zustand <code>set</code>, Jotai/Recoil setters or a context setter called directly in a component body trigger re-renders of other subscribed components:</p>
+<pre><code class="language-jsx">function Page({ title }) {
+  dispatch(setTitle(title));       // warning
+  ...
+}
+</code></pre>
+<p>Move it into an effect:</p>
+<pre><code class="language-jsx">useEffect(() =&gt; {
+  dispatch(setTitle(title));
+}, [title, dispatch]);
+</code></pre>
+<h2 id="cause-4-form-libraries-and-setvalue-in-render">Cause 4: form libraries and setValue in render</h2>
+<p>Calling <code>setValue</code> / <code>setFieldValue</code> from react-hook-form or Formik in the body of a child field component has the same effect. Use <code>defaultValues</code>, or put the call in <code>useEffect</code>.</p>
+<h2 id="cause-5-setstate-inside-a-parents-state-updater">Cause 5: setState inside a parent's state updater</h2>
+<p>An updater function passed to <code>setState</code> runs during render. Calling another component's setter inside it triggers the warning:</p>
+<pre><code class="language-jsx">setItems(prev =&gt; {
+  onChange(prev.length + 1);   // side effect in updater -&gt; warning
+  return [...prev, item];
+});
+</code></pre>
+<p>Keep updaters pure and do the side effect next to the <code>setItems</code> call in the event handler:</p>
+<pre><code class="language-jsx">const next = [...items, item];
+setItems(next);
+onChange(next.length);
+</code></pre>
+<h2 id="finding-it">Finding it</h2>
+<p>Open the browser console and expand the warning's stack trace; look for the first frame in your own code inside the second component named. Search that component for setter calls (<code>set...(</code>, <code>dispatch(</code>, <code>on...(</code>) that aren't inside a handler, <code>useEffect</code> or callback. This warning is the "different component" sibling of <code>Too many re-renders</code>, which happens when a component updates <em>its own</em> state during render.</p>
+<p class="upd">Last updated 2026-11-18.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-cant-perform-a-react-state-update-on-an-unmounted-component/">Warning: Can&#x27;t perform a React state update on an unmounted component.</a></li><li><a href="/javascript/js-maximum-update-depth-exceeded/">Maximum update depth exceeded</a></li><li><a href="/javascript/js-too-many-re-renders/">Too many re-renders. React limits the number of renders to prevent an infinite loop.</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cannot-set-properties-of-null/">Uncaught TypeError: Cannot set properties of null (setting &#x27;innerHTML&#x27;)</a></li><li><a href="/javascript/js-cannot-set-properties-of-undefined/">TypeError: Cannot set properties of undefined (setting &#x27;...&#x27;)</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

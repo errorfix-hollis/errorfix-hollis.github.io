@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: &#x27;NoneType&#x27; object is not callable (Python) — how to fix</title>
+<meta name="description" content="You put parentheses after something whose value is None, so Python tried to call None. The name was set to None by accident, or a function or decorator returned None instead of a function.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-nonetype-object-is-not-callable/">
+<meta property="og:title" content="TypeError: &#x27;NoneType&#x27; object is not callable (Python) — how to fix"><meta property="og:description" content="You put parentheses after something whose value is None, so Python tried to call None. The name was set to None by accident, or a function or decorator returned None instead of a function.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-nonetype-object-is-not-callable/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: 'NoneType' object is not callable (Python) \u2014 how to fix", "description": "You put parentheses after something whose value is None, so Python tried to call None. The name was set to None by accident, or a function or decorator returned None instead of a function.", "dateModified": "2026-11-15", "url": "https://errorfix-hollis.github.io/python/python-typeerror-nonetype-object-is-not-callable/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: 'NoneType' object is not callable", "item": "https://errorfix-hollis.github.io/python/python-typeerror-nonetype-object-is-not-callable/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: &#x27;NoneType&#x27; object is not callable (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;main.py&quot;, line 9, in &lt;module&gt;
+    result = handler(data)
+             ^^^^^^^^^^^^^
+TypeError: &#x27;NoneType&#x27; object is not callable
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find the name being called on the traceback line and print it (<code>print(repr(handler))</code>). Usual fixes: pass the function without calling it (<code>callback=func</code>, not <code>callback=func()</code>), make decorators <code>return wrapper</code>, don't overwrite a method with its result, and in BeautifulSoup use <code>find_all</code> (not <code>findAll</code>/<code>findall</code> typos, which return None).</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>x(...)</code> works only if <code>x</code> is callable: a function, class, method, or an object with <code>__call__</code>. Here <code>x</code> was <code>None</code>. On Python 3.11+ the <code>^^^^</code> markers show which call failed. Print the value just before that line:</p>
+<pre><code class="language-python">print(repr(handler), type(handler))
+</code></pre>
+<p>Then find where it became <code>None</code>.</p>
+<h2 id="cause-1-calling-the-function-when-passing-it">Cause 1: calling the function when passing it</h2>
+<pre><code class="language-python">def on_done():
+    print(&quot;done&quot;)
+
+# Wrong: on_done() runs now and returns None; None is stored as the callback
+button.connect(on_done())
+threading.Thread(target=worker())
+schedule.every(5).seconds.do(job())
+
+# Right: pass the function object
+button.connect(on_done)
+threading.Thread(target=worker)
+schedule.every(5).seconds.do(job)
+</code></pre>
+<p>If you need arguments, use <code>lambda: worker(42)</code>, <code>functools.partial(worker, 42)</code>, or <code>Thread(target=worker, args=(42,))</code>.</p>
+<h2 id="cause-2-a-decorator-that-doesnt-return-the-wrapper">Cause 2: a decorator that doesn't return the wrapper</h2>
+<pre><code class="language-python">def log_calls(func):
+    def wrapper(*args, **kwargs):
+        print(&quot;calling&quot;, func.__name__)
+        return func(*args, **kwargs)
+    # forgot: return wrapper
+
+@log_calls
+def add(a, b): return a + b
+
+add(1, 2)   # TypeError: 'NoneType' object is not callable
+</code></pre>
+<p><code>@log_calls</code> replaces <code>add</code> with whatever <code>log_calls</code> returns. Without <code>return wrapper</code> that's <code>None</code>. Add the return and wrap with <code>@functools.wraps(func)</code>.</p>
+<p>The same happens with decorator factories if you write <code>@retry</code> when the decorator expects <code>@retry()</code>, or the other way round.</p>
+<h2 id="cause-3-overwriting-a-function-or-method-with-its-result">Cause 3: overwriting a function or method with its result</h2>
+<pre><code class="language-python">self.process = self.process()     # first call works, now self.process is None
+self.process()                    # TypeError
+
+callback = print(&quot;hi&quot;)            # print returns None
+callback()
+</code></pre>
+<p>Use different names for the method and its result.</p>
+<h2 id="cause-4-a-lookup-returned-none">Cause 4: a lookup returned None</h2>
+<pre><code class="language-python">handlers = {&quot;add&quot;: do_add}
+handler = handlers.get(cmd)       # None for unknown commands
+handler(data)                     # TypeError if cmd isn't &quot;add&quot;
+
+func = getattr(module, name, None)
+func()
+</code></pre>
+<p>Check it first: <code>if handler is None: raise ValueError(f"unknown command {cmd!r}")</code>.</p>
+<h2 id="cause-5-beautifulsoup-attribute-typos">Cause 5: BeautifulSoup attribute typos</h2>
+<p>In BeautifulSoup, <code>tag.something</code> means <code>tag.find("something")</code>. A misspelled method name is treated as a tag search, returns <code>None</code>, and calling it raises this error:</p>
+<pre><code class="language-python">soup.findall(&quot;a&quot;)      # bs4 looks for a &lt;findall&gt; tag -&gt; None -&gt; TypeError
+soup.find_all(&quot;a&quot;)     # correct
+</code></pre>
+<p>The same happens with methods that don't exist in your bs4 version. Check the spelling against the bs4 docs.</p>
+<h2 id="cause-6-a-variable-named-like-a-function">Cause 6: a variable named like a function</h2>
+<pre><code class="language-python">max = None            # or: input, sorted, len, ... set somewhere earlier
+max([1, 2, 3])        # TypeError
+</code></pre>
+<p>Rename the variable (<code>max_value</code>). In a notebook, also restart the kernel, or <code>del max</code>, to restore the built-in. See <a href="/python/python-typeerror-str-object-is-not-callable/">str object is not callable</a> for the same problem with strings.</p>
+<h2 id="cause-7-a-function-that-only-returns-on-some-paths">Cause 7: a function that only returns on some paths</h2>
+<pre><code class="language-python">def get_parser(kind):
+    if kind == &quot;json&quot;:
+        return json.loads
+    # no return for other kinds -&gt; None
+
+parse = get_parser(&quot;yaml&quot;)
+parse(text)           # TypeError
+</code></pre>
+<p>Return something on every path, or raise an exception for unsupported input.</p>
+<p class="upd">Last updated 2026-11-15.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li><li><a href="/python/python-typeerror-module-object-is-not-callable/">TypeError: &#x27;module&#x27; object is not callable</a></li><li><a href="/python/python-typeerror-str-object-is-not-callable/">TypeError: &#x27;str&#x27; object is not callable</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>spec.selector: Invalid value: field is immutable (Kubernetes) — how to fix</title>
+<meta name="description" content="You tried to change a field Kubernetes doesn&#x27;t allow to be updated in place, such as a Deployment&#x27;s spec.selector, a Job&#x27;s pod template, a Service&#x27;s clusterIP or a PVC&#x27;s storageClassName. The object must be deleted and recreated.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-field-is-immutable/">
+<meta property="og:title" content="spec.selector: Invalid value: field is immutable (Kubernetes) — how to fix"><meta property="og:description" content="You tried to change a field Kubernetes doesn&#x27;t allow to be updated in place, such as a Deployment&#x27;s spec.selector, a Job&#x27;s pod template, a Service&#x27;s clusterIP or a PVC&#x27;s storageClassName. The object must be deleted and recreated.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-field-is-immutable/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "spec.selector: Invalid value: field is immutable (Kubernetes) \u2014 how to fix", "description": "You tried to change a field Kubernetes doesn't allow to be updated in place, such as a Deployment's spec.selector, a Job's pod template, a Service's clusterIP or a PVC's storageClassName. The object must be deleted and recreated.", "dateModified": "2026-11-17", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-field-is-immutable/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "spec.selector: Invalid value: field is immutable", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-field-is-immutable/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>spec.selector: Invalid value: field is immutable (Kubernetes) — how to fix</h1>
+<pre class="err"><code>The Deployment &quot;web&quot; is invalid: spec.selector: Invalid value: v1.LabelSelector{MatchLabels:map[string]string{&quot;app&quot;:&quot;web-v2&quot;}, MatchExpressions:[]v1.LabelSelectorRequirement(nil)}: field is immutable
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Either revert the change to the immutable field, or delete and recreate the object: <code>kubectl delete deployment web &amp;&amp; kubectl apply -f deploy.yaml</code> (or <code>kubectl replace --force -f deploy.yaml</code>). For Jobs, delete the old Job before applying; in Helm, avoid changing selector labels between releases.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The API server rejected an update because it changes a field that is fixed after creation. <code>kubectl apply</code>, <code>helm upgrade</code> and Argo CD/Flux all send updates, so they all fail the same way. The object keeps running with its old spec.</p>
+<p>Commonly immutable fields:</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Immutable field</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Deployment / StatefulSet / DaemonSet / ReplicaSet</td>
+<td><code>spec.selector</code> (apps/v1)</td>
+</tr>
+<tr>
+<td>StatefulSet</td>
+<td>most of <code>spec</code> except <code>replicas</code>, <code>template</code>, <code>updateStrategy</code>, <code>persistentVolumeClaimRetentionPolicy</code>, <code>minReadySeconds</code>, <code>ordinals</code> - including <code>volumeClaimTemplates</code>, <code>serviceName</code>, <code>podManagementPolicy</code></td>
+</tr>
+<tr>
+<td>Job</td>
+<td><code>spec.template</code>, <code>spec.selector</code>, <code>spec.completions</code> (mostly)</td>
+</tr>
+<tr>
+<td>Service</td>
+<td><code>spec.clusterIP</code>, <code>spec.clusterIPs</code>, <code>spec.ipFamilies</code> (partly)</td>
+</tr>
+<tr>
+<td>PersistentVolumeClaim</td>
+<td><code>spec</code> except <code>resources.requests</code> (expansion)</td>
+</tr>
+<tr>
+<td>Pod</td>
+<td>almost all of <code>spec</code> except container <code>image</code> and a few others</td>
+</tr>
+<tr>
+<td>ConfigMap / Secret with <code>immutable: true</code></td>
+<td><code>data</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="cause-1-changing-deployment-selector-labels">Cause 1: changing Deployment selector labels</h2>
+<pre><code class="language-yaml">spec:
+  selector:
+    matchLabels:
+      app: web-v2      # was: app: web
+</code></pre>
+<p>The selector decides which pods (and ReplicaSets) the Deployment owns; changing it would orphan the running pods, so it's locked.</p>
+<h2 id="fix-1-revert-or-recreate">Fix 1: revert, or recreate</h2>
+<p>If you only wanted new labels on pods, add them to <code>spec.template.metadata.labels</code> and leave <code>spec.selector</code> alone - extra pod labels are fine.</p>
+<p>If the selector must change, recreate the Deployment (causes downtime unless you run old and new side by side):</p>
+<pre><code class="language-bash">kubectl delete deployment web
+kubectl apply -f deploy.yaml
+# or in one step:
+kubectl replace --force -f deploy.yaml
+</code></pre>
+<p>Zero-downtime alternative: deploy it under a new name (<code>web-v2</code>) with the new selector, point the Service at it, then delete the old one.</p>
+<h2 id="cause-2-re-applying-a-job">Cause 2: re-applying a Job</h2>
+<p>Jobs can't have their pod template changed. Re-running CI that applies an edited Job (new image tag, new args) fails with <code>spec.template: Invalid value: ... field is immutable</code>.</p>
+<h2 id="fix-2-delete-the-job-first">Fix 2: delete the Job first</h2>
+<pre><code class="language-bash">kubectl delete job db-migrate --ignore-not-found
+kubectl apply -f job.yaml
+</code></pre>
+<p>Better: set <code>ttlSecondsAfterFinished: 300</code> so finished Jobs are cleaned up automatically, give each run a unique name (<code>generateName:</code> with <code>kubectl create</code>), or use Helm hooks with <code>helm.sh/hook-delete-policy: before-hook-creation</code>.</p>
+<h2 id="cause-3-helm-chart-upgrades-that-change-selector-labels">Cause 3: Helm chart upgrades that change selector labels</h2>
+<p>Charts that put <code>{{ .Chart.Version }}</code> or <code>helm.sh/chart</code> into <code>selector.matchLabels</code> break every upgrade. Upstream chart major versions sometimes change selectors on purpose; their upgrade notes then say to delete the Deployment/StatefulSet first.</p>
+<p>Fix the template so selectors contain only stable labels (<code>app.kubernetes.io/name</code>, <code>app.kubernetes.io/instance</code>), then delete the object once and run <code>helm upgrade</code> again. For StatefulSets you can keep the pods (and their volumes) running while recreating the object:</p>
+<pre><code class="language-bash">kubectl delete statefulset db --cascade=orphan
+helm upgrade my-release ./chart
+</code></pre>
+<h2 id="cause-4-service-clusterip-or-pvc-changes">Cause 4: Service clusterIP or PVC changes</h2>
+<ul>
+<li>A Service manifest with a hard-coded <code>clusterIP:</code> that differs from the live one fails. Remove the field (let Kubernetes keep its value) or delete/recreate the Service.</li>
+<li>A PVC's <code>storageClassName</code>, <code>accessModes</code> or volume can't change. Only <code>resources.requests.storage</code> can grow (if the StorageClass has <code>allowVolumeExpansion: true</code>). To move data to a new class, create a new PVC and copy.</li>
+</ul>
+<h2 id="check-what-would-change-before-applying">Check what would change before applying</h2>
+<pre><code class="language-bash">kubectl diff -f deploy.yaml
+</code></pre>
+<p>Validate syntax first with the <a href="/tools/yaml-validator/">YAML validator</a>.</p>
+<p class="upd">Last updated 2026-11-17.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-error-converting-yaml-to-json-mapping-values-are-not-allowed/">error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context</a></li><li><a href="/kubernetes/k8s-error-from-server-forbidden/">Error from server (Forbidden): User cannot list resource in API group at the cluster scope</a></li><li><a href="/kubernetes/k8s-no-matches-for-kind/">error: resource mapping not found ... no matches for kind &quot;Deployment&quot; in version &quot;extensions/v1beta1&quot;</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

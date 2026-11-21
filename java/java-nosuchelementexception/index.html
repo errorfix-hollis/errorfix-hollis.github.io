@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>java.util.NoSuchElementException — how to fix</title>
+<meta name="description" content="You asked for the next element of something that has none left: Scanner input that is exhausted or closed, an Iterator past its end, Optional.get() on an empty Optional, or a list/queue method on an empty collection.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-nosuchelementexception/">
+<meta property="og:title" content="java.util.NoSuchElementException — how to fix"><meta property="og:description" content="You asked for the next element of something that has none left: Scanner input that is exhausted or closed, an Iterator past its end, Optional.get() on an empty Optional, or a list/queue method on an empty collection.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-nosuchelementexception/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "java.util.NoSuchElementException \u2014 how to fix", "description": "You asked for the next element of something that has none left: Scanner input that is exhausted or closed, an Iterator past its end, Optional.get() on an empty Optional, or a list/queue method on an empty collection.", "dateModified": "2026-11-16", "url": "https://errorfix-hollis.github.io/java/java-nosuchelementexception/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "java.util.NoSuchElementException", "item": "https://errorfix-hollis.github.io/java/java-nosuchelementexception/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>java.util.NoSuchElementException — how to fix</h1>
+<pre class="err"><code>Exception in thread &quot;main&quot; java.util.NoSuchElementException
+	at java.base/java.util.Scanner.throwFor(Scanner.java:937)
+	at java.base/java.util.Scanner.next(Scanner.java:1594)
+	at java.base/java.util.Scanner.nextInt(Scanner.java:2258)
+	at Main.main(Main.java:8)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check before reading: <code>while (sc.hasNextInt()) { int n = sc.nextInt(); }</code>, <code>if (it.hasNext()) it.next()</code>, and use <code>optional.orElse(...)</code>/<code>orElseThrow(...)</code> instead of <code>get()</code>. Never close a Scanner wrapping <code>System.in</code> and create one Scanner for the whole program.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>NoSuchElementException</code> is thrown by "give me the next one" methods when there is no next one. The top frame of the stack trace tells you which API:</p>
+<table>
+<thead>
+<tr>
+<th>Top frame</th>
+<th>Message</th>
+<th>Section</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Scanner.next/nextInt/nextLine</code></td>
+<td><em>(none)</em> or <code>No line found</code></td>
+<td>Cause 1-2</td>
+</tr>
+<tr>
+<td><code>Iterator.next</code>, <code>ArrayList$Itr.next</code></td>
+<td><em>(none)</em></td>
+<td>Cause 3</td>
+</tr>
+<tr>
+<td><code>Optional.get</code> / <code>orElseThrow()</code></td>
+<td><code>No value present</code></td>
+<td>Cause 4</td>
+</tr>
+<tr>
+<td><code>LinkedList.getFirst</code>, <code>ArrayDeque.removeFirst</code>, <code>TreeSet.first</code></td>
+<td><em>(none)</em></td>
+<td>Cause 5</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cause-1-scanner-reached-end-of-input">Cause 1: Scanner reached end of input</h2>
+<p><code>nextInt()</code>, <code>next()</code> and <code>nextLine()</code> throw when the input stream has ended. This happens when reading a file with fewer tokens than expected, when piping input (<code>java Main &lt; input.txt</code>), or on online judges/IDEs that run your program with empty stdin.</p>
+<p>Always guard reads:</p>
+<pre><code class="language-java">Scanner sc = new Scanner(System.in);
+while (sc.hasNextInt()) {
+    int n = sc.nextInt();
+    // ...
+}
+
+if (sc.hasNextLine()) {
+    String line = sc.nextLine();
+}
+</code></pre>
+<p>In IntelliJ/Eclipse, make sure you actually type input in the Run console. In VS Code, set <code>"console": "integratedTerminal"</code> in <code>launch.json</code> — the Debug Console does not accept stdin.</p>
+<h2 id="cause-2-a-scanner-on-systemin-was-closed">Cause 2: a Scanner on System.in was closed</h2>
+<p>Closing a <code>Scanner</code> closes the stream it wraps. Once <code>System.in</code> is closed, every new Scanner on it throws <code>NoSuchElementException</code> immediately:</p>
+<pre><code class="language-java">// Wrong
+static int readInt() {
+    Scanner sc = new Scanner(System.in);
+    int n = sc.nextInt();
+    sc.close();            // closes System.in for the whole JVM
+    return n;
+}
+// second call to readInt() -&gt; NoSuchElementException
+</code></pre>
+<p>Create one Scanner and share it; don't close it (or close it once at the very end of <code>main</code>):</p>
+<pre><code class="language-java">private static final Scanner SC = new Scanner(System.in);
+
+static int readInt() {
+    return SC.nextInt();
+}
+</code></pre>
+<p>Also avoid try-with-resources around a <code>Scanner(System.in)</code> for the same reason.</p>
+<h2 id="cause-3-iteratornext-past-the-end">Cause 3: Iterator.next() past the end</h2>
+<pre><code class="language-java">Iterator&lt;String&gt; it = list.iterator();
+while (it.hasNext()) {
+    String a = it.next();
+    String b = it.next();     // throws when the list has an odd size
+}
+</code></pre>
+<p>Call <code>next()</code> exactly once per <code>hasNext()</code> check, or use an enhanced <code>for</code> loop. The same applies to <code>StringTokenizer.nextToken()</code> — check <code>hasMoreTokens()</code> first.</p>
+<h2 id="cause-4-optionalget-on-an-empty-optional">Cause 4: Optional.get() on an empty Optional</h2>
+<pre><code class="language-java">User u = repo.findById(id).get();   // NoSuchElementException: No value present
+</code></pre>
+<p>Handle the empty case explicitly:</p>
+<pre><code class="language-java">User u = repo.findById(id)
+        .orElseThrow(() -&gt; new UserNotFoundException(id));
+
+String name = repo.findById(id).map(User::getName).orElse(&quot;unknown&quot;);
+</code></pre>
+<p>Streams: <code>list.stream().filter(...).findFirst().get()</code> and <code>stream.max(...).get()</code> fail the same way on empty results.</p>
+<h2 id="cause-5-firstlast-element-of-an-empty-collection">Cause 5: first/last element of an empty collection</h2>
+<p><code>LinkedList.getFirst()</code>, <code>removeFirst()</code>, <code>element()</code>, <code>ArrayDeque.removeFirst()</code>, <code>TreeSet.first()</code>, <code>TreeMap.firstKey()</code> and (Java 21) <code>List.getFirst()</code> throw on empty collections. Check <code>isEmpty()</code> or use the null-returning variants:</p>
+<table>
+<thead>
+<tr>
+<th>Throws</th>
+<th>Returns null instead</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>removeFirst()</code> / <code>remove()</code></td>
+<td><code>pollFirst()</code> / <code>poll()</code></td>
+</tr>
+<tr>
+<td><code>getFirst()</code> / <code>element()</code></td>
+<td><code>peekFirst()</code> / <code>peek()</code></td>
+</tr>
+<tr>
+<td><code>TreeMap.firstKey()</code></td>
+<td><code>firstEntry()</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="quick-checklist">Quick checklist</h2>
+<ol>
+<li>Read the top stack frame to see which API threw.</li>
+<li>Add a <code>hasNext*()</code> / <code>isPresent()</code> / <code>isEmpty()</code> check before the call.</li>
+<li>For Scanner on <code>System.in</code>: one instance, never closed mid-program.</li>
+</ol>
+<p class="upd">Last updated 2026-11-16.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-concurrentmodificationexception/">java.util.ConcurrentModificationException</a></li><li><a href="/java/java-inputmismatchexception/">java.util.InputMismatchException</a></li><li><a href="/java/java-nullpointerexception/">java.lang.NullPointerException: Cannot invoke &quot;String.length()&quot; because &quot;&lt;local1&gt;&quot; is null</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

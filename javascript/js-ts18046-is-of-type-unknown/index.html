@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TS18046: &#x27;error&#x27; is of type &#x27;unknown&#x27;. (TypeScript) — how to fix</title>
+<meta name="description" content="TypeScript types `catch` variables (and some other values) as `unknown`, so you can&#x27;t access properties on them until you narrow the type. It&#x27;s on by default with `strict` since TypeScript 4.4 (`useUnknownInCatchVariables`).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-ts18046-is-of-type-unknown/">
+<meta property="og:title" content="TS18046: &#x27;error&#x27; is of type &#x27;unknown&#x27;. (TypeScript) — how to fix"><meta property="og:description" content="TypeScript types `catch` variables (and some other values) as `unknown`, so you can&#x27;t access properties on them until you narrow the type. It&#x27;s on by default with `strict` since TypeScript 4.4 (`useUnknownInCatchVariables`).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-ts18046-is-of-type-unknown/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TS18046: 'error' is of type 'unknown'. (TypeScript) \u2014 how to fix", "description": "TypeScript types `catch` variables (and some other values) as `unknown`, so you can't access properties on them until you narrow the type. It's on by default with `strict` since TypeScript 4.4 (`useUnknownInCatchVariables`).", "dateModified": "2026-11-19", "url": "https://errorfix-hollis.github.io/javascript/js-ts18046-is-of-type-unknown/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "TS18046: 'error' is of type 'unknown'.", "item": "https://errorfix-hollis.github.io/javascript/js-ts18046-is-of-type-unknown/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>TS18046: &#x27;error&#x27; is of type &#x27;unknown&#x27;. (TypeScript) — how to fix</h1>
+<pre class="err"><code>src/api.ts:12:17 - error TS18046: &#x27;error&#x27; is of type &#x27;unknown&#x27;.
+
+12     console.log(error.message);
+                   ~~~~~
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Narrow before use: <code>if (error instanceof Error) console.log(error.message); else console.log(String(error));</code>. For other values use type guards (<code>typeof x === 'string'</code>, <code>'prop' in x</code>) or validate with a schema (zod). Avoid <code>catch (e: any)</code> except as a quick escape hatch.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>unknown</code> is the type-safe version of <code>any</code>: a value could be anything, so TypeScript lets you do almost nothing with it until you prove what it is. In JavaScript you can <code>throw</code> any value (<code>throw "oops"</code>, <code>throw 42</code>), so a caught value isn't guaranteed to be an <code>Error</code>. Since TS 4.4, <code>strict: true</code> enables <code>useUnknownInCatchVariables</code>, making <code>catch (error)</code> an <code>unknown</code> instead of <code>any</code>.</p>
+<p>The same error appears for any <code>unknown</code> value: <code>JSON.parse</code> results passed through generic helpers, <code>fetch().json()</code> assigned to <code>unknown</code>, or library callbacks typed as <code>unknown</code>.</p>
+<h2 id="fix-1-narrow-with-instanceof-error">Fix 1: narrow with instanceof Error</h2>
+<pre><code class="language-ts">try {
+  await save();
+} catch (error) {
+  if (error instanceof Error) {
+    console.error(error.message);
+  } else {
+    console.error('Unknown error', error);
+  }
+}
+</code></pre>
+<p>A reusable helper keeps catch blocks short:</p>
+<pre><code class="language-ts">function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  try { return JSON.stringify(err); } catch { return String(err); }
+}
+</code></pre>
+<h2 id="fix-2-library-specific-error-types">Fix 2: library-specific error types</h2>
+<p>Many libraries export a guard or class:</p>
+<pre><code class="language-ts">import axios from 'axios';
+
+try {
+  await axios.get('/api/users');
+} catch (error) {
+  if (axios.isAxiosError(error)) {
+    console.log(error.response?.status, error.message);
+  }
+}
+</code></pre>
+<p>Prisma has <code>Prisma.PrismaClientKnownRequestError</code>, Zod has <code>ZodError</code> — use <code>instanceof</code> with them.</p>
+<h2 id="fix-3-narrowing-other-unknown-values">Fix 3: narrowing other unknown values</h2>
+<pre><code class="language-ts">function handle(data: unknown) {
+  if (typeof data === 'string') return data.toUpperCase();
+  if (typeof data === 'object' &amp;&amp; data !== null &amp;&amp; 'id' in data) {
+    return (data as { id: unknown }).id;
+  }
+}
+</code></pre>
+<p>For anything non-trivial (API responses, parsed JSON), validate with a schema so the type and the runtime check can't drift:</p>
+<pre><code class="language-ts">import { z } from 'zod';
+const User = z.object({ id: z.number(), name: z.string() });
+const user = User.parse(await res.json());   // typed as { id: number; name: string }
+</code></pre>
+<h2 id="fix-4-type-assertion-when-youre-sure">Fix 4: type assertion (when you're sure)</h2>
+<pre><code class="language-ts">try { run(); } catch (error) {
+  const e = error as Error;
+  console.log(e.message);
+}
+</code></pre>
+<p>This compiles but checks nothing at runtime — if a string is thrown, <code>e.message</code> is <code>undefined</code>. Prefer Fix 1.</p>
+<p>Note you can't annotate the catch variable with a specific type: <code>catch (e: Error)</code> is a compile error (TS1196). Only <code>any</code> or <code>unknown</code> are allowed.</p>
+<h2 id="fix-5-restore-the-old-behaviour-not-recommended">Fix 5: restore the old behaviour (not recommended)</h2>
+<pre><code class="language-ts">try { run(); } catch (error: any) { console.log(error.message); }
+</code></pre>
+<p>or project-wide in <code>tsconfig.json</code>:</p>
+<pre><code class="language-json">{ &quot;compilerOptions&quot;: { &quot;strict&quot;: true, &quot;useUnknownInCatchVariables&quot;: false } }
+</code></pre>
+<p>This silences the error everywhere and brings back crashes like <code>Cannot read properties of undefined (reading 'message')</code> when a non-Error is thrown.</p>
+<h2 id="promise-catch">Promise .catch()</h2>
+<p>In <code>.catch((err) =&gt; ...)</code> the parameter is typed <code>any</code>, not <code>unknown</code>, so you don't get TS18046 there. With <code>@typescript-eslint/use-unknown-in-catch-callback-variable</code> you can make it consistent and narrow the same way.</p>
+<p class="upd">Last updated 2026-11-19.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-ts2322-type-is-not-assignable-to-type/">TS2322: Type &#x27;X&#x27; is not assignable to type &#x27;Y&#x27;</a></li><li><a href="/javascript/js-ts2339-property-does-not-exist-on-type/">Property &#x27;x&#x27; does not exist on type &#x27;Y&#x27;</a></li><li><a href="/javascript/js-ts2532-object-is-possibly-undefined/">Object is possibly &#x27;undefined&#x27;. ts(2532)</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-cannot-set-properties-of-null/">Uncaught TypeError: Cannot set properties of null (setting &#x27;innerHTML&#x27;)</a></li><li><a href="/javascript/js-cannot-set-properties-of-undefined/">TypeError: Cannot set properties of undefined (setting &#x27;...&#x27;)</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

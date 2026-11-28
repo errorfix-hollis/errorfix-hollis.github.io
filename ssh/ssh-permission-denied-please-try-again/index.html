@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Permission denied, please try again. (SSH) — how to fix</title>
+<meta name="description" content="The SSH server rejected the password: wrong username or password, root login with a password is disabled (the default), the account is locked or not allowed by sshd_config, or password authentication is turned off.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/ssh/ssh-permission-denied-please-try-again/">
+<meta property="og:title" content="Permission denied, please try again. (SSH) — how to fix"><meta property="og:description" content="The SSH server rejected the password: wrong username or password, root login with a password is disabled (the default), the account is locked or not allowed by sshd_config, or password authentication is turned off.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/ssh/ssh-permission-denied-please-try-again/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Permission denied, please try again. (SSH) \u2014 how to fix", "description": "The SSH server rejected the password: wrong username or password, root login with a password is disabled (the default), the account is locked or not allowed by sshd_config, or password authentication is turned off.", "dateModified": "2026-11-27", "url": "https://errorfix-hollis.github.io/ssh/ssh-permission-denied-please-try-again/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "SSH", "item": "https://errorfix-hollis.github.io/ssh/"}, {"@type": "ListItem", "position": 3, "name": "Permission denied, please try again.", "item": "https://errorfix-hollis.github.io/ssh/ssh-permission-denied-please-try-again/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/ssh/">SSH</a></p>
+<article><h1>Permission denied, please try again. (SSH) — how to fix</h1>
+<pre class="err"><code>user@192.168.1.10&#x27;s password:
+Permission denied, please try again.
+user@192.168.1.10&#x27;s password:
+user@192.168.1.10: Permission denied (publickey,password).
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the username (<code>ssh user@host</code>, not your local name). For root, sshd's default <code>PermitRootLogin prohibit-password</code> rejects passwords: log in as a normal user and use <code>sudo</code>, or use a key. Look at the server log for the real reason: <code>sudo journalctl -u ssh -n 50</code> (or <code>/var/log/auth.log</code>, <code>/var/log/secure</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The connection worked and the server asked for a password, but authentication failed. The server deliberately gives the same message for "wrong password", "user doesn't exist" and "user not allowed", so the client can't tell the difference. The server's log can:</p>
+<pre><code class="language-bash"># On the server (console, or another session)
+sudo journalctl -u ssh -u sshd -n 50 --no-pager
+sudo tail -n 50 /var/log/auth.log      # Debian/Ubuntu
+sudo tail -n 50 /var/log/secure        # RHEL/Fedora
+</code></pre>
+<p>Look for <code>Failed password for user</code>, <code>Failed password for invalid user</code>, <code>ROOT LOGIN REFUSED</code>, or <code>User x not allowed because ...</code>.</p>
+<h2 id="cause-1-wrong-username">Cause 1: wrong username</h2>
+<p><code>ssh 192.168.1.10</code> uses your <strong>local</strong> username. Specify the remote one:</p>
+<pre><code class="language-bash">ssh pi@192.168.1.10
+ssh ubuntu@ec2-host       # AWS Ubuntu images; Amazon Linux uses ec2-user
+</code></pre>
+<p>Also check <code>~/.ssh/config</code> for a <code>User</code> line for that host. Cloud images usually don't allow password login at all — use the key you selected when creating the instance: <code>ssh -i key.pem ubuntu@host</code>.</p>
+<h2 id="cause-2-logging-in-as-root-with-a-password">Cause 2: logging in as root with a password</h2>
+<p>OpenSSH defaults to <code>PermitRootLogin prohibit-password</code>: root may log in with a key, never with a password. The password is "wrong" even if it's correct. Log in as a regular user and use <code>sudo -i</code>. If you must allow root logins, prefer adding a key to <code>/root/.ssh/authorized_keys</code> over enabling <code>PermitRootLogin yes</code>.</p>
+<h2 id="cause-3-the-password-really-is-wrong">Cause 3: the password really is wrong</h2>
+<ul>
+<li>Keyboard layout differences (y/z, special characters) on the client.</li>
+<li>On a new Raspberry Pi OS image there's no default <code>pi/raspberry</code> anymore; the user is the one set in Raspberry Pi Imager.</li>
+<li>Reset it from a console: <code>sudo passwd username</code>.</li>
+<li>Check the account isn't locked or expired: <code>sudo passwd -S username</code>, <code>sudo chage -l username</code>. Unlock with <code>sudo passwd -u username</code>, or <code>sudo faillock --user username --reset</code> after too many failures (RHEL/Fedora).</li>
+</ul>
+<h2 id="cause-4-sshd-restrictions">Cause 4: sshd restrictions</h2>
+<p>Check the effective configuration:</p>
+<pre><code class="language-bash">sudo sshd -T | grep -iE 'passwordauthentication|permitrootlogin|allowusers|allowgroups|denyusers|usepam'
+</code></pre>
+<ul>
+<li><code>allowusers</code> / <code>allowgroups</code> set but don't include you → rejected.</li>
+<li>Files in <code>/etc/ssh/sshd_config.d/</code> (e.g. <code>50-cloud-init.conf</code>) override the main file. Cloud images often set <code>PasswordAuthentication no</code> there; in that case the client typically shows only <code>Permission denied (publickey)</code>.</li>
+</ul>
+<p>After editing, validate and reload:</p>
+<pre><code class="language-bash">sudo sshd -t &amp;&amp; sudo systemctl reload ssh     # service is &quot;sshd&quot; on RHEL/Fedora/Arch
+</code></pre>
+<h2 id="cause-5-windows-openssh-server">Cause 5: Windows OpenSSH server</h2>
+<p>Use the right username form: a local account <code>user</code>, a Microsoft account email for MS-account logins (<code>ssh "you@outlook.com"@host</code>), or <code>domain\user</code> for domain accounts. Administrators' keys go in <code>C:\ProgramData\ssh\administrators_authorized_keys</code>, not in the user profile.</p>
+<h2 id="better-switch-to-key-authentication">Better: switch to key authentication</h2>
+<pre><code class="language-bash">ssh-keygen -t ed25519
+ssh-copy-id user@host
+ssh user@host                 # no password prompt
+</code></pre>
+<p>Then you can set <code>PasswordAuthentication no</code> on the server.</p>
+<p class="upd">Last updated 2026-11-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/ssh/ssh-connection-closed-by-remote-host/">Connection closed by remote host</a></li><li><a href="/ssh/ssh-permission-denied-publickey/">Permission denied (publickey)</a></li><li><a href="/ssh/ssh-too-many-authentication-failures/">Received disconnect: Too many authentication failures</a></li><li><a href="/ssh/ssh-bad-configuration-option/">Bad configuration option</a></li><li><a href="/ssh/ssh-bad-owner-or-permissions-on-ssh-config/">Bad owner or permissions on ~/.ssh/config</a></li><li><a href="/ssh/ssh-connect-to-host-no-route-to-host/">ssh: connect to host port 22: No route to host</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal: couldn&#x27;t find remote ref main (Git) — how to fix</title>
+<meta name="description" content="You asked Git to fetch or pull a branch name that does not exist on the remote. Most often the remote&#x27;s default branch is master (or something else) while you typed main, or the remote is empty.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-fatal-couldnt-find-remote-ref/">
+<meta property="og:title" content="fatal: couldn&#x27;t find remote ref main (Git) — how to fix"><meta property="og:description" content="You asked Git to fetch or pull a branch name that does not exist on the remote. Most often the remote&#x27;s default branch is master (or something else) while you typed main, or the remote is empty.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-fatal-couldnt-find-remote-ref/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal: couldn't find remote ref main (Git) \u2014 how to fix", "description": "You asked Git to fetch or pull a branch name that does not exist on the remote. Most often the remote's default branch is master (or something else) while you typed main, or the remote is empty.", "dateModified": "2026-11-28", "url": "https://errorfix-hollis.github.io/git/git-fatal-couldnt-find-remote-ref/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "fatal: couldn't find remote ref main", "item": "https://errorfix-hollis.github.io/git/git-fatal-couldnt-find-remote-ref/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>fatal: couldn&#x27;t find remote ref main (Git) — how to fix</h1>
+<pre class="err"><code>$ git pull origin main
+fatal: couldn&#x27;t find remote ref main
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> List the branches the remote really has with <code>git ls-remote --heads origin</code>, then pull the right one (e.g. <code>git pull origin master</code>). Fix the tracking branch with <code>git branch -u origin/master</code>, and refresh the remote HEAD with <code>git remote set-head origin -a</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>git pull &lt;remote&gt; &lt;branch&gt;</code> and <code>git fetch &lt;remote&gt; &lt;branch&gt;</code> ask the remote for a ref named <code>refs/heads/&lt;branch&gt;</code>. If the remote has no ref with that name, Git stops with <code>couldn't find remote ref &lt;name&gt;</code>. Nothing is wrong with your local repository: the name you asked for just isn't there.</p>
+<p>Check what the remote actually has:</p>
+<pre><code class="language-bash">git ls-remote --heads origin
+# 4f1c...  refs/heads/master
+# 9ab2...  refs/heads/develop
+</code></pre>
+<h2 id="cause-1-main-vs-master">Cause 1: main vs master</h2>
+<p>Older repositories (and many self-hosted servers) still use <code>master</code>; newer GitHub/GitLab repositories use <code>main</code>. Pulling the one that doesn't exist gives this error.</p>
+<pre><code class="language-bash">git pull origin master
+</code></pre>
+<p>If your local branch tracks the wrong name, fix the upstream so a plain <code>git pull</code> works:</p>
+<pre><code class="language-bash">git branch -u origin/master        # current branch now tracks origin/master
+git remote set-head origin -a      # update origin/HEAD to the remote's default branch
+</code></pre>
+<p>If you'd rather rename your local branch to match the remote:</p>
+<pre><code class="language-bash">git branch -m main master
+git branch -u origin/master
+</code></pre>
+<h2 id="cause-2-typo-or-wrong-case">Cause 2: typo or wrong case</h2>
+<p>Branch names are case-sensitive on the remote: <code>Feature/Login</code> and <code>feature/login</code> are different refs. Copy the exact name from <code>git ls-remote --heads origin</code> or <code>git branch -r</code> (after <code>git fetch</code>).</p>
+<h2 id="cause-3-the-branch-was-deleted-or-never-pushed">Cause 3: the branch was deleted or never pushed</h2>
+<p>A colleague may have merged and deleted the branch, or never pushed it. Your local <code>origin/&lt;branch&gt;</code> can linger after deletion; prune stale remote-tracking refs:</p>
+<pre><code class="language-bash">git fetch --prune
+git branch -r
+</code></pre>
+<p>If the upstream branch is gone, point your branch at another one (<code>git branch -u origin/main</code>) or push it yourself:</p>
+<pre><code class="language-bash">git push -u origin my-branch
+</code></pre>
+<h2 id="cause-4-the-remote-repository-is-empty">Cause 4: the remote repository is empty</h2>
+<p>A freshly created repository has no branches at all, so any <code>git pull origin main</code> fails. Push your first commit instead:</p>
+<pre><code class="language-bash">git push -u origin main
+</code></pre>
+<p>If that push fails with <code>src refspec main does not match any</code>, you don't have a local commit yet; see the related page.</p>
+<h2 id="cause-5-wrong-remote">Cause 5: wrong remote</h2>
+<p>You may have several remotes (<code>origin</code>, <code>upstream</code>, a fork). Check where each one points:</p>
+<pre><code class="language-bash">git remote -v
+git ls-remote --heads upstream
+</code></pre>
+<h2 id="cause-6-a-stale-branchmerge-setting">Cause 6: a stale branch.<name>.merge setting</h2>
+<p><code>git pull</code> with no arguments uses <code>branch.&lt;name&gt;.merge</code> from <code>.git/config</code>. If it still names an old branch, you get this error without typing any branch name:</p>
+<pre><code class="language-bash">git config --get branch.$(git branch --show-current).merge
+git branch -u origin/main          # rewrites it
+</code></pre>
+<p class="upd">Last updated 2026-11-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-no-upstream-branch/">fatal: The current branch has no upstream branch.</a></li><li><a href="/git/git-src-refspec-main-does-not-match-any/">error: src refspec main does not match any</a></li><li><a href="/git/git-you-appear-to-have-cloned-an-empty-repository/">warning: You appear to have cloned an empty repository.</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

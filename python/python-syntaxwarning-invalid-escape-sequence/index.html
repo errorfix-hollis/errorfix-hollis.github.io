@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SyntaxWarning: invalid escape sequence &#x27;\d&#x27; (Python) — how to fix</title>
+<meta name="description" content="A normal string literal contains a backslash followed by a character that isn&#x27;t a valid escape (like \d, \s, \. or a Windows path). Python 3.12 upgraded this from a hidden DeprecationWarning to a visible SyntaxWarning.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-syntaxwarning-invalid-escape-sequence/">
+<meta property="og:title" content="SyntaxWarning: invalid escape sequence &#x27;\d&#x27; (Python) — how to fix"><meta property="og:description" content="A normal string literal contains a backslash followed by a character that isn&#x27;t a valid escape (like \d, \s, \. or a Windows path). Python 3.12 upgraded this from a hidden DeprecationWarning to a visible SyntaxWarning.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-syntaxwarning-invalid-escape-sequence/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "SyntaxWarning: invalid escape sequence '\\d' (Python) \u2014 how to fix", "description": "A normal string literal contains a backslash followed by a character that isn't a valid escape (like \\d, \\s, \\. or a Windows path). Python 3.12 upgraded this from a hidden DeprecationWarning to a visible SyntaxWarning.", "dateModified": "2026-11-16", "url": "https://errorfix-hollis.github.io/python/python-syntaxwarning-invalid-escape-sequence/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "SyntaxWarning: invalid escape sequence '\\d'", "item": "https://errorfix-hollis.github.io/python/python-syntaxwarning-invalid-escape-sequence/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>SyntaxWarning: invalid escape sequence &#x27;\d&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>/app/utils.py:12: SyntaxWarning: invalid escape sequence &#x27;\d&#x27;
+  pattern = re.compile(&quot;\d+\.\d+&quot;)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Use a raw string for regexes and Windows paths: <code>re.compile(r"\d+\.\d+")</code>, <code>r"C:\Users\me"</code>. Or double the backslash (<code>"\\d"</code>), or use forward slashes in paths. For warnings from third-party packages, upgrade the package.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>In a regular Python string, a backslash starts an escape sequence: <code>\n</code>, <code>\t</code>, <code>\\</code>, <code>\"</code>, <code>\x41</code>, <code>\u00e9</code>, and so on. When the backslash is followed by something that isn't a recognised escape — <code>\d</code>, <code>\s</code>, <code>\w</code>, <code>\.</code>, <code>\(</code>, <code>\p</code>, <code>\U</code> in some contexts — Python keeps the backslash as-is, but warns that this is invalid.</p>
+<ul>
+<li>Python 3.6–3.11: <code>DeprecationWarning</code> (hidden by default).</li>
+<li>Python 3.12+: <code>SyntaxWarning</code>, printed when the file is compiled.</li>
+<li>A future Python version will make it a <code>SyntaxError</code>.</li>
+</ul>
+<p>The string still works today, which is why the code "ran fine before". The warning is shown once per file when the <code>.pyc</code> is compiled, so it may appear only on first run.</p>
+<h2 id="fix-1-regular-expressions-use-raw-strings">Fix 1: regular expressions — use raw strings</h2>
+<pre><code class="language-python">import re
+
+# Warns
+re.compile(&quot;\d+\.\d+&quot;)
+re.sub(&quot;\s+&quot;, &quot; &quot;, text)
+
+# Fixed
+re.compile(r&quot;\d+\.\d+&quot;)
+re.sub(r&quot;\s+&quot;, &quot; &quot;, text)
+</code></pre>
+<p>A raw string (<code>r"..."</code>) passes every backslash to <code>re</code> untouched, which is what the regex engine expects. Use <code>r""</code> for every regex pattern, even ones without backslashes — it's the standard convention. Test patterns in the <a href="/tools/regex-tester/">regex tester</a>.</p>
+<h2 id="fix-2-windows-paths">Fix 2: Windows paths</h2>
+<pre><code class="language-python"># Warns (&quot;\P&quot;, &quot;\d&quot;) - and &quot;\n&quot;/&quot;\t&quot; would silently break the path
+path = &quot;C:\Projects\data\new.csv&quot;
+</code></pre>
+<p>Any of these work:</p>
+<pre><code class="language-python">path = r&quot;C:\Projects\data\new.csv&quot;
+path = &quot;C:\\Projects\\data\\new.csv&quot;
+path = &quot;C:/Projects/data/new.csv&quot;        # Windows accepts forward slashes
+
+from pathlib import Path
+path = Path(&quot;C:/Projects&quot;) / &quot;data&quot; / &quot;new.csv&quot;
+</code></pre>
+<p>Note that a raw string cannot end with a single backslash: <code>r"C:\dir\"</code> is a syntax error. Use <code>"C:\\dir\\"</code> or <code>pathlib</code>.</p>
+<h2 id="fix-3-docstrings-containing-backslashes">Fix 3: docstrings containing backslashes</h2>
+<p>LaTeX or regex examples in docstrings trigger the warning too:</p>
+<pre><code class="language-python">def area(r):
+    r&quot;&quot;&quot;Return \pi r^2.&quot;&quot;&quot;      # raw docstring
+</code></pre>
+<h2 id="fix-4-escaping-you-actually-meant">Fix 4: escaping you actually meant</h2>
+<p>If you wanted a literal backslash followed by a character, double it: <code>"\\d"</code>. If you meant a real escape, check the spelling — e.g. <code>"\e"</code> is not an escape in Python (use <code>"\x1b"</code> or <code>"\033"</code> for ESC).</p>
+<h2 id="find-all-occurrences">Find all occurrences</h2>
+<p>Compile the whole project with warnings turned into errors to list every file and line:</p>
+<pre><code class="language-bash">python -W error::SyntaxWarning -m compileall -f -q .
+</code></pre>
+<p>Linters catch this too: ruff/pycodestyle rule <code>W605</code> (invalid escape sequence). <code>ruff check --select W605 --fix .</code> can rewrite many of them automatically.</p>
+<h2 id="warnings-from-installed-packages">Warnings from installed packages</h2>
+<p>If the path in the warning is inside <code>site-packages</code>, it's a library that hasn't been updated for Python 3.12. Upgrade it (<code>python -m pip install -U &lt;package&gt;</code>). Until then you can silence it at startup:</p>
+<pre><code class="language-bash">python -W &quot;ignore::SyntaxWarning&quot; app.py
+</code></pre>
+<p>Silencing is a stop-gap — the code will break when the warning becomes an error.</p>
+<p class="upd">Last updated 2026-11-16.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-filenotfounderror-no-such-file-or-directory/">FileNotFoundError: [Errno 2] No such file or directory</a></li><li><a href="/python/python-syntaxerror-invalid-syntax/">SyntaxError: invalid syntax</a></li><li><a href="/python/python-syntaxerror-unicode-error-unicodeescape-codec-cant-decode-bytes/">SyntaxError: (unicode error) &#x27;unicodeescape&#x27; codec can&#x27;t decode bytes in position 2-3: truncated \UXXXXXXXX escape</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

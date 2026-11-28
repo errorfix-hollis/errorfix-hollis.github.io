@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: unsupported format string passed to NoneType.__format__ (Python) — how to fix</title>
+<meta name="description" content="You applied a format spec like :.2f, :&gt;10 or :, to a value that is None. None only supports an empty format spec, so the real bug is that the variable is None, usually a function that forgot to return.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-unsupported-format-string-passed-to-nonetype-format/">
+<meta property="og:title" content="TypeError: unsupported format string passed to NoneType.__format__ (Python) — how to fix"><meta property="og:description" content="You applied a format spec like :.2f, :&gt;10 or :, to a value that is None. None only supports an empty format spec, so the real bug is that the variable is None, usually a function that forgot to return.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-unsupported-format-string-passed-to-nonetype-format/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: unsupported format string passed to NoneType.__format__ (Python) \u2014 how to fix", "description": "You applied a format spec like :.2f, :>10 or :, to a value that is None. None only supports an empty format spec, so the real bug is that the variable is None, usually a function that forgot to return.", "dateModified": "2026-11-25", "url": "https://errorfix-hollis.github.io/python/python-typeerror-unsupported-format-string-passed-to-nonetype-format/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: unsupported format string passed to NoneType.__format__", "item": "https://errorfix-hollis.github.io/python/python-typeerror-unsupported-format-string-passed-to-nonetype-format/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: unsupported format string passed to NoneType.__format__ (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;report.py&quot;, line 7, in &lt;module&gt;
+    print(f&quot;Total: {total:.2f}&quot;)
+TypeError: unsupported format string passed to NoneType.__format__
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find why the value is None (often a function without <code>return</code>, or <code>list.sort()</code>/<code>dict.get()</code> results). Fix the source, or guard it: <code>f"{total:.2f}" if total is not None else "n/a"</code>, or <code>f"{(total or 0):.2f}"</code>. The same error with <code>str.__format__</code> means the value is a string: convert with <code>float(x)</code> first.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>In <code>f"{value:.2f}"</code> and <code>"{:.2f}".format(value)</code>, Python calls <code>value.__format__(".2f")</code>. <code>None</code> (and plain <code>object</code>) only accept an empty spec, so any width, precision or alignment raises this error. The message tells you the type: <code>NoneType</code> here.</p>
+<pre><code class="language-python">&gt;&gt;&gt; f&quot;{None}&quot;        # fine: 'None'
+&gt;&gt;&gt; f&quot;{None:.2f}&quot;    # TypeError
+</code></pre>
+<p>So the question is: why is this variable <code>None</code>?</p>
+<h2 id="cause-1-function-doesnt-return-anything">Cause 1: function doesn't return anything</h2>
+<pre><code class="language-python">def calc_total(items):
+    total = sum(i.price for i in items)
+    # forgot: return total
+
+total = calc_total(items)
+print(f&quot;Total: {total:.2f}&quot;)   # TypeError
+</code></pre>
+<p>Fix: add <code>return total</code>. Every code path should return a value; check <code>if</code> branches that fall through.</p>
+<h2 id="cause-2-in-place-methods-return-none">Cause 2: in-place methods return None</h2>
+<pre><code class="language-python">prices = prices.sort()        # sort() returns None
+avg = round(x, 2).append(...) # etc.
+</code></pre>
+<p><code>list.sort()</code>, <code>list.append()</code>, <code>random.shuffle()</code>, <code>dict.update()</code> modify in place and return <code>None</code>. Use <code>sorted(prices)</code> or call the method without assigning.</p>
+<h2 id="cause-3-missing-data-dictget-db-rows-regex">Cause 3: missing data (dict.get, DB rows, regex)</h2>
+<pre><code class="language-python">price = row.get(&quot;price&quot;)        # None if key missing
+m = re.search(r&quot;\d+&quot;, s)        # None if no match
+</code></pre>
+<p>Guard it explicitly:</p>
+<pre><code class="language-python">price = row.get(&quot;price&quot;, 0.0)
+print(f&quot;{price:.2f}&quot;)
+
+# or keep None but print something sensible
+print(f&quot;{price:.2f}&quot; if price is not None else &quot;n/a&quot;)
+</code></pre>
+<p>With pandas, missing values are <code>NaN</code> (a float, formats fine), but values pulled from Python objects or JSON can be <code>None</code>.</p>
+<h2 id="cause-4-formatting-inside-logging-or-tables">Cause 4: formatting inside logging or tables</h2>
+<pre><code class="language-python">print(f&quot;{name:&lt;20}{score:&gt;6.1f}&quot;)
+</code></pre>
+<p>If <code>score</code> is <code>None</code> for some rows, filter or default them: <code>score if score is not None else float("nan")</code>. In <code>str.format</code> tables the same applies.</p>
+<h2 id="variant-str__format__-list__format__">Variant: <code>str.__format__</code> / <code>list.__format__</code></h2>
+<pre><code>ValueError: Unknown format code 'f' for object of type 'str'
+TypeError: unsupported format string passed to list.__format__
+</code></pre>
+<p>The value is a string (e.g. from <code>input()</code> or CSV) or a list. Convert first:</p>
+<pre><code class="language-python">amount = float(input(&quot;Amount: &quot;))
+print(f&quot;{amount:.2f}&quot;)
+</code></pre>
+<p>For a list, format each element: <code>", ".join(f"{x:.2f}" for x in values)</code>.</p>
+<h2 id="debugging-tip">Debugging tip</h2>
+<p>Print the type right before the failing line:</p>
+<pre><code class="language-python">print(repr(total), type(total))
+</code></pre>
+<p>Then follow the variable back to where it was assigned. The <code>:.2f</code> is never the bug; the <code>None</code> is.</p>
+<p class="upd">Last updated 2026-11-25.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li><li><a href="/python/python-typeerror-nonetype-object-is-not-subscriptable/">TypeError: &#x27;NoneType&#x27; object is not subscriptable</a></li><li><a href="/python/python-valueerror-could-not-convert-string-to-float/">ValueError: could not convert string to float</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

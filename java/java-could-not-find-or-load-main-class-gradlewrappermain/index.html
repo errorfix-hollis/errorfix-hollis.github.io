@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error: Could not find or load main class org.gradle.wrapper.GradleWrapperMain (Java) — how to fix</title>
+<meta name="description" content="The ./gradlew script can&#x27;t find gradle/wrapper/gradle-wrapper.jar, usually because the jar was never committed (ignored by .gitignore), was deleted, or is corrupted, or the script is run from the wrong directory.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-could-not-find-or-load-main-class-gradlewrappermain/">
+<meta property="og:title" content="Error: Could not find or load main class org.gradle.wrapper.GradleWrapperMain (Java) — how to fix"><meta property="og:description" content="The ./gradlew script can&#x27;t find gradle/wrapper/gradle-wrapper.jar, usually because the jar was never committed (ignored by .gitignore), was deleted, or is corrupted, or the script is run from the wrong directory.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-could-not-find-or-load-main-class-gradlewrappermain/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error: Could not find or load main class org.gradle.wrapper.GradleWrapperMain (Java) \u2014 how to fix", "description": "The ./gradlew script can't find gradle/wrapper/gradle-wrapper.jar, usually because the jar was never committed (ignored by .gitignore), was deleted, or is corrupted, or the script is run from the wrong directory.", "dateModified": "2026-11-26", "url": "https://errorfix-hollis.github.io/java/java-could-not-find-or-load-main-class-gradlewrappermain/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "Error: Could not find or load main class org.gradle.wrapper.GradleWrapperMain", "item": "https://errorfix-hollis.github.io/java/java-could-not-find-or-load-main-class-gradlewrappermain/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>Error: Could not find or load main class org.gradle.wrapper.GradleWrapperMain (Java) — how to fix</h1>
+<pre class="err"><code>Error: Could not find or load main class org.gradle.wrapper.GradleWrapperMain
+Caused by: java.lang.ClassNotFoundException: org.gradle.wrapper.GradleWrapperMain
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Restore <code>gradle/wrapper/gradle-wrapper.jar</code>: if Gradle is installed run <code>gradle wrapper</code> in the project root (optionally <code>--gradle-version 8.10</code>), or copy the jar from another project. Make sure <code>.gitignore</code> doesn't exclude it (<code>!gradle/wrapper/gradle-wrapper.jar</code>) and commit it.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>./gradlew</code> (or <code>gradlew.bat</code>) is a small script that starts Java with <code>-classpath gradle/wrapper/gradle-wrapper.jar</code> and the main class <code>org.gradle.wrapper.GradleWrapperMain</code>. That class lives only in the jar. If Java can't open the jar at that path, it reports the main class as missing.</p>
+<p>A working project has these wrapper files, all of which must be committed:</p>
+<pre><code>gradlew
+gradlew.bat
+gradle/wrapper/gradle-wrapper.jar
+gradle/wrapper/gradle-wrapper.properties
+</code></pre>
+<p>Check quickly:</p>
+<pre><code class="language-bash">ls -l gradle/wrapper/
+unzip -l gradle/wrapper/gradle-wrapper.jar | grep GradleWrapperMain
+</code></pre>
+<h2 id="cause-1-the-jar-is-missing-not-committed">Cause 1: the jar is missing (not committed)</h2>
+<p>The most common cause: a <code>.gitignore</code> with <code>*.jar</code> excluded <code>gradle-wrapper.jar</code>, so a fresh clone or CI checkout doesn't have it.</p>
+<h2 id="fix-1-regenerate-the-wrapper-and-commit-it">Fix 1: regenerate the wrapper and commit it</h2>
+<p>With any Gradle installed (<code>sdk install gradle</code>, <code>brew install gradle</code>, or your IDE's bundled one):</p>
+<pre><code class="language-bash">cd /path/to/project
+gradle wrapper --gradle-version 8.10
+</code></pre>
+<p>Use the version from <code>distributionUrl</code> in <code>gradle/wrapper/gradle-wrapper.properties</code> if you want to keep the same one. If running <code>gradle</code> fails because the build script itself is broken, generate the wrapper in an empty temp directory and copy <code>gradle/wrapper/gradle-wrapper.jar</code> over.</p>
+<p>Then un-ignore and commit it:</p>
+<pre><code class="language-gitignore">*.jar
+!gradle/wrapper/gradle-wrapper.jar
+</code></pre>
+<pre><code class="language-bash">git add -f gradle/wrapper/gradle-wrapper.jar
+git commit -m &quot;Add Gradle wrapper jar&quot;
+</code></pre>
+<h2 id="cause-2-corrupted-jar">Cause 2: corrupted jar</h2>
+<p>The jar exists but is 0 bytes, an HTML error page, or a Git LFS pointer file (<code>version https://git-lfs.github.com/spec/v1</code>). Check with <code>file gradle/wrapper/gradle-wrapper.jar</code>; it should say "Java archive data" or "Zip archive data".</p>
+<h2 id="fix-2-replace-the-jar">Fix 2: replace the jar</h2>
+<p>Regenerate it as in Fix 1. If the repo uses LFS for <code>*.jar</code>, run <code>git lfs pull</code>, or exclude the wrapper jar from LFS in <code>.gitattributes</code>.</p>
+<h2 id="cause-3-running-gradlew-from-another-directory">Cause 3: running gradlew from another directory</h2>
+<p>The script resolves the jar relative to its own location, but a copied or symlinked <code>gradlew</code>, or a broken <code>APP_HOME</code> detection in a very old script, can point elsewhere. Run it from the project root:</p>
+<pre><code class="language-bash">cd project-root &amp;&amp; ./gradlew build
+</code></pre>
+<h2 id="cause-4-the-gradlew-script-itself-is-broken">Cause 4: the gradlew script itself is broken</h2>
+<p>Line endings matter: a <code>gradlew</code> checked out with CRLF line endings on Linux/macOS fails (often with <code>/usr/bin/env: 'sh\r'</code>), and a manually edited <code>CLASSPATH</code> line can point at the wrong path. Regenerating with <code>gradle wrapper</code> fixes both. Add <code>gradlew text eol=lf</code> to <code>.gitattributes</code>, and make it executable:</p>
+<pre><code class="language-bash">git update-index --chmod=+x gradlew
+</code></pre>
+<h2 id="in-ci-github-actions">In CI (GitHub Actions)</h2>
+<p>The checkout only contains what's committed, so Fix 1 is required. <code>gradle/actions/setup-gradle</code> can also run builds with a specific Gradle version without the wrapper, but committing the wrapper jar is the standard approach.</p>
+<p class="upd">Last updated 2026-11-26.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-could-not-find-or-load-main-class/">Error: Could not find or load main class</a></li><li><a href="/java/java-gradle-could-not-resolve-all-dependencies/">Could not resolve all dependencies for configuration</a></li><li><a href="/java/java-home-is-not-set/">ERROR: JAVA_HOME is not set and no &#x27;java&#x27; command could be found in your PATH.</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

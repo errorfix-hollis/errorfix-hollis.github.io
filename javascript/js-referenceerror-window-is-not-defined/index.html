@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ReferenceError: window is not defined (JavaScript) — how to fix</title>
+<meta name="description" content="Code that uses browser globals (`window`, `document`, `localStorage`, `navigator`) ran in Node.js, which has none of them. Typical with server-side rendering in Next.js, Nuxt, SvelteKit, Remix, or when a browser-only library is imported on the server.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-referenceerror-window-is-not-defined/">
+<meta property="og:title" content="ReferenceError: window is not defined (JavaScript) — how to fix"><meta property="og:description" content="Code that uses browser globals (`window`, `document`, `localStorage`, `navigator`) ran in Node.js, which has none of them. Typical with server-side rendering in Next.js, Nuxt, SvelteKit, Remix, or when a browser-only library is imported on the server.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-referenceerror-window-is-not-defined/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ReferenceError: window is not defined (JavaScript) \u2014 how to fix", "description": "Code that uses browser globals (`window`, `document`, `localStorage`, `navigator`) ran in Node.js, which has none of them. Typical with server-side rendering in Next.js, Nuxt, SvelteKit, Remix, or when a browser-only library is imported on the server.", "dateModified": "2026-11-24", "url": "https://errorfix-hollis.github.io/javascript/js-referenceerror-window-is-not-defined/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "ReferenceError: window is not defined", "item": "https://errorfix-hollis.github.io/javascript/js-referenceerror-window-is-not-defined/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>ReferenceError: window is not defined (JavaScript) — how to fix</h1>
+<pre class="err"><code>ReferenceError: window is not defined
+    at Module.&lt;anonymous&gt; (/app/.next/server/pages/index.js:12:5)
+ReferenceError: document is not defined
+ReferenceError: localStorage is not defined
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Only touch browser globals after the component mounts (<code>useEffect</code>) or behind <code>typeof window !== 'undefined'</code>. In Next.js App Router add <code>'use client'</code> and still move window access into <code>useEffect</code>; load browser-only libraries with <code>dynamic(() =&gt; import('...'), { ssr: false })</code> from a client component.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>window</code> exists only in browsers. In Node.js (and on the server side of any SSR framework) the global object is <code>globalThis</code>/<code>global</code>, and <code>window</code>, <code>document</code>, <code>localStorage</code>, <code>sessionStorage</code> and <code>navigator</code> (older Node) are undefined. Accessing an undeclared global throws <code>ReferenceError</code>.</p>
+<p>The stack trace tells you where: paths like <code>.next/server/...</code>, <code>.nuxt/</code>, <code>.svelte-kit/output/server</code> mean the code ran during server rendering or the build.</p>
+<h2 id="cause-1-browser-api-used-during-render-nextjs-react-ssr">Cause 1: browser API used during render (Next.js, React SSR)</h2>
+<p>The component body runs on the server for the first render, even with <code>'use client'</code>; that directive only means the component <em>also</em> runs in the browser.</p>
+<pre><code class="language-jsx">// Breaks on the server
+const width = window.innerWidth;
+</code></pre>
+<p>Move it into <code>useEffect</code>, which runs only in the browser:</p>
+<pre><code class="language-jsx">'use client';
+import { useEffect, useState } from 'react';
+
+export default function Size() {
+  const [width, setWidth] = useState(null);
+  useEffect(() =&gt; {
+    setWidth(window.innerWidth);
+    const onResize = () =&gt; setWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () =&gt; window.removeEventListener('resize', onResize);
+  }, []);
+  return &lt;p&gt;{width ?? '...'}&lt;/p&gt;;
+}
+</code></pre>
+<p>Don't fix it with <code>typeof window !== 'undefined' ? A : B</code> inside the JSX: the server and client render different HTML and you get a <a href="/javascript/js-hydration-failed-initial-ui-does-not-match/">hydration mismatch</a>. Render a neutral value first and update in <code>useEffect</code>.</p>
+<h2 id="cause-2-a-browser-only-library-imported-at-the-top-level">Cause 2: a browser-only library imported at the top level</h2>
+<p>Libraries like Leaflet, Chart.js plugins, some editors and analytics SDKs touch <code>window</code> as soon as they are imported. Load them only on the client:</p>
+<pre><code class="language-jsx">'use client';
+import dynamic from 'next/dynamic';
+
+const Map = dynamic(() =&gt; import('../components/Map'), { ssr: false });
+</code></pre>
+<p>In the App Router, <code>ssr: false</code> is only allowed inside a client component. Alternatively import inside an effect: <code>useEffect(() =&gt; { import('leaflet').then(L =&gt; ...) }, [])</code>.</p>
+<p>Nuxt: wrap with <code>&lt;ClientOnly&gt;</code> or name the plugin <code>*.client.js</code>. SvelteKit: use <code>onMount</code> or check <code>browser</code> from <code>$app/environment</code>. Gatsby: guard in <code>useEffect</code> or use <code>loaders.null()</code> for the module in <code>gatsby-node.js</code>.</p>
+<h2 id="cause-3-utility-code-shared-with-the-server">Cause 3: utility code shared with the server</h2>
+<p>For helpers that may run in both places, guard with <code>typeof</code> (which never throws for undeclared names):</p>
+<pre><code class="language-js">export function getToken() {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem('token');
+}
+</code></pre>
+<p>Use <code>globalThis</code> when you just need the global object in any environment.</p>
+<h2 id="cause-4-tests-running-in-node">Cause 4: tests running in Node</h2>
+<p>Jest 27+ and Vitest default to the <code>node</code> environment. For DOM tests set a browser-like environment:</p>
+<pre><code class="language-js">// jest.config.js
+module.exports = { testEnvironment: 'jsdom' };  // npm i -D jest-environment-jsdom
+</code></pre>
+<pre><code class="language-js">// vitest.config.js
+export default { test: { environment: 'jsdom' } };   // npm i -D jsdom
+</code></pre>
+<p>Or per file: <code>/** @jest-environment jsdom */</code> at the top.</p>
+<h2 id="cause-5-a-plain-node-script">Cause 5: a plain Node script</h2>
+<p>If you're running a browser script with <code>node script.js</code>, it simply won't work there. Run it in the browser, or for scraping/DOM parsing in Node use <code>jsdom</code> or a headless browser (Playwright, Puppeteer).</p>
+<p class="upd">Last updated 2026-11-24.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-hydration-failed-initial-ui-does-not-match/">Hydration failed because the initial UI does not match what was rendered on the server</a></li><li><a href="/javascript/js-referenceerror-is-not-defined/">ReferenceError: x is not defined</a></li><li><a href="/javascript/js-require-is-not-defined/">ReferenceError: require is not defined</a></li><li><a href="/javascript/js-a-component-is-changing-an-uncontrolled-input-to-be-controlled/">Warning: A component is changing an uncontrolled input to be controlled.</a></li><li><a href="/javascript/js-cannot-read-properties-of-null/">TypeError: Cannot read properties of null (reading &#x27;...&#x27;)</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

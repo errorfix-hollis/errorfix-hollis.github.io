@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ReferenceError: Cannot access &#x27;x&#x27; before initialization (JavaScript) — how to fix</title>
+<meta name="description" content="A `let`, `const` or `class` was used before the line that declares it ran (the temporal dead zone). Often caused by ordering of code, or by circular imports between ES modules.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-referenceerror-cannot-access-before-initialization/">
+<meta property="og:title" content="ReferenceError: Cannot access &#x27;x&#x27; before initialization (JavaScript) — how to fix"><meta property="og:description" content="A `let`, `const` or `class` was used before the line that declares it ran (the temporal dead zone). Often caused by ordering of code, or by circular imports between ES modules.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-referenceerror-cannot-access-before-initialization/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ReferenceError: Cannot access 'x' before initialization (JavaScript) \u2014 how to fix", "description": "A `let`, `const` or `class` was used before the line that declares it ran (the temporal dead zone). Often caused by ordering of code, or by circular imports between ES modules.", "dateModified": "2026-11-17", "url": "https://errorfix-hollis.github.io/javascript/js-referenceerror-cannot-access-before-initialization/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "ReferenceError: Cannot access 'x' before initialization", "item": "https://errorfix-hollis.github.io/javascript/js-referenceerror-cannot-access-before-initialization/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>ReferenceError: Cannot access &#x27;x&#x27; before initialization (JavaScript) — how to fix</h1>
+<pre class="err"><code>Uncaught ReferenceError: Cannot access &#x27;user&#x27; before initialization
+    at main (app.js:3:15)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Move the declaration above its first use, or move the use into a function that runs later. If it happens at import time, look for a circular import (A imports B, B imports A) and break it by moving the shared code into a third module or deferring access to inside a function.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>let</code>, <code>const</code> and <code>class</code> declarations are hoisted to the top of their scope, but stay <em>uninitialized</em> until the declaration line executes. Touching them before that point - the "temporal dead zone" (TDZ) - throws this error. With <code>var</code> you would silently get <code>undefined</code> instead.</p>
+<pre><code class="language-js">console.log(user);        // ReferenceError: Cannot access 'user' before initialization
+const user = &quot;alice&quot;;
+</code></pre>
+<p>Note the difference from <code>x is not defined</code>: here the name exists in the scope, it just hasn't been initialized yet.</p>
+<h2 id="cause-1-using-a-variable-above-its-declaration">Cause 1: using a variable above its declaration</h2>
+<pre><code class="language-js">function main() {
+  greet(name);
+  const name = &quot;Bob&quot;;
+}
+</code></pre>
+<h2 id="fix-1-reorder">Fix 1: reorder</h2>
+<pre><code class="language-js">function main() {
+  const name = &quot;Bob&quot;;
+  greet(name);
+}
+</code></pre>
+<h2 id="cause-2-a-variable-referenced-in-its-own-initializer">Cause 2: a variable referenced in its own initializer</h2>
+<pre><code class="language-js">const config = { ...config, debug: true };   // ReferenceError
+</code></pre>
+<p>The inner <code>config</code> refers to the one being declared (shadowing an outer one). Use a different name:</p>
+<pre><code class="language-js">const finalConfig = { ...baseConfig, debug: true };
+</code></pre>
+<h2 id="cause-3-classes-used-before-declaration">Cause 3: classes used before declaration</h2>
+<p>Function declarations are fully hoisted; classes are not:</p>
+<pre><code class="language-js">const a = new Animal();   // ReferenceError
+class Animal {}
+</code></pre>
+<p>Declare the class first, or put the instantiation in a function that is called after the module has loaded.</p>
+<h2 id="cause-4-circular-imports-the-most-confusing-one">Cause 4: circular imports (the most confusing one)</h2>
+<pre><code class="language-js">// a.js
+import { b } from &quot;./b.js&quot;;
+export const a = &quot;A&quot;;
+
+// b.js
+import { a } from &quot;./a.js&quot;;
+export const b = a + &quot;B&quot;;   // ReferenceError: Cannot access 'a' before initialization
+</code></pre>
+<p>When <code>a.js</code> loads, it first evaluates <code>b.js</code>, which reads <code>a</code> before <code>a.js</code> has run its own <code>export const a</code>. Bundlers (webpack, Vite, Rollup) produce the same error, often with mangled names like <code>Cannot access 'ot' before initialization</code>.</p>
+<h2 id="fix-4-break-the-cycle">Fix 4: break the cycle</h2>
+<ul>
+<li>Move the shared value into a third module that both import.</li>
+<li>Defer access into a function that runs later, not at module top level:</li>
+</ul>
+<pre><code class="language-js">// b.js
+import { a } from &quot;./a.js&quot;;
+export const getB = () =&gt; a + &quot;B&quot;;
+</code></pre>
+<ul>
+<li>In React/Redux apps, a common cycle is <code>store.js</code> -&gt; <code>slice.js</code> -&gt; <code>store.js</code>. Import types only (<code>import type</code>) or pass the store in instead of importing it.</li>
+</ul>
+<p>To find cycles automatically:</p>
+<pre><code class="language-bash">npx madge --circular src/
+</code></pre>
+<p>For webpack there is also <code>circular-dependency-plugin</code>.</p>
+<h2 id="cause-5-switch-or-block-scope-surprises">Cause 5: <code>switch</code> or block scope surprises</h2>
+<pre><code class="language-js">let x = 1;
+{
+  console.log(x);   // ReferenceError: the inner x shadows the outer one
+  let x = 2;
+}
+</code></pre>
+<p>The inner <code>let x</code> makes the whole block's <code>x</code> the uninitialized one. Rename the inner variable.</p>
+<p>ESLint's <code>no-use-before-define</code> rule flags causes 1-3 at edit time.</p>
+<p class="upd">Last updated 2026-11-17.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-referenceerror-is-not-defined/">ReferenceError: x is not defined</a></li><li><a href="/javascript/js-requested-module-does-not-provide-an-export-named/">SyntaxError: The requested module does not provide an export named</a></li><li><a href="/javascript/js-syntaxerror-identifier-has-already-been-declared/">SyntaxError: Identifier has already been declared</a></li><li><a href="/javascript/js-a-component-is-changing-an-uncontrolled-input-to-be-controlled/">Warning: A component is changing an uncontrolled input to be controlled.</a></li><li><a href="/javascript/js-cannot-read-properties-of-null/">TypeError: Cannot read properties of null (reading &#x27;...&#x27;)</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

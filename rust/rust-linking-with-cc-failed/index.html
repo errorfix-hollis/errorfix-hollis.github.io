@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: linking with `cc` failed: exit status: 1 (Rust) — how to fix</title>
+<meta name="description" content="rustc compiled your code, but the system linker (cc / ld) failed. The real reason is in the last note lines: usually a missing native library (-lssl, -lpq, -lsqlite3), missing Xcode tools on macOS, or a cross-compile target without a matching linker.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/rust/rust-linking-with-cc-failed/">
+<meta property="og:title" content="error: linking with `cc` failed: exit status: 1 (Rust) — how to fix"><meta property="og:description" content="rustc compiled your code, but the system linker (cc / ld) failed. The real reason is in the last note lines: usually a missing native library (-lssl, -lpq, -lsqlite3), missing Xcode tools on macOS, or a cross-compile target without a matching linker.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/rust/rust-linking-with-cc-failed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: linking with `cc` failed: exit status: 1 (Rust) \u2014 how to fix", "description": "rustc compiled your code, but the system linker (cc / ld) failed. The real reason is in the last note lines: usually a missing native library (-lssl, -lpq, -lsqlite3), missing Xcode tools on macOS, or a cross-compile target without a matching linker.", "dateModified": "2026-11-25", "url": "https://errorfix-hollis.github.io/rust/rust-linking-with-cc-failed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Rust", "item": "https://errorfix-hollis.github.io/rust/"}, {"@type": "ListItem", "position": 3, "name": "error: linking with `cc` failed: exit status: 1", "item": "https://errorfix-hollis.github.io/rust/rust-linking-with-cc-failed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/rust/">Rust</a></p>
+<article><h1>error: linking with `cc` failed: exit status: 1 (Rust) — how to fix</h1>
+<pre class="err"><code>error: linking with `cc` failed: exit status: 1
+  |
+  = note: LC_ALL=&quot;C&quot; PATH=&quot;...&quot; &quot;cc&quot; &quot;-m64&quot; &quot;/tmp/rustcXXXX/symbols.o&quot; ...
+  = note: /usr/bin/ld: cannot find -lssl: No such file or directory
+          /usr/bin/ld: cannot find -lcrypto: No such file or directory
+          collect2: error: ld returned 1 exit status
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Read the last <code>note:</code> lines. <code>cannot find -lfoo</code> → install the dev package (<code>sudo apt install libssl-dev pkg-config</code>, <code>libpq-dev</code>, <code>libsqlite3-dev</code>). macOS <code>xcrun: error</code> or <code>ld: library not found</code> → <code>xcode-select --install</code>. Cross-compiling → install the target linker and set it in <code>.cargo/config.toml</code> (<code>[target.aarch64-unknown-linux-gnu] linker = "aarch64-linux-gnu-gcc"</code>), or use <code>cross</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Rust uses the platform C toolchain to link the final binary. <code>linking with cc failed</code> means <code>cc</code> ran but returned an error. The first huge <code>note:</code> line is just the command line; scroll to the <strong>end</strong> of the output for the real error from <code>ld</code>.</p>
+<p>(If the message is <code>linker 'cc' not found</code>, no C compiler is installed at all: <code>sudo apt install build-essential</code>.)</p>
+<h2 id="cause-1-cannot-find-lname-missing-native-library">Cause 1: <code>cannot find -l&lt;name&gt;</code>: missing native library</h2>
+<p>A crate links against a system library that isn't installed (or only the runtime <code>.so</code> is, without the <code>.so</code> symlink from the <code>-dev</code> package).</p>
+<table>
+<thead>
+<tr>
+<th>Linker says</th>
+<th>Debian/Ubuntu</th>
+<th>Fedora</th>
+<th>macOS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-lssl</code>, <code>-lcrypto</code></td>
+<td><code>libssl-dev pkg-config</code></td>
+<td><code>openssl-devel</code></td>
+<td><code>brew install openssl@3</code></td>
+</tr>
+<tr>
+<td><code>-lpq</code> (diesel, postgres)</td>
+<td><code>libpq-dev</code></td>
+<td><code>libpq-devel</code></td>
+<td><code>brew install libpq</code></td>
+</tr>
+<tr>
+<td><code>-lsqlite3</code></td>
+<td><code>libsqlite3-dev</code></td>
+<td><code>sqlite-devel</code></td>
+<td>usually present</td>
+</tr>
+<tr>
+<td><code>-lmysqlclient</code></td>
+<td><code>libmysqlclient-dev</code></td>
+<td><code>mysql-devel</code></td>
+<td><code>brew install mysql-client</code></td>
+</tr>
+<tr>
+<td><code>-lz</code></td>
+<td><code>zlib1g-dev</code></td>
+<td><code>zlib-devel</code></td>
+<td>present</td>
+</tr>
+<tr>
+<td><code>-lxcb</code>, <code>-lX11</code> (GUI)</td>
+<td><code>libxcb1-dev libx11-dev</code></td>
+<td><code>libxcb-devel libX11-devel</code></td>
+<td>n/a</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-bash">sudo apt install build-essential pkg-config libssl-dev
+cargo clean &amp;&amp; cargo build
+</code></pre>
+<p>On macOS with Homebrew, tell the linker where the lib lives, e.g. <code>export RUSTFLAGS="-L $(brew --prefix libpq)/lib"</code>.</p>
+<p>Alternatively avoid the native dependency: many crates have a pure-Rust feature, e.g. <code>reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }</code>, or <code>openssl = { version = "0.10", features = ["vendored"] }</code>, or <code>rusqlite</code> with <code>features = ["bundled"]</code>.</p>
+<h2 id="cause-2-macos-command-line-tools-missing-or-broken">Cause 2: macOS command line tools missing or broken</h2>
+<pre><code>xcrun: error: invalid active developer path
+ld: library not found for -liconv
+</code></pre>
+<p>Usually after a macOS upgrade:</p>
+<pre><code class="language-bash">xcode-select --install
+# if already installed but broken:
+sudo xcode-select --reset
+</code></pre>
+<h2 id="cause-3-cross-compiling-with-the-host-linker">Cause 3: cross-compiling with the host linker</h2>
+<p>Building for another target (<code>--target aarch64-unknown-linux-gnu</code>, <code>x86_64-pc-windows-gnu</code>, musl) with plain <code>cc</code> gives errors like <code>file in wrong format</code> or <code>unrecognized option</code>. Install a cross linker and configure it:</p>
+<pre><code class="language-bash">sudo apt install gcc-aarch64-linux-gnu
+rustup target add aarch64-unknown-linux-gnu
+</code></pre>
+<pre><code class="language-toml"># .cargo/config.toml
+[target.aarch64-unknown-linux-gnu]
+linker = &quot;aarch64-linux-gnu-gcc&quot;
+</code></pre>
+<p>Or use <a href="https://github.com/cross-rs/cross"><code>cross</code></a> (<code>cargo install cross</code> then <code>cross build --target ...</code>), which runs in a container with the right toolchain.</p>
+<h2 id="cause-4-undefined-reference-to">Cause 4: <code>undefined reference to ...</code></h2>
+<p>Symbols are missing at link time: wrong library version, a <code>-sys</code> crate built against a different lib than the one found, or link order issues in a <code>build.rs</code>. Check the <code>build.rs</code> emits <code>cargo:rustc-link-lib=...</code> and <code>cargo:rustc-link-search=...</code>, then <code>cargo clean</code>.</p>
+<h2 id="cause-5-linker-killed-out-of-memory">Cause 5: linker killed / out of memory</h2>
+<p><code>signal: 9, SIGKILL</code> or <code>collect2: fatal error: ld terminated with signal 9</code> means the OS killed the linker, common in small CI runners and Docker. Add swap, reduce parallelism (<code>cargo build -j 2</code>), lower debug info (<code>[profile.dev] debug = 1</code>), or use a faster, leaner linker such as mold or lld:</p>
+<pre><code class="language-toml">[target.x86_64-unknown-linux-gnu]
+rustflags = [&quot;-C&quot;, &quot;link-arg=-fuse-ld=mold&quot;]
+</code></pre>
+<p class="upd">Last updated 2026-11-25.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-xcrun-error-invalid-active-developer-path/">xcrun: error: invalid active developer path (/Library/Developer/CommandLineTools), missing xcrun</a></li><li><a href="/rust/rust-failed-to-run-custom-build-command-for-openssl-sys/">failed to run custom build command for `openssl-sys`</a></li><li><a href="/rust/rust-linker-cc-not-found/">error: linker `cc` not found</a></li><li><a href="/rust/rust-borrow-of-moved-value/">error[E0382]: borrow of moved value</a></li><li><a href="/rust/rust-called-option-unwrap-on-a-none-value/">thread &#x27;main&#x27; panicked at called `Option::unwrap()` on a `None` value</a></li><li><a href="/rust/rust-called-result-unwrap-on-an-err-value/">thread &#x27;main&#x27; panicked at &#x27;called `Result::unwrap()` on an `Err` value&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

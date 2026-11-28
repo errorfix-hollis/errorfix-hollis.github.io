@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AttributeError: `np.NaN` was removed in the NumPy 2.0 release. Use `np.nan` instead. (Python) — how to fix</title>
+<meta name="description" content="NumPy 2.0 removed many old aliases (np.NaN, np.NAN, np.Inf, np.float_, np.unicode_ ...). Code or a library written for NumPy 1.x still uses them.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-attributeerror-np-nan-was-removed-in-numpy-2/">
+<meta property="og:title" content="AttributeError: `np.NaN` was removed in the NumPy 2.0 release. Use `np.nan` instead. (Python) — how to fix"><meta property="og:description" content="NumPy 2.0 removed many old aliases (np.NaN, np.NAN, np.Inf, np.float_, np.unicode_ ...). Code or a library written for NumPy 1.x still uses them.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-attributeerror-np-nan-was-removed-in-numpy-2/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "AttributeError: `np.NaN` was removed in the NumPy 2.0 release. Use `np.nan` instead. (Python) \u2014 how to fix", "description": "NumPy 2.0 removed many old aliases (np.NaN, np.NAN, np.Inf, np.float_, np.unicode_ ...). Code or a library written for NumPy 1.x still uses them.", "dateModified": "2026-11-15", "url": "https://errorfix-hollis.github.io/python/python-attributeerror-np-nan-was-removed-in-numpy-2/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "AttributeError: `np.NaN` was removed in the NumPy 2.0 release. Use `np.nan` instead.", "item": "https://errorfix-hollis.github.io/python/python-attributeerror-np-nan-was-removed-in-numpy-2/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>AttributeError: `np.NaN` was removed in the NumPy 2.0 release. Use `np.nan` instead. (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;clean.py&quot;, line 4, in &lt;module&gt;
+    df = df.replace(&quot;&quot;, np.NaN)
+                        ^^^^^^
+  File &quot;.../numpy/__init__.py&quot;, line 397, in __getattr__
+    raise AttributeError(
+AttributeError: `np.NaN` was removed in the NumPy 2.0 release. Use `np.nan` instead.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> In your code, replace the alias: <code>np.NaN</code>/<code>np.NAN</code> → <code>np.nan</code>, <code>np.Inf</code>/<code>np.Infinity</code>/<code>np.infty</code> → <code>np.inf</code>, <code>np.float_</code> → <code>np.float64</code>, <code>np.complex_</code> → <code>np.complex128</code>, <code>np.unicode_</code> → <code>np.str_</code>, <code>np.string_</code> → <code>np.bytes_</code>. <code>ruff check --select NPY201 --fix</code> does it automatically. If a third-party library raises it, upgrade that library, or pin <code>numpy&lt;2</code> until it's fixed.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>NumPy 2.0 (June 2024) cleaned up its main namespace and removed about a hundred redundant aliases. Accessing one now raises an <code>AttributeError</code> that names the replacement. The behaviour is identical after you switch, because the aliases pointed at the same objects.</p>
+<p>Check your version:</p>
+<pre><code class="language-bash">python -c &quot;import numpy; print(numpy.__version__)&quot;
+</code></pre>
+<h2 id="fix-1-replace-the-removed-names">Fix 1: replace the removed names</h2>
+<table>
+<thead>
+<tr>
+<th>Removed in 2.0</th>
+<th>Use instead</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>np.NaN</code>, <code>np.NAN</code></td>
+<td><code>np.nan</code></td>
+</tr>
+<tr>
+<td><code>np.Inf</code>, <code>np.Infinity</code>, <code>np.infty</code>, <code>np.PINF</code></td>
+<td><code>np.inf</code></td>
+</tr>
+<tr>
+<td><code>np.NINF</code></td>
+<td><code>-np.inf</code></td>
+</tr>
+<tr>
+<td><code>np.PZERO</code> / <code>np.NZERO</code></td>
+<td><code>0.0</code> / <code>-0.0</code></td>
+</tr>
+<tr>
+<td><code>np.float_</code></td>
+<td><code>np.float64</code></td>
+</tr>
+<tr>
+<td><code>np.complex_</code>, <code>np.cfloat</code></td>
+<td><code>np.complex128</code></td>
+</tr>
+<tr>
+<td><code>np.longfloat</code></td>
+<td><code>np.longdouble</code></td>
+</tr>
+<tr>
+<td><code>np.singlecomplex</code></td>
+<td><code>np.complex64</code></td>
+</tr>
+<tr>
+<td><code>np.unicode_</code></td>
+<td><code>np.str_</code></td>
+</tr>
+<tr>
+<td><code>np.string_</code></td>
+<td><code>np.bytes_</code></td>
+</tr>
+<tr>
+<td><code>np.product</code>, <code>np.cumproduct</code></td>
+<td><code>np.prod</code>, <code>np.cumprod</code></td>
+</tr>
+<tr>
+<td><code>np.alltrue</code>, <code>np.sometrue</code></td>
+<td><code>np.all</code>, <code>np.any</code></td>
+</tr>
+<tr>
+<td><code>np.round_</code></td>
+<td><code>np.round</code></td>
+</tr>
+<tr>
+<td><code>np.asfarray(x)</code></td>
+<td><code>np.asarray(x, dtype=np.float64)</code></td>
+</tr>
+<tr>
+<td><code>np.cast[dtype](x)</code></td>
+<td><code>np.asarray(x, dtype=dtype)</code></td>
+</tr>
+<tr>
+<td><code>np.find_common_type</code></td>
+<td><code>np.result_type</code> / <code>np.promote_types</code></td>
+</tr>
+</tbody>
+</table>
+<p>The plain builtins <code>np.float</code>, <code>np.int</code>, <code>np.bool</code>, <code>np.object</code> were already removed in 1.24. Use <code>float</code>, <code>int</code>, <code>bool</code>, <code>object</code>. Note that <code>np.bool</code> was <em>added back</em> in 2.0 as an alias for <code>np.bool_</code>.</p>
+<p>Quick search for removed names in your project:</p>
+<pre><code class="language-bash">grep -rnE &quot;np\.(NaN|NAN|Inf|Infinity|infty|NINF|PINF|float_|complex_|unicode_|string_)\b&quot; --include=*.py .
+</code></pre>
+<h2 id="fix-2-let-ruff-rewrite-it">Fix 2: let ruff rewrite it</h2>
+<p>Ruff has a rule just for this migration:</p>
+<pre><code class="language-bash">python -m pip install ruff
+ruff check --select NPY201 --fix .
+</code></pre>
+<p>It rewrites removed aliases and flags the cases it can't fix automatically.</p>
+<h2 id="fix-3-the-error-comes-from-a-library">Fix 3: the error comes from a library</h2>
+<p>If the traceback ends inside <code>site-packages/&lt;somelib&gt;/</code>, that library hasn't been updated for NumPy 2. Upgrade it first:</p>
+<pre><code class="language-bash">python -m pip install -U &lt;somelib&gt;
+</code></pre>
+<p>If no fixed release exists, pin NumPy 1.x in that environment:</p>
+<pre><code class="language-bash">python -m pip install &quot;numpy&lt;2&quot;
+</code></pre>
+<p>Add the pin to <code>requirements.txt</code> (<code>numpy&lt;2</code>) and check back later. Libraries built against NumPy 1.x can also fail at import with a different error, <a href="/python/python-numpy-module-compiled-using-numpy-1x-cannot-be-run-in-numpy-2/">A module that was compiled using NumPy 1.x cannot be run in NumPy 2</a>. The same upgrade-or-pin choice applies.</p>
+<h2 id="fix-4-code-that-must-support-both-1x-and-2x">Fix 4: code that must support both 1.x and 2.x</h2>
+<p>All the replacements above (<code>np.nan</code>, <code>np.inf</code>, <code>np.float64</code>, <code>np.str_</code>, <code>np.bytes_</code>...) already exist in NumPy 1.x. Switching to them works on both versions, so there's no need for version checks.</p>
+<h2 id="pandas-users">pandas users</h2>
+<p><code>df.replace("", np.NaN)</code> and <code>df.fillna(np.NaN)</code> are the most common triggers. Use <code>np.nan</code>, or <code>pd.NA</code> for nullable dtypes. pandas itself supports NumPy 2 from pandas 2.2.2.</p>
+<p class="upd">Last updated 2026-11-15.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-numpy/">ModuleNotFoundError: No module named &#x27;numpy&#x27;</a></li><li><a href="/python/python-numpy-module-compiled-using-numpy-1x-cannot-be-run-in-numpy-2/">A module that was compiled using NumPy 1.x cannot be run in NumPy 2.x</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>1 node(s) had volume node affinity conflict (Kubernetes) — how to fix</title>
+<meta name="description" content="The pod&#x27;s PersistentVolume can only be attached to nodes in a specific zone (or a specific node, for local volumes), and no node in that zone is available for the pod. Typical with EBS, GCE PD and Azure Disk volumes after a node pool change.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-volume-node-affinity-conflict/">
+<meta property="og:title" content="1 node(s) had volume node affinity conflict (Kubernetes) — how to fix"><meta property="og:description" content="The pod&#x27;s PersistentVolume can only be attached to nodes in a specific zone (or a specific node, for local volumes), and no node in that zone is available for the pod. Typical with EBS, GCE PD and Azure Disk volumes after a node pool change.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-volume-node-affinity-conflict/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "1 node(s) had volume node affinity conflict (Kubernetes) \u2014 how to fix", "description": "The pod's PersistentVolume can only be attached to nodes in a specific zone (or a specific node, for local volumes), and no node in that zone is available for the pod. Typical with EBS, GCE PD and Azure Disk volumes after a node pool change.", "dateModified": "2026-11-24", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-volume-node-affinity-conflict/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "1 node(s) had volume node affinity conflict", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-volume-node-affinity-conflict/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>1 node(s) had volume node affinity conflict (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Warning  FailedScheduling  default-scheduler  0/3 nodes are available: 1 node(s) had volume node affinity conflict, 2 node(s) didn&#x27;t match Pod&#x27;s node affinity/selector. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find the PV's zone with <code>kubectl get pv &lt;pv&gt; -o jsonpath='{.spec.nodeAffinity}'</code> and compare with <code>kubectl get nodes -L topology.kubernetes.io/zone</code>. Add or scale up a node in that zone, remove pod nodeSelectors/affinity that exclude it, and use a StorageClass with <code>volumeBindingMode: WaitForFirstConsumer</code> so new volumes are created where the pod is scheduled.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Zonal block storage (AWS EBS, GCE Persistent Disk, Azure Disk) can only be attached to a VM in the same availability zone. Kubernetes records this on the PersistentVolume as <code>spec.nodeAffinity</code>. The scheduler must place the pod on a node that matches it. If every matching node is full, cordoned, tainted, excluded by the pod's own <code>nodeSelector</code>/affinity, or gone, the pod stays <code>Pending</code> with this message.</p>
+<h2 id="diagnose">Diagnose</h2>
+<pre><code class="language-bash">kubectl describe pod &lt;pod&gt; | grep -A5 Events
+kubectl get pvc -n &lt;ns&gt;                      # which PV the pod uses
+kubectl get pv &lt;pv-name&gt; -o jsonpath='{.spec.nodeAffinity}{&quot;\n&quot;}'
+kubectl get nodes -L topology.kubernetes.io/zone
+</code></pre>
+<p>Typical output: the PV requires <code>topology.kubernetes.io/zone in [us-east-1a]</code>, but your nodes are only in <code>us-east-1b</code> and <code>us-east-1c</code>.</p>
+<h2 id="cause-1-no-usable-node-left-in-the-volumes-zone">Cause 1: no usable node left in the volume's zone</h2>
+<p>Happens after replacing a node group, an autoscaler scale-down, or spot instances being reclaimed. Fixes:</p>
+<ul>
+<li>Make sure the node group/ASG spans that zone and scale it up. With Cluster Autoscaler on AWS, use one node group <strong>per AZ</strong> for stateful workloads (a multi-AZ ASG cannot target a specific zone when scaling up).</li>
+<li>Check that nodes in that zone are not cordoned or tainted: <code>kubectl describe node &lt;node&gt; | grep -i -E 'taint|unschedulable'</code>.</li>
+<li>Check they have enough CPU/memory for the pod.</li>
+</ul>
+<h2 id="cause-2-the-pods-own-constraints-exclude-that-zone">Cause 2: the pod's own constraints exclude that zone</h2>
+<p>The message often comes with <code>didn't match Pod's node affinity/selector</code>. A <code>nodeSelector</code>, <code>nodeAffinity</code>, or topology spread constraint added later can forbid the only zone where the disk lives. Relax it, or include the zone.</p>
+<h2 id="cause-3-volume-created-in-the-wrong-zone-immediate-binding">Cause 3: volume created in the wrong zone (Immediate binding)</h2>
+<p>With <code>volumeBindingMode: Immediate</code>, the disk is provisioned as soon as the PVC is created, in some zone, before the scheduler knows where the pod will go. Use delayed binding:</p>
+<pre><code class="language-yaml">apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3-wffc
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  type: gp3
+</code></pre>
+<p><code>volumeBindingMode</code> is immutable, so create a new StorageClass and use it for new PVCs. Existing volumes stay in their zone.</p>
+<h2 id="cause-4-local-hostpath-pvs">Cause 4: local / hostPath PVs</h2>
+<p><code>local</code> PersistentVolumes have node affinity to a single node. If that node is deleted or replaced, the data is gone with it; the pod can never schedule. Delete the PVC and PV so a new one is provisioned (data loss), and restore from backup:</p>
+<pre><code class="language-bash">kubectl delete pvc &lt;pvc&gt; -n &lt;ns&gt;
+kubectl delete pv &lt;pv&gt;
+</code></pre>
+<p>For StatefulSets, delete the pod afterwards so it is recreated with a fresh PVC.</p>
+<h2 id="moving-data-to-another-zone">Moving data to another zone</h2>
+<p>A zonal disk can't be moved directly. Take a snapshot (<code>VolumeSnapshot</code> with the CSI driver, or an EBS/PD snapshot), create a new PVC from it in the target zone, and point the workload at it. For workloads that must survive zone loss, use regional disks (GCE <code>replication-type: regional-pd</code>) or replicated storage.</p>
+<p class="upd">Last updated 2026-11-24.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-multi-attach-error-for-volume/">Multi-Attach error for volume: Volume is already exclusively attached to one node and can&#x27;t be attached to another</a></li><li><a href="/kubernetes/k8s-pod-has-unbound-immediate-persistentvolumeclaims/">pod has unbound immediate PersistentVolumeClaims</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-container-is-waiting-to-start/">Error from server (BadRequest): container is waiting to start: ContainerCreating</a></li><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

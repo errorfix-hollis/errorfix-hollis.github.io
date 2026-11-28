@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: unreachable statement (Java) — how to fix</title>
+<meta name="description" content="The compiler proved that a statement can never execute, because it comes after `return`, `throw`, `break`, `continue`, or an infinite loop. Java treats this as a compile error, not a warning.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-error-unreachable-statement/">
+<meta property="og:title" content="error: unreachable statement (Java) — how to fix"><meta property="og:description" content="The compiler proved that a statement can never execute, because it comes after `return`, `throw`, `break`, `continue`, or an infinite loop. Java treats this as a compile error, not a warning.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-error-unreachable-statement/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: unreachable statement (Java) \u2014 how to fix", "description": "The compiler proved that a statement can never execute, because it comes after `return`, `throw`, `break`, `continue`, or an infinite loop. Java treats this as a compile error, not a warning.", "dateModified": "2026-11-23", "url": "https://errorfix-hollis.github.io/java/java-error-unreachable-statement/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "error: unreachable statement", "item": "https://errorfix-hollis.github.io/java/java-error-unreachable-statement/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>error: unreachable statement (Java) — how to fix</h1>
+<pre class="err"><code>Main.java:7: error: unreachable statement
+        System.out.println(&quot;done&quot;);
+        ^
+1 error
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Move or delete the code after the <code>return</code>/<code>throw</code>/<code>break</code>/<code>continue</code>. If you temporarily wanted to skip code, wrap it in <code>if (true) return;</code> or comment it out. For code after <code>while (true)</code> without a <code>break</code>, add a <code>break</code> condition or remove the trailing code.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The Java Language Specification (JLS 14.22) requires every statement to be <em>reachable</em> by a simple flow analysis. If a statement can't be reached, <code>javac</code> stops with <code>unreachable statement</code>. The caret points at the first dead statement; the cause is usually just above it.</p>
+<h2 id="cause-1-code-after-return-or-throw">Cause 1: code after return or throw</h2>
+<pre><code class="language-java">int total(int[] xs) {
+    int sum = 0;
+    for (int x : xs) sum += x;
+    return sum;
+    System.out.println(&quot;sum computed&quot;);   // error
+}
+</code></pre>
+<p>Move it before the return:</p>
+<pre><code class="language-java">    System.out.println(&quot;sum computed&quot;);
+    return sum;
+</code></pre>
+<p>Same for <code>throw</code>:</p>
+<pre><code class="language-java">throw new IllegalStateException(&quot;bad state&quot;);
+cleanup();   // error: never runs
+</code></pre>
+<p>Use <code>finally</code> if the code must run in both cases.</p>
+<h2 id="cause-2-code-after-break-or-continue-in-a-loopswitch">Cause 2: code after break or continue in a loop/switch</h2>
+<pre><code class="language-java">for (String s : items) {
+    if (s.isEmpty()) {
+        continue;
+        count++;          // error
+    }
+}
+
+switch (cmd) {
+    case &quot;stop&quot;:
+        running = false;
+        break;
+        log(&quot;stopped&quot;);   // error
+}
+</code></pre>
+<p>Put the statement before <code>break</code>/<code>continue</code>.</p>
+<h2 id="cause-3-code-after-an-infinite-loop">Cause 3: code after an infinite loop</h2>
+<pre><code class="language-java">while (true) {
+    handle(queue.take());
+}
+System.out.println(&quot;exit&quot;);   // error: loop never ends normally
+</code></pre>
+<p>The compiler knows <code>while (true)</code> (or <code>for (;;)</code>) without a <code>break</code> never completes. Add an exit:</p>
+<pre><code class="language-java">while (running) {
+    handle(queue.take());
+}
+System.out.println(&quot;exit&quot;);
+</code></pre>
+<p>or <code>break</code> out of it on a condition. Note <code>while (flag)</code> with a non-constant variable is fine; only constant <code>true</code> triggers the analysis.</p>
+<h2 id="cause-4-temporarily-disabling-code-with-return">Cause 4: temporarily disabling code with return</h2>
+<p>A quick <code>return;</code> at the top of a method to skip the rest fails to compile. Use a condition the compiler doesn't treat as constant-folded dead code:</p>
+<pre><code class="language-java">if (true) return;     // allowed: if statements are exempt from this check
+</code></pre>
+<p>The JLS deliberately exempts <code>if</code> so you can do conditional compilation like <code>if (DEBUG) { ... }</code>. Commenting out the code is cleaner.</p>
+<h2 id="cause-5-catch-block-for-an-exception-that-cant-be-thrown">Cause 5: catch block for an exception that can't be thrown</h2>
+<p>A related compile error: <code>exception IOException is never thrown in body of corresponding try statement</code>. Also, catching a subclass after its superclass gives <code>exception FileNotFoundException has already been caught</code>:</p>
+<pre><code class="language-java">try { ... }
+catch (IOException e) { ... }
+catch (FileNotFoundException e) { ... }   // error: already caught
+</code></pre>
+<p>Order catch blocks from most specific to most general.</p>
+<h2 id="related-missing-return-statement">Related: missing return statement</h2>
+<p>The opposite analysis: a method's end is reachable but it must return a value. See <a href="/java/java-error-missing-return-statement/">missing return statement</a>.</p>
+<h2 id="kotlin-and-ides">Kotlin and IDEs</h2>
+<p>Kotlin reports <code>Unreachable code</code> only as a warning. IntelliJ highlights dead code in grey before you compile, which is the quickest way to spot it.</p>
+<p class="upd">Last updated 2026-11-23.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-error-cannot-find-symbol/">error: cannot find symbol</a></li><li><a href="/java/java-error-missing-return-statement/">error: missing return statement</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

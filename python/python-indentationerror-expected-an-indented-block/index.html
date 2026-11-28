@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IndentationError: expected an indented block (Python) — how to fix</title>
+<meta name="description" content="A line ending in a colon (def, if, for, while, class, try, with) must be followed by at least one indented line. The block is empty or not indented.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-indentationerror-expected-an-indented-block/">
+<meta property="og:title" content="IndentationError: expected an indented block (Python) — how to fix"><meta property="og:description" content="A line ending in a colon (def, if, for, while, class, try, with) must be followed by at least one indented line. The block is empty or not indented.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-indentationerror-expected-an-indented-block/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "IndentationError: expected an indented block (Python) \u2014 how to fix", "description": "A line ending in a colon (def, if, for, while, class, try, with) must be followed by at least one indented line. The block is empty or not indented.", "dateModified": "2026-11-22", "url": "https://errorfix-hollis.github.io/python/python-indentationerror-expected-an-indented-block/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "IndentationError: expected an indented block", "item": "https://errorfix-hollis.github.io/python/python-indentationerror-expected-an-indented-block/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>IndentationError: expected an indented block (Python) — how to fix</h1>
+<pre class="err"><code>  File &quot;app.py&quot;, line 3
+    print(&quot;hello&quot;)
+    ^
+IndentationError: expected an indented block after function definition on line 2
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Indent the line(s) after the <code>:</code> by 4 spaces. If the block is intentionally empty (a stub), put <code>pass</code> (or <code>...</code>) in it. Make sure you don't mix tabs and spaces.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Python uses indentation to define blocks. Every statement that ends with <code>:</code> opens a block, and the next non-blank line must be indented more than the statement itself. If it isn't, Python stops with this error. Since Python 3.9/3.10 the message also names the statement: <code>expected an indented block after 'if' statement on line 5</code>.</p>
+<p>The line number in the error points to the line that <em>should</em> be indented; the line in "after ... on line N" is the one that opened the block.</p>
+<h2 id="cause-1-the-body-isnt-indented">Cause 1: the body isn't indented</h2>
+<pre><code class="language-python">def greet(name):
+print(&quot;hello&quot;, name)      # IndentationError
+</code></pre>
+<p>Fix: indent the body (PEP 8 uses 4 spaces):</p>
+<pre><code class="language-python">def greet(name):
+    print(&quot;hello&quot;, name)
+</code></pre>
+<h2 id="cause-2-the-block-is-empty">Cause 2: the block is empty</h2>
+<p>Stubs, TODOs and placeholder branches need at least one statement. A comment alone does not count:</p>
+<pre><code class="language-python">if user.is_admin:
+    # TODO
+else:                     # IndentationError: expected an indented block after 'if'
+    deny()
+</code></pre>
+<p>Fix: use <code>pass</code> (or <code>...</code>):</p>
+<pre><code class="language-python">if user.is_admin:
+    pass  # TODO
+else:
+    deny()
+
+class MyError(Exception):
+    pass
+
+def not_done_yet():
+    ...
+</code></pre>
+<h2 id="cause-3-tabs-and-spaces-mixed">Cause 3: tabs and spaces mixed</h2>
+<p>A line can <em>look</em> indented in your editor while Python sees something different, because a tab is displayed as 2, 4 or 8 columns. This can produce this error, <code>unexpected indent</code> or <code>TabError</code>.</p>
+<p>Fix: convert the whole file to spaces.</p>
+<ul>
+<li>VS Code: click "Spaces/Tab Size" in the status bar → <em>Convert Indentation to Spaces</em>.</li>
+<li>Command line: <code>expand -t 4 app.py &gt; app_fixed.py</code></li>
+<li>Find tabs: <code>grep -nP '\t' app.py</code></li>
+</ul>
+<p>Then check the file compiles:</p>
+<pre><code class="language-bash">python -m py_compile app.py
+</code></pre>
+<h2 id="cause-4-code-pasted-from-the-web-or-a-chat">Cause 4: code pasted from the web or a chat</h2>
+<p>Copying from web pages, PDFs or chat apps often strips leading whitespace or adds non-breaking spaces (<code>U+00A0</code>). Re-indent the pasted block manually, or find odd characters with:</p>
+<pre><code class="language-bash">grep -nP '[^\x00-\x7F]' app.py
+</code></pre>
+<p>If you need to see invisible characters (tabs, NBSP, CRLF), paste the code into the <a href="/tools/line-ending-whitespace-inspector/">line ending &amp; whitespace inspector</a>.</p>
+<h2 id="cause-5-interactive-shell-notebook">Cause 5: interactive shell / notebook</h2>
+<p>In the Python REPL, a block must be finished by an empty line, and each body line must be indented. In Jupyter, a cell ending right after <code>for x in items:</code> gives the same error: add the body or <code>pass</code>.</p>
+<p class="upd">Last updated 2026-11-22.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-indentationerror-unexpected-indent/">IndentationError: unexpected indent</a></li><li><a href="/python/python-syntaxerror-invalid-syntax/">SyntaxError: invalid syntax</a></li><li><a href="/python/python-taberror-inconsistent-use-of-tabs/">TabError: inconsistent use of tabs and spaces in indentation</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

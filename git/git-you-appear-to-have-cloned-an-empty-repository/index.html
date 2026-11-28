@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>warning: You appear to have cloned an empty repository. (Git) — how to fix</title>
+<meta name="description" content="The remote repository has no commits yet, so git created a local repo with nothing checked out. It&#x27;s a warning, not a failure, unless you expected code to be there.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-you-appear-to-have-cloned-an-empty-repository/">
+<meta property="og:title" content="warning: You appear to have cloned an empty repository. (Git) — how to fix"><meta property="og:description" content="The remote repository has no commits yet, so git created a local repo with nothing checked out. It&#x27;s a warning, not a failure, unless you expected code to be there.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-you-appear-to-have-cloned-an-empty-repository/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "warning: You appear to have cloned an empty repository. (Git) \u2014 how to fix", "description": "The remote repository has no commits yet, so git created a local repo with nothing checked out. It's a warning, not a failure, unless you expected code to be there.", "dateModified": "2026-11-25", "url": "https://errorfix-hollis.github.io/git/git-you-appear-to-have-cloned-an-empty-repository/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "warning: You appear to have cloned an empty repository.", "item": "https://errorfix-hollis.github.io/git/git-you-appear-to-have-cloned-an-empty-repository/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>warning: You appear to have cloned an empty repository. (Git) — how to fix</h1>
+<pre class="err"><code>Cloning into &#x27;myproject&#x27;...
+warning: You appear to have cloned an empty repository.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> If the repo is new, just add files and push: <code>git add . &amp;&amp; git commit -m "Initial commit" &amp;&amp; git push -u origin main</code>. If it should have code, you cloned the wrong URL, the code is on another branch/host, or the push never happened: check <code>git ls-remote &lt;url&gt;</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>git clone</code> succeeded: it created the folder, set up <code>origin</code> and downloaded everything, but the remote has <strong>no commits and no branches</strong>. There's nothing to check out, so your working tree is empty.</p>
+<p>Check what the remote really has:</p>
+<pre><code class="language-bash">git ls-remote https://github.com/me/myproject.git
+</code></pre>
+<p>No output = the repository is empty on the server.</p>
+<h2 id="case-1-its-a-brand-new-repo-expected">Case 1: it's a brand-new repo (expected)</h2>
+<p>You created the repo on GitHub/GitLab without a README. Start working directly in the clone:</p>
+<pre><code class="language-bash">cd myproject
+echo &quot;# myproject&quot; &gt; README.md
+git add .
+git commit -m &quot;Initial commit&quot;
+git branch -M main          # name the branch main if your git defaults to master
+git push -u origin main
+</code></pre>
+<p>If you skip the commit, the push fails with <code>error: src refspec main does not match any</code>.</p>
+<p>Already have a local project in another folder? Don't copy files around; push it to the empty remote instead:</p>
+<pre><code class="language-bash">cd existing-project
+git init                     # if not yet a repo
+git add . &amp;&amp; git commit -m &quot;Initial commit&quot;
+git remote add origin https://github.com/me/myproject.git
+git push -u origin main
+</code></pre>
+<h2 id="case-2-wrong-url">Case 2: wrong URL</h2>
+<p>Very common with forks, similarly named repos, or a repo created on one account and pushed to another. Compare the URL with the one shown on the repository page (<em>Code</em> button) and check:</p>
+<pre><code class="language-bash">git remote -v
+</code></pre>
+<p>Fix it in place, then fetch:</p>
+<pre><code class="language-bash">git remote set-url origin https://github.com/right-owner/myproject.git
+git fetch origin
+git checkout main
+</code></pre>
+<h2 id="case-3-code-exists-but-on-a-non-default-branch">Case 3: code exists but on a non-default branch</h2>
+<p><code>ls-remote</code> shows refs, but only something like <code>refs/heads/dev</code>. Git couldn't check out because the remote <code>HEAD</code> points to a branch that doesn't exist. Check out the branch explicitly:</p>
+<pre><code class="language-bash">git fetch origin
+git branch -r
+git checkout -b dev origin/dev
+</code></pre>
+<p>Fix it for others by setting the default branch in the hosting settings (GitHub: <em>Settings → General → Default branch</em>).</p>
+<h2 id="case-4-the-push-never-happened">Case 4: the push never happened</h2>
+<p>A colleague (or CI) thinks they pushed but got an error, or pushed to a different remote. Ask them to run <code>git push -u origin main</code> and check its output; <code>git status</code> should then say <code>Your branch is up to date with 'origin/main'</code>.</p>
+<h2 id="case-5-access-rights-mirrors">Case 5: access rights / mirrors</h2>
+<p>On self-hosted servers (Gitea, bare repos over SSH) you may have cloned an empty bare repo created with <code>git init --bare</code> on the wrong path. Verify the path on the server (<code>ls /srv/git/myproject.git/refs/heads</code>). With LFS-only or mirrored repos, make sure the mirror has synced.</p>
+<h2 id="can-i-ignore-it">Can I ignore it?</h2>
+<p>Yes, for a new repo. Everything works normally after your first commit and push.</p>
+<p class="upd">Last updated 2026-11-25.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-no-upstream-branch/">fatal: The current branch has no upstream branch.</a></li><li><a href="/git/git-src-refspec-main-does-not-match-any/">error: src refspec main does not match any</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>docker: invalid reference format — how to fix</title>
+<meta name="description" content="Docker could not parse the image name. Usually there are uppercase letters, a space or stray character in the image reference, an empty variable, or the arguments are in the wrong order so an option is being read as the image.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-invalid-reference-format/">
+<meta property="og:title" content="docker: invalid reference format — how to fix"><meta property="og:description" content="Docker could not parse the image name. Usually there are uppercase letters, a space or stray character in the image reference, an empty variable, or the arguments are in the wrong order so an option is being read as the image.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-invalid-reference-format/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "docker: invalid reference format \u2014 how to fix", "description": "Docker could not parse the image name. Usually there are uppercase letters, a space or stray character in the image reference, an empty variable, or the arguments are in the wrong order so an option is being read as the image.", "dateModified": "2026-11-27", "url": "https://errorfix-hollis.github.io/docker/docker-invalid-reference-format/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "docker: invalid reference format", "item": "https://errorfix-hollis.github.io/docker/docker-invalid-reference-format/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>docker: invalid reference format — how to fix</h1>
+<pre class="err"><code>docker: invalid reference format.
+See &#x27;docker run --help&#x27;.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Make the image name lowercase and free of spaces (<code>myapp:latest</code>, not <code>MyApp:latest</code>). Quote paths containing spaces in <code>-v "$(pwd)":/app</code>, check for empty variables (<code>echo "$TAG"</code>), and put all options before the image name: <code>docker run -p 8080:80 nginx</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>An image reference has the form <code>[registry[:port]/]name[:tag][@digest]</code>. Docker validates it before doing anything else. Rules:</p>
+<ul>
+<li>The name part must be <strong>lowercase</strong>: letters, digits, and separators <code>.</code>, <code>_</code>, <code>__</code>, <code>-</code>, <code>/</code>.</li>
+<li>A tag can contain letters (upper or lower), digits, <code>_</code>, <code>.</code>, <code>-</code>, up to 128 characters, and can't start with <code>.</code> or <code>-</code>.</li>
+<li>No spaces, no empty parts (<code>myapp:</code> or <code>:latest</code>).</li>
+</ul>
+<p>A variant, <code>invalid reference format: repository name must be lowercase</code>, tells you exactly which rule you broke.</p>
+<p>Print the exact command to see what Docker receives:</p>
+<pre><code class="language-bash">set -x
+docker run ...
+set +x
+</code></pre>
+<h2 id="cause-1-uppercase-letters-in-the-name">Cause 1: uppercase letters in the name</h2>
+<pre><code class="language-bash">docker build -t MyApp .          # invalid
+docker build -t myapp .          # OK
+docker build -t myapp:V1.2 .     # OK — uppercase is allowed in the tag
+</code></pre>
+<p>In scripts, lower-case a variable with <code>${NAME,,}</code> (bash) or <code>tr '[:upper:]' '[:lower:]'</code>. GitHub Actions: <code>${{ github.repository }}</code> can contain uppercase owners — lowercase it before using it as an image name.</p>
+<h2 id="cause-2-a-path-with-spaces-in-v">Cause 2: a path with spaces in -v</h2>
+<p><code>$(pwd)</code> expands to a path like <code>/home/me/My Projects/app</code>; the part after the space becomes the image name.</p>
+<pre><code class="language-bash">docker run -v $(pwd):/app node:20        # breaks with spaces
+docker run -v &quot;$(pwd)&quot;:/app node:20      # OK
+</code></pre>
+<p>On Windows: PowerShell uses <code>${PWD}</code> (<code>-v "${PWD}:/app"</code>), cmd.exe uses <code>%cd%</code> (<code>-v "%cd%":/app</code>). <code>$(pwd)</code> doesn't work in cmd.</p>
+<h2 id="cause-3-options-after-the-image-name-or-a-missing-value">Cause 3: options after the image name, or a missing value</h2>
+<p>Everything after the image is passed to the container. If an option is missing its value, the next word shifts into the image position:</p>
+<pre><code class="language-bash">docker run -p 8080:80 -e NODE_ENV=production myapp     # OK
+docker run -p -e NODE_ENV=production myapp             # -p eats &quot;-e&quot;, so NODE_ENV=production becomes the image
+</code></pre>
+<h2 id="cause-4-an-empty-or-malformed-variable">Cause 4: an empty or malformed variable</h2>
+<pre><code class="language-bash">docker build -t myapp:$TAG .        # TAG empty -&gt; &quot;myapp:&quot; -&gt; invalid
+docker push $REGISTRY/myapp         # REGISTRY empty -&gt; &quot;/myapp&quot; -&gt; invalid
+</code></pre>
+<p>Check with <code>echo "[$TAG]"</code> and use defaults: <code>myapp:${TAG:-latest}</code>. Docker Compose behaves the same with <code>image: ${REGISTRY}/app:${TAG}</code>; run <code>docker compose config</code> to see the expanded values.</p>
+<h2 id="cause-5-invisible-or-pasted-characters">Cause 5: invisible or pasted characters</h2>
+<p>Copying commands from web pages or Word can bring in non-breaking spaces, en-dashes (<code>–p</code> instead of <code>-p</code>) or a Windows carriage return (<code>\r</code>) at the end of a line in a shell script. Retype the command, or remove CRs with <code>sed -i 's/\r$//' script.sh</code>. The <a href="/tools/line-ending-whitespace-inspector/">line ending and whitespace inspector</a> shows hidden characters.</p>
+<h2 id="cause-6-https-or-a-trailing-slash-in-the-name">Cause 6: <code>https://</code> or a trailing slash in the name</h2>
+<p>Image references don't include a scheme: use <code>ghcr.io/owner/app:1.0</code>, not <code>https://ghcr.io/owner/app:1.0</code>.</p>
+<p class="upd">Last updated 2026-11-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-manifest-unknown/">manifest unknown</a></li><li><a href="/docker/docker-oci-runtime-create-failed-executable-file-not-found/">OCI runtime create failed: exec: executable file not found in $PATH</a></li><li><a href="/docker/docker-pull-access-denied-repository-does-not-exist/">pull access denied for X, repository does not exist or may require &#x27;docker login&#x27;</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-additional-property-is-not-allowed/">Additional property is not allowed</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

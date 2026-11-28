@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal: unable to access &#x27;https://github.com/...&#x27;: Failed to connect to github.com port 443 — how to fix</title>
+<meta name="description" content="Git resolved github.com but could not open a TCP connection on HTTPS port 443. Usually a proxy setting (stale or missing), a VPN/firewall block, or a network that blocks GitHub.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-failed-to-connect-to-github-com-port-443/">
+<meta property="og:title" content="fatal: unable to access &#x27;https://github.com/...&#x27;: Failed to connect to github.com port 443 — how to fix"><meta property="og:description" content="Git resolved github.com but could not open a TCP connection on HTTPS port 443. Usually a proxy setting (stale or missing), a VPN/firewall block, or a network that blocks GitHub.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-failed-to-connect-to-github-com-port-443/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal: unable to access 'https://github.com/...': Failed to connect to github.com port 443 \u2014 how to fix", "description": "Git resolved github.com but could not open a TCP connection on HTTPS port 443. Usually a proxy setting (stale or missing), a VPN/firewall block, or a network that blocks GitHub.", "dateModified": "2026-11-22", "url": "https://errorfix-hollis.github.io/git/git-failed-to-connect-to-github-com-port-443/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "fatal: unable to access 'https://github.com/...': Failed to connect to github.com port 443", "item": "https://errorfix-hollis.github.io/git/git-failed-to-connect-to-github-com-port-443/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>fatal: unable to access &#x27;https://github.com/...&#x27;: Failed to connect to github.com port 443 — how to fix</h1>
+<pre class="err"><code>fatal: unable to access &#x27;https://github.com/user/repo.git/&#x27;: Failed to connect to github.com port 443 after 21045 ms: Couldn&#x27;t connect to server
+fatal: unable to access &#x27;https://github.com/user/repo.git/&#x27;: Failed to connect to github.com port 443: Connection timed out
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check with <code>curl -v https://github.com</code>. If you set a proxy before and no longer need it, remove it: <code>git config --global --unset http.proxy</code> and <code>git config --global --unset https.proxy</code> (also check <code>HTTPS_PROXY</code> env vars). If you are behind a proxy, set it: <code>git config --global http.proxy http://proxy:8080</code>. Otherwise switch VPN/network, or use SSH.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>DNS worked (otherwise you'd see <code>Could not resolve host</code>), but the TCP connection to port 443 never completed. Something between you and GitHub is dropping or refusing the connection, or Git is sending traffic to a proxy that isn't there.</p>
+<p>First test outside Git:</p>
+<pre><code class="language-bash">curl -v https://github.com -o /dev/null
+</code></pre>
+<ul>
+<li>curl also fails → network/firewall/VPN/proxy problem on the machine.</li>
+<li>curl works, git fails → Git has its own (wrong) proxy setting.</li>
+</ul>
+<h2 id="cause-1-a-stale-proxy-configured-in-git">Cause 1: a stale proxy configured in Git</h2>
+<p>Very common after following a "set a proxy" tutorial, or using a corporate laptop at home. Look for proxy settings:</p>
+<pre><code class="language-bash">git config --show-origin --get-regexp 'https?\..*proxy'
+env | grep -i proxy
+</code></pre>
+<p>Remove the ones you don't need:</p>
+<pre><code class="language-bash">git config --global --unset http.proxy
+git config --global --unset https.proxy
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY
+</code></pre>
+<p>On Windows also check <em>Settings → Network → Proxy</em> and environment variables in <em>System Properties</em>.</p>
+<h2 id="cause-2-you-are-behind-a-proxy-and-git-doesnt-know">Cause 2: you are behind a proxy and Git doesn't know</h2>
+<p>On corporate networks direct traffic to port 443 is blocked; only the proxy is allowed. Set it for Git:</p>
+<pre><code class="language-bash">git config --global http.proxy http://proxy.example.com:8080
+# with auth
+git config --global http.proxy http://user:pass@proxy.example.com:8080
+# only for GitHub
+git config --global http.https://github.com.proxy http://proxy.example.com:8080
+</code></pre>
+<p>Local proxy tools (Clash, v2ray etc.) usually listen on <code>127.0.0.1:7890</code> or similar: <code>git config --global http.proxy http://127.0.0.1:7890</code>. If the tool is turned off, this setting causes exactly this error (back to cause 1).</p>
+<h2 id="cause-3-vpn-firewall-or-antivirus">Cause 3: VPN, firewall or antivirus</h2>
+<ul>
+<li>Disconnect/reconnect the VPN, or try without it.</li>
+<li>Some security software intercepts HTTPS; temporarily disable it to test.</li>
+<li>Try another network (phone hotspot). If it works there, your network blocks GitHub.</li>
+</ul>
+<h2 id="cause-4-ipv6-route-is-broken">Cause 4: IPv6 route is broken</h2>
+<p>If github.com resolves to an IPv6 address on a network without working IPv6, connections time out. Test:</p>
+<pre><code class="language-bash">curl -4 -v https://github.com -o /dev/null
+</code></pre>
+<p>If <code>-4</code> works, tell Git to use IPv4 for that command:</p>
+<pre><code class="language-bash">git clone -4 https://github.com/user/repo.git
+git fetch -4
+git push -4
+</code></pre>
+<p>For a permanent fix, make the system prefer IPv4 (uncomment <code>precedence ::ffff:0:0/96  100</code> in <code>/etc/gai.conf</code> on Linux) or fix IPv6 on the network.</p>
+<h2 id="workaround-use-ssh-port-22-or-443">Workaround: use SSH (port 22 or 443)</h2>
+<p>If HTTPS is blocked but SSH isn't:</p>
+<pre><code class="language-bash">git remote set-url origin git@github.com:user/repo.git
+</code></pre>
+<p>If port 22 is blocked too, GitHub accepts SSH on port 443 via <code>ssh.github.com</code>. Add to <code>~/.ssh/config</code>:</p>
+<pre><code>Host github.com
+  Hostname ssh.github.com
+  Port 443
+  User git
+</code></pre>
+<p>Test with <code>ssh -T git@github.com</code>.</p>
+<p class="upd">Last updated 2026-11-22.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-could-not-resolve-host/">fatal: unable to access ... Could not resolve host: github.com</a></li><li><a href="/git/git-could-not-resolve-proxy/">fatal: unable to access &#x27;...&#x27;: Could not resolve proxy: proxy.example.com</a></li><li><a href="/git/git-ssl-certificate-problem-unable-to-get-local-issuer-certificate/">SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

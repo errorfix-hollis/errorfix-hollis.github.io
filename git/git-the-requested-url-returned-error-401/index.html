@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal: unable to access: The requested URL returned error: 401 (Git) — how to fix</title>
+<meta name="description" content="The Git host rejected your HTTPS credentials as missing or invalid: a wrong or expired token, an account password where a token is required, or a stale entry in the credential helper.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-the-requested-url-returned-error-401/">
+<meta property="og:title" content="fatal: unable to access: The requested URL returned error: 401 (Git) — how to fix"><meta property="og:description" content="The Git host rejected your HTTPS credentials as missing or invalid: a wrong or expired token, an account password where a token is required, or a stale entry in the credential helper.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-the-requested-url-returned-error-401/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal: unable to access: The requested URL returned error: 401 (Git) \u2014 how to fix", "description": "The Git host rejected your HTTPS credentials as missing or invalid: a wrong or expired token, an account password where a token is required, or a stale entry in the credential helper.", "dateModified": "2026-11-27", "url": "https://errorfix-hollis.github.io/git/git-the-requested-url-returned-error-401/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "fatal: unable to access: The requested URL returned error: 401", "item": "https://errorfix-hollis.github.io/git/git-the-requested-url-returned-error-401/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>fatal: unable to access: The requested URL returned error: 401 (Git) — how to fix</h1>
+<pre class="err"><code>remote: Support for password authentication was removed on August 13, 2021.
+fatal: unable to access &#x27;https://github.com/user/repo.git/&#x27;: The requested URL returned error: 401
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Clear the cached credential (<code>git credential reject</code> with <code>protocol=https</code> and <code>host=github.com</code>, or remove it in Windows Credential Manager / macOS Keychain), then push again and enter your username plus a Personal Access Token as the password. Or use <code>gh auth login</code>, or switch the remote to SSH.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>HTTP 401 means <strong>Unauthorized</strong>: the server did not accept the credentials Git sent (or Git sent none). This is different from 403, where the server knows who you are but you don't have permission on the repository.</p>
+<p>See what Git is sending:</p>
+<pre><code class="language-bash">GIT_CURL_VERBOSE=1 GIT_TRACE=1 git ls-remote https://github.com/user/repo.git 2&gt;&amp;1 | grep -iE 'authorization|HTTP/'
+git config --get-all credential.helper
+</code></pre>
+<h2 id="cause-1-a-stale-or-expired-credential-is-cached">Cause 1: a stale or expired credential is cached</h2>
+<p>The credential helper keeps sending an old password or a token that has expired or been revoked, so you never get a prompt. Remove it:</p>
+<pre><code class="language-bash">printf &quot;protocol=https\nhost=github.com\n\n&quot; | git credential reject
+</code></pre>
+<ul>
+<li><strong>Windows</strong>: Control Panel → Credential Manager → Windows Credentials → remove <code>git:https://github.com</code>.</li>
+<li><strong>macOS</strong>: Keychain Access → search <code>github.com</code> → delete the internet password, or <code>printf "protocol=https\nhost=github.com\n\n" | git credential-osxkeychain erase</code>.</li>
+<li><strong>Linux with <code>store</code></strong>: edit or delete the line in <code>~/.git-credentials</code>.</li>
+</ul>
+<p>Then run <code>git push</code> again and enter fresh credentials.</p>
+<h2 id="cause-2-using-your-account-password">Cause 2: using your account password</h2>
+<p>GitHub, GitLab.com and Bitbucket Cloud no longer accept account passwords for Git over HTTPS. Create a token and use it as the password:</p>
+<ul>
+<li>GitHub: Settings → Developer settings → Personal access tokens. A classic token needs the <code>repo</code> scope; a fine-grained token needs <strong>Contents: Read and write</strong> on that repository.</li>
+<li>GitLab: User settings → Access tokens, scopes <code>read_repository</code> / <code>write_repository</code>.</li>
+<li>Bitbucket: an app password or API token with repository permissions.</li>
+<li>Azure DevOps: a PAT with Code (Read &amp; write).</li>
+</ul>
+<p>Easiest on GitHub: let the CLI set things up:</p>
+<pre><code class="language-bash">gh auth login        # choose HTTPS, then &quot;Login with a web browser&quot;
+gh auth setup-git
+</code></pre>
+<h2 id="cause-3-credentials-in-the-remote-url-are-wrong">Cause 3: credentials in the remote URL are wrong</h2>
+<p>An old token embedded in the URL overrides the helper:</p>
+<pre><code class="language-bash">git remote -v
+# https://olduser:ghp_xxx@github.com/user/repo.git
+git remote set-url origin https://github.com/user/repo.git
+</code></pre>
+<h2 id="cause-4-sso-or-organization-policies">Cause 4: SSO or organization policies</h2>
+<p>If the organization uses SAML SSO, a token must be authorized for that org (GitHub: Settings → Tokens → Configure SSO → Authorize). Fine-grained tokens must also be approved if the org requires it.</p>
+<h2 id="cause-5-ci-pipelines">Cause 5: CI pipelines</h2>
+<p>In CI, 401 usually means the token variable is empty or masked incorrectly. In GitHub Actions use <code>${{ secrets.GITHUB_TOKEN }}</code> and check <code>permissions: contents: write</code>; in GitLab CI use <code>CI_JOB_TOKEN</code> or a project access token.</p>
+<h2 id="alternative-use-ssh">Alternative: use SSH</h2>
+<pre><code class="language-bash">git remote set-url origin git@github.com:user/repo.git
+ssh -T git@github.com
+</code></pre>
+<p>SSH bypasses HTTP authentication completely, once your public key is added to your account.</p>
+<p class="upd">Last updated 2026-11-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-fatal-authentication-failed/">fatal: Authentication failed for &#x27;https://...&#x27;</a></li><li><a href="/git/git-password-authentication-removed/">remote: Support for password authentication was removed</a></li><li><a href="/git/git-the-requested-url-returned-error-403/">fatal: unable to access ... The requested URL returned error: 403</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

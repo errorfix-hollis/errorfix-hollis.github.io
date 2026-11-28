@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>System has not been booted with systemd as init system (PID 1). Can&#x27;t operate. (Linux) — how to fix</title>
+<meta name="description" content="You ran `systemctl` in an environment where PID 1 is not systemd: a Docker container, WSL without systemd enabled, or a chroot. systemctl has no systemd to talk to.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-system-has-not-been-booted-with-systemd/">
+<meta property="og:title" content="System has not been booted with systemd as init system (PID 1). Can&#x27;t operate. (Linux) — how to fix"><meta property="og:description" content="You ran `systemctl` in an environment where PID 1 is not systemd: a Docker container, WSL without systemd enabled, or a chroot. systemctl has no systemd to talk to.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-system-has-not-been-booted-with-systemd/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "System has not been booted with systemd as init system (PID 1). Can't operate. (Linux) \u2014 how to fix", "description": "You ran `systemctl` in an environment where PID 1 is not systemd: a Docker container, WSL without systemd enabled, or a chroot. systemctl has no systemd to talk to.", "dateModified": "2026-11-24", "url": "https://errorfix-hollis.github.io/linux/linux-system-has-not-been-booted-with-systemd/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "System has not been booted with systemd as init system (PID 1). Can't operate.", "item": "https://errorfix-hollis.github.io/linux/linux-system-has-not-been-booted-with-systemd/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>System has not been booted with systemd as init system (PID 1). Can&#x27;t operate. (Linux) — how to fix</h1>
+<pre class="err"><code>System has not been booted with systemd as init system (PID 1). Can&#x27;t operate.
+Failed to connect to bus: Host is down
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> On WSL2, enable systemd: add <code>[boot]</code> / <code>systemd=true</code> to <code>/etc/wsl.conf</code>, then run <code>wsl --shutdown</code> in PowerShell and reopen. In Docker, don't use systemctl; start the program directly as the container's CMD (e.g. <code>nginx -g 'daemon off;'</code>). Quick workaround: <code>sudo service nginx start</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>systemctl</code> is a client: it sends requests over D-Bus to the systemd process running as PID 1. When PID 1 is something else (<code>init</code> from WSL, <code>bash</code> or your app in a container, nothing in a chroot), there's nothing to answer. Check what PID 1 is:</p>
+<pre><code class="language-bash">ps -p 1 -o comm=
+</code></pre>
+<p>If it isn't <code>systemd</code>, systemctl won't work.</p>
+<h2 id="fix-1-wsl2-enable-systemd">Fix 1: WSL2 - enable systemd</h2>
+<p>WSL2 supports systemd since WSL 0.67.6 (late 2022). Update WSL first from PowerShell:</p>
+<pre><code class="language-powershell">wsl --update
+wsl --version
+</code></pre>
+<p>Then inside your distro:</p>
+<pre><code class="language-bash">sudo tee /etc/wsl.conf &gt;/dev/null &lt;&lt;'CONF'
+[boot]
+systemd=true
+CONF
+</code></pre>
+<p>If <code>/etc/wsl.conf</code> already has content, add the <code>[boot]</code> section instead of overwriting the file. Restart WSL from PowerShell:</p>
+<pre><code class="language-powershell">wsl --shutdown
+</code></pre>
+<p>Open the distro again and check: <code>ps -p 1 -o comm=</code> should print <code>systemd</code>, and <code>systemctl status</code> works. WSL1 cannot run systemd; convert with <code>wsl --set-version &lt;distro&gt; 2</code>.</p>
+<h2 id="fix-2-use-the-service-command">Fix 2: use the <code>service</code> command</h2>
+<p>Many packages still ship SysV init scripts in <code>/etc/init.d/</code>. The <code>service</code> wrapper calls them directly when systemd isn't running:</p>
+<pre><code class="language-bash">sudo service ssh start
+sudo service postgresql status
+sudo /etc/init.d/nginx restart
+</code></pre>
+<p>This works on WSL without systemd and in many containers. It doesn't work for services that only ship a systemd unit; then see the error <a href="/linux/linux-unit-service-not-found/">Unit not found</a> or run the program directly.</p>
+<h2 id="fix-3-docker-containers-run-the-process-directly">Fix 3: Docker containers - run the process directly</h2>
+<p>Containers are designed to run one main process as PID 1, not an init system. Replace <code>systemctl start</code> in Dockerfiles and scripts with the program in the foreground:</p>
+<pre><code class="language-dockerfile">FROM nginx:1.27
+# not: RUN systemctl enable nginx
+CMD [&quot;nginx&quot;, &quot;-g&quot;, &quot;daemon off;&quot;]
+</code></pre>
+<p>Examples of foreground commands: <code>redis-server</code>, <code>postgres -D /var/lib/postgresql/data</code>, <code>/usr/sbin/sshd -D</code>, <code>php-fpm -F</code>. Need several processes? Use separate containers in Docker Compose, or a light supervisor like <code>supervisord</code> or <code>tini</code>.</p>
+<p>Installing packages whose post-install scripts call <code>systemctl</code> can print this error during <code>apt-get install</code> in a Dockerfile; it is usually harmless, and the package is installed anyway.</p>
+<h2 id="fix-4-you-really-need-systemd-in-a-container">Fix 4: you really need systemd in a container</h2>
+<p>For testing systemd units (Ansible roles, packaging), use an image built for it and run it with the right options, e.g. with Podman, which supports systemd natively:</p>
+<pre><code class="language-bash">podman run -d --name sd registry.access.redhat.com/ubi9/ubi-init
+</code></pre>
+<p>With Docker this needs <code>--privileged</code> or cgroup mounts and an image whose CMD is <code>/sbin/init</code>; avoid it for production.</p>
+<h2 id="fix-5-chroot-or-rescue-environment">Fix 5: chroot or rescue environment</h2>
+<p>Inside <code>chroot</code> (e.g. repairing a system from a live USB) systemd isn't PID 1 of that root either. <code>systemctl enable/disable</code> still works there because it only creates symlinks, but <code>start</code>/<code>restart</code>/<code>status</code> don't. Reboot into the real system to start services.</p>
+<p class="upd">Last updated 2026-11-24.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-oci-runtime-exec-failed/">OCI runtime exec failed: exec failed: unable to start container process: exec: &quot;bash&quot;: executable file not found in $PATH</a></li><li><a href="/linux/linux-job-for-service-failed-because-the-control-process-exited-with-error-code/">Job for X.service failed because the control process exited with error code</a></li><li><a href="/linux/linux-unit-service-not-found/">Failed to start nginx.service: Unit nginx.service not found.</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-apt-expkeysig/">The following signatures were invalid: EXPKEYSIG</a></li><li><a href="/linux/linux-apt-hash-sum-mismatch/">E: Failed to fetch ... Hash Sum mismatch</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

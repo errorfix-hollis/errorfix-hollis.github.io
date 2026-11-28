@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>failed to run custom build command for `openssl-sys` (Rust) — how to fix</title>
+<meta name="description" content="The `openssl-sys` crate links against the system OpenSSL library and its build script couldn&#x27;t find the OpenSSL headers or pkg-config. Common on fresh Linux machines, slim Docker images, Windows, and when cross-compiling.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/rust/rust-failed-to-run-custom-build-command-for-openssl-sys/">
+<meta property="og:title" content="failed to run custom build command for `openssl-sys` (Rust) — how to fix"><meta property="og:description" content="The `openssl-sys` crate links against the system OpenSSL library and its build script couldn&#x27;t find the OpenSSL headers or pkg-config. Common on fresh Linux machines, slim Docker images, Windows, and when cross-compiling.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/rust/rust-failed-to-run-custom-build-command-for-openssl-sys/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "failed to run custom build command for `openssl-sys` (Rust) \u2014 how to fix", "description": "The `openssl-sys` crate links against the system OpenSSL library and its build script couldn't find the OpenSSL headers or pkg-config. Common on fresh Linux machines, slim Docker images, Windows, and when cross-compiling.", "dateModified": "2026-11-24", "url": "https://errorfix-hollis.github.io/rust/rust-failed-to-run-custom-build-command-for-openssl-sys/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Rust", "item": "https://errorfix-hollis.github.io/rust/"}, {"@type": "ListItem", "position": 3, "name": "failed to run custom build command for `openssl-sys`", "item": "https://errorfix-hollis.github.io/rust/rust-failed-to-run-custom-build-command-for-openssl-sys/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/rust/">Rust</a></p>
+<article><h1>failed to run custom build command for `openssl-sys` (Rust) — how to fix</h1>
+<pre class="err"><code>error: failed to run custom build command for `openssl-sys v0.9.103`
+
+Caused by:
+  process didn&#x27;t exit successfully: `/app/target/release/build/openssl-sys-.../build-script-main` (exit status: 101)
+  --- stderr
+  Could not find directory of OpenSSL installation, and this `-sys` crate cannot
+  proceed without this knowledge. If OpenSSL is installed and this crate had
+  trouble finding it,  you can set the `OPENSSL_DIR` environment variable for the
+  compilation process.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install pkg-config and OpenSSL development headers: <code>sudo apt install pkg-config libssl-dev</code> (Debian/Ubuntu), <code>sudo dnf install pkgconf-pkg-config openssl-devel</code> (Fedora/RHEL), <code>apk add pkgconfig openssl-dev</code> (Alpine). Or avoid system OpenSSL: enable the <code>vendored</code> feature (<code>openssl = { version = "0.10", features = ["vendored"] }</code>) or switch reqwest to <code>rustls-tls</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>openssl-sys</code> is a thin binding to the C OpenSSL library. Its <code>build.rs</code> uses <code>pkg-config</code> (on Unix) or the <code>OPENSSL_DIR</code> variable to locate <code>libssl</code>/<code>libcrypto</code> and their headers. If it can't, it panics and cargo reports "failed to run custom build command". You get this transitively through crates like <code>reqwest</code>, <code>native-tls</code>, <code>git2</code>, <code>sqlx</code> or <code>postgres-openssl</code>.</p>
+<p>Read the <code>--- stderr</code> part: it says whether <code>pkg-config</code> is missing (<code>The pkg-config command could not be found</code>) or OpenSSL itself.</p>
+<h2 id="fix-1-install-the-development-packages">Fix 1: install the development packages</h2>
+<p>The runtime library alone (<code>libssl3</code>) isn't enough; you need the headers and pkg-config.</p>
+<pre><code class="language-bash"># Debian / Ubuntu
+sudo apt update &amp;&amp; sudo apt install -y pkg-config libssl-dev
+
+# Fedora / RHEL / Rocky
+sudo dnf install -y pkgconf-pkg-config openssl-devel
+
+# Arch
+sudo pacman -S pkgconf openssl
+
+# Alpine
+apk add pkgconfig openssl-dev musl-dev
+
+# macOS (Homebrew)
+brew install openssl@3 pkg-config
+</code></pre>
+<p>Then rebuild: <code>cargo clean -p openssl-sys &amp;&amp; cargo build</code>.</p>
+<p>On macOS, if it still can't find it: <code>export OPENSSL_DIR=$(brew --prefix openssl@3)</code>.</p>
+<h2 id="fix-2-docker-builds">Fix 2: Docker builds</h2>
+<p>Slim images (<code>rust:slim</code>, <code>debian:bookworm-slim</code>) don't include them. Install in the build stage, and the runtime library in the final stage:</p>
+<pre><code class="language-dockerfile">FROM rust:1-slim AS build
+RUN apt-get update &amp;&amp; apt-get install -y --no-install-recommends pkg-config libssl-dev \
+    &amp;&amp; rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY . .
+RUN cargo build --release
+
+FROM debian:bookworm-slim
+RUN apt-get update &amp;&amp; apt-get install -y --no-install-recommends libssl3 ca-certificates \
+    &amp;&amp; rm -rf /var/lib/apt/lists/*
+COPY --from=build /app/target/release/myapp /usr/local/bin/
+CMD [&quot;myapp&quot;]
+</code></pre>
+<h2 id="fix-3-drop-the-openssl-dependency-rustls">Fix 3: drop the OpenSSL dependency (rustls)</h2>
+<p>Often you don't need OpenSSL at all. For <code>reqwest</code>, disable default features and use rustls:</p>
+<pre><code class="language-toml">[dependencies]
+reqwest = { version = &quot;0.12&quot;, default-features = false, features = [&quot;rustls-tls&quot;, &quot;json&quot;] }
+</code></pre>
+<p>Similar switches exist for many crates (<code>sqlx</code> with <code>runtime-tokio-rustls</code> or <code>tls-rustls</code>, <code>tokio-tungstenite</code> with <code>rustls-tls-webpki-roots</code>). Run <code>cargo tree -i openssl-sys</code> to see which crate pulls it in; it must be switched everywhere or openssl-sys still builds.</p>
+<h2 id="fix-4-vendored-openssl">Fix 4: vendored OpenSSL</h2>
+<p>Build OpenSSL from source and link it statically. Needs a C compiler, <code>make</code> and <code>perl</code>, but no system OpenSSL:</p>
+<pre><code class="language-toml">[dependencies]
+openssl = { version = &quot;0.10&quot;, features = [&quot;vendored&quot;] }
+</code></pre>
+<p>This is the simplest option for cross-compiling and for static musl binaries.</p>
+<h2 id="fix-5-windows">Fix 5: Windows</h2>
+<p>There is no system OpenSSL. Either use rustls (Fix 3), the vendored feature (requires Perl, e.g. Strawberry Perl), or install it with vcpkg:</p>
+<pre><code class="language-powershell">vcpkg install openssl:x64-windows-static-md
+$env:VCPKG_ROOT = &quot;C:\vcpkg&quot;
+</code></pre>
+<h2 id="fix-6-cross-compiling">Fix 6: cross-compiling</h2>
+<p>pkg-config refuses to use host libraries when the target differs. Use <code>vendored</code>, rustls, or a tool like <code>cross</code> (<code>cargo install cross</code>, then <code>cross build --target aarch64-unknown-linux-gnu</code>), whose images include OpenSSL for the target. Otherwise set <code>OPENSSL_DIR</code> (or <code>AARCH64_UNKNOWN_LINUX_GNU_OPENSSL_DIR</code>) to a target build of OpenSSL.</p>
+<p class="upd">Last updated 2026-11-24.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-e-unable-to-locate-package/">E: Unable to locate package</a></li><li><a href="/rust/rust-e0463-cant-find-crate/">error[E0463]: can&#x27;t find crate for `std`</a></li><li><a href="/rust/rust-linker-cc-not-found/">error: linker `cc` not found</a></li><li><a href="/rust/rust-borrow-of-moved-value/">error[E0382]: borrow of moved value</a></li><li><a href="/rust/rust-called-option-unwrap-on-a-none-value/">thread &#x27;main&#x27; panicked at called `Option::unwrap()` on a `None` value</a></li><li><a href="/rust/rust-called-result-unwrap-on-an-err-value/">thread &#x27;main&#x27; panicked at &#x27;called `Result::unwrap()` on an `Err` value&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

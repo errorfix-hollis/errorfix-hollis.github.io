@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR: column must appear in the GROUP BY clause or be used in an aggregate function (PostgreSQL) — how to fix</title>
+<meta name="description" content="In a GROUP BY query, every selected (or ORDER BY) column must either be grouped or aggregated, because each output row stands for many input rows and PostgreSQL won&#x27;t pick one value for you. Add the column to GROUP BY, wrap it in an aggregate, or use DISTINCT ON / a window function.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-column-must-appear-in-the-group-by-clause/">
+<meta property="og:title" content="ERROR: column must appear in the GROUP BY clause or be used in an aggregate function (PostgreSQL) — how to fix"><meta property="og:description" content="In a GROUP BY query, every selected (or ORDER BY) column must either be grouped or aggregated, because each output row stands for many input rows and PostgreSQL won&#x27;t pick one value for you. Add the column to GROUP BY, wrap it in an aggregate, or use DISTINCT ON / a window function.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-column-must-appear-in-the-group-by-clause/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR: column must appear in the GROUP BY clause or be used in an aggregate function (PostgreSQL) \u2014 how to fix", "description": "In a GROUP BY query, every selected (or ORDER BY) column must either be grouped or aggregated, because each output row stands for many input rows and PostgreSQL won't pick one value for you. Add the column to GROUP BY, wrap it in an aggregate, or use DISTINCT ON / a window function.", "dateModified": "2026-11-28", "url": "https://errorfix-hollis.github.io/database/db-postgres-column-must-appear-in-the-group-by-clause/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR: column must appear in the GROUP BY clause or be used in an aggregate function", "item": "https://errorfix-hollis.github.io/database/db-postgres-column-must-appear-in-the-group-by-clause/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR: column must appear in the GROUP BY clause or be used in an aggregate function (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>ERROR:  column &quot;orders.created_at&quot; must appear in the GROUP BY clause or be used in an aggregate function
+LINE 1: SELECT customer_id, created_at, count(*) FROM orders GROUP BY customer_id;
+                            ^
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Decide what you want per group: add the column to <code>GROUP BY</code> (<code>GROUP BY customer_id, created_at</code>), aggregate it (<code>max(created_at)</code>, <code>string_agg(name, ', ')</code>), or group by the table's primary key so its other columns are allowed. For "the latest row per group" use <code>SELECT DISTINCT ON (customer_id) ... ORDER BY customer_id, created_at DESC</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>GROUP BY customer_id</code> collapses all rows with the same <code>customer_id</code> into one output row. If you also select <code>created_at</code>, there may be dozens of different values in that group, and SQL doesn't define which one to show. PostgreSQL follows the standard and rejects the query. (MySQL with <code>ONLY_FULL_GROUP_BY</code>, the default since 5.7, gives the equivalent error 1055.)</p>
+<p>The fix depends on which value you actually want. You can reformat long queries with the <a href="/tools/sql-formatter/">SQL formatter</a> to see all selected columns at a glance.</p>
+<h2 id="fix-1-you-want-one-row-per-combination">Fix 1: you want one row per combination</h2>
+<p>If every distinct combination should be its own row, group by all of them:</p>
+<pre><code class="language-sql">SELECT customer_id, created_at::date AS day, count(*)
+FROM orders
+GROUP BY customer_id, created_at::date;
+</code></pre>
+<p>You can also refer to output columns by position or alias: <code>GROUP BY 1, 2</code> or <code>GROUP BY customer_id, day</code>.</p>
+<h2 id="fix-2-you-want-a-summary-of-the-column">Fix 2: you want a summary of the column</h2>
+<p>Aggregate it:</p>
+<pre><code class="language-sql">SELECT customer_id,
+       count(*)                     AS orders,
+       max(created_at)              AS last_order,
+       min(created_at)              AS first_order,
+       string_agg(status, ', ')     AS statuses,
+       array_agg(id ORDER BY id)    AS order_ids
+FROM orders
+GROUP BY customer_id;
+</code></pre>
+<p>If you know all values in the group are identical and you just need any one of them, PostgreSQL 16+ has <code>any_value(col)</code>; on older versions <code>min(col)</code> or <code>max(col)</code> does the job.</p>
+<h2 id="fix-3-group-by-the-primary-key">Fix 3: group by the primary key</h2>
+<p>PostgreSQL allows other columns of a table when you group by that table's primary key, because they are functionally dependent on it:</p>
+<pre><code class="language-sql">SELECT c.id, c.name, c.email, count(o.id) AS orders
+FROM customers c
+LEFT JOIN orders o ON o.customer_id = c.id
+GROUP BY c.id;            -- c.name, c.email allowed: c.id is the PK
+</code></pre>
+<p>This works only for the primary key (not for a unique index) and only for columns of that same table.</p>
+<h2 id="fix-4-you-want-the-whole-latest-or-first-row-per-group">Fix 4: you want the whole latest (or first) row per group</h2>
+<p>That's not really aggregation. Use <code>DISTINCT ON</code>, a PostgreSQL extension:</p>
+<pre><code class="language-sql">SELECT DISTINCT ON (customer_id) customer_id, id, created_at, total
+FROM orders
+ORDER BY customer_id, created_at DESC;
+</code></pre>
+<p>Or a window function, which is portable across databases:</p>
+<pre><code class="language-sql">SELECT *
+FROM (
+  SELECT o.*, row_number() OVER (PARTITION BY customer_id ORDER BY created_at DESC) AS rn
+  FROM orders o
+) t
+WHERE rn = 1;
+</code></pre>
+<h2 id="fix-5-you-want-per-row-data-plus-a-group-total">Fix 5: you want per-row data plus a group total</h2>
+<p>Window aggregates keep every row and add the group value next to it, no <code>GROUP BY</code> needed:</p>
+<pre><code class="language-sql">SELECT id, customer_id, total,
+       sum(total) OVER (PARTITION BY customer_id) AS customer_total
+FROM orders;
+</code></pre>
+<h2 id="cause-order-by-or-having-on-an-ungrouped-column">Cause: ORDER BY or HAVING on an ungrouped column</h2>
+<p>The rule also applies outside the select list:</p>
+<pre><code class="language-sql">-- Error: created_at is neither grouped nor aggregated
+SELECT customer_id, count(*) FROM orders GROUP BY customer_id ORDER BY created_at;
+
+-- Fix
+SELECT customer_id, count(*) FROM orders GROUP BY customer_id ORDER BY max(created_at) DESC;
+</code></pre>
+<h2 id="coming-from-mysql">Coming from MySQL</h2>
+<p>Older MySQL setups often had <code>ONLY_FULL_GROUP_BY</code> disabled, so queries that silently returned an arbitrary value now fail in PostgreSQL. Don't look for a setting to turn this off: there isn't one. Rewrite with one of the fixes above.</p>
+<p class="upd">Last updated 2026-11-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li><li><a href="/database/db-postgres-column-does-not-exist/">ERROR: column does not exist</a></li><li><a href="/database/db-postgres-relation-does-not-exist/">ERROR: relation does not exist</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1046-no-database-selected/">ERROR 1046 (3D000): No database selected</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

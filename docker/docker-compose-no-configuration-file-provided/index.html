@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>no configuration file provided: not found (Docker) — how to fix</title>
+<meta name="description" content="Docker Compose could not find a compose file in the current directory or any parent directory. You are in the wrong folder, the file has a non-standard name, or it was saved with a hidden extra extension.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-compose-no-configuration-file-provided/">
+<meta property="og:title" content="no configuration file provided: not found (Docker) — how to fix"><meta property="og:description" content="Docker Compose could not find a compose file in the current directory or any parent directory. You are in the wrong folder, the file has a non-standard name, or it was saved with a hidden extra extension.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-compose-no-configuration-file-provided/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "no configuration file provided: not found (Docker) \u2014 how to fix", "description": "Docker Compose could not find a compose file in the current directory or any parent directory. You are in the wrong folder, the file has a non-standard name, or it was saved with a hidden extra extension.", "dateModified": "2026-11-28", "url": "https://errorfix-hollis.github.io/docker/docker-compose-no-configuration-file-provided/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "no configuration file provided: not found", "item": "https://errorfix-hollis.github.io/docker/docker-compose-no-configuration-file-provided/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>no configuration file provided: not found (Docker) — how to fix</h1>
+<pre class="err"><code>$ docker compose up
+no configuration file provided: not found
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> <code>cd</code> into the folder that contains <code>compose.yaml</code> / <code>docker-compose.yml</code>, or point Compose at the file with <code>docker compose -f path/to/file.yml up</code>. Rename non-standard files (e.g. <code>docker-compose.yml.txt</code>) to one of <code>compose.yaml</code>, <code>compose.yml</code>, <code>docker-compose.yaml</code>, <code>docker-compose.yml</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Compose v2 (<code>docker compose</code>) looks for these file names, in this order of preference, in the working directory and then each parent directory:</p>
+<ul>
+<li><code>compose.yaml</code></li>
+<li><code>compose.yml</code></li>
+<li><code>docker-compose.yaml</code></li>
+<li><code>docker-compose.yml</code></li>
+</ul>
+<p>If none exists, every command that needs a project (<code>up</code>, <code>down</code>, <code>ps</code>, <code>logs</code>, <code>build</code>...) fails with <code>no configuration file provided: not found</code>.</p>
+<h2 id="cause-1-running-it-from-the-wrong-directory">Cause 1: running it from the wrong directory</h2>
+<p>Check where you are and what's there:</p>
+<pre><code class="language-bash">pwd
+ls -a
+</code></pre>
+<p>Then <code>cd</code> to the project folder, or pass the file explicitly:</p>
+<pre><code class="language-bash">docker compose -f ~/projects/app/docker-compose.yml up -d
+</code></pre>
+<p>With <code>-f</code>, the project directory defaults to the folder of the first file, so relative paths in it (<code>build: .</code>, <code>./data:/data</code>) still resolve correctly.</p>
+<h2 id="cause-2-the-file-has-a-different-name">Cause 2: the file has a different name</h2>
+<p>Compose does not pick up <code>docker-compose.dev.yml</code>, <code>stack.yml</code> or <code>Docker-Compose.yml</code> (on case-sensitive filesystems) automatically. Either rename it or pass it with <code>-f</code>. Several files can be combined:</p>
+<pre><code class="language-bash">docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+</code></pre>
+<p>Or set it once per shell / in a <code>.env</code> file next to where you run the command:</p>
+<pre><code class="language-bash">export COMPOSE_FILE=docker-compose.dev.yml
+</code></pre>
+<h2 id="cause-3-hidden-extension-on-windows">Cause 3: hidden extension on Windows</h2>
+<p>Windows Explorer hides known extensions, so a file you saved as <code>docker-compose.yml</code> in Notepad may actually be <code>docker-compose.yml.txt</code>. Check in a terminal:</p>
+<pre><code class="language-powershell">dir
+</code></pre>
+<p>and rename it:</p>
+<pre><code class="language-powershell">ren docker-compose.yml.txt docker-compose.yml
+</code></pre>
+<h2 id="cause-4-wrong-directory-inside-scripts-ci-or-cron">Cause 4: wrong directory inside scripts, CI or cron</h2>
+<p>Scripts and cron jobs often run from <code>$HOME</code> or <code>/</code>, not from the project. <code>cd</code> first or use <code>-f</code> with an absolute path:</p>
+<pre><code class="language-bash">cd /srv/app &amp;&amp; docker compose pull &amp;&amp; docker compose up -d
+</code></pre>
+<p>In CI, make sure the checkout step ran and that the job's working directory is the repo root (or the subfolder holding the compose file).</p>
+<h2 id="cause-5-you-only-have-a-dockerfile">Cause 5: you only have a Dockerfile</h2>
+<p>A <code>Dockerfile</code> is not a compose file. Either build and run the image directly:</p>
+<pre><code class="language-bash">docker build -t myapp .
+docker run -p 8080:8080 myapp
+</code></pre>
+<p>or create a minimal <code>compose.yaml</code>:</p>
+<pre><code class="language-yaml">services:
+  app:
+    build: .
+    ports:
+      - &quot;8080:8080&quot;
+</code></pre>
+<h2 id="check-the-file-is-valid">Check the file is valid</h2>
+<p>Once Compose finds the file, <code>docker compose config</code> prints the merged, resolved configuration, which is a quick way to confirm which file is used and that the YAML parses. For indentation problems use the <a href="/tools/yaml-validator/">YAML validator</a>.</p>
+<p class="upd">Last updated 2026-11-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/docker/docker-compose-version-is-obsolete/">the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion</a></li><li><a href="/docker/docker-failed-to-read-dockerfile/">failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-additional-property-is-not-allowed/">Additional property is not allowed</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

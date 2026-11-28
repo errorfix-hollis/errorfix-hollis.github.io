@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Liveness probe failed (Kubernetes) — how to fix</title>
+<meta name="description" content="The kubelet&#x27;s liveness check on a container failed `failureThreshold` times in a row, so Kubernetes killed and restarted the container. Either the app is really stuck, or the probe is misconfigured (wrong port/path, too short timeouts, no time to start).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-liveness-probe-failed/">
+<meta property="og:title" content="Liveness probe failed (Kubernetes) — how to fix"><meta property="og:description" content="The kubelet&#x27;s liveness check on a container failed `failureThreshold` times in a row, so Kubernetes killed and restarted the container. Either the app is really stuck, or the probe is misconfigured (wrong port/path, too short timeouts, no time to start).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-liveness-probe-failed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Liveness probe failed (Kubernetes) \u2014 how to fix", "description": "The kubelet's liveness check on a container failed `failureThreshold` times in a row, so Kubernetes killed and restarted the container. Either the app is really stuck, or the probe is misconfigured (wrong port/path, too short timeouts, no time to start).", "dateModified": "2026-11-20", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-liveness-probe-failed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "Liveness probe failed", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-liveness-probe-failed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>Liveness probe failed (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Warning  Unhealthy  12s (x3 over 32s)  kubelet  Liveness probe failed: Get &quot;http://10.244.1.17:8080/healthz&quot;: dial tcp 10.244.1.17:8080: connect: connection refused
+Normal   Killing    12s                kubelet  Container app failed liveness probe, will be restarted
+Warning  Unhealthy  5s                 kubelet  Liveness probe failed: HTTP probe failed with statuscode: 500
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>kubectl describe pod &lt;pod&gt;</code> to see the probe error. Fix the probe's <code>port</code>/<code>path</code> to match the app, add a <code>startupProbe</code> (or raise <code>initialDelaySeconds</code>) for slow-starting apps, increase <code>timeoutSeconds</code>/<code>failureThreshold</code>, and keep liveness endpoints cheap (no database checks). Check <code>kubectl logs &lt;pod&gt; --previous</code> for why the app stopped responding.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A <code>livenessProbe</code> answers "is this container still alive?". The kubelet runs it every <code>periodSeconds</code>. After <code>failureThreshold</code> consecutive failures (default 3), it kills the container and restarts it according to the pod's <code>restartPolicy</code>. You see a growing <code>RESTARTS</code> count, and eventually <code>CrashLoopBackOff</code>.</p>
+<pre><code class="language-bash">kubectl get pod &lt;pod&gt;
+kubectl describe pod &lt;pod&gt;        # Events: &quot;Liveness probe failed: ...&quot;
+kubectl logs &lt;pod&gt; --previous     # logs of the killed container
+</code></pre>
+<p>The text after <code>Liveness probe failed:</code> tells you which case you're in.</p>
+<h2 id="cause-1-wrong-port-or-path-connection-refused-404">Cause 1: wrong port or path (<code>connection refused</code>, <code>404</code>)</h2>
+<p><code>connect: connection refused</code> means nothing listens on that port; <code>statuscode: 404</code> means the path doesn't exist. Compare with the app:</p>
+<pre><code class="language-yaml">livenessProbe:
+  httpGet:
+    path: /healthz          # must exist in the app
+    port: 8080              # the container port, not the Service port
+</code></pre>
+<p>Also make sure the app listens on <code>0.0.0.0</code>, not <code>127.0.0.1</code> — the kubelet probes the pod IP. Test from inside:</p>
+<pre><code class="language-bash">kubectl exec &lt;pod&gt; -- wget -qO- http://localhost:8080/healthz
+kubectl port-forward &lt;pod&gt; 8080:8080   # then curl localhost:8080/healthz
+</code></pre>
+<h2 id="cause-2-the-app-starts-slower-than-the-probe-allows">Cause 2: the app starts slower than the probe allows</h2>
+<p>JVM, Rails, Django or ML-model containers can take a minute to start. If liveness kicks in before that, the container is killed during startup, forever. Use a <code>startupProbe</code>; liveness and readiness are paused until it succeeds:</p>
+<pre><code class="language-yaml">startupProbe:
+  httpGet: { path: /healthz, port: 8080 }
+  periodSeconds: 5
+  failureThreshold: 30       # up to 150s to start
+livenessProbe:
+  httpGet: { path: /healthz, port: 8080 }
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+</code></pre>
+<p>(<code>initialDelaySeconds</code> also works, but a startup probe adapts to actual startup time.)</p>
+<h2 id="cause-3-timeouts-context-deadline-exceeded-clienttimeout-exceeded">Cause 3: timeouts (<code>context deadline exceeded</code>, <code>Client.Timeout exceeded</code>)</h2>
+<p>The default <code>timeoutSeconds</code> is <strong>1 second</strong>. Under load, during garbage collection, or with CPU throttling from a low CPU limit, the endpoint may answer late. Raise <code>timeoutSeconds</code> (e.g. 3–5) and check throttling:</p>
+<pre><code class="language-bash">kubectl top pod &lt;pod&gt;
+</code></pre>
+<p>If CPU sits at the limit, raise <code>resources.limits.cpu</code> or remove the CPU limit.</p>
+<h2 id="cause-4-the-health-check-does-too-much-statuscode-500503">Cause 4: the health check does too much (<code>statuscode: 500</code>/<code>503</code>)</h2>
+<p>A liveness endpoint that checks the database, cache or other services fails when <em>they</em> are down, and Kubernetes restarts healthy containers in a loop, making the outage worse. Liveness should only answer "is this process responsive?". Put dependency checks in the <strong>readiness</strong> probe, which takes the pod out of the Service without restarting it.</p>
+<h2 id="cause-5-the-app-really-hangs-or-dies">Cause 5: the app really hangs or dies</h2>
+<p>Deadlocks, exhausted thread pools, or memory pressure make the app stop responding — that's exactly what liveness is for. Look at <code>kubectl logs &lt;pod&gt; --previous</code>, and check <code>Last State</code> in <code>kubectl describe pod</code>: <code>Reason: OOMKilled</code> means a memory problem, not a probe problem.</p>
+<h2 id="exec-and-tcp-probes">Exec and TCP probes</h2>
+<pre><code class="language-yaml">livenessProbe:
+  exec:
+    command: [&quot;pg_isready&quot;, &quot;-U&quot;, &quot;postgres&quot;]
+</code></pre>
+<p>An exec probe fails when the command exits non-zero (or the binary isn't in the image — <code>executable file not found</code>). A <code>tcpSocket</code> probe only checks that the port accepts connections.</p>
+<p class="upd">Last updated 2026-11-20.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-oomkilled/">OOMKilled (exit code 137)</a></li><li><a href="/kubernetes/k8s-readiness-probe-failed/">Readiness probe failed</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-container-is-waiting-to-start/">Error from server (BadRequest): container is waiting to start: ContainerCreating</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

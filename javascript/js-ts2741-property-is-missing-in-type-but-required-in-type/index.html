@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Property &#x27;x&#x27; is missing in type &#x27;...&#x27; but required in type &#x27;...&#x27;. ts(2741) (TypeScript) — how to fix</title>
+<meta name="description" content="You created or passed an object (or JSX props) that lacks a property the target type requires. Add the property, make it optional in the type, or build the object with the right type.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-ts2741-property-is-missing-in-type-but-required-in-type/">
+<meta property="og:title" content="Property &#x27;x&#x27; is missing in type &#x27;...&#x27; but required in type &#x27;...&#x27;. ts(2741) (TypeScript) — how to fix"><meta property="og:description" content="You created or passed an object (or JSX props) that lacks a property the target type requires. Add the property, make it optional in the type, or build the object with the right type.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-ts2741-property-is-missing-in-type-but-required-in-type/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Property 'x' is missing in type '...' but required in type '...'. ts(2741) (TypeScript) \u2014 how to fix", "description": "You created or passed an object (or JSX props) that lacks a property the target type requires. Add the property, make it optional in the type, or build the object with the right type.", "dateModified": "2026-11-15", "url": "https://errorfix-hollis.github.io/javascript/js-ts2741-property-is-missing-in-type-but-required-in-type/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "Property 'x' is missing in type '...' but required in type '...'. ts(2741)", "item": "https://errorfix-hollis.github.io/javascript/js-ts2741-property-is-missing-in-type-but-required-in-type/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>Property &#x27;x&#x27; is missing in type &#x27;...&#x27; but required in type &#x27;...&#x27;. ts(2741) (TypeScript) — how to fix</h1>
+<pre class="err"><code>error TS2741: Property &#x27;email&#x27; is missing in type &#x27;{ id: number; name: string; }&#x27; but required in type &#x27;User&#x27;.
+
+src/App.tsx:12:6 - error TS2741: Property &#x27;onClose&#x27; is missing in type &#x27;{ title: string; }&#x27; but required in type &#x27;ModalProps&#x27;.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Add the missing property (<code>{ id, name, email }</code>, or <code>&lt;Modal title="x" onClose={close} /&gt;</code>). If it really is optional, mark it in the type: <code>email?: string</code>. For partial objects use <code>Partial&lt;User&gt;</code>, and <code>Omit&lt;User, 'id'&gt;</code> for create payloads. Avoid <code>as User</code>, which hides the error.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>TypeScript compared an object's type with the type it's assigned to, and the target has a <strong>required</strong> property the source lacks. The message names the missing property (<code>'email'</code>), the type you gave (<code>{ id: number; name: string; }</code>) and the type that was expected (<code>User</code>).</p>
+<p>TS2741 is the single-property version. When several are missing you get <code>TS2739: Type '...' is missing the following properties from type 'User': email, role</code>. When many are missing you get the general <a href="/javascript/js-ts2322-type-is-not-assignable-to-type/">TS2322</a>. The fixes are the same.</p>
+<h2 id="cause-1-the-object-really-is-incomplete">Cause 1: the object really is incomplete</h2>
+<pre><code class="language-ts">interface User { id: number; name: string; email: string; }
+
+const u: User = { id: 1, name: &quot;Ann&quot; };            // TS2741: 'email' is missing
+const u: User = { id: 1, name: &quot;Ann&quot;, email: &quot;&quot; };  // fixed
+</code></pre>
+<p>Spreads count too. <code>{ ...base, name }</code> errors if <code>base</code>'s type doesn't guarantee <code>email</code>.</p>
+<h2 id="cause-2-react-component-props">Cause 2: React component props</h2>
+<pre><code class="language-tsx">type ModalProps = { title: string; onClose: () =&gt; void; };
+function Modal({ title, onClose }: ModalProps) { /* ... */ }
+
+&lt;Modal title=&quot;Settings&quot; /&gt;                        // TS2741: 'onClose' is missing
+&lt;Modal title=&quot;Settings&quot; onClose={() =&gt; setOpen(false)} /&gt;
+</code></pre>
+<p>If the prop has a sensible default, make it optional and default it while destructuring:</p>
+<pre><code class="language-tsx">type ModalProps = { title: string; onClose?: () =&gt; void; };
+function Modal({ title, onClose = () =&gt; {} }: ModalProps) { /* ... */ }
+</code></pre>
+<p><code>children</code> must be declared as well (<code>children: React.ReactNode</code>) or you get <code>Property 'children' is missing</code> on components that require it. React 18 types no longer add <code>children</code> implicitly via <code>React.FC</code>.</p>
+<h2 id="cause-3-the-property-should-be-optional">Cause 3: the property should be optional</h2>
+<p>If the data genuinely may not have it, say so in the type:</p>
+<pre><code class="language-ts">interface User { id: number; name: string; email?: string; }
+</code></pre>
+<p>Then handle <code>undefined</code> where you read it (<code>user.email ?? "n/a"</code>). See <a href="/javascript/js-ts2532-object-is-possibly-undefined/">TS2532 / TS18048 possibly undefined</a>.</p>
+<h2 id="cause-4-one-type-used-for-different-stages">Cause 4: one type used for different stages</h2>
+<p>Create forms, PATCH bodies and DB rows often differ. Use utility types instead of loosening the main type:</p>
+<pre><code class="language-ts">type NewUser   = Omit&lt;User, &quot;id&quot;&gt;;             // id assigned by the server
+type UserPatch = Partial&lt;User&gt;;                // every field optional
+type UserCard  = Pick&lt;User, &quot;id&quot; | &quot;name&quot;&gt;;    // just what a component needs
+
+function createUser(data: NewUser) { /* ... */ }
+createUser({ name: &quot;Ann&quot;, email: &quot;a@x.io&quot; });  // OK, no id needed
+</code></pre>
+<h2 id="cause-5-building-an-object-step-by-step">Cause 5: building an object step by step</h2>
+<pre><code class="language-ts">const u: User = {} as User;   // compiles, but lies; properties are undefined at runtime
+u.name = &quot;Ann&quot;;
+</code></pre>
+<p>Build it in one expression instead, or type the draft as <code>Partial&lt;User&gt;</code> and check it before converting. <code>as User</code> and <code>as any</code> remove the error but not the bug.</p>
+<h2 id="cause-6-class-instances-and-implements">Cause 6: class instances and <code>implements</code></h2>
+<pre><code class="language-ts">class Admin implements User { id = 1; name = &quot;root&quot;; }   // TS2741 / TS2420: 'email' is missing
+</code></pre>
+<p>Add the field, or <code>implements Partial&lt;User&gt;</code> if that's really what you want. A related error: <code>Property 'x' has no initializer</code> is <a href="/javascript/js-ts2564-property-has-no-initializer/">TS2564</a>.</p>
+<h2 id="cause-7-mismatched-library-type-versions">Cause 7: mismatched library type versions</h2>
+<p>If the "missing" property belongs to a library type (for example after upgrading React, Express or an SDK), two versions of the types may be installed. Run <code>npm ls @types/react</code> (or the package name) and dedupe so only one version remains.</p>
+<p class="upd">Last updated 2026-11-15.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-ts2322-type-is-not-assignable-to-type/">TS2322: Type &#x27;X&#x27; is not assignable to type &#x27;Y&#x27;</a></li><li><a href="/javascript/js-ts2339-property-does-not-exist-on-type/">Property &#x27;x&#x27; does not exist on type &#x27;Y&#x27;</a></li><li><a href="/javascript/js-ts2345-argument-of-type-is-not-assignable-to-parameter/">TS2345: Argument of type &#x27;string | undefined&#x27; is not assignable to parameter of type &#x27;string&#x27;.</a></li><li><a href="/javascript/js-a-component-is-changing-an-uncontrolled-input-to-be-controlled/">Warning: A component is changing an uncontrolled input to be controlled.</a></li><li><a href="/javascript/js-cannot-read-properties-of-null/">TypeError: Cannot read properties of null (reading &#x27;...&#x27;)</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

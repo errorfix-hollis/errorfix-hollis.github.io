@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error[E0507]: cannot move out of which is behind a shared reference (Rust) — how to fix</title>
+<meta name="description" content="You tried to take ownership of a value (a String, Vec, Box...) that you only have a reference to. Moving it would leave the owner with a hole, so the borrow checker refuses.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/rust/rust-e0507-cannot-move-out-of-borrowed/">
+<meta property="og:title" content="error[E0507]: cannot move out of which is behind a shared reference (Rust) — how to fix"><meta property="og:description" content="You tried to take ownership of a value (a String, Vec, Box...) that you only have a reference to. Moving it would leave the owner with a hole, so the borrow checker refuses.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/rust/rust-e0507-cannot-move-out-of-borrowed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error[E0507]: cannot move out of which is behind a shared reference (Rust) \u2014 how to fix", "description": "You tried to take ownership of a value (a String, Vec, Box...) that you only have a reference to. Moving it would leave the owner with a hole, so the borrow checker refuses.", "dateModified": "2026-11-27", "url": "https://errorfix-hollis.github.io/rust/rust-e0507-cannot-move-out-of-borrowed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Rust", "item": "https://errorfix-hollis.github.io/rust/"}, {"@type": "ListItem", "position": 3, "name": "error[E0507]: cannot move out of which is behind a shared reference", "item": "https://errorfix-hollis.github.io/rust/rust-e0507-cannot-move-out-of-borrowed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/rust/">Rust</a></p>
+<article><h1>error[E0507]: cannot move out of which is behind a shared reference (Rust) — how to fix</h1>
+<pre class="err"><code>error[E0507]: cannot move out of `self.name` which is behind a shared reference
+ --&gt; src/main.rs:8:9
+  |
+8 |         self.name
+  |         ^^^^^^^^^ move occurs because `self.name` has type `String`, which does not implement the `Copy` trait
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Don't move: return or use a reference (<code>&amp;self.name</code>, <code>.as_ref()</code>, <code>.iter()</code>), clone it (<code>self.name.clone()</code>), or take it out and leave something in its place (<code>std::mem::take(&amp;mut self.name)</code>, <code>option.take()</code>). For <code>Option</code> fields use <code>.as_ref()</code> / <code>.as_deref()</code> before <code>.unwrap()</code> or <code>match</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Types like <code>String</code>, <code>Vec&lt;T&gt;</code>, <code>Box&lt;T&gt;</code> are moved, not copied. Moving requires ownership. When you only hold <code>&amp;T</code> or <code>&amp;mut T</code> (including <code>&amp;self</code>, items of <code>.iter()</code>, elements behind an index, values behind an <code>Rc</code> or <code>Arc</code>), moving the value out would leave the real owner holding an invalid value. So E0507 is raised. Older compilers phrased it as <code>cannot move out of borrowed content</code>.</p>
+<h2 id="cause-1-returning-a-field-from-a-self-method">Cause 1: returning a field from a <code>&amp;self</code> method</h2>
+<pre><code class="language-rust">struct User { name: String }
+
+impl User {
+    fn name(&amp;self) -&gt; String {
+        self.name            // E0507
+    }
+}
+</code></pre>
+<p>Pick what you actually need:</p>
+<pre><code class="language-rust">fn name(&amp;self) -&gt; &amp;str { &amp;self.name }               // borrow (usually best)
+fn name(&amp;self) -&gt; String { self.name.clone() }       // owned copy
+fn into_name(self) -&gt; String { self.name }           // consume the struct
+</code></pre>
+<h2 id="cause-2-unwrap-match-on-an-option-or-result-field">Cause 2: unwrap / match on an Option or Result field</h2>
+<pre><code class="language-rust">struct Config { path: Option&lt;String&gt; }
+
+fn show(c: &amp;Config) {
+    let p = c.path.unwrap();        // E0507: unwrap() takes self by value
+}
+</code></pre>
+<p>Convert to <code>Option&lt;&amp;T&gt;</code> first:</p>
+<pre><code class="language-rust">let p: &amp;str = c.path.as_deref().unwrap_or(&quot;default.toml&quot;);
+if let Some(p) = &amp;c.path { println!(&quot;{p}&quot;); }        // match on a reference
+let p: &amp;String = c.path.as_ref().unwrap();
+</code></pre>
+<p>The same applies to <code>match self.state { State::A(s) =&gt; ... }</code> — write <code>match &amp;self.state</code> so the bindings become references.</p>
+<h2 id="cause-3-moving-out-of-a-vec-by-index-or-while-iterating">Cause 3: moving out of a Vec by index or while iterating</h2>
+<pre><code class="language-rust">let v = vec![String::from(&quot;a&quot;), String::from(&quot;b&quot;)];
+let first = v[0];                        // E0507
+for s in v.iter() { let owned: String = *s; }   // E0507
+</code></pre>
+<pre><code class="language-rust">let first = &amp;v[0];                       // borrow
+let first = v[0].clone();                // copy
+let first = v.into_iter().next();        // consume the Vec
+for s in v { /* s: String, owned */ }    // iterate by value
+let owned: Vec&lt;String&gt; = v.iter().cloned().collect();
+</code></pre>
+<p><code>v.swap_remove(0)</code> or <code>v.remove(0)</code> take an element out when you have <code>&amp;mut Vec</code>.</p>
+<h2 id="cause-4-taking-a-field-out-through-mut-self">Cause 4: taking a field out through <code>&amp;mut self</code></h2>
+<p>Even with a mutable reference you can't leave a field empty. Replace it with something valid:</p>
+<pre><code class="language-rust">use std::mem;
+
+fn flush(&amp;mut self) -&gt; Vec&lt;Event&gt; {
+    mem::take(&amp;mut self.buffer)                 // leaves Vec::new()
+}
+
+fn finish(&amp;mut self) -&gt; Option&lt;Handle&gt; {
+    self.handle.take()                           // Option: leaves None
+}
+
+let old = mem::replace(&amp;mut self.state, State::Idle);
+</code></pre>
+<p><code>mem::take</code> requires <code>Default</code>; <code>mem::replace</code> works with any value.</p>
+<h2 id="cause-5-values-inside-rc-arc-or-a-closure-capture">Cause 5: values inside Rc, Arc or a closure capture</h2>
+<p><code>*rc</code> gives a reference, so <code>let x = *rc;</code> fails for non-<code>Copy</code> types. Clone the inner value (<code>(*rc).clone()</code>), or use <code>Rc::try_unwrap(rc)</code> / <code>Arc::try_unwrap(arc)</code> when you hold the last reference. In closures that must be <code>Fn</code>/<code>FnMut</code>, clone the captured value inside the closure instead of moving it out.</p>
+<h2 id="cause-6-dereferencing-in-a-pattern">Cause 6: dereferencing <code>&amp;</code> in a pattern</h2>
+<pre><code class="language-rust">for &amp;s in names.iter() {}            // E0507 for Vec&lt;String&gt;
+for s in names.iter() {}             // s: &amp;String
+</code></pre>
+<p><code>&amp;</code> patterns only work for <code>Copy</code> types such as <code>&amp;i32</code>.</p>
+<p class="upd">Last updated 2026-11-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/rust/rust-borrow-of-moved-value/">error[E0382]: borrow of moved value</a></li><li><a href="/rust/rust-cannot-borrow-as-mutable/">error[E0502]: cannot borrow as mutable because it is also borrowed as immutable</a></li><li><a href="/rust/rust-e0515-cannot-return-reference-to-local-variable/">error[E0515]: cannot return reference to local variable</a></li><li><a href="/rust/rust-called-option-unwrap-on-a-none-value/">thread &#x27;main&#x27; panicked at called `Option::unwrap()` on a `None` value</a></li><li><a href="/rust/rust-called-result-unwrap-on-an-err-value/">thread &#x27;main&#x27; panicked at &#x27;called `Result::unwrap()` on an `Err` value&#x27;</a></li><li><a href="/rust/rust-e0106-missing-lifetime-specifier/">error[E0106]: missing lifetime specifier</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

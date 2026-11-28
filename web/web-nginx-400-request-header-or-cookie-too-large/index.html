@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>400 Bad Request: Request Header Or Cookie Too Large (nginx) — how to fix</title>
+<meta name="description" content="A single request header (almost always the Cookie header, sometimes a big Authorization/JWT header) is bigger than nginx&#x27;s header buffer, so nginx rejects the request. Users fix it by clearing cookies; servers fix it by shrinking cookies or raising large_client_header_buffers.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-nginx-400-request-header-or-cookie-too-large/">
+<meta property="og:title" content="400 Bad Request: Request Header Or Cookie Too Large (nginx) — how to fix"><meta property="og:description" content="A single request header (almost always the Cookie header, sometimes a big Authorization/JWT header) is bigger than nginx&#x27;s header buffer, so nginx rejects the request. Users fix it by clearing cookies; servers fix it by shrinking cookies or raising large_client_header_buffers.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-nginx-400-request-header-or-cookie-too-large/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "400 Bad Request: Request Header Or Cookie Too Large (nginx) \u2014 how to fix", "description": "A single request header (almost always the Cookie header, sometimes a big Authorization/JWT header) is bigger than nginx's header buffer, so nginx rejects the request. Users fix it by clearing cookies; servers fix it by shrinking cookies or raising large_client_header_buffers.", "dateModified": "2026-11-28", "url": "https://errorfix-hollis.github.io/web/web-nginx-400-request-header-or-cookie-too-large/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "400 Bad Request: Request Header Or Cookie Too Large", "item": "https://errorfix-hollis.github.io/web/web-nginx-400-request-header-or-cookie-too-large/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>400 Bad Request: Request Header Or Cookie Too Large (nginx) — how to fix</h1>
+<pre class="err"><code>400 Bad Request
+Request Header Or Cookie Too Large
+nginx
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> As a user: clear cookies for that site (or try a private window). As the server owner: raise the limit in the <code>http</code> or <code>server</code> block, e.g. <code>large_client_header_buffers 4 32k;</code>, then <code>sudo nginx -t &amp;&amp; sudo systemctl reload nginx</code>. Long term, stop storing large data in cookies.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>nginx reads request headers into buffers. Each header line, and the request line, must fit into one buffer defined by <code>large_client_header_buffers</code> (default <code>4 8k</code>: up to 4 buffers of 8 KB). If one header line, usually <code>Cookie:</code>, is larger than 8 KB, nginx returns <code>400 Request Header Or Cookie Too Large</code>. (If the request URL itself is too long, the same directive produces <code>414 Request-URI Too Large</code>.)</p>
+<p>Cookies grow because every cookie for the domain, including those set by analytics, A/B testing, or auth libraries that store whole sessions or tokens, is sent with every request.</p>
+<h2 id="fix-1-users-clear-cookies-for-the-site">Fix 1 (users): clear cookies for the site</h2>
+<ul>
+<li>Chrome/Edge: click the icon left of the address bar → Site settings / Cookies → delete for that site.</li>
+<li>Firefox: padlock icon → Clear cookies and site data.</li>
+<li>Quick test: open the site in a private/incognito window. If it works there, cookies are the cause.</li>
+</ul>
+<h2 id="fix-2-server-raise-the-buffer-size">Fix 2 (server): raise the buffer size</h2>
+<p>In <code>nginx.conf</code> (<code>http</code> block) or the site's <code>server</code> block:</p>
+<pre><code class="language-nginx">http {
+    large_client_header_buffers 4 32k;
+}
+</code></pre>
+<p>Test and reload:</p>
+<pre><code class="language-bash">sudo nginx -t &amp;&amp; sudo systemctl reload nginx
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li>The size applies per header line; the number is how many such buffers a connection can use. <code>4 16k</code> or <code>4 32k</code> is usually plenty.</li>
+<li>Setting it inside a <code>server</code> block works for the default server on that address/port; if it seems ignored, put it in <code>http</code>.</li>
+<li>On older nginx versions with HTTP/2, header limits were controlled by <code>http2_max_field_size</code> / <code>http2_max_header_size</code>. Those directives are obsolete in current nginx, where <code>large_client_header_buffers</code> covers HTTP/2 as well.</li>
+</ul>
+<h2 id="fix-3-also-raise-limits-behind-nginx">Fix 3: also raise limits behind nginx</h2>
+<p>If nginx is a reverse proxy, the backend may have its own limit and fail next with its own error:</p>
+<ul>
+<li>Node.js: default max header size is 16 KB; raise with <code>node --max-http-header-size=32768 server.js</code>.</li>
+<li>Tomcat/Spring Boot: <code>server.max-http-request-header-size=32KB</code> (older Boot versions: <code>server.max-http-header-size</code>).</li>
+<li>Load balancers and CDNs in front of nginx have fixed limits you may not be able to change, so Fix 4 matters.</li>
+</ul>
+<p>The response-side counterpart (<code>upstream sent too big header</code>) is a different setting, <code>proxy_buffer_size</code>; see the related page.</p>
+<h2 id="fix-4-make-the-cookies-smaller">Fix 4: make the cookies smaller</h2>
+<p>Raising limits only postpones the problem. Find what's large in the browser dev tools (Application → Cookies, Size column) or log it:</p>
+<pre><code class="language-nginx">log_format cookies '$remote_addr &quot;$http_cookie&quot;';
+</code></pre>
+<p>Typical culprits and fixes:</p>
+<ul>
+<li><strong>Session data stored in a cookie</strong> (client-side sessions, big JWTs with many claims): store a session ID in the cookie and the data server-side.</li>
+<li><strong>Many subdomain apps sharing a parent-domain cookie scope</strong> (<code>Domain=.example.com</code>): scope cookies to the host that needs them.</li>
+<li><strong>Chunked auth cookies</strong> that keep multiplying (e.g. <code>.AspNetCore.Cookies</code> chunks, OIDC state cookies left over from failed logins): clean up stale cookies on login and reduce claims in the token.</li>
+</ul>
+<p class="upd">Last updated 2026-11-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-nginx-413-request-entity-too-large/">413 Request Entity Too Large (nginx)</a></li><li><a href="/web/web-nginx-502-bad-gateway/">502 Bad Gateway (nginx)</a></li><li><a href="/web/web-nginx-upstream-sent-too-big-header/">upstream sent too big header while reading response header from upstream</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

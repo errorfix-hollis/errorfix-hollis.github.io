@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: Converting circular structure to JSON (JavaScript) — how to fix</title>
+<meta name="description" content="JSON.stringify was given an object that references itself somewhere in its graph. Common culprits are Express req/res objects, DOM nodes, React events, Axios errors and Mongoose documents.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-typeerror-converting-circular-structure-to-json/">
+<meta property="og:title" content="TypeError: Converting circular structure to JSON (JavaScript) — how to fix"><meta property="og:description" content="JSON.stringify was given an object that references itself somewhere in its graph. Common culprits are Express req/res objects, DOM nodes, React events, Axios errors and Mongoose documents.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-typeerror-converting-circular-structure-to-json/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: Converting circular structure to JSON (JavaScript) \u2014 how to fix", "description": "JSON.stringify was given an object that references itself somewhere in its graph. Common culprits are Express req/res objects, DOM nodes, React events, Axios errors and Mongoose documents.", "dateModified": "2026-11-27", "url": "https://errorfix-hollis.github.io/javascript/js-typeerror-converting-circular-structure-to-json/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: Converting circular structure to JSON", "item": "https://errorfix-hollis.github.io/javascript/js-typeerror-converting-circular-structure-to-json/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>TypeError: Converting circular structure to JSON (JavaScript) — how to fix</h1>
+<pre class="err"><code>TypeError: Converting circular structure to JSON
+    --&gt; starting at object with constructor &#x27;Object&#x27;
+    |     property &#x27;self&#x27; -&gt; object with constructor &#x27;Object&#x27;
+    --- property &#x27;parent&#x27; closes the circle
+    at JSON.stringify (&lt;anonymous&gt;)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Stringify only the data you need (e.g. <code>res.json(user.toObject())</code> or <code>JSON.stringify({ message: err.message, status: err.response?.status })</code>) instead of whole framework objects. If you really need the whole graph, use a replacer that drops repeated references, or <code>util.inspect</code> for logging.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>JSON is a tree; it can't represent an object that points back to itself. When <code>JSON.stringify</code> finds a cycle, it throws. Modern V8 (Node 12+, Chrome) prints the path of the cycle — read it, it tells you which property closes the loop:</p>
+<pre><code>--&gt; starting at object with constructor 'ClientRequest'
+|     property 'socket' -&gt; object with constructor 'Socket'
+--- property '_httpMessage' closes the circle
+</code></pre>
+<p><code>ClientRequest</code>/<code>Socket</code> → you're serializing an HTTP request or an Axios error. <code>HTMLDivElement</code>/<code>FiberNode</code> → a DOM node or React internals.</p>
+<p>Minimal reproduction:</p>
+<pre><code class="language-js">const a = { name: 'a' };
+a.self = a;
+JSON.stringify(a);   // TypeError
+</code></pre>
+<h2 id="cause-1-sending-framework-objects-in-a-response">Cause 1: sending framework objects in a response</h2>
+<pre><code class="language-js">// Express — wrong
+app.get('/x', (req, res) =&gt; res.json(req));
+res.send(JSON.stringify(res));
+</code></pre>
+<p>Send plain data:</p>
+<pre><code class="language-js">res.json({ query: req.query, body: req.body });
+// Mongoose: .lean() returns a plain object instead of a document
+const user = await User.findById(id).lean();
+res.json(user);
+</code></pre>
+<h2 id="cause-2-logging-or-returning-an-axios-fetch-error">Cause 2: logging or returning an Axios / fetch error</h2>
+<p>An Axios error contains <code>config</code>, <code>request</code> (a <code>ClientRequest</code> with a socket) and <code>response</code>:</p>
+<pre><code class="language-js">try {
+  await axios.get(url);
+} catch (err) {
+  // wrong: res.status(500).json(err)
+  res.status(500).json({
+    message: err.message,
+    status: err.response?.status,
+    data: err.response?.data,
+  });
+}
+</code></pre>
+<p>Axios errors also have <code>err.toJSON()</code> which returns a safe summary.</p>
+<h2 id="cause-3-react-events-refs-or-dom-elements-in-state">Cause 3: React events, refs or DOM elements in state</h2>
+<pre><code class="language-jsx">// wrong: saving the whole event or element
+onChange={(e) =&gt; setForm(e)}
+localStorage.setItem('form', JSON.stringify(form));
+
+// right
+onChange={(e) =&gt; setForm({ ...form, [e.target.name]: e.target.value })}
+</code></pre>
+<p>The same happens when passing a DOM element or ref to <code>JSON.stringify</code>, or putting it in Redux state with persistence.</p>
+<h2 id="cause-4-your-own-data-has-back-references">Cause 4: your own data has back-references</h2>
+<p>Trees with <code>parent</code> pointers, doubly-linked lists, graphs. Exclude the back-reference with a replacer or <code>toJSON</code>:</p>
+<pre><code class="language-js">JSON.stringify(node, (key, value) =&gt; (key === 'parent' ? undefined : value));
+
+class TreeNode {
+  toJSON() {
+    const { parent, ...rest } = this;
+    return rest;
+  }
+}
+</code></pre>
+<h2 id="fix-a-generic-safe-stringify">Fix: a generic "safe stringify"</h2>
+<p>Drops any object already seen (note: also drops repeated non-circular references):</p>
+<pre><code class="language-js">function safeStringify(obj, space) {
+  const seen = new WeakSet();
+  return JSON.stringify(obj, (key, value) =&gt; {
+    if (typeof value === 'object' &amp;&amp; value !== null) {
+      if (seen.has(value)) return '[Circular]';
+      seen.add(value);
+    }
+    return value;
+  }, space);
+}
+</code></pre>
+<p>For logging in Node, skip JSON entirely: <code>console.log(obj)</code> or <code>util.inspect(obj, { depth: 4 })</code> handle cycles and print <code>&lt;ref *1&gt;</code> / <code>[Circular *1]</code>. To deep-copy an object with cycles, use <code>structuredClone(obj)</code> instead of <code>JSON.parse(JSON.stringify(obj))</code>.</p>
+<p>To inspect the JSON you do produce, paste it into the <a href="/tools/json-formatter/">JSON formatter</a>.</p>
+<p class="upd">Last updated 2026-11-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-unexpected-token-in-json/">SyntaxError: Unexpected token &#x27;&lt;&#x27;, &quot;&lt;!DOCTYPE &quot;... is not valid JSON</a></li><li><a href="/python/python-object-of-type-is-not-json-serializable/">TypeError: Object of type X is not JSON serializable</a></li><li><a href="/javascript/js-a-component-is-changing-an-uncontrolled-input-to-be-controlled/">Warning: A component is changing an uncontrolled input to be controlled.</a></li><li><a href="/javascript/js-cannot-read-properties-of-null/">TypeError: Cannot read properties of null (reading &#x27;...&#x27;)</a></li><li><a href="/javascript/js-cannot-set-properties-of-null/">Uncaught TypeError: Cannot set properties of null (setting &#x27;innerHTML&#x27;)</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

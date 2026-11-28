@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Unsupported class file major version 65 (Java) — how to fix</title>
+<meta name="description" content="A tool that reads .class files (Gradle&#x27;s Groovy, ASM, an old Spring, Jacoco, Lombok, Spotbugs, Android Gradle Plugin) is older than the JDK that compiled those classes or that runs the build. Usually: Gradle is too old for your JDK.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-unsupported-class-file-major-version/">
+<meta property="og:title" content="Unsupported class file major version 65 (Java) — how to fix"><meta property="og:description" content="A tool that reads .class files (Gradle&#x27;s Groovy, ASM, an old Spring, Jacoco, Lombok, Spotbugs, Android Gradle Plugin) is older than the JDK that compiled those classes or that runs the build. Usually: Gradle is too old for your JDK.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-unsupported-class-file-major-version/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Unsupported class file major version 65 (Java) \u2014 how to fix", "description": "A tool that reads .class files (Gradle's Groovy, ASM, an old Spring, Jacoco, Lombok, Spotbugs, Android Gradle Plugin) is older than the JDK that compiled those classes or that runs the build. Usually: Gradle is too old for your JDK.", "dateModified": "2026-11-24", "url": "https://errorfix-hollis.github.io/java/java-unsupported-class-file-major-version/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "Unsupported class file major version 65", "item": "https://errorfix-hollis.github.io/java/java-unsupported-class-file-major-version/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>Unsupported class file major version 65 (Java) — how to fix</h1>
+<pre class="err"><code>BUG! exception in phase &#x27;semantic analysis&#x27; in source unit &#x27;_BuildScript_&#x27; Unsupported class file major version 65
+java.lang.IllegalArgumentException: Unsupported class file major version 61
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Map the number to a Java version (52=8, 55=11, 61=17, 65=21, 69=25). Either run the build with an older JDK (<code>export JAVA_HOME=/path/to/jdk-17</code>, or set Gradle JDK in IntelliJ) or upgrade the tool: <code>./gradlew wrapper --gradle-version 8.10</code> (Java 21 needs Gradle 8.5+, Java 17 needs 7.3+). Upgrade ASM-based plugins too.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Every <code>.class</code> file starts with a <em>major version</em> that says which Java release produced it. Tools that parse bytecode (rather than the JVM running it) refuse versions newer than they know about.</p>
+<table>
+<thead>
+<tr>
+<th>Major</th>
+<th>Java</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>52</td>
+<td>8</td>
+</tr>
+<tr>
+<td>55</td>
+<td>11</td>
+</tr>
+<tr>
+<td>61</td>
+<td>17</td>
+</tr>
+<tr>
+<td>65</td>
+<td>21</td>
+</tr>
+<tr>
+<td>66</td>
+<td>22</td>
+</tr>
+<tr>
+<td>67</td>
+<td>23</td>
+</tr>
+<tr>
+<td>68</td>
+<td>24</td>
+</tr>
+<tr>
+<td>69</td>
+<td>25</td>
+</tr>
+</tbody>
+</table>
+<p>So <code>major version 65</code> = something was compiled for/by Java 21, and the tool reading it predates Java 21 support.</p>
+<p>This differs from <code>UnsupportedClassVersionError</code> (the JVM itself is too old to <em>run</em> the class); see <a href="/java/java-unsupportedclassversionerror/">UnsupportedClassVersionError</a>.</p>
+<h2 id="cause-1-gradle-is-older-than-your-jdk-most-common">Cause 1: Gradle is older than your JDK (most common)</h2>
+<p><code>BUG! exception in phase 'semantic analysis' in source unit '_BuildScript_'</code> is Gradle's embedded Groovy failing because the JDK running Gradle is too new. Minimum Gradle per JDK:</p>
+<table>
+<thead>
+<tr>
+<th>JDK</th>
+<th>Gradle</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>17</td>
+<td>7.3</td>
+</tr>
+<tr>
+<td>21</td>
+<td>8.5</td>
+</tr>
+<tr>
+<td>23</td>
+<td>8.10</td>
+</tr>
+<tr>
+<td>25</td>
+<td>9.1</td>
+</tr>
+</tbody>
+</table>
+<p>Check and upgrade the wrapper:</p>
+<pre><code class="language-bash">./gradlew --version          # shows Gradle version and the JVM it runs on
+./gradlew wrapper --gradle-version 8.10
+./gradlew --version          # run twice to make sure the new version is used
+</code></pre>
+<p>If the old Gradle can't even start on your JDK, edit <code>gradle/wrapper/gradle-wrapper.properties</code> directly:</p>
+<pre><code class="language-properties">distributionUrl=https\://services.gradle.org/distributions/gradle-8.10-bin.zip
+</code></pre>
+<h2 id="cause-2-the-build-runs-on-a-newer-jdk-than-you-think">Cause 2: the build runs on a newer JDK than you think</h2>
+<p>Your project may target 17, but Gradle runs on whatever <code>JAVA_HOME</code> points to (or the IDE's setting).</p>
+<ul>
+<li><strong>Shell</strong>: <code>export JAVA_HOME=$(/usr/libexec/java_home -v 17)</code> (macOS) or <code>export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64</code> (Linux).</li>
+<li><strong>IntelliJ</strong>: <em>Settings &gt; Build, Execution, Deployment &gt; Build Tools &gt; Gradle &gt; Gradle JVM</em>, pick 17 (or upgrade Gradle as above).</li>
+<li><strong>Android Studio</strong>: <em>Settings &gt; Build Tools &gt; Gradle &gt; Gradle JDK</em>. Newer Android Studio bundles JDK 21, which needs AGP 8.2.1+ / Gradle 8.5+.</li>
+</ul>
+<p>To compile for a specific version independently of the JDK running Gradle, use a toolchain:</p>
+<pre><code class="language-groovy">java {
+    toolchain { languageVersion = JavaLanguageVersion.of(17) }
+}
+</code></pre>
+<h2 id="cause-3-an-old-library-or-plugin-with-an-old-asm">Cause 3: an old library or plugin with an old ASM</h2>
+<p>At runtime or during tests (Spring, Jacoco, Mockito/ByteBuddy, Spotbugs, Lombok, Shadow plugin), the stack trace shows <code>org.objectweb.asm.ClassReader</code>. Upgrade that component:</p>
+<ul>
+<li>Spring Framework 5.3.x supports Java 17; Java 21 needs Spring Framework 6.1 / Spring Boot 3.2+ for full support.</li>
+<li>Jacoco: 0.8.11+ for Java 21; use the latest release for newer JDKs.</li>
+<li>Lombok: 1.18.30+ for Java 21.</li>
+<li>Mockito/ByteBuddy: update to the latest version for new JDKs.</li>
+</ul>
+<h2 id="cause-4-maven">Cause 4: Maven</h2>
+<p>Maven itself doesn't hit this often, but plugins do (<code>maven-shade-plugin</code>, <code>maven-surefire-plugin</code> with old Jacoco). Update plugin versions and check <code>mvn -v</code> for the JDK Maven uses.</p>
+<p>Quick check of a class file's version:</p>
+<pre><code class="language-bash">javap -v MyClass.class | grep major
+</code></pre>
+<p class="upd">Last updated 2026-11-24.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-error-release-version-not-supported/">error: release version 17 not supported</a></li><li><a href="/java/java-home-is-not-set/">ERROR: JAVA_HOME is not set and no &#x27;java&#x27; command could be found in your PATH.</a></li><li><a href="/java/java-unsupportedclassversionerror/">java.lang.UnsupportedClassVersionError: has been compiled by a more recent version of the Java Runtime</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

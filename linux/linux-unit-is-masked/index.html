@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Failed to start service: Unit is masked. (Linux) — how to fix</title>
+<meta name="description" content="The systemd unit has been masked, meaning it is linked to /dev/null so it cannot be started manually or as a dependency. Unmask it, then start it.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-unit-is-masked/">
+<meta property="og:title" content="Failed to start service: Unit is masked. (Linux) — how to fix"><meta property="og:description" content="The systemd unit has been masked, meaning it is linked to /dev/null so it cannot be started manually or as a dependency. Unmask it, then start it.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-unit-is-masked/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Failed to start service: Unit is masked. (Linux) \u2014 how to fix", "description": "The systemd unit has been masked, meaning it is linked to /dev/null so it cannot be started manually or as a dependency. Unmask it, then start it.", "dateModified": "2026-11-27", "url": "https://errorfix-hollis.github.io/linux/linux-unit-is-masked/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "Failed to start service: Unit is masked.", "item": "https://errorfix-hollis.github.io/linux/linux-unit-is-masked/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>Failed to start service: Unit is masked. (Linux) — how to fix</h1>
+<pre class="err"><code>Failed to start nginx.service: Unit nginx.service is masked.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>sudo systemctl unmask nginx.service</code>, then <code>sudo systemctl daemon-reload</code> and <code>sudo systemctl enable --now nginx.service</code>. If unmask doesn't help, delete the <code>/etc/systemd/system/nginx.service</code> symlink to /dev/null yourself.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>systemctl mask</code> is a stronger form of <code>disable</code>: it creates a symlink from <code>/etc/systemd/system/&lt;unit&gt;</code> to <code>/dev/null</code>. A masked unit cannot be started at all — not by you, not at boot, not as a dependency of another unit. Check it:</p>
+<pre><code class="language-bash">systemctl status nginx.service        # shows &quot;Loaded: masked (Reason: Unit nginx.service is masked.)&quot;
+systemctl is-enabled nginx.service    # prints &quot;masked&quot;
+ls -l /etc/systemd/system/nginx.service
+# /etc/systemd/system/nginx.service -&gt; /dev/null
+</code></pre>
+<h2 id="fix-1-unmask-and-start">Fix 1: unmask and start</h2>
+<pre><code class="language-bash">sudo systemctl unmask nginx.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now nginx.service
+</code></pre>
+<p><code>enable --now</code> both enables it at boot and starts it immediately.</p>
+<h2 id="fix-2-the-symlink-is-in-a-different-place">Fix 2: the symlink is in a different place</h2>
+<p>Units can also be masked at runtime (<code>systemctl mask --runtime</code>, under <code>/run/systemd/system/</code>) or for the user manager (<code>systemctl --user mask</code>). Find any <code>/dev/null</code> links:</p>
+<pre><code class="language-bash">find /etc/systemd /run/systemd /usr/lib/systemd ~/.config/systemd -lname /dev/null 2&gt;/dev/null
+</code></pre>
+<p>For user units: <code>systemctl --user unmask myapp.service</code>. If <code>unmask</code> reports nothing but the unit is still masked, remove the symlink manually and reload:</p>
+<pre><code class="language-bash">sudo rm /etc/systemd/system/nginx.service
+sudo systemctl daemon-reload
+</code></pre>
+<p>Only remove it if it really is a link to <code>/dev/null</code> — not a real unit file you created.</p>
+<h2 id="cause-a-package-or-another-service-masked-it">Cause: a package or another service masked it</h2>
+<p>Some packages mask units on purpose:</p>
+<ul>
+<li><strong>Ubuntu <code>systemd-timesyncd</code> vs <code>chrony</code>/<code>ntp</code></strong>: installing one masks or disables the other.</li>
+<li><strong><code>hostapd</code></strong> on Debian/Raspberry Pi OS is masked after install until you configure it.</li>
+<li><strong><code>docker.socket</code> / <code>docker.service</code></strong>: some guides mask these; unmask both.</li>
+<li><strong>Sleep targets</strong>: <code>sleep.target</code>, <code>suspend.target</code>, <code>hibernate.target</code> are often masked to disable suspend.</li>
+</ul>
+<pre><code class="language-bash">sudo systemctl unmask docker.service docker.socket
+sudo systemctl start docker
+</code></pre>
+<p>If another package intentionally masked the unit (two conflicting services), unmasking may bring the conflict back — decide which one you want and stop/mask the other.</p>
+<h2 id="to-mask-on-purpose">To mask on purpose</h2>
+<pre><code class="language-bash">sudo systemctl mask --now apache2.service   # stop and prevent any start
+</code></pre>
+<p class="upd">Last updated 2026-11-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-job-for-service-failed-because-the-control-process-exited-with-error-code/">Job for X.service failed because the control process exited with error code</a></li><li><a href="/linux/linux-start-request-repeated-too-quickly/">Start request repeated too quickly</a></li><li><a href="/linux/linux-unit-service-not-found/">Failed to start nginx.service: Unit nginx.service not found.</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-apt-expkeysig/">The following signatures were invalid: EXPKEYSIG</a></li><li><a href="/linux/linux-apt-hash-sum-mismatch/">E: Failed to fetch ... Hash Sum mismatch</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

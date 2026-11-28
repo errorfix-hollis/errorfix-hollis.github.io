@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>exec /usr/local/bin/docker-entrypoint.sh: permission denied — how to fix</title>
+<meta name="description" content="The container tried to execute its entrypoint script, but the file isn&#x27;t executable inside the image (no +x bit), is on a noexec mount, or the container user can&#x27;t read it.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-exec-entrypoint-permission-denied/">
+<meta property="og:title" content="exec /usr/local/bin/docker-entrypoint.sh: permission denied — how to fix"><meta property="og:description" content="The container tried to execute its entrypoint script, but the file isn&#x27;t executable inside the image (no +x bit), is on a noexec mount, or the container user can&#x27;t read it.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-exec-entrypoint-permission-denied/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "exec /usr/local/bin/docker-entrypoint.sh: permission denied \u2014 how to fix", "description": "The container tried to execute its entrypoint script, but the file isn't executable inside the image (no +x bit), is on a noexec mount, or the container user can't read it.", "dateModified": "2026-11-24", "url": "https://errorfix-hollis.github.io/docker/docker-exec-entrypoint-permission-denied/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "exec /usr/local/bin/docker-entrypoint.sh: permission denied", "item": "https://errorfix-hollis.github.io/docker/docker-exec-entrypoint-permission-denied/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>exec /usr/local/bin/docker-entrypoint.sh: permission denied — how to fix</h1>
+<pre class="err"><code>exec /usr/local/bin/docker-entrypoint.sh: permission denied
+docker: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: exec: &quot;/docker-entrypoint.sh&quot;: permission denied: unknown.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Give the script the execute bit in the image: <code>COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/</code> (BuildKit) or <code>RUN chmod +x /usr/local/bin/docker-entrypoint.sh</code> after the COPY. On Windows also commit the bit: <code>git update-index --chmod=+x docker-entrypoint.sh</code>. Or bypass it: <code>ENTRYPOINT ["sh", "/usr/local/bin/docker-entrypoint.sh"]</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The kernel's <code>execve()</code> refused to run the file with <code>EACCES</code>. For a script that means: the file lacks the execute permission for the container user, or a directory on its path isn't searchable, or the filesystem is mounted <code>noexec</code>. Docker copies file modes from the build context, so a script that isn't executable on your machine (or in git) isn't executable in the image either.</p>
+<p>Check inside the image:</p>
+<pre><code class="language-bash">docker run --rm --entrypoint sh myimage -c 'ls -l /usr/local/bin/docker-entrypoint.sh; id'
+</code></pre>
+<p><code>-rw-r--r--</code> = missing <code>x</code>. Decode modes with the <a href="/tools/chmod-calculator/">chmod calculator</a>.</p>
+<h2 id="fix-1-set-the-mode-in-the-dockerfile">Fix 1: set the mode in the Dockerfile</h2>
+<p>With BuildKit (default since Docker 23):</p>
+<pre><code class="language-dockerfile">COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/
+ENTRYPOINT [&quot;docker-entrypoint.sh&quot;]
+</code></pre>
+<p>Or classic:</p>
+<pre><code class="language-dockerfile">COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+</code></pre>
+<p>Put the <code>RUN chmod</code> <em>before</em> any <code>USER</code> instruction, as the non-root user can't chmod a root-owned file. Rebuild without stale layers if needed: <code>docker build --no-cache .</code>.</p>
+<h2 id="fix-2-the-bit-is-lost-in-git-windows-ci">Fix 2: the bit is lost in git (Windows / CI)</h2>
+<p>Files created on Windows are committed without the executable bit, so CI and colleagues build an image with a non-executable script. Set it in git:</p>
+<pre><code class="language-bash">git update-index --chmod=+x docker-entrypoint.sh
+git commit -m &quot;Make entrypoint executable&quot;
+git ls-files -s docker-entrypoint.sh   # 100755 = executable
+</code></pre>
+<p>While you're at it, make sure the script has LF line endings; CRLF gives a different error, <code>no such file or directory</code> (see <a href="/docker/docker-standard-init-linux-exec-user-process-caused-no-such-file-or-directory/">standard_init_linux.go: no such file or directory</a>). The <a href="/tools/line-ending-whitespace-inspector/">line ending inspector</a> shows which you have.</p>
+<h2 id="fix-3-run-it-through-the-shell">Fix 3: run it through the shell</h2>
+<p>The shell only needs <em>read</em> permission, so this works without <code>+x</code>:</p>
+<pre><code class="language-dockerfile">ENTRYPOINT [&quot;sh&quot;, &quot;/usr/local/bin/docker-entrypoint.sh&quot;]
+</code></pre>
+<p>Use <code>bash</code> instead of <code>sh</code> if the script relies on bash features (and the image has bash). Keep <code>exec "$@"</code> at the end of the script so the CMD becomes PID 1 and receives signals.</p>
+<h2 id="fix-4-a-bind-mount-overrides-the-file">Fix 4: a bind mount overrides the file</h2>
+<p>In Compose, <code>volumes: - ./docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh</code> or <code>- .:/app</code> replaces the image's file with the host file and its host permissions. Run <code>chmod +x docker-entrypoint.sh</code> on the host, or don't mount over it. On mounts from Windows/WSL drives (<code>/mnt/c/...</code>) or from <code>noexec</code> filesystems, execution can fail regardless; use Fix 3.</p>
+<h2 id="fix-5-non-root-user-cant-read-it">Fix 5: non-root user can't read it</h2>
+<p>If you <code>COPY</code> as root with restrictive modes (<code>700</code>) and then switch <code>USER app</code>, the app user can't open the file. Use <code>755</code>, or <code>COPY --chown=app:app --chmod=755 ...</code>.</p>
+<h2 id="official-images">Official images</h2>
+<p>For images like <code>postgres</code> or <code>mysql</code>, this error usually comes from your own scripts mounted into <code>/docker-entrypoint-initdb.d/</code> or from a custom image built on top. Apply the same chmod fix to those files.</p>
+<p class="upd">Last updated 2026-11-24.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-oci-runtime-create-failed-executable-file-not-found/">OCI runtime create failed: exec: executable file not found in $PATH</a></li><li><a href="/docker/docker-standard-init-linux-exec-user-process-caused-no-such-file-or-directory/">standard_init_linux.go: exec user process caused: no such file or directory</a></li><li><a href="/linux/linux-permission-denied-running-script/">bash: ./script.sh: Permission denied</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-additional-property-is-not-allowed/">Additional property is not allowed</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

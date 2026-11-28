@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ValueError: Expected 2D array, got 1D array instead (Python) — how to fix</title>
+<meta name="description" content="scikit-learn models and transformers expect X with shape (n_samples, n_features). You passed a 1-D array or Series, e.g. a single column or a single sample for predict().">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-valueerror-expected-2d-array-got-1d-array/">
+<meta property="og:title" content="ValueError: Expected 2D array, got 1D array instead (Python) — how to fix"><meta property="og:description" content="scikit-learn models and transformers expect X with shape (n_samples, n_features). You passed a 1-D array or Series, e.g. a single column or a single sample for predict().">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-valueerror-expected-2d-array-got-1d-array/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ValueError: Expected 2D array, got 1D array instead (Python) \u2014 how to fix", "description": "scikit-learn models and transformers expect X with shape (n_samples, n_features). You passed a 1-D array or Series, e.g. a single column or a single sample for predict().", "dateModified": "2026-11-21", "url": "https://errorfix-hollis.github.io/python/python-valueerror-expected-2d-array-got-1d-array/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ValueError: Expected 2D array, got 1D array instead", "item": "https://errorfix-hollis.github.io/python/python-valueerror-expected-2d-array-got-1d-array/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ValueError: Expected 2D array, got 1D array instead (Python) — how to fix</h1>
+<pre class="err"><code>ValueError: Expected 2D array, got 1D array instead:
+array=[1. 2. 3. 4. 5.].
+Reshape your data either using array.reshape(-1, 1) if your data has a single feature or array.reshape(1, -1) if it contains a single sample.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Single feature column: <code>X = X.reshape(-1, 1)</code> or use <code>df[["col"]]</code> (double brackets) instead of <code>df["col"]</code>. Single sample: <code>model.predict([[5.0, 3.2]])</code> or <code>x.reshape(1, -1)</code>. Keep the target <code>y</code> 1-D.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Every scikit-learn estimator (<code>fit</code>, <code>predict</code>, <code>transform</code>, <code>score</code>) takes a 2-D feature matrix <code>X</code>: one row per sample, one column per feature. A 1-D array is ambiguous: it could be five samples with one feature, or one sample with five features. sklearn refuses to guess and tells you which reshape to use.</p>
+<pre><code class="language-python">import numpy as np
+x = np.array([1, 2, 3, 4, 5])
+x.shape                 # (5,)       1-D
+x.reshape(-1, 1).shape  # (5, 1)     5 samples, 1 feature
+x.reshape(1, -1).shape  # (1, 5)     1 sample, 5 features
+</code></pre>
+<p><code>-1</code> means "work this dimension out from the array size".</p>
+<h2 id="cause-1-a-single-feature-column">Cause 1: a single feature column</h2>
+<pre><code class="language-python">from sklearn.linear_model import LinearRegression
+
+X = df[&quot;area&quot;]               # Series, 1-D
+y = df[&quot;price&quot;]
+LinearRegression().fit(X, y) # ValueError
+</code></pre>
+<p>Select with a list of columns to get a DataFrame (2-D):</p>
+<pre><code class="language-python">X = df[[&quot;area&quot;]]             # shape (n, 1)
+model = LinearRegression().fit(X, y)
+</code></pre>
+<p>Or with NumPy: <code>X = df["area"].to_numpy().reshape(-1, 1)</code>.</p>
+<h2 id="cause-2-predicting-a-single-sample">Cause 2: predicting a single sample</h2>
+<pre><code class="language-python">model.predict([5.1, 3.5, 1.4, 0.2])     # 1-D: ValueError
+model.predict([[5.1, 3.5, 1.4, 0.2]])   # 2-D: one row
+</code></pre>
+<p>With an array:</p>
+<pre><code class="language-python">sample = np.array([5.1, 3.5, 1.4, 0.2])
+model.predict(sample.reshape(1, -1))
+</code></pre>
+<p>If the model was fitted on a DataFrame, predict with one too to avoid the <code>X does not have valid feature names</code> warning:</p>
+<pre><code class="language-python">model.predict(pd.DataFrame([[5.1, 3.5, 1.4, 0.2]], columns=X.columns))
+</code></pre>
+<h2 id="cause-3-scalers-and-encoders-on-one-column">Cause 3: scalers and encoders on one column</h2>
+<p><code>StandardScaler</code>, <code>MinMaxScaler</code>, <code>OneHotEncoder</code> and <code>SimpleImputer</code> also need 2-D input:</p>
+<pre><code class="language-python">from sklearn.preprocessing import StandardScaler
+scaler = StandardScaler()
+df[&quot;age_scaled&quot;] = scaler.fit_transform(df[[&quot;age&quot;]]).ravel()
+</code></pre>
+<p><code>.ravel()</code> turns the <code>(n, 1)</code> result back into 1-D for assigning to a column. <code>LabelEncoder</code> is the exception: it is meant for the target and takes 1-D.</p>
+<h2 id="cause-4-a-loop-or-indexing-removed-a-dimension">Cause 4: a loop or indexing removed a dimension</h2>
+<p><code>X[0]</code> or <code>X[:, 0]</code> drops a dimension. Keep it with a slice:</p>
+<pre><code class="language-python">X[0:1]        # first row, shape (1, n_features)
+X[:, [0]]     # first column, shape (n_samples, 1)
+</code></pre>
+<h2 id="dont-reshape-the-target">Don't reshape the target</h2>
+<p><code>y</code> should stay 1-D for most estimators. Passing a <code>(n, 1)</code> column vector as <code>y</code> gives <code>DataConversionWarning: A column-vector y was passed when a 1d array was expected</code>. Fix with <code>y.ravel()</code> or <code>df["price"]</code> (single brackets).</p>
+<p class="upd">Last updated 2026-11-21.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-modulenotfounderror-no-module-named-sklearn/">ModuleNotFoundError: No module named &#x27;sklearn&#x27;</a></li><li><a href="/python/python-valueerror-setting-an-array-element-with-a-sequence/">ValueError: setting an array element with a sequence.</a></li><li><a href="/python/python-valueerror-truth-value-of-an-array-with-more-than-one-element-is-ambiguous/">ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SEC_ERROR_UNKNOWN_ISSUER — how to fix</title>
+<meta name="description" content="Firefox can&#x27;t build a trust chain from the site&#x27;s certificate to a trusted root CA. On your own server it&#x27;s usually a missing intermediate certificate; as a visitor it&#x27;s usually antivirus HTTPS scanning, a corporate proxy or a self-signed/local CA that Firefox doesn&#x27;t trust.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-sec-error-unknown-issuer/">
+<meta property="og:title" content="SEC_ERROR_UNKNOWN_ISSUER — how to fix"><meta property="og:description" content="Firefox can&#x27;t build a trust chain from the site&#x27;s certificate to a trusted root CA. On your own server it&#x27;s usually a missing intermediate certificate; as a visitor it&#x27;s usually antivirus HTTPS scanning, a corporate proxy or a self-signed/local CA that Firefox doesn&#x27;t trust.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-sec-error-unknown-issuer/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "SEC_ERROR_UNKNOWN_ISSUER \u2014 how to fix", "description": "Firefox can't build a trust chain from the site's certificate to a trusted root CA. On your own server it's usually a missing intermediate certificate; as a visitor it's usually antivirus HTTPS scanning, a corporate proxy or a self-signed/local CA that Firefox doesn't trust.", "dateModified": "2026-11-25", "url": "https://errorfix-hollis.github.io/web/web-sec-error-unknown-issuer/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "SEC_ERROR_UNKNOWN_ISSUER", "item": "https://errorfix-hollis.github.io/web/web-sec-error-unknown-issuer/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>SEC_ERROR_UNKNOWN_ISSUER — how to fix</h1>
+<pre class="err"><code>Warning: Potential Security Risk Ahead
+Someone could be trying to impersonate the site and you should not continue.
+example.com uses an invalid security certificate.
+The certificate is not trusted because the issuer certificate is unknown.
+The server might not be sending the appropriate intermediate certificates.
+Error code: SEC_ERROR_UNKNOWN_ISSUER
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Site owners: serve the full chain (nginx <code>ssl_certificate /etc/letsencrypt/live/site/fullchain.pem;</code>, not cert.pem) and test with <code>openssl s_client -connect site:443 -servername site</code>. Visitors: if it happens on every HTTPS site, disable your antivirus' HTTPS/SSL scanning or set <code>security.enterprise_roots.enabled</code> to true in about:config so Firefox trusts the Windows/macOS store. For a local dev CA, import it in Settings → Certificates → Authorities or use <code>mkcert -install</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Firefox uses its own trust store (NSS), separate from the operating system's. A certificate is trusted only if Firefox can chain it, via intermediates, to a root it knows. <code>SEC_ERROR_UNKNOWN_ISSUER</code> means that chain is broken somewhere.</p>
+<p>Chrome's equivalent is <code>NET::ERR_CERT_AUTHORITY_INVALID</code>. Note that Chrome sometimes still works when Firefox fails: Chrome can fetch missing intermediates (AIA fetching) and caches them, Firefox mostly doesn't.</p>
+<p>First decide: <strong>one site</strong> or <strong>every HTTPS site</strong>?</p>
+<h2 id="cause-1-site-owner-missing-intermediate-certificate">Cause 1 (site owner): missing intermediate certificate</h2>
+<p>The server sends only the leaf certificate. Check:</p>
+<pre><code class="language-bash">openssl s_client -connect example.com:443 -servername example.com &lt;/dev/null 2&gt;/dev/null | grep -E '^ [0-9] s:|^ +i:|Verify return'
+</code></pre>
+<p>If you see only <code>0 s:</code> and <code>verify error:num=20:unable to get local issuer certificate</code>, the chain is incomplete.</p>
+<p><strong>nginx</strong> (Let's Encrypt/certbot):</p>
+<pre><code class="language-nginx">ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;  # not cert.pem
+ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+</code></pre>
+<p>For a commercial CA, concatenate leaf first, then intermediates:</p>
+<pre><code class="language-bash">cat example.com.crt intermediate.crt &gt; fullchain.crt
+</code></pre>
+<p><strong>Apache 2.4.8+</strong>: put the full chain in <code>SSLCertificateFile</code>. <strong>Node.js</strong>: pass the full chain as <code>cert</code>, or add <code>ca: [intermediate]</code>.</p>
+<p>Reload (<code>sudo nginx -t &amp;&amp; sudo systemctl reload nginx</code>) and re-test, or use an online SSL checker.</p>
+<h2 id="cause-2-site-owner-self-signed-or-private-ca">Cause 2 (site owner): self-signed or private CA</h2>
+<p>Public visitors will always get this error. Use a public CA such as Let's Encrypt:</p>
+<pre><code class="language-bash">sudo certbot --nginx -d example.com -d www.example.com
+</code></pre>
+<h2 id="cause-3-visitor-antivirus-or-security-software-intercepting-https">Cause 3 (visitor): antivirus or security software intercepting HTTPS</h2>
+<p>If <strong>every</strong> site fails, and the certificate viewer (click <em>Advanced → View Certificate</em>) shows an issuer like Avast, Kaspersky, ESET, Bitdefender, or your company's proxy, that software is re-signing traffic with its own root.</p>
+<ul>
+<li>Turn off "HTTPS scanning" / "SSL scanning" / "Web Shield" in the antivirus, or</li>
+<li>Let Firefox trust roots from the OS store: open <code>about:config</code>, set <code>security.enterprise_roots.enabled</code> to <code>true</code>, restart Firefox.</li>
+</ul>
+<p>On company laptops the proxy CA is normally installed by IT; the enterprise roots setting makes Firefox use it.</p>
+<h2 id="cause-4-developer-local-https-with-a-dev-ca">Cause 4 (developer): local HTTPS with a dev CA</h2>
+<p>For <code>https://localhost</code> with a custom CA, import the CA into Firefox: <em>Settings → Privacy &amp; Security → Certificates → View Certificates → Authorities → Import</em>, tick <em>Trust this CA to identify websites</em>.</p>
+<p>With mkcert, install the CA into Firefox's store too (needs <code>certutil</code>: <code>sudo apt install libnss3-tools</code>):</p>
+<pre><code class="language-bash">mkcert -install
+mkcert localhost 127.0.0.1
+</code></pre>
+<h2 id="cause-5-wrong-system-clock">Cause 5: wrong system clock</h2>
+<p>A clock far in the past/future can make valid intermediates look invalid. Fix the date and time (enable automatic time sync), then reload.</p>
+<h2 id="should-i-click-accept-the-risk">Should I click "Accept the Risk"?</h2>
+<p>Only for your own test servers. On public sites, banking or login pages, don't: the warning exists to stop interception.</p>
+<p class="upd">Last updated 2026-11-25.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/web/web-err-cert-common-name-invalid/">NET::ERR_CERT_COMMON_NAME_INVALID</a></li><li><a href="/web/web-net-err-cert-authority-invalid/">NET::ERR_CERT_AUTHORITY_INVALID</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-dns-probe-finished-no-internet/">DNS_PROBE_FINISHED_NO_INTERNET</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

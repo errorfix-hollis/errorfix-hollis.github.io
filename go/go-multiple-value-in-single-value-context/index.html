@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>multiple-value in single-value context (Go) — how to fix</title>
+<meta name="description" content="You used a function that returns several values (typically a result and an `error`) where Go expects exactly one value: in an expression, a function argument, or an assignment with too few variables.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-multiple-value-in-single-value-context/">
+<meta property="og:title" content="multiple-value in single-value context (Go) — how to fix"><meta property="og:description" content="You used a function that returns several values (typically a result and an `error`) where Go expects exactly one value: in an expression, a function argument, or an assignment with too few variables.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-multiple-value-in-single-value-context/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "multiple-value in single-value context (Go) \u2014 how to fix", "description": "You used a function that returns several values (typically a result and an `error`) where Go expects exactly one value: in an expression, a function argument, or an assignment with too few variables.", "dateModified": "2026-11-19", "url": "https://errorfix-hollis.github.io/go/go-multiple-value-in-single-value-context/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "multiple-value in single-value context", "item": "https://errorfix-hollis.github.io/go/go-multiple-value-in-single-value-context/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>multiple-value in single-value context (Go) — how to fix</h1>
+<pre class="err"><code>./main.go:9:7: multiple-value strconv.Atoi(s) (value of type (int, error)) in single-value context
+./main.go:14:14: assignment mismatch: 1 variable but os.Open returns 2 values
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Assign every return value and handle the error: <code>n, err := strconv.Atoi(s); if err != nil { return err }</code>. Discard one explicitly with <code>_</code> only if you're sure: <code>n, _ := strconv.Atoi(s)</code>. To use it inline, write a small helper or <code>must</code> wrapper.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Go functions can return multiple values, and the idiom is <code>(result, error)</code>. Unlike some languages, Go never silently drops extra return values — a multi-value call can only appear where all its values are received. Using it as a single value is a compile error.</p>
+<p>Older Go versions print <code>multiple-value f() in single-value context</code>; newer ones add the types: <code>multiple-value strconv.Atoi(s) (value of type (int, error)) in single-value context</code>. The assignment form reports <code>assignment mismatch: 1 variable but f returns 2 values</code>.</p>
+<h2 id="cause-1-assigning-to-one-variable">Cause 1: assigning to one variable</h2>
+<pre><code class="language-go">n := strconv.Atoi(&quot;42&quot;)          // assignment mismatch
+</code></pre>
+<p><strong>Fix:</strong> receive both and check the error:</p>
+<pre><code class="language-go">n, err := strconv.Atoi(&quot;42&quot;)
+if err != nil {
+    return fmt.Errorf(&quot;parse count: %w&quot;, err)
+}
+</code></pre>
+<p>If the error genuinely can't matter, discard it with the blank identifier — but be aware you'll get the zero value on failure:</p>
+<pre><code class="language-go">n, _ := strconv.Atoi(&quot;42&quot;)
+</code></pre>
+<h2 id="cause-2-calling-inside-an-expression-or-argument">Cause 2: calling inside an expression or argument</h2>
+<pre><code class="language-go">total := strconv.Atoi(a) + 1               // error
+fmt.Println(json.Marshal(v))               // fine: Println is variadic ...any
+s := string(json.Marshal(v))               // error
+</code></pre>
+<p>Split it into a statement first:</p>
+<pre><code class="language-go">b, err := json.Marshal(v)
+if err != nil { return err }
+s := string(b)
+</code></pre>
+<p>There's one special case: <code>f(g())</code> is allowed when <code>g</code>'s return values exactly match <code>f</code>'s parameters — that's why <code>fmt.Println(json.Marshal(v))</code> compiles (it prints both values). Mixing it with other arguments (<code>f(x, g())</code>) is not allowed.</p>
+<h2 id="cause-3-map-lookup-type-assertion-channel-receive">Cause 3: map lookup, type assertion, channel receive</h2>
+<p>These have optional second values (<code>ok</code>), and can be used as single values — they're not the cause. But functions <em>returning</em> them are. E.g. a helper <code>func get(k string) (string, bool)</code> must be called as <code>v, ok := get(k)</code>.</p>
+<h2 id="cause-4-struct-field-or-return-statement">Cause 4: struct field or return statement</h2>
+<pre><code class="language-go">cfg := Config{Port: strconv.Atoi(os.Getenv(&quot;PORT&quot;))}   // error
+
+func load() int {
+    return strconv.Atoi(s)    // error: too many return values
+}
+</code></pre>
+<p>Fix both by unpacking first and returning the error to the caller:</p>
+<pre><code class="language-go">func load() (int, error) {
+    return strconv.Atoi(s)    // ok: same signature (int, error)
+}
+</code></pre>
+<h2 id="a-must-helper-for-initialisation">A must() helper for initialisation</h2>
+<p>For values that must succeed at program start (templates, regexes, embedded config), panicking on error is reasonable. Many packages provide <code>Must</code> variants (<code>regexp.MustCompile</code>, <code>template.Must</code>). With generics (Go 1.18+) you can write your own:</p>
+<pre><code class="language-go">func must[T any](v T, err error) T {
+    if err != nil {
+        panic(err)
+    }
+    return v
+}
+
+var port = must(strconv.Atoi(os.Getenv(&quot;PORT&quot;)))
+</code></pre>
+<p>Don't use it for errors that can happen at runtime from user input — handle those.</p>
+<h2 id="related-compile-errors">Related compile errors</h2>
+<ul>
+<li><code>declared and not used: err</code> — you received <code>err</code> but never checked it. Add <code>if err != nil</code>.</li>
+<li><code>no new variables on left side of :=</code> — reuse with <code>=</code> when both variables already exist.</li>
+</ul>
+<p class="upd">Last updated 2026-11-19.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-cannot-use-as-value-in-assignment/">cannot use x (variable of type T) as U value in assignment</a></li><li><a href="/go/go-declared-and-not-used/">declared and not used</a></li><li><a href="/go/go-invalid-memory-address-or-nil-pointer-dereference/">panic: runtime error: invalid memory address or nil pointer dereference</a></li><li><a href="/go/go-all-goroutines-are-asleep-deadlock/">fatal error: all goroutines are asleep - deadlock!</a></li><li><a href="/go/go-cannot-find-main-module/">go: cannot find main module, but found .git/config</a></li><li><a href="/go/go-cannot-use-nil-as-type/">cannot use nil as string value in assignment</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>server does not support SSL, but SSL was required (PostgreSQL) — how to fix</title>
+<meta name="description" content="Client and server disagree about TLS. Either the client demands SSL (`sslmode=require`) and the server has `ssl = off`, or the server only accepts SSL (`hostssl` rules, managed cloud databases) and the client connected without it.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-server-does-not-support-ssl/">
+<meta property="og:title" content="server does not support SSL, but SSL was required (PostgreSQL) — how to fix"><meta property="og:description" content="Client and server disagree about TLS. Either the client demands SSL (`sslmode=require`) and the server has `ssl = off`, or the server only accepts SSL (`hostssl` rules, managed cloud databases) and the client connected without it.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-server-does-not-support-ssl/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "server does not support SSL, but SSL was required (PostgreSQL) \u2014 how to fix", "description": "Client and server disagree about TLS. Either the client demands SSL (`sslmode=require`) and the server has `ssl = off`, or the server only accepts SSL (`hostssl` rules, managed cloud databases) and the client connected without it.", "dateModified": "2026-11-23", "url": "https://errorfix-hollis.github.io/database/db-postgres-server-does-not-support-ssl/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "server does not support SSL, but SSL was required", "item": "https://errorfix-hollis.github.io/database/db-postgres-server-does-not-support-ssl/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>server does not support SSL, but SSL was required (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>psql: error: connection to server at &quot;db.example.com&quot; (10.0.0.5), port 5432 failed: server does not support SSL, but SSL was required
+FATAL: no pg_hba.conf entry for host &quot;203.0.113.7&quot;, user &quot;app&quot;, database &quot;app&quot;, no encryption
+FATAL: SSL connection is required. Please specify SSL options and retry.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Server without SSL (local/Docker dev): connect with <code>sslmode=disable</code>, e.g. <code>postgresql://user:pass@host/db?sslmode=disable</code>. Server that requires SSL (RDS, Azure, Heroku, Supabase, Neon): connect with <code>sslmode=require</code> (or <code>verify-full</code> with the provider's CA). To enable SSL on your own server set <code>ssl = on</code> with <code>ssl_cert_file</code>/<code>ssl_key_file</code> in postgresql.conf and restart.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The PostgreSQL client opens a connection and asks "SSL?". Depending on <code>sslmode</code>:</p>
+<table>
+<thead>
+<tr>
+<th>sslmode</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>disable</code></td>
+<td>never use SSL</td>
+</tr>
+<tr>
+<td><code>prefer</code> (libpq default)</td>
+<td>try SSL, fall back to plain</td>
+</tr>
+<tr>
+<td><code>require</code></td>
+<td>SSL or fail (no certificate check)</td>
+</tr>
+<tr>
+<td><code>verify-ca</code> / <code>verify-full</code></td>
+<td>SSL plus certificate (and hostname) check</td>
+</tr>
+</tbody>
+</table>
+<p><code>server does not support SSL, but SSL was required</code> is the client giving up because the server said no. The reverse messages (<code>no encryption</code> in a pg_hba error, or a provider's <code>SSL connection is required</code>) are the server rejecting a non-SSL client.</p>
+<h2 id="case-1-server-has-no-ssl-local-docker-ci">Case 1: server has no SSL (local, Docker, CI)</h2>
+<p>The official <code>postgres</code> Docker image ships with <code>ssl = off</code>. Some tools default to <code>require</code> (e.g. some hosted-app templates set <code>PGSSLMODE=require</code>, or a <code>DATABASE_URL</code> copied from production includes <code>?sslmode=require</code>).</p>
+<p>Connect without SSL:</p>
+<pre><code class="language-bash">psql &quot;postgresql://app:secret@localhost:5432/app?sslmode=disable&quot;
+# or
+PGSSLMODE=disable psql -h localhost -U app app
+</code></pre>
+<p>node-postgres:</p>
+<pre><code class="language-js">const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: false });
+</code></pre>
+<p>Check whether the server has SSL on:</p>
+<pre><code class="language-sql">SHOW ssl;
+</code></pre>
+<h2 id="case-2-server-requires-ssl-cloud-providers-hostssl">Case 2: server requires SSL (cloud providers, hostssl)</h2>
+<p>Managed Postgres (AWS RDS with <code>rds.force_ssl=1</code>, Azure Flexible Server, Heroku, Supabase, Neon, Render) rejects plain connections. Add <code>sslmode=require</code>:</p>
+<pre><code class="language-bash">psql &quot;postgresql://app:pass@mydb.xxxx.rds.amazonaws.com:5432/app?sslmode=require&quot;
+</code></pre>
+<p>psycopg2 / psycopg:</p>
+<pre><code class="language-python">psycopg2.connect(dsn, sslmode=&quot;require&quot;)
+</code></pre>
+<p>node-postgres (<code>pg</code>). Note <code>ssl: true</code> verifies the certificate, which fails for self-signed/provider CAs not in Node's store:</p>
+<pre><code class="language-js">// encrypted, no cert check (similar to sslmode=require)
+new Pool({ connectionString, ssl: { rejectUnauthorized: false } });
+
+// encrypted and verified (better): download the provider's CA bundle
+new Pool({ connectionString, ssl: { ca: fs.readFileSync('global-bundle.pem', 'utf8') } });
+</code></pre>
+<p>JDBC: <code>jdbc:postgresql://host:5432/app?sslmode=require</code>.</p>
+<p>Prisma: <code>postgresql://...?sslmode=require</code> in <code>DATABASE_URL</code>.</p>
+<p>For full protection against man-in-the-middle, use <code>sslmode=verify-full&amp;sslrootcert=/path/to/ca.pem</code> with the CA your provider publishes.</p>
+<h2 id="case-3-your-own-server-pg_hbaconf-has-hostssl-only">Case 3: your own server, pg_hba.conf has hostssl only</h2>
+<pre><code>hostssl  app  app  0.0.0.0/0  scram-sha-256
+</code></pre>
+<p><code>hostssl</code> lines only match SSL connections, so a plain client gets <code>no pg_hba.conf entry ... no encryption</code>. Either connect with SSL or add a <code>host</code> line (only on trusted networks), then <code>SELECT pg_reload_conf();</code>. See <a href="/database/db-postgres-no-pg-hba-conf-entry-for-host/">no pg_hba.conf entry for host</a>.</p>
+<h2 id="enabling-ssl-on-your-own-server">Enabling SSL on your own server</h2>
+<pre><code class="language-bash">cd /var/lib/postgresql/data   # or your data directory
+openssl req -new -x509 -days 365 -nodes -text \
+  -out server.crt -keyout server.key -subj &quot;/CN=db.example.com&quot;
+chown postgres:postgres server.key server.crt
+chmod 600 server.key
+</code></pre>
+<p>In <code>postgresql.conf</code>:</p>
+<pre><code class="language-ini">ssl = on
+ssl_cert_file = 'server.crt'
+ssl_key_file = 'server.key'
+</code></pre>
+<p>Reload (<code>SELECT pg_reload_conf();</code>) and check <code>SHOW ssl;</code> returns <code>on</code>. Use a certificate from a real CA (or your internal CA) if clients use <code>verify-full</code>.</p>
+<h2 id="through-pgbouncer-or-a-proxy">Through PgBouncer or a proxy</h2>
+<p>The client talks TLS to PgBouncer, not Postgres. Configure <code>client_tls_sslmode</code> / <code>client_tls_key_file</code> in pgbouncer.ini, or connect with <code>sslmode=disable</code> if the bouncer is local.</p>
+<p class="upd">Last updated 2026-11-23.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-postgres-connection-refused/">psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused</a></li><li><a href="/database/db-postgres-no-pg-hba-conf-entry-for-host/">FATAL: no pg_hba.conf entry for host</a></li><li><a href="/database/db-postgres-password-authentication-failed/">FATAL: password authentication failed for user &quot;postgres&quot;</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1046-no-database-selected/">ERROR 1046 (3D000): No database selected</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

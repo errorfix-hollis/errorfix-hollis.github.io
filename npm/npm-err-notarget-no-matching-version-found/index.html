@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>npm ERR! notarget No matching version found for — how to fix</title>
+<meta name="description" content="npm found the package on the registry, but no published version satisfies the requested version or range. Typically a typo in the version, a version that isn&#x27;t published yet (or was unpublished), a stale cache, or a private registry/mirror that lacks it.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-err-notarget-no-matching-version-found/">
+<meta property="og:title" content="npm ERR! notarget No matching version found for — how to fix"><meta property="og:description" content="npm found the package on the registry, but no published version satisfies the requested version or range. Typically a typo in the version, a version that isn&#x27;t published yet (or was unpublished), a stale cache, or a private registry/mirror that lacks it.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-err-notarget-no-matching-version-found/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "npm ERR! notarget No matching version found for \u2014 how to fix", "description": "npm found the package on the registry, but no published version satisfies the requested version or range. Typically a typo in the version, a version that isn't published yet (or was unpublished), a stale cache, or a private registry/mirror that lacks it.", "dateModified": "2026-11-24", "url": "https://errorfix-hollis.github.io/npm/npm-err-notarget-no-matching-version-found/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "npm ERR! notarget No matching version found for", "item": "https://errorfix-hollis.github.io/npm/npm-err-notarget-no-matching-version-found/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>npm ERR! notarget No matching version found for — how to fix</h1>
+<pre class="err"><code>npm ERR! code ETARGET
+npm ERR! notarget No matching version found for react-scripts@6.0.0.
+npm ERR! notarget In most cases you or one of your dependencies are requesting
+npm ERR! notarget a package version that doesn&#x27;t exist.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> List real versions with <code>npm view &lt;pkg&gt; versions --json</code> and fix the version in package.json (or <code>npm install &lt;pkg&gt;@latest</code>). If the version does exist, clear stale metadata with <code>npm cache clean --force</code> and check which registry you use: <code>npm config get registry</code> (scoped packages may need <code>@scope:registry=</code> in .npmrc).</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>ETARGET</code> is different from <code>E404</code>: the package name exists, but none of its published versions match what was asked for. The message names the exact <code>package@range</code> that failed; it may be a transitive dependency rather than one in your own <code>package.json</code>.</p>
+<p>Check what exists:</p>
+<pre><code class="language-bash">npm view react-scripts versions --json     # every published version
+npm view react-scripts dist-tags           # latest, next, beta...
+</code></pre>
+<h2 id="cause-1-the-version-doesnt-exist-typo-or-wishful-version">Cause 1: the version doesn't exist (typo or wishful version)</h2>
+<p><code>"react-scripts": "^6.0.0"</code> when the latest is 5.0.1, or <code>1.2.3</code> instead of <code>1.2.4</code>. Fix the version, or let npm pick the newest:</p>
+<pre><code class="language-bash">npm install react-scripts@latest
+npm install some-lib@5        # newest 5.x.x
+</code></pre>
+<p>Dist-tags must exist too: <code>pkg@next</code> fails if there is no <code>next</code> tag.</p>
+<h2 id="cause-2-the-version-was-just-published">Cause 2: the version was just published</h2>
+<p>New releases may take a few minutes to appear on all registry mirrors and in your local metadata cache. Clear it and retry:</p>
+<pre><code class="language-bash">npm cache clean --force
+npm install
+</code></pre>
+<p>npm also caches package metadata for a while; <code>npm install --prefer-online</code> forces a fresh check.</p>
+<h2 id="cause-3-wrong-registry-or-a-mirror-that-lacks-it">Cause 3: wrong registry or a mirror that lacks it</h2>
+<pre><code class="language-bash">npm config get registry
+cat .npmrc ~/.npmrc 2&gt;/dev/null
+</code></pre>
+<p>If a company Artifactory/Nexus/Verdaccio proxy or a regional mirror (e.g. npmmirror) is configured, it may not have synced that version, or may block it. Try the public registry once to confirm:</p>
+<pre><code class="language-bash">npm view some-lib@1.4.2 --registry=https://registry.npmjs.org/
+</code></pre>
+<p>For private scoped packages, make sure the scope points to the right registry:</p>
+<pre><code class="language-ini"># .npmrc
+@mycompany:registry=https://npm.pkg.github.com/
+//npm.pkg.github.com/:_authToken=${NPM_TOKEN}
+</code></pre>
+<p>Without that line npm looks for <code>@mycompany/*</code> on the public registry, which doesn't have your versions.</p>
+<h2 id="cause-4-a-lockfile-or-dependency-points-to-an-unpublished-version">Cause 4: a lockfile or dependency points to an unpublished version</h2>
+<p>A version can be deprecated or (within 72 hours of publishing) unpublished. If the failing package is transitive, find who requests it:</p>
+<pre><code class="language-bash">npm ls some-lib
+npm explain some-lib
+</code></pre>
+<p>Upgrade the parent package, or force a version with <code>overrides</code> in package.json:</p>
+<pre><code class="language-json">{
+  &quot;overrides&quot;: {
+    &quot;some-lib&quot;: &quot;1.4.3&quot;
+  }
+}
+</code></pre>
+<p>If <code>package-lock.json</code> references a version that no longer exists, delete the lock entry (or the whole lockfile and <code>node_modules</code>) and run <code>npm install</code> again.</p>
+<h2 id="cause-5-prerelease-versions">Cause 5: prerelease versions</h2>
+<p>Ranges like <code>^2.0.0</code> don't match prereleases such as <code>2.1.0-beta.1</code>. Request the prerelease explicitly (<code>npm install pkg@2.1.0-beta.1</code> or <code>pkg@beta</code>).</p>
+<p class="upd">Last updated 2026-11-24.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/npm-eresolve-unable-to-resolve-dependency-tree/">npm ERR! code ERESOLVE unable to resolve dependency tree</a></li><li><a href="/npm/npm-err-code-e404/">npm ERR! code E404 - Not Found</a></li><li><a href="/npm/npm-err-code-eintegrity/">npm ERR! code EINTEGRITY</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

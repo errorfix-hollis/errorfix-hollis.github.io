@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Failed to configure a DataSource: &#x27;url&#x27; attribute is not specified and no embedded datasource could be configured. (Java) — how to fix</title>
+<meta name="description" content="Spring Boot found spring-boot-starter-data-jpa or spring-boot-starter-jdbc on the classpath, so it tried to create a DataSource, but there is no spring.datasource.url and no embedded database. Add the connection settings, add H2, or disable DataSource auto-configuration.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-spring-failed-to-configure-a-datasource/">
+<meta property="og:title" content="Failed to configure a DataSource: &#x27;url&#x27; attribute is not specified and no embedded datasource could be configured. (Java) — how to fix"><meta property="og:description" content="Spring Boot found spring-boot-starter-data-jpa or spring-boot-starter-jdbc on the classpath, so it tried to create a DataSource, but there is no spring.datasource.url and no embedded database. Add the connection settings, add H2, or disable DataSource auto-configuration.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-spring-failed-to-configure-a-datasource/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Failed to configure a DataSource: 'url' attribute is not specified and no embedded datasource could be configured. (Java) \u2014 how to fix", "description": "Spring Boot found spring-boot-starter-data-jpa or spring-boot-starter-jdbc on the classpath, so it tried to create a DataSource, but there is no spring.datasource.url and no embedded database. Add the connection settings, add H2, or disable DataSource auto-configuration.", "dateModified": "2026-11-18", "url": "https://errorfix-hollis.github.io/java/java-spring-failed-to-configure-a-datasource/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "Failed to configure a DataSource: 'url' attribute is not specified and no embedded datasource could be configured.", "item": "https://errorfix-hollis.github.io/java/java-spring-failed-to-configure-a-datasource/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>Failed to configure a DataSource: &#x27;url&#x27; attribute is not specified and no embedded datasource could be configured. (Java) — how to fix</h1>
+<pre class="err"><code>***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Failed to configure a DataSource: &#x27;url&#x27; attribute is not specified and no embedded datasource could be configured.
+
+Reason: Failed to determine a suitable driver class
+
+Action:
+
+Consider the following:
+    If you want an embedded database (H2, HSQL or Derby), please put it on the classpath.
+    If you have database settings to be loaded from a particular profile you may need to activate it (no profiles are currently active).
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Add <code>spring.datasource.url=jdbc:postgresql://localhost:5432/mydb</code> (plus username, password) to <code>src/main/resources/application.properties</code> and include the JDBC driver dependency. If you don't need a database yet, exclude auto-config: <code>@SpringBootApplication(exclude = DataSourceAutoConfiguration.class)</code>. If settings are in <code>application-dev.properties</code>, activate the profile with <code>spring.profiles.active=dev</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Spring Boot's auto-configuration creates a <code>DataSource</code> bean whenever a JDBC/JPA starter is on the classpath. To build it, it needs either a JDBC URL (<code>spring.datasource.url</code>) or an embedded database (H2, HSQLDB, Derby) it can start automatically. It found neither, so startup fails before your code runs.</p>
+<h2 id="fix-1-add-the-datasource-settings">Fix 1: add the datasource settings</h2>
+<p>In <code>src/main/resources/application.properties</code>:</p>
+<pre><code class="language-properties">spring.datasource.url=jdbc:postgresql://localhost:5432/mydb
+spring.datasource.username=myuser
+spring.datasource.password=secret
+</code></pre>
+<p>MySQL: <code>jdbc:mysql://localhost:3306/mydb</code>. Or in <code>application.yml</code>:</p>
+<pre><code class="language-yaml">spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/mydb
+    username: myuser
+    password: secret
+</code></pre>
+<p>Make sure the JDBC driver is a dependency, otherwise you'll get <code>Failed to determine a suitable driver class</code> or <code>Cannot load driver class</code>:</p>
+<pre><code class="language-xml">&lt;dependency&gt;
+  &lt;groupId&gt;org.postgresql&lt;/groupId&gt;
+  &lt;artifactId&gt;postgresql&lt;/artifactId&gt;
+  &lt;scope&gt;runtime&lt;/scope&gt;
+&lt;/dependency&gt;
+&lt;!-- MySQL: com.mysql:mysql-connector-j --&gt;
+</code></pre>
+<h2 id="fix-2-the-properties-file-isnt-being-read">Fix 2: the properties file isn't being read</h2>
+<p>Common reasons the settings exist but aren't picked up:</p>
+<ul>
+<li>File is not in <code>src/main/resources</code> (or <code>src/test/resources</code> for tests), or is misnamed (<code>application.property</code>, <code>aplication.properties</code>).</li>
+<li>In a multi-module project the file is in a different module than the one you run.</li>
+<li>The IDE didn't copy resources; run <code>mvn clean package</code> / <code>./gradlew clean build</code>, or rebuild the project.</li>
+<li>Property keys use the wrong prefix, e.g. <code>spring.datasource.uri</code> or <code>datasource.url</code>.</li>
+</ul>
+<p>Environment variables work too: <code>SPRING_DATASOURCE_URL</code>, <code>SPRING_DATASOURCE_USERNAME</code>, <code>SPRING_DATASOURCE_PASSWORD</code>. In Docker, check they're actually passed to the container.</p>
+<h2 id="fix-3-the-settings-are-in-an-inactive-profile">Fix 3: the settings are in an inactive profile</h2>
+<p>The message says <code>no profiles are currently active</code>. If the URL is in <code>application-dev.properties</code>, activate that profile:</p>
+<pre><code class="language-properties"># application.properties
+spring.profiles.active=dev
+</code></pre>
+<p>or at runtime: <code>java -jar app.jar --spring.profiles.active=dev</code>, or <code>SPRING_PROFILES_ACTIVE=dev</code>.</p>
+<h2 id="fix-4-you-want-an-in-memory-database">Fix 4: you want an in-memory database</h2>
+<p>For prototypes and tests, add H2 and Spring Boot configures it automatically with no URL:</p>
+<pre><code class="language-xml">&lt;dependency&gt;
+  &lt;groupId&gt;com.h2database&lt;/groupId&gt;
+  &lt;artifactId&gt;h2&lt;/artifactId&gt;
+  &lt;scope&gt;runtime&lt;/scope&gt;
+&lt;/dependency&gt;
+</code></pre>
+<p>For tests only, use <code>@DataJpaTest</code> (embedded DB by default) or <code>@AutoConfigureTestDatabase</code>.</p>
+<h2 id="fix-5-you-dont-need-a-database-yet">Fix 5: you don't need a database (yet)</h2>
+<p>If a JPA starter was added by Spring Initializr but you aren't using it, remove <code>spring-boot-starter-data-jpa</code> / <code>spring-boot-starter-jdbc</code> from <code>pom.xml</code> or <code>build.gradle</code>. Or exclude the auto-configuration:</p>
+<pre><code class="language-java">@SpringBootApplication(exclude = { DataSourceAutoConfiguration.class })
+public class App { ... }
+</code></pre>
+<p>or in properties:</p>
+<pre><code class="language-properties">spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+</code></pre>
+<p>If you also have JPA on the classpath you may need to exclude <code>HibernateJpaAutoConfiguration</code> too.</p>
+<h2 id="check">Check</h2>
+<p>Run with <code>--debug</code> to see the auto-configuration report, which lists why <code>DataSourceAutoConfiguration</code> matched and which properties were found.</p>
+<p class="upd">Last updated 2026-11-18.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li><li><a href="/java/java-failed-to-load-applicationcontext/">java.lang.IllegalStateException: Failed to load ApplicationContext</a></li><li><a href="/java/java-spring-port-8080-was-already-in-use/">Web server failed to start. Port 8080 was already in use.</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ReferenceError: process is not defined (JavaScript) — how to fix</title>
+<meta name="description" content="Browser code referenced the Node.js global `process` (usually `process.env.SOMETHING`). Webpack 4 and Create React App used to polyfill or replace it; Vite, webpack 5 and plain browsers do not.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-referenceerror-process-is-not-defined/">
+<meta property="og:title" content="ReferenceError: process is not defined (JavaScript) — how to fix"><meta property="og:description" content="Browser code referenced the Node.js global `process` (usually `process.env.SOMETHING`). Webpack 4 and Create React App used to polyfill or replace it; Vite, webpack 5 and plain browsers do not.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-referenceerror-process-is-not-defined/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ReferenceError: process is not defined (JavaScript) \u2014 how to fix", "description": "Browser code referenced the Node.js global `process` (usually `process.env.SOMETHING`). Webpack 4 and Create React App used to polyfill or replace it; Vite, webpack 5 and plain browsers do not.", "dateModified": "2026-11-24", "url": "https://errorfix-hollis.github.io/javascript/js-referenceerror-process-is-not-defined/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "ReferenceError: process is not defined", "item": "https://errorfix-hollis.github.io/javascript/js-referenceerror-process-is-not-defined/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>ReferenceError: process is not defined (JavaScript) — how to fix</h1>
+<pre class="err"><code>Uncaught ReferenceError: process is not defined
+    at index.js:3:15
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> In Vite use <code>import.meta.env.VITE_MY_VAR</code> (variables must start with <code>VITE_</code>) instead of <code>process.env.MY_VAR</code>. In webpack 5 replace values at build time with <code>new webpack.DefinePlugin({ 'process.env.API_URL': JSON.stringify(process.env.API_URL) })</code>. For a dependency that needs <code>process</code>, add <code>ProvidePlugin({ process: 'process/browser' })</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>process</code> is a Node.js global. Browsers don't have it. When you write <code>process.env.API_URL</code> in frontend code, a bundler must replace that expression with a literal string at build time; if it doesn't, the browser evaluates <code>process</code> and throws.</p>
+<ul>
+<li>Create React App and webpack 4 did this automatically (and polyfilled <code>process</code>).</li>
+<li><strong>Vite</strong> exposes env vars on <code>import.meta.env</code> instead.</li>
+<li><strong>webpack 5</strong> removed automatic Node polyfills.</li>
+</ul>
+<h2 id="fix-1-vite-use-importmetaenv">Fix 1: Vite - use <code>import.meta.env</code></h2>
+<pre><code class="language-bash"># .env
+VITE_API_URL=https://api.example.com
+</code></pre>
+<pre><code class="language-js">const apiUrl = import.meta.env.VITE_API_URL;
+</code></pre>
+<p>Only variables prefixed with <code>VITE_</code> are exposed to client code (others stay private). Built-ins: <code>import.meta.env.MODE</code>, <code>import.meta.env.DEV</code>, <code>import.meta.env.PROD</code>. Restart the dev server after editing <code>.env</code>.</p>
+<p>When migrating a large CRA codebase, you can map the old names in <code>vite.config.js</code>:</p>
+<pre><code class="language-js">import { defineConfig, loadEnv } from 'vite';
+
+export default defineConfig(({ mode }) =&gt; {
+  const env = loadEnv(mode, process.cwd(), 'REACT_APP_');
+  return {
+    define: {
+      'process.env.REACT_APP_API_URL': JSON.stringify(env.REACT_APP_API_URL),
+    },
+  };
+});
+</code></pre>
+<p>Avoid <code>define: { 'process.env': process.env }</code>: it inlines every variable from your machine, including secrets, into the bundle.</p>
+<h2 id="fix-2-webpack-5-defineplugin">Fix 2: webpack 5 - DefinePlugin</h2>
+<pre><code class="language-js">// webpack.config.js
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.DefinePlugin({
+      'process.env.API_URL': JSON.stringify(process.env.API_URL),
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
+    }),
+  ],
+};
+</code></pre>
+<p><code>DefinePlugin</code> does text replacement, so the value must be <code>JSON.stringify</code>-ed.</p>
+<h2 id="fix-3-a-dependency-uses-process-eg-processnexttick-processbrowser">Fix 3: a dependency uses <code>process</code> (e.g. <code>process.nextTick</code>, <code>process.browser</code>)</h2>
+<p>Install the browser shim and inject it:</p>
+<pre><code class="language-bash">npm install process
+</code></pre>
+<pre><code class="language-js">new webpack.ProvidePlugin({ process: 'process/browser' })
+</code></pre>
+<p>In Vite, prefer a browser build of the library; otherwise <code>vite-plugin-node-polyfills</code> can provide <code>process</code>, <code>Buffer</code> and friends.</p>
+<h2 id="fix-4-nextjs">Fix 4: Next.js</h2>
+<p>Next.js does inline <code>process.env.X</code> in client code, but only for variables prefixed with <code>NEXT_PUBLIC_</code>, and only when written literally. Dynamic access like <code>process.env[name]</code> or destructuring <code>const { API } = process.env</code> is not replaced and fails in the browser. Write <code>process.env.NEXT_PUBLIC_API_URL</code> directly.</p>
+<h2 id="fix-5-plain-script-without-a-bundler">Fix 5: plain <code>&lt;script&gt;</code> without a bundler</h2>
+<p>There's no build step to replace anything. Put config in a global or a fetched JSON file:</p>
+<pre><code class="language-html">&lt;script&gt;window.APP_CONFIG = { apiUrl: &quot;https://api.example.com&quot; };&lt;/script&gt;
+</code></pre>
+<h2 id="related">Related</h2>
+<p>If the error is about <code>require</code> or <code>module</code> instead, see <a href="/javascript/js-require-is-not-defined/">require is not defined</a>; for <code>window</code> on the server, see <a href="/javascript/js-referenceerror-window-is-not-defined/">window is not defined</a>.</p>
+<p class="upd">Last updated 2026-11-24.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-referenceerror-is-not-defined/">ReferenceError: x is not defined</a></li><li><a href="/javascript/js-referenceerror-window-is-not-defined/">ReferenceError: window is not defined</a></li><li><a href="/javascript/js-require-is-not-defined/">ReferenceError: require is not defined</a></li><li><a href="/javascript/js-a-component-is-changing-an-uncontrolled-input-to-be-controlled/">Warning: A component is changing an uncontrolled input to be controlled.</a></li><li><a href="/javascript/js-cannot-read-properties-of-null/">TypeError: Cannot read properties of null (reading &#x27;...&#x27;)</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

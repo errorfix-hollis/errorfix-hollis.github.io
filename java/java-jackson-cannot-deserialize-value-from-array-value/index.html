@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MismatchedInputException: Cannot deserialize value of type from Array value (token JsonToken.START_ARRAY) (Java) — how to fix</title>
+<meta name="description" content="Jackson found a JSON array `[...]` where your Java type expects a single object `{...}`. The mapping target must be a List/array, or the JSON must be unwrapped first. The reverse case reports `from Object value (token JsonToken.START_OBJECT)`.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-jackson-cannot-deserialize-value-from-array-value/">
+<meta property="og:title" content="MismatchedInputException: Cannot deserialize value of type from Array value (token JsonToken.START_ARRAY) (Java) — how to fix"><meta property="og:description" content="Jackson found a JSON array `[...]` where your Java type expects a single object `{...}`. The mapping target must be a List/array, or the JSON must be unwrapped first. The reverse case reports `from Object value (token JsonToken.START_OBJECT)`.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-jackson-cannot-deserialize-value-from-array-value/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "MismatchedInputException: Cannot deserialize value of type from Array value (token JsonToken.START_ARRAY) (Java) \u2014 how to fix", "description": "Jackson found a JSON array `[...]` where your Java type expects a single object `{...}`. The mapping target must be a List/array, or the JSON must be unwrapped first. The reverse case reports `from Object value (token JsonToken.START_OBJECT)`.", "dateModified": "2026-11-19", "url": "https://errorfix-hollis.github.io/java/java-jackson-cannot-deserialize-value-from-array-value/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "MismatchedInputException: Cannot deserialize value of type from Array value (token JsonToken.START_ARRAY)", "item": "https://errorfix-hollis.github.io/java/java-jackson-cannot-deserialize-value-from-array-value/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>MismatchedInputException: Cannot deserialize value of type from Array value (token JsonToken.START_ARRAY) (Java) — how to fix</h1>
+<pre class="err"><code>com.fasterxml.jackson.databind.exc.MismatchedInputException: Cannot deserialize value of type `com.example.User` from Array value (token `JsonToken.START_ARRAY`)
+ at [Source: (String)&quot;[{&quot;id&quot;:1,&quot;name&quot;:&quot;Ann&quot;}]&quot;; line: 1, column: 1]
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Deserialize into a collection: <code>List&lt;User&gt; users = mapper.readValue(json, new TypeReference&lt;List&lt;User&gt;&gt;() {});</code> (or <code>User[].class</code>). With RestTemplate use <code>getForObject(url, User[].class)</code>; in Spring controllers take <code>@RequestBody List&lt;User&gt;</code>. If the API sometimes sends a single object, enable <code>DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Jackson reads the JSON token by token. The first token at the reported location is <code>[</code> (<code>START_ARRAY</code>), but the target type is a POJO, which must start with <code>{</code>. The <code>line</code>/<code>column</code> in the message point to where the mismatch is — <code>column: 1</code> means the whole document is an array; a later column means a <strong>field</strong> inside your object is an array.</p>
+<p>Paste the payload into the <a href="/tools/json-formatter/">JSON formatter</a> to see its real shape.</p>
+<h2 id="cause-1-top-level-json-is-a-list">Cause 1: top-level JSON is a list</h2>
+<pre><code class="language-json">[{&quot;id&quot;:1,&quot;name&quot;:&quot;Ann&quot;},{&quot;id&quot;:2,&quot;name&quot;:&quot;Bo&quot;}]
+</code></pre>
+<pre><code class="language-java">// Wrong
+User user = mapper.readValue(json, User.class);
+
+// Right
+List&lt;User&gt; users = mapper.readValue(json, new TypeReference&lt;List&lt;User&gt;&gt;() {});
+// or
+User[] users = mapper.readValue(json, User[].class);
+</code></pre>
+<p><code>TypeReference</code> is needed for generic types because <code>List&lt;User&gt;.class</code> doesn't exist (type erasure). Using <code>List.class</code> alone gives you <code>List&lt;LinkedHashMap&gt;</code> and a later <code>ClassCastException</code>.</p>
+<h2 id="cause-2-resttemplate-webclient-feign-response-type">Cause 2: RestTemplate / WebClient / Feign response type</h2>
+<pre><code class="language-java">// RestTemplate
+User[] users = restTemplate.getForObject(url, User[].class);
+
+// or with generics
+List&lt;User&gt; users = restTemplate.exchange(url, HttpMethod.GET, null,
+        new ParameterizedTypeReference&lt;List&lt;User&gt;&gt;() {}).getBody();
+
+// WebClient
+List&lt;User&gt; users = webClient.get().uri(url).retrieve()
+        .bodyToFlux(User.class).collectList().block();
+</code></pre>
+<p>In Feign, declare the method as returning <code>List&lt;User&gt;</code>.</p>
+<h2 id="cause-3-spring-controller-expects-one-object-client-sends-a-list">Cause 3: Spring controller expects one object, client sends a list</h2>
+<pre><code class="language-java">@PostMapping(&quot;/users&quot;)
+public void create(@RequestBody List&lt;User&gt; users) { ... }
+</code></pre>
+<p>Or fix the client to send <code>{...}</code> instead of <code>[{...}]</code>. Spring wraps this as <code>HttpMessageNotReadableException: JSON parse error: Cannot deserialize value of type ...</code>.</p>
+<h2 id="cause-4-a-field-is-an-array-in-the-json-but-scalar-in-the-class">Cause 4: a field is an array in the JSON but scalar in the class</h2>
+<pre><code class="language-json">{&quot;id&quot;: 1, &quot;tags&quot;: [&quot;a&quot;, &quot;b&quot;]}
+</code></pre>
+<pre><code class="language-java">class Post {
+    long id;
+    String tags;          // wrong: column points here
+    List&lt;String&gt; tags;    // right
+}
+</code></pre>
+<h2 id="cause-5-the-api-wraps-or-varies-its-response">Cause 5: the API wraps or varies its response</h2>
+<p>If the list is wrapped (<code>{"data":[...]}</code>), model the wrapper:</p>
+<pre><code class="language-java">record Page(List&lt;User&gt; data) {}
+Page page = mapper.readValue(json, Page.class);
+</code></pre>
+<p>Or read the tree and extract: <code>mapper.readerForListOf(User.class).readValue(mapper.readTree(json).get("data"))</code>.</p>
+<p>If an API returns either one object or an array, accept both:</p>
+<pre><code class="language-java">mapper.enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY);   // object -&gt; List
+mapper.enable(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS);     // [x] -&gt; x
+</code></pre>
+<p>or per field: <code>@JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)</code>. In Spring Boot, set <code>spring.jackson.deserialization.accept-single-value-as-array=true</code>.</p>
+<h2 id="the-reverse-error">The reverse error</h2>
+<p><code>Cannot deserialize value of type java.util.ArrayList&lt;...&gt; from Object value (token JsonToken.START_OBJECT)</code> is the mirror case: you asked for a List but the JSON is <code>{...}</code> — usually a wrapper object or an error response like <code>{"error":"..."}</code>. Log the raw body before parsing.</p>
+<p class="upd">Last updated 2026-11-19.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li><li><a href="/java/java-failed-to-load-applicationcontext/">java.lang.IllegalStateException: Failed to load ApplicationContext</a></li><li><a href="/python/python-jsondecodeerror-expecting-value/">json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

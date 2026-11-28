@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OCI runtime exec failed: exec failed: unable to start container process: exec: &quot;bash&quot;: executable file not found in $PATH (Docker) — how to fix</title>
+<meta name="description" content="`docker exec` (or `kubectl exec`) asked the container to run a program that doesn&#x27;t exist inside the image, most often bash in an Alpine, distroless or scratch image.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-oci-runtime-exec-failed/">
+<meta property="og:title" content="OCI runtime exec failed: exec failed: unable to start container process: exec: &quot;bash&quot;: executable file not found in $PATH (Docker) — how to fix"><meta property="og:description" content="`docker exec` (or `kubectl exec`) asked the container to run a program that doesn&#x27;t exist inside the image, most often bash in an Alpine, distroless or scratch image.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-oci-runtime-exec-failed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "OCI runtime exec failed: exec failed: unable to start container process: exec: \"bash\": executable file not found in $PATH (Docker) \u2014 how to fix", "description": "`docker exec` (or `kubectl exec`) asked the container to run a program that doesn't exist inside the image, most often bash in an Alpine, distroless or scratch image.", "dateModified": "2026-11-22", "url": "https://errorfix-hollis.github.io/docker/docker-oci-runtime-exec-failed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "OCI runtime exec failed: exec failed: unable to start container process: exec: \"bash\": executable file not found in $PATH", "item": "https://errorfix-hollis.github.io/docker/docker-oci-runtime-exec-failed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>OCI runtime exec failed: exec failed: unable to start container process: exec: &quot;bash&quot;: executable file not found in $PATH (Docker) — how to fix</h1>
+<pre class="err"><code>OCI runtime exec failed: exec failed: unable to start container process: exec: &quot;bash&quot;: executable file not found in $PATH: unknown
+OCI runtime exec failed: exec failed: unable to start container process: chdir to cwd (&quot;/app&quot;) set in config.json failed: no such file or directory: unknown
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Use a shell that exists: <code>docker exec -it CONTAINER sh</code> (Alpine/BusyBox have sh, not bash). For distroless/scratch images there is no shell: use <code>docker debug CONTAINER</code>, <code>kubectl debug -it POD --image=busybox --target=CONTAINER</code>, or <code>docker cp</code> to inspect files.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The container is running, but the command you passed to <code>docker exec</code> couldn't be started inside it. The quoted name (<code>"bash"</code>) is what was looked up in the container's <code>$PATH</code>, not on your host.</p>
+<p>If you see this when <em>starting</em> a container (<code>docker run</code>, <code>OCI runtime create failed</code>), the image's <code>CMD</code>/<code>ENTRYPOINT</code> is wrong instead; see the related page.</p>
+<h2 id="cause-1-the-image-has-no-bash">Cause 1: the image has no bash</h2>
+<p>Alpine and BusyBox-based images (<code>node:20-alpine</code>, <code>nginx:alpine</code>, <code>redis:alpine</code>, ...) ship <code>/bin/sh</code> only:</p>
+<pre><code class="language-bash">docker exec -it mycontainer sh
+kubectl exec -it mypod -- sh
+</code></pre>
+<p>If you need bash in your own Alpine image: <code>RUN apk add --no-cache bash</code>.</p>
+<p>Check what's available:</p>
+<pre><code class="language-bash">docker exec mycontainer ls /bin /usr/bin
+</code></pre>
+<h2 id="cause-2-distroless-or-scratch-image-no-shell-at-all">Cause 2: distroless or scratch image (no shell at all)</h2>
+<p><code>gcr.io/distroless/*</code>, Go/Rust binaries <code>FROM scratch</code>, and many hardened images contain only the app. <code>sh</code> fails too. Options:</p>
+<pre><code class="language-bash"># Docker Desktop / Docker 4.33+: attach a toolbox to the container
+docker debug mycontainer
+
+# Kubernetes: ephemeral debug container sharing the process namespace
+kubectl debug -it mypod --image=busybox:1.36 --target=app
+
+# copy files out to inspect them
+docker cp mycontainer:/app/config.yaml .
+</code></pre>
+<p>Distroless images also have <code>:debug</code> tags with a BusyBox shell at <code>/busybox/sh</code>, useful during development.</p>
+<h2 id="cause-3-typo-or-wrong-argument-order">Cause 3: typo or wrong argument order</h2>
+<p>Everything after the container name is the command:</p>
+<pre><code class="language-bash">docker exec -it mycontainer bash -c &quot;ls /app&quot;   # right
+docker exec mycontainer -it bash                 # wrong: tries to run &quot;-it&quot;
+</code></pre>
+<p>With <code>kubectl</code>, the command must come after <code>--</code>:</p>
+<pre><code class="language-bash">kubectl exec -it mypod -c app -- /bin/sh
+</code></pre>
+<p>On Git Bash for Windows, <code>/bin/sh</code> may be rewritten to a Windows path; use <code>//bin/sh</code> or prefix the command with <code>MSYS_NO_PATHCONV=1</code>.</p>
+<h2 id="cause-4-tool-not-installed-curl-ps-ping-vim">Cause 4: tool not installed (curl, ps, ping, vim)</h2>
+<p><code>exec: "curl": executable file not found</code> means exactly that: slim images leave out debugging tools. Install temporarily (lost when the container is recreated):</p>
+<pre><code class="language-bash">docker exec -u 0 -it mycontainer sh -c &quot;apk add curl&quot;           # Alpine
+docker exec -u 0 -it mycontainer sh -c &quot;apt-get update &amp;&amp; apt-get install -y curl&quot;  # Debian
+</code></pre>
+<p>Or run the tool from another container in the same network namespace:</p>
+<pre><code class="language-bash">docker run --rm -it --network container:mycontainer nicolaka/netshoot curl localhost:8080
+</code></pre>
+<h2 id="cause-5-chdir-to-cwd-failed">Cause 5: chdir to cwd failed</h2>
+<p><code>chdir to cwd ("/app") set in config.json failed</code> means the image's <code>WORKDIR</code> doesn't exist in the running container (for example a volume mounted over it was removed). Override the directory:</p>
+<pre><code class="language-bash">docker exec -it -w / mycontainer sh
+</code></pre>
+<h2 id="cause-6-the-container-is-restarting">Cause 6: the container is restarting</h2>
+<p>If the container is in a restart loop, exec can fail in odd ways. Check <code>docker ps -a</code> and <code>docker logs mycontainer</code> first.</p>
+<p class="upd">Last updated 2026-11-22.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-no-such-container/">Error response from daemon: No such container</a></li><li><a href="/docker/docker-oci-runtime-create-failed-executable-file-not-found/">OCI runtime create failed: exec: executable file not found in $PATH</a></li><li><a href="/docker/docker-the-input-device-is-not-a-tty/">the input device is not a TTY</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-additional-property-is-not-allowed/">Additional property is not allowed</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

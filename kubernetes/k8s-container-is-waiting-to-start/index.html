@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error from server (BadRequest): container is waiting to start: ContainerCreating (Kubernetes) — how to fix</title>
+<meta name="description" content="`kubectl logs` has nothing to show because the container never started. The real problem is in the pod&#x27;s events: image pull failures, missing volumes, secrets or ConfigMaps, or a slow first pull.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-container-is-waiting-to-start/">
+<meta property="og:title" content="Error from server (BadRequest): container is waiting to start: ContainerCreating (Kubernetes) — how to fix"><meta property="og:description" content="`kubectl logs` has nothing to show because the container never started. The real problem is in the pod&#x27;s events: image pull failures, missing volumes, secrets or ConfigMaps, or a slow first pull.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-container-is-waiting-to-start/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error from server (BadRequest): container is waiting to start: ContainerCreating (Kubernetes) \u2014 how to fix", "description": "`kubectl logs` has nothing to show because the container never started. The real problem is in the pod's events: image pull failures, missing volumes, secrets or ConfigMaps, or a slow first pull.", "dateModified": "2026-11-22", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-container-is-waiting-to-start/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "Error from server (BadRequest): container is waiting to start: ContainerCreating", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-container-is-waiting-to-start/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>Error from server (BadRequest): container is waiting to start: ContainerCreating (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Error from server (BadRequest): container &quot;app&quot; in pod &quot;web-7d9f8b6c5-x2k4p&quot; is waiting to start: ContainerCreating
+Error from server (BadRequest): container &quot;app&quot; in pod &quot;web-7d9f8b6c5-x2k4p&quot; is waiting to start: trying and failing to pull image
+Error from server (BadRequest): container &quot;app&quot; in pod &quot;web-7d9f8b6c5-x2k4p&quot; is waiting to start: image can&#x27;t be pulled
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>kubectl describe pod POD</code> and read the Events at the bottom; <code>kubectl get events --sort-by=.lastTimestamp</code> also helps. Fix what it reports (wrong image tag, missing imagePullSecret, missing Secret/ConfigMap/PVC, CNI errors). If it's just a large image still pulling, wait and retry <code>kubectl logs -f</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>kubectl logs</code> reads the output of a running (or exited) container. This error says the container hasn't started yet, so there are no logs. The last part of the message is the container's waiting reason:</p>
+<table>
+<thead>
+<tr>
+<th>Reason</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ContainerCreating</code></td>
+<td>still pulling the image or mounting volumes, or stuck doing so</td>
+</tr>
+<tr>
+<td><code>PodInitializing</code></td>
+<td>init containers are still running</td>
+</tr>
+<tr>
+<td><code>trying and failing to pull image</code> / <code>image can't be pulled</code></td>
+<td><code>ErrImagePull</code> / <code>ImagePullBackoff</code></td>
+</tr>
+<tr>
+<td><code>CreateContainerConfigError</code></td>
+<td>a referenced Secret/ConfigMap key is missing</td>
+</tr>
+</tbody>
+</table>
+<p>The details are always in the events:</p>
+<pre><code class="language-bash">kubectl describe pod web-7d9f8b6c5-x2k4p      # read &quot;Events:&quot; at the bottom
+kubectl get events -n NAMESPACE --sort-by=.lastTimestamp | tail -20
+</code></pre>
+<h2 id="cause-1-image-pull-problems">Cause 1: image pull problems</h2>
+<p>Events show <code>Failed to pull image ... not found</code> or <code>unauthorized</code>. Check:</p>
+<ul>
+<li>tag exists: <code>docker manifest inspect registry/app:1.4.2</code></li>
+<li>private registry → add an <code>imagePullSecrets</code> entry:</li>
+</ul>
+<pre><code class="language-bash">kubectl create secret docker-registry regcred \
+  --docker-server=ghcr.io --docker-username=USER --docker-password=TOKEN
+</code></pre>
+<pre><code class="language-yaml">spec:
+  imagePullSecrets:
+    - name: regcred
+</code></pre>
+<p>See the ImagePullBackOff page for the full list.</p>
+<h2 id="cause-2-volume-mount-failures-failedmount">Cause 2: volume mount failures (<code>FailedMount</code>)</h2>
+<p>Events like <code>MountVolume.SetUp failed for volume "config" : configmap "app-config" not found</code> or <code>secret "db-creds" not found</code> keep the pod in <code>ContainerCreating</code> forever. Create the object in the <strong>same namespace</strong>:</p>
+<pre><code class="language-bash">kubectl get configmap,secret -n NAMESPACE
+kubectl create configmap app-config --from-file=config.yaml -n NAMESPACE
+</code></pre>
+<p>For PVCs, check <code>kubectl get pvc</code>: a <code>Pending</code> claim or <code>Multi-Attach error</code> (RWO volume still attached to another node) blocks start-up.</p>
+<h2 id="cause-3-init-containers-still-running-or-failing">Cause 3: init containers still running or failing</h2>
+<p><code>PodInitializing</code> means init containers haven't finished. Look at their logs:</p>
+<pre><code class="language-bash">kubectl logs POD -c init-container-name
+kubectl get pod POD -o jsonpath='{.spec.initContainers[*].name}'
+</code></pre>
+<h2 id="cause-4-networking-sandbox-errors">Cause 4: networking / sandbox errors</h2>
+<p><code>Failed to create pod sandbox</code> or <code>network plugin is not ready: cni config uninitialized</code> point to the node's CNI (Calico, Flannel, Cilium). Check the CNI pods: <code>kubectl get pods -n kube-system -o wide</code> and the node: <code>kubectl describe node NODE</code>.</p>
+<h2 id="cause-5-its-simply-still-starting">Cause 5: it's simply still starting</h2>
+<p>The first pull of a multi-GB image can take minutes. Wait for it, and follow logs once it's up:</p>
+<pre><code class="language-bash">kubectl wait --for=condition=Ready pod/POD --timeout=300s &amp;&amp; kubectl logs -f POD
+</code></pre>
+<h2 id="getting-logs-from-a-crashing-container">Getting logs from a crashing container</h2>
+<p>If the pod is in <code>CrashLoopBackOff</code>, the current container may be waiting for its restart backoff. Read the previous attempt instead:</p>
+<pre><code class="language-bash">kubectl logs POD --previous
+</code></pre>
+<p class="upd">Last updated 2026-11-22.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li><li><a href="/kubernetes/k8s-imagepullbackoff/">ImagePullBackOff / ErrImagePull</a></li><li><a href="/kubernetes/k8s-pod-has-unbound-immediate-persistentvolumeclaims/">pod has unbound immediate PersistentVolumeClaims</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

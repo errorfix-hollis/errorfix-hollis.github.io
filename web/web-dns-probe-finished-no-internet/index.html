@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DNS_PROBE_FINISHED_NO_INTERNET — how to fix</title>
+<meta name="description" content="Chrome (or Edge) tried to resolve a hostname, the lookup failed, and its follow-up probe found no working connection. Either the machine is offline, or DNS is broken badly enough that Chrome thinks it is.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-dns-probe-finished-no-internet/">
+<meta property="og:title" content="DNS_PROBE_FINISHED_NO_INTERNET — how to fix"><meta property="og:description" content="Chrome (or Edge) tried to resolve a hostname, the lookup failed, and its follow-up probe found no working connection. Either the machine is offline, or DNS is broken badly enough that Chrome thinks it is.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-dns-probe-finished-no-internet/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "DNS_PROBE_FINISHED_NO_INTERNET \u2014 how to fix", "description": "Chrome (or Edge) tried to resolve a hostname, the lookup failed, and its follow-up probe found no working connection. Either the machine is offline, or DNS is broken badly enough that Chrome thinks it is.", "dateModified": "2026-11-18", "url": "https://errorfix-hollis.github.io/web/web-dns-probe-finished-no-internet/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "DNS_PROBE_FINISHED_NO_INTERNET", "item": "https://errorfix-hollis.github.io/web/web-dns-probe-finished-no-internet/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>DNS_PROBE_FINISHED_NO_INTERNET — how to fix</h1>
+<pre class="err"><code>No internet
+Try:
+  Checking the network cables, modem, and router
+  Reconnecting to Wi-Fi
+  Running Windows Network Diagnostics
+DNS_PROBE_FINISHED_NO_INTERNET
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check if you're online at all (<code>ping 1.1.1.1</code>). If IPs work but names don't, it's DNS: set DNS to 1.1.1.1 / 8.8.8.8, flush the cache (<code>ipconfig /flushdns</code> on Windows, <code>sudo resolvectl flush-caches</code> on Linux, <code>sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder</code> on macOS) and clear Chrome's at chrome://net-internals/#dns. Disable VPN/proxy and restart the router.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Chrome's <code>DNS_PROBE_*</code> errors come from a lookup failure followed by a diagnostic probe. The <code>NO_INTERNET</code> variant means the probe couldn't reach a DNS server at all, so Chrome concludes there's no connectivity. Related variants:</p>
+<ul>
+<li><code>DNS_PROBE_FINISHED_NXDOMAIN</code> – the name doesn't exist (typo, or DNS returned "no such domain").</li>
+<li><code>DNS_PROBE_FINISHED_BAD_CONFIG</code> – the system DNS configuration is broken.</li>
+<li><code>DNS_PROBE_POSSIBLE</code> – DNS failed and the probe didn't finish.</li>
+</ul>
+<p>Start by telling apart "offline" from "DNS broken".</p>
+<h2 id="step-1-are-you-online">Step 1: are you online?</h2>
+<pre><code class="language-bash">ping 1.1.1.1          # an IP: no DNS involved
+ping example.com      # a name: needs DNS
+nslookup example.com 1.1.1.1
+</code></pre>
+<ul>
+<li>Both fail → network problem (Wi-Fi, cable, router, captive portal). Reconnect, restart the router/modem, try another device.</li>
+<li>IP works, name fails → DNS problem, continue below.</li>
+<li>Both work but Chrome still fails → Chrome's own cache, proxy or secure DNS setting (Step 4).</li>
+</ul>
+<h2 id="step-2-switch-to-a-public-dns-server">Step 2: switch to a public DNS server</h2>
+<p>ISP and router DNS servers are a frequent cause. Set 1.1.1.1 and 8.8.8.8 (or 9.9.9.9):</p>
+<ul>
+<li><strong>Windows</strong>: Settings → Network &amp; Internet → your adapter → DNS server assignment → Edit → Manual.</li>
+<li><strong>macOS</strong>: System Settings → Network → your connection → Details → DNS.</li>
+<li><strong>Linux (NetworkManager)</strong>:</li>
+</ul>
+<pre><code class="language-bash">nmcli con mod &quot;&lt;connection&gt;&quot; ipv4.dns &quot;1.1.1.1 8.8.8.8&quot; ipv4.ignore-auto-dns yes
+nmcli con up &quot;&lt;connection&gt;&quot;
+</code></pre>
+<h2 id="step-3-flush-dns-caches-and-reset-the-network-stack">Step 3: flush DNS caches and reset the network stack</h2>
+<p>Windows (admin Command Prompt):</p>
+<pre><code class="language-bat">ipconfig /flushdns
+ipconfig /release
+ipconfig /renew
+netsh winsock reset
+netsh int ip reset
+</code></pre>
+<p>Reboot after the <code>netsh</code> resets.</p>
+<p>macOS:</p>
+<pre><code class="language-bash">sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
+</code></pre>
+<p>Linux with systemd-resolved:</p>
+<pre><code class="language-bash">sudo resolvectl flush-caches
+resolvectl status
+</code></pre>
+<h2 id="step-4-chrome-specific-checks">Step 4: Chrome-specific checks</h2>
+<ul>
+<li>Clear Chrome's host cache: open <code>chrome://net-internals/#dns</code> → "Clear host cache", then <code>chrome://net-internals/#sockets</code> → "Flush socket pools".</li>
+<li>Secure DNS: Settings → Privacy and security → Security → "Use secure DNS". Try switching it off, or pick a provider such as Cloudflare explicitly; some networks block DNS-over-HTTPS.</li>
+<li>Extensions: test in an Incognito window (extensions disabled by default).</li>
+<li>Proxy: Chrome uses the system proxy. Disable any proxy you don't recognise.</li>
+</ul>
+<h2 id="step-5-vpn-firewall-and-security-software">Step 5: VPN, firewall and security software</h2>
+<p>A disconnected or half-connected VPN often leaves DNS pointing to an unreachable server. Disconnect it fully or reinstall its network adapter. Antivirus "web shields" and firewalls can block DNS; temporarily disable them to test.</p>
+<h2 id="step-6-hosts-file-and-adapters">Step 6: hosts file and adapters</h2>
+<p>Check the hosts file for unexpected entries: <code>C:\Windows\System32\drivers\etc\hosts</code> or <code>/etc/hosts</code>. On Windows, outdated Wi-Fi drivers or a power-saving setting on the adapter can drop connectivity; update the driver, or in Device Manager uncheck "Allow the computer to turn off this device to save power".</p>
+<h2 id="for-site-owners">For site owners</h2>
+<p>If only <em>your</em> domain fails for visitors with <code>NXDOMAIN</code>, the DNS records are the problem: check them with <code>dig +trace yourdomain.com</code> and confirm the nameservers at your registrar.</p>
+<p class="upd">Last updated 2026-11-18.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-temporary-failure-in-name-resolution/">Temporary failure in name resolution</a></li><li><a href="/web/web-err-connection-refused/">ERR_CONNECTION_REFUSED</a></li><li><a href="/web/web-err-name-not-resolved/">ERR_NAME_NOT_RESOLVED</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

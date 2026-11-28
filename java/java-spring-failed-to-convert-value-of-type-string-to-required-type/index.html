@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Failed to convert value of type &#x27;java.lang.String&#x27; to required type — how to fix</title>
+<meta name="description" content="Spring MVC couldn&#x27;t convert a request parameter, path variable or header from its string form to the Java type of your controller parameter, for example &quot;abc&quot; or &quot;undefined&quot; to Long, or a date string in the wrong format to LocalDate. It returns 400 Bad Request.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-spring-failed-to-convert-value-of-type-string-to-required-type/">
+<meta property="og:title" content="Failed to convert value of type &#x27;java.lang.String&#x27; to required type — how to fix"><meta property="og:description" content="Spring MVC couldn&#x27;t convert a request parameter, path variable or header from its string form to the Java type of your controller parameter, for example &quot;abc&quot; or &quot;undefined&quot; to Long, or a date string in the wrong format to LocalDate. It returns 400 Bad Request.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-spring-failed-to-convert-value-of-type-string-to-required-type/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Failed to convert value of type 'java.lang.String' to required type \u2014 how to fix", "description": "Spring MVC couldn't convert a request parameter, path variable or header from its string form to the Java type of your controller parameter, for example \"abc\" or \"undefined\" to Long, or a date string in the wrong format to LocalDate. It returns 400 Bad Request.", "dateModified": "2026-11-26", "url": "https://errorfix-hollis.github.io/java/java-spring-failed-to-convert-value-of-type-string-to-required-type/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "Failed to convert value of type 'java.lang.String' to required type", "item": "https://errorfix-hollis.github.io/java/java-spring-failed-to-convert-value-of-type-string-to-required-type/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>Failed to convert value of type &#x27;java.lang.String&#x27; to required type — how to fix</h1>
+<pre class="err"><code>Resolved [org.springframework.web.method.annotation.MethodArgumentTypeMismatchException: Failed to convert value of type &#x27;java.lang.String&#x27; to required type &#x27;java.lang.Long&#x27;; For input string: &quot;undefined&quot;]
+Failed to convert value of type &#x27;java.lang.String&#x27; to required type &#x27;java.time.LocalDate&#x27;; Failed to convert from type [java.lang.String] to type [@org.springframework.web.bind.annotation.RequestParam java.time.LocalDate] for value &#x27;2024-13-01&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the actual value in the log (<code>For input string: "undefined"</code> usually means the frontend sent a missing id). Fix the client, or adapt the controller: use the right type, <code>@DateTimeFormat(iso = DateTimeFormat.ISO.DATE)</code> for dates, <code>@RequestParam(required = false)</code> for optional values, or a custom <code>Converter&lt;String, T&gt;</code> for your own types.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Request parameters, path variables and headers always arrive as strings. Spring converts them to your method parameter types with its <code>ConversionService</code>. When that fails it throws <code>MethodArgumentTypeMismatchException</code> (a <code>TypeMismatchException</code>) and, by default, responds with <strong>400 Bad Request</strong>. The end of the message shows the offending value.</p>
+<pre><code class="language-java">@GetMapping(&quot;/users/{id}&quot;)
+public User get(@PathVariable Long id) { ... }
+// GET /users/undefined -&gt; Failed to convert value of type 'java.lang.String' to required type 'java.lang.Long'
+</code></pre>
+<h2 id="cause-1-the-client-sent-a-bad-value">Cause 1: the client sent a bad value</h2>
+<p><code>For input string: "undefined"</code> or <code>"null"</code> is almost always a frontend bug: a template like <code>`/users/${user.id}`</code> where <code>user.id</code> wasn't set yet. Check the request URL in the browser's Network tab and fix the caller. Don't make the server accept "undefined".</p>
+<h2 id="cause-2-path-conflict-the-wrong-handler-matched">Cause 2: path conflict — the wrong handler matched</h2>
+<pre><code class="language-java">@GetMapping(&quot;/users/{id}&quot;)     // Long id
+@GetMapping(&quot;/users/search&quot;)   // missing or with typo
+</code></pre>
+<p><code>GET /users/serch</code> matches <code>{id}</code> and fails conversion. Make sure the literal mapping exists, or restrict the variable with a regex: <code>@GetMapping("/users/{id:\\d+}")</code>.</p>
+<h2 id="cause-3-datetime-formats">Cause 3: date/time formats</h2>
+<p><code>LocalDate</code>, <code>LocalDateTime</code> and <code>Date</code> don't convert from arbitrary strings.</p>
+<h2 id="fix-3-declare-the-format">Fix 3: declare the format</h2>
+<pre><code class="language-java">@GetMapping(&quot;/orders&quot;)
+public List&lt;Order&gt; list(
+    @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+    @RequestParam @DateTimeFormat(pattern = &quot;dd.MM.yyyy&quot;) LocalDate to) { ... }
+</code></pre>
+<p>Or set it globally in <code>application.properties</code>:</p>
+<pre><code class="language-properties">spring.mvc.format.date=yyyy-MM-dd
+spring.mvc.format.date-time=yyyy-MM-dd HH:mm:ss
+</code></pre>
+<p>Note these settings affect query/path/form values; JSON bodies are handled by Jackson (<code>@JsonFormat</code>), which fails with a different <code>HttpMessageNotReadableException</code>.</p>
+<h2 id="cause-4-enum-value-doesnt-match">Cause 4: enum value doesn't match</h2>
+<p><code>?status=active</code> for <code>enum Status { ACTIVE, INACTIVE }</code> fails because the default conversion is case-sensitive and uses <code>Enum.valueOf</code>. Send <code>ACTIVE</code>, or register a converter:</p>
+<pre><code class="language-java">@Component
+public class StatusConverter implements Converter&lt;String, Status&gt; {
+    @Override
+    public Status convert(String source) {
+        return Status.valueOf(source.trim().toUpperCase());
+    }
+}
+</code></pre>
+<p>Spring Boot picks up <code>Converter</code> beans automatically.</p>
+<h2 id="cause-5-empty-values-for-primitives">Cause 5: empty values for primitives</h2>
+<p><code>?page=</code> with <code>int page</code> fails. Use a wrapper type with a default:</p>
+<pre><code class="language-java">@RequestParam(defaultValue = &quot;0&quot;) int page
+@RequestParam(required = false) Integer limit
+</code></pre>
+<h2 id="cause-6-converting-to-your-own-class">Cause 6: converting to your own class</h2>
+<p><code>@RequestParam UserFilter filter</code> or <code>@PathVariable User user</code> has no converter. Either bind query params to an object without <code>@RequestParam</code> (<code>public List&lt;User&gt; list(UserFilter filter)</code> — Spring binds fields by name), or implement <code>Converter&lt;String, User&gt;</code>.</p>
+<h2 id="return-a-cleaner-error">Return a cleaner error</h2>
+<pre><code class="language-java">@RestControllerAdvice
+class ApiErrors {
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity&lt;Map&lt;String, String&gt;&gt; typeMismatch(MethodArgumentTypeMismatchException e) {
+        return ResponseEntity.badRequest().body(Map.of(
+            &quot;error&quot;, &quot;Invalid value '&quot; + e.getValue() + &quot;' for parameter '&quot; + e.getName() + &quot;'&quot;));
+    }
+}
+</code></pre>
+<p class="upd">Last updated 2026-11-26.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-numberformatexception-for-input-string/">java.lang.NumberFormatException: For input string</a></li><li><a href="/java/java-spring-request-method-post-not-supported/">Request method &#x27;POST&#x27; is not supported</a></li><li><a href="/java/java-spring-whitelabel-error-page/">Whitelabel Error Page</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

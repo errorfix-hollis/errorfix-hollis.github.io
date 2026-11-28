@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>org.hibernate.LazyInitializationException: could not initialize proxy - no Session (Java) — how to fix</title>
+<meta name="description" content="You accessed a lazy-loaded association (a @OneToMany collection or a lazy @ManyToOne proxy) after the Hibernate Session / transaction that loaded the entity was closed, so Hibernate can no longer query it. Load the data while the session is open, or return a DTO.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-lazyinitializationexception-could-not-initialize-proxy-no-session/">
+<meta property="og:title" content="org.hibernate.LazyInitializationException: could not initialize proxy - no Session (Java) — how to fix"><meta property="og:description" content="You accessed a lazy-loaded association (a @OneToMany collection or a lazy @ManyToOne proxy) after the Hibernate Session / transaction that loaded the entity was closed, so Hibernate can no longer query it. Load the data while the session is open, or return a DTO.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-lazyinitializationexception-could-not-initialize-proxy-no-session/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "org.hibernate.LazyInitializationException: could not initialize proxy - no Session (Java) \u2014 how to fix", "description": "You accessed a lazy-loaded association (a @OneToMany collection or a lazy @ManyToOne proxy) after the Hibernate Session / transaction that loaded the entity was closed, so Hibernate can no longer query it. Load the data while the session is open, or return a DTO.", "dateModified": "2026-11-28", "url": "https://errorfix-hollis.github.io/java/java-lazyinitializationexception-could-not-initialize-proxy-no-session/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "org.hibernate.LazyInitializationException: could not initialize proxy - no Session", "item": "https://errorfix-hollis.github.io/java/java-lazyinitializationexception-could-not-initialize-proxy-no-session/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>org.hibernate.LazyInitializationException: could not initialize proxy - no Session (Java) — how to fix</h1>
+<pre class="err"><code>org.hibernate.LazyInitializationException: failed to lazily initialize a collection of role: com.example.shop.Customer.orders, could not initialize proxy - no Session
+	at org.hibernate.collection.spi.AbstractPersistentCollection.throwLazyInitializationException(AbstractPersistentCollection.java:635)
+	at org.hibernate.collection.spi.AbstractPersistentCollection.withTemporarySessionIfNeeded(AbstractPersistentCollection.java:218)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Fetch what you need in the query: <code>@Query("select c from Customer c left join fetch c.orders where c.id = :id")</code> or <code>@EntityGraph(attributePaths = "orders")</code> on the repository method. Or do the work inside a <code>@Transactional</code> service method and map to a DTO before returning. Avoid switching to <code>FetchType.EAGER</code> or enabling <code>hibernate.enable_lazy_load_no_trans</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>With <code>FetchType.LAZY</code> (the default for <code>@OneToMany</code> and <code>@ManyToMany</code>, and common for <code>@ManyToOne</code>), Hibernate doesn't load the association with the entity. It puts a placeholder (a persistent collection or a proxy) there and runs the query the first time you touch it. That query needs the Session that loaded the entity. If the transaction has already ended, the entity is <em>detached</em> and Hibernate throws <code>LazyInitializationException</code>.</p>
+<p>Typical places it happens:</p>
+<ul>
+<li>in a controller or view, after the <code>@Transactional</code> service method returned;</li>
+<li>during JSON serialization (Jackson walking <code>customer.getOrders()</code>);</li>
+<li>in <code>@Async</code> methods, scheduled jobs, Kafka/Rabbit listeners and tests without a transaction;</li>
+<li>in <code>toString()</code>, <code>equals()</code> or <code>hashCode()</code> that include lazy fields (including Lombok <code>@Data</code>).</li>
+</ul>
+<h2 id="fix-1-fetch-it-in-the-query">Fix 1: fetch it in the query</h2>
+<p>Load exactly what the use case needs, in one query:</p>
+<pre><code class="language-java">public interface CustomerRepository extends JpaRepository&lt;Customer, Long&gt; {
+
+    @Query(&quot;select c from Customer c left join fetch c.orders where c.id = :id&quot;)
+    Optional&lt;Customer&gt; findWithOrders(@Param(&quot;id&quot;) Long id);
+
+    @EntityGraph(attributePaths = {&quot;orders&quot;})
+    List&lt;Customer&gt; findByCountry(String country);
+}
+</code></pre>
+<p>Fetching more than one collection (bag) at once with <code>join fetch</code> fails with <code>MultipleBagFetchException</code>; fetch one collection per query, or use <code>Set</code> for the collections.</p>
+<h2 id="fix-2-do-the-work-inside-a-transaction">Fix 2: do the work inside a transaction</h2>
+<p>Keep code that walks associations in a transactional service method, and return plain data:</p>
+<pre><code class="language-java">@Service
+public class CustomerService {
+
+    @Transactional(readOnly = true)
+    public CustomerDto getCustomer(Long id) {
+        Customer c = repo.findById(id).orElseThrow();
+        return new CustomerDto(c.getName(),
+                c.getOrders().stream().map(o -&gt; o.getId()).toList());
+    }
+}
+</code></pre>
+<p><code>@Transactional</code> only works on public methods called through the Spring proxy. Calling it from another method in the same class (<code>this.getCustomer(...)</code>) bypasses the proxy, so no transaction is started.</p>
+<h2 id="fix-3-dont-serialize-entities-directly">Fix 3: don't serialize entities directly</h2>
+<p>Returning entities from REST controllers makes Jackson touch every lazy field. Return DTOs (Fix 2) or a Spring Data projection:</p>
+<pre><code class="language-java">public interface CustomerSummary {
+    String getName();
+    String getEmail();
+}
+
+List&lt;CustomerSummary&gt; findByCountry(String country);
+</code></pre>
+<p>This also avoids infinite recursion on bidirectional relationships.</p>
+<h2 id="fix-4-initialize-explicitly">Fix 4: initialize explicitly</h2>
+<p>If you need the association later, initialize it while the session is still open:</p>
+<pre><code class="language-java">@Transactional(readOnly = true)
+public Customer load(Long id) {
+    Customer c = repo.findById(id).orElseThrow();
+    Hibernate.initialize(c.getOrders());
+    return c;
+}
+</code></pre>
+<h2 id="fix-5-fix-tostring-equals-hashcode">Fix 5: fix toString / equals / hashCode</h2>
+<p>Exclude lazy associations from <code>toString()</code>, <code>equals()</code> and <code>hashCode()</code>. With Lombok, avoid <code>@Data</code> on entities, or use <code>@ToString.Exclude</code> and <code>@EqualsAndHashCode.Exclude</code> on association fields.</p>
+<h2 id="what-not-to-do">What not to do</h2>
+<ul>
+<li><strong><code>FetchType.EAGER</code> everywhere</strong>: hides the error but loads large object graphs on every query and causes N+1 queries.</li>
+<li><strong><code>hibernate.enable_lazy_load_no_trans=true</code></strong>: opens a new session per lazy load, which is slow and hides transactional bugs.</li>
+<li><strong>Relying on Open Session in View</strong>: Spring Boot enables <code>spring.jpa.open-in-view</code> by default (and logs a warning), which is why the same code may work in a controller but fail in an <code>@Async</code> method or a test. Many teams set <code>spring.jpa.open-in-view=false</code> and fetch explicitly as above.</li>
+</ul>
+<p class="upd">Last updated 2026-11-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-failed-to-load-applicationcontext/">java.lang.IllegalStateException: Failed to load ApplicationContext</a></li><li><a href="/java/java-spring-field-required-a-bean-of-type-that-could-not-be-found/">Field required a bean of type that could not be found.</a></li><li><a href="/java/java-stackoverflowerror/">Exception in thread &quot;main&quot; java.lang.StackOverflowError</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

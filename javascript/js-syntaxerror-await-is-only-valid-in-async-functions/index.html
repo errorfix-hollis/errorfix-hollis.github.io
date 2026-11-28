@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SyntaxError: await is only valid in async functions and the top level bodies of modules (JavaScript) — how to fix</title>
+<meta name="description" content="You used await inside a function that isn&#x27;t marked async, or at the top level of a CommonJS script / classic browser script. Top-level await only works in ES modules.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-syntaxerror-await-is-only-valid-in-async-functions/">
+<meta property="og:title" content="SyntaxError: await is only valid in async functions and the top level bodies of modules (JavaScript) — how to fix"><meta property="og:description" content="You used await inside a function that isn&#x27;t marked async, or at the top level of a CommonJS script / classic browser script. Top-level await only works in ES modules.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-syntaxerror-await-is-only-valid-in-async-functions/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "SyntaxError: await is only valid in async functions and the top level bodies of modules (JavaScript) \u2014 how to fix", "description": "You used await inside a function that isn't marked async, or at the top level of a CommonJS script / classic browser script. Top-level await only works in ES modules.", "dateModified": "2026-11-25", "url": "https://errorfix-hollis.github.io/javascript/js-syntaxerror-await-is-only-valid-in-async-functions/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "SyntaxError: await is only valid in async functions and the top level bodies of modules", "item": "https://errorfix-hollis.github.io/javascript/js-syntaxerror-await-is-only-valid-in-async-functions/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>SyntaxError: await is only valid in async functions and the top level bodies of modules (JavaScript) — how to fix</h1>
+<pre class="err"><code>const data = await fetchData();
+             ^^^^^
+SyntaxError: await is only valid in async functions and the top level bodies of modules
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Mark the enclosing function <code>async</code> (<code>async function load() { await ... }</code>, <code>async () =&gt; {...}</code>). Inside callbacks like <code>forEach</code> or <code>.map</code>, the callback itself must be async; use <code>for...of</code> or <code>await Promise.all(arr.map(async x =&gt; ...))</code>. For top-level await use an ES module (<code>"type": "module"</code> in package.json, <code>.mjs</code>, or <code>&lt;script type="module"&gt;</code>) or wrap in <code>(async () =&gt; { ... })();</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>await</code> is only a keyword in two places: inside an <code>async</code> function, and at the top level of an <strong>ES module</strong>. Anywhere else the parser rejects it before running any code.</p>
+<p>Other wordings of the same error:</p>
+<ul>
+<li>Chrome/Node: <code>await is only valid in async functions and the top level bodies of modules</code></li>
+<li>Firefox: <code>await is only valid in async functions, async generators and modules</code></li>
+<li>Babel / older tools: <code>Unexpected reserved word 'await'</code></li>
+<li>TypeScript: <code>TS1308: 'await' expressions are only allowed within async functions and at the top levels of modules.</code></li>
+</ul>
+<h2 id="cause-1-the-function-isnt-async">Cause 1: the function isn't async</h2>
+<pre><code class="language-js">function loadUser(id) {
+  const res = await fetch(`/api/users/${id}`);  // SyntaxError
+  return res.json();
+}
+</code></pre>
+<p>Fix:</p>
+<pre><code class="language-js">async function loadUser(id) {
+  const res = await fetch(`/api/users/${id}`);
+  return res.json();
+}
+
+const loadUser2 = async (id) =&gt; { /* ... */ };
+class Api { async load() { /* ... */ } }
+</code></pre>
+<p>Callers now get a Promise and must <code>await</code> it too (or use <code>.then()</code>).</p>
+<h2 id="cause-2-await-inside-a-callback">Cause 2: await inside a callback</h2>
+<p>Even inside an async function, a nested callback is its own function:</p>
+<pre><code class="language-js">async function saveAll(items) {
+  items.forEach(item =&gt; {
+    await save(item);          // SyntaxError: callback isn't async
+  });
+}
+</code></pre>
+<p>Making the callback <code>async</code> compiles, but <code>forEach</code> won't wait for it. Use one of:</p>
+<pre><code class="language-js">// one after another
+for (const item of items) {
+  await save(item);
+}
+
+// in parallel
+await Promise.all(items.map(item =&gt; save(item)));
+</code></pre>
+<p>Same for <code>setTimeout</code>, event listeners, <code>new Promise(resolve =&gt; ...)</code> executors and React <code>useEffect</code>: mark the callback async, or (for <code>useEffect</code>, which must not return a Promise) define an async function inside and call it:</p>
+<pre><code class="language-js">useEffect(() =&gt; {
+  async function load() { setData(await fetchData()); }
+  load();
+}, []);
+</code></pre>
+<h2 id="cause-3-top-level-await-in-commonjs-nodejs">Cause 3: top-level await in CommonJS (Node.js)</h2>
+<p>Node treats <code>.js</code> files as CommonJS unless told otherwise, and CommonJS has no top-level await.</p>
+<p>Option A: make it an ES module: add <code>"type": "module"</code> to <code>package.json</code>, or rename the file to <code>.mjs</code>. (Then use <code>import</code> instead of <code>require</code>.)</p>
+<p>Option B: wrap the code:</p>
+<pre><code class="language-js">(async () =&gt; {
+  const data = await fetchData();
+  console.log(data);
+})().catch(err =&gt; { console.error(err); process.exit(1); });
+</code></pre>
+<h2 id="cause-4-top-level-await-in-a-browser-script">Cause 4: top-level await in a browser script</h2>
+<p>Classic <code>&lt;script&gt;</code> tags aren't modules. Use:</p>
+<pre><code class="language-html">&lt;script type=&quot;module&quot; src=&quot;app.js&quot;&gt;&lt;/script&gt;
+</code></pre>
+<p>or wrap in an async IIFE as above.</p>
+<h2 id="cause-5-typescript-bundler-target">Cause 5: TypeScript / bundler target</h2>
+<p>TypeScript allows top-level await only with <code>"module"</code> set to <code>es2022</code>, <code>esnext</code>, <code>node16</code>/<code>nodenext</code> or <code>preserve</code>, and <code>"target"</code> <code>es2017</code> or higher. Otherwise you get TS1378. Update <code>tsconfig.json</code>:</p>
+<pre><code class="language-json">{ &quot;compilerOptions&quot;: { &quot;target&quot;: &quot;es2022&quot;, &quot;module&quot;: &quot;es2022&quot; } }
+</code></pre>
+<p>Bundlers (Vite, webpack 5) support top-level await in ESM output; webpack 4 needs <code>experiments.topLevelAwait</code>.</p>
+<p class="upd">Last updated 2026-11-25.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-require-is-not-defined/">ReferenceError: require is not defined</a></li><li><a href="/javascript/js-syntaxerror-unexpected-token-export/">SyntaxError: Unexpected token &#x27;export&#x27;</a></li><li><a href="/javascript/node-cannot-use-import-statement-outside-a-module/">SyntaxError: Cannot use import statement outside a module</a></li><li><a href="/javascript/js-a-component-is-changing-an-uncontrolled-input-to-be-controlled/">Warning: A component is changing an uncontrolled input to be controlled.</a></li><li><a href="/javascript/js-cannot-read-properties-of-null/">TypeError: Cannot read properties of null (reading &#x27;...&#x27;)</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

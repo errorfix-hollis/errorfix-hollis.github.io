@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal: You are not currently on a branch. (Git) — how to fix</title>
+<meta name="description" content="git push or git pull was run while HEAD is detached (pointing at a commit, not a branch), so Git doesn&#x27;t know which branch to update.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-you-are-not-currently-on-a-branch/">
+<meta property="og:title" content="fatal: You are not currently on a branch. (Git) — how to fix"><meta property="og:description" content="git push or git pull was run while HEAD is detached (pointing at a commit, not a branch), so Git doesn&#x27;t know which branch to update.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-you-are-not-currently-on-a-branch/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal: You are not currently on a branch. (Git) \u2014 how to fix", "description": "git push or git pull was run while HEAD is detached (pointing at a commit, not a branch), so Git doesn't know which branch to update.", "dateModified": "2026-11-21", "url": "https://errorfix-hollis.github.io/git/git-you-are-not-currently-on-a-branch/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "fatal: You are not currently on a branch.", "item": "https://errorfix-hollis.github.io/git/git-you-are-not-currently-on-a-branch/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>fatal: You are not currently on a branch. (Git) — how to fix</h1>
+<pre class="err"><code>fatal: You are not currently on a branch.
+To push the history leading to the current (detached HEAD)
+state now, use
+
+    git push origin HEAD:&lt;name-of-remote-branch&gt;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>git status</code> to see where you are. To keep your commits, create a branch: <code>git switch -c my-fix</code> then <code>git push -u origin my-fix</code>. If you were mid-rebase, finish it with <code>git rebase --continue</code> (or <code>--abort</code>). To push straight to a remote branch: <code>git push origin HEAD:main</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Normally <code>HEAD</code> points at a branch (<code>refs/heads/main</code>), and <code>git push</code>/<code>git pull</code> use that branch and its upstream. In <em>detached HEAD</em> state, <code>HEAD</code> points straight at a commit, so there is no current branch to push or pull. Git refuses rather than guessing.</p>
+<p>Check your state:</p>
+<pre><code class="language-bash">git status
+# HEAD detached at 3f2a1bc
+# or: interactive rebase in progress; onto 9c0d...
+git log --oneline -5
+</code></pre>
+<h2 id="cause-1-you-checked-out-a-tag-a-commit-or-a-remote-branch">Cause 1: you checked out a tag, a commit or a remote branch</h2>
+<p><code>git checkout v1.2.0</code>, <code>git checkout 3f2a1bc</code> or <code>git checkout origin/main</code> all detach HEAD. If you made commits there, put them on a branch before doing anything else:</p>
+<pre><code class="language-bash">git switch -c my-fix        # new branch at the current commit
+git push -u origin my-fix
+</code></pre>
+<p>If you meant to work on an existing branch, switch to it and bring the commits over:</p>
+<pre><code class="language-bash">git branch tmp              # save detached commits
+git switch main
+git merge tmp               # or: git cherry-pick &lt;sha&gt;
+git branch -d tmp
+</code></pre>
+<h2 id="cause-2-a-rebase-is-in-progress">Cause 2: a rebase is in progress</h2>
+<p>During <code>git rebase</code>, HEAD is detached until the rebase finishes. If a conflict stopped it:</p>
+<pre><code class="language-bash"># fix files, then
+git add &lt;files&gt;
+git rebase --continue
+# or give up and go back
+git rebase --abort
+</code></pre>
+<p>After it completes you are back on your branch and can push (often with <code>--force-with-lease</code> after a rebase).</p>
+<h2 id="cause-3-submodules">Cause 3: submodules</h2>
+<p>Submodules are checked out at a specific commit, so they are always detached by default. Before committing inside one:</p>
+<pre><code class="language-bash">cd path/to/submodule
+git switch main             # or the branch you track
+git pull
+</code></pre>
+<p>Or use <code>git submodule update --remote --merge</code>.</p>
+<h2 id="cause-4-ci-pipelines">Cause 4: CI pipelines</h2>
+<p>Many CI systems (GitHub Actions, GitLab CI, Jenkins) check out a single commit, leaving HEAD detached. Push with an explicit refspec:</p>
+<pre><code class="language-bash">git push origin HEAD:main
+# GitLab
+git push origin HEAD:&quot;$CI_COMMIT_REF_NAME&quot;
+</code></pre>
+<p>For <code>git pull</code>, also name the branch: <code>git pull origin main</code>.</p>
+<h2 id="recovering-lost-commits">Recovering "lost" commits</h2>
+<p>If you already switched away and your detached commits seem gone, find them in the reflog:</p>
+<pre><code class="language-bash">git reflog
+git branch rescue &lt;sha&gt;
+</code></pre>
+<p class="upd">Last updated 2026-11-21.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-detached-head/">You are in &#x27;detached HEAD&#x27; state.</a></li><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-no-upstream-branch/">fatal: The current branch has no upstream branch.</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

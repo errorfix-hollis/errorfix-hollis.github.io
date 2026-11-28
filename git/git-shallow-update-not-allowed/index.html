@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>! [remote rejected] main -&gt; main (shallow update not allowed) (Git) — how to fix</title>
+<meta name="description" content="You&#x27;re pushing from a shallow clone (made with `--depth`, e.g. by CI or `git clone --depth 1`) to a remote that doesn&#x27;t have the missing older history. The remote can&#x27;t accept a history with a cut-off root.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-shallow-update-not-allowed/">
+<meta property="og:title" content="! [remote rejected] main -&gt; main (shallow update not allowed) (Git) — how to fix"><meta property="og:description" content="You&#x27;re pushing from a shallow clone (made with `--depth`, e.g. by CI or `git clone --depth 1`) to a remote that doesn&#x27;t have the missing older history. The remote can&#x27;t accept a history with a cut-off root.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-shallow-update-not-allowed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "! [remote rejected] main -> main (shallow update not allowed) (Git) \u2014 how to fix", "description": "You're pushing from a shallow clone (made with `--depth`, e.g. by CI or `git clone --depth 1`) to a remote that doesn't have the missing older history. The remote can't accept a history with a cut-off root.", "dateModified": "2026-11-23", "url": "https://errorfix-hollis.github.io/git/git-shallow-update-not-allowed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "! [remote rejected] main -> main (shallow update not allowed)", "item": "https://errorfix-hollis.github.io/git/git-shallow-update-not-allowed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>! [remote rejected] main -&gt; main (shallow update not allowed) (Git) — how to fix</h1>
+<pre class="err"><code>To github.com:me/new-repo.git
+ ! [remote rejected] main -&gt; main (shallow update not allowed)
+error: failed to push some refs to &#x27;github.com:me/new-repo.git&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Fetch the full history, then push again: <code>git fetch --unshallow origin</code> (check with <code>git rev-parse --is-shallow-repository</code>). If the original remote is gone, start a fresh history instead: <code>git checkout --orphan new-main &amp;&amp; git commit -m "Initial import"</code> and push that. In GitHub Actions use <code>actions/checkout</code> with <code>fetch-depth: 0</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A shallow clone (<code>git clone --depth 1</code>) has only the latest commits; the oldest one is "grafted", with its parents missing. Pushing that to a remote that already has the full history is fine. Pushing it to a <em>new or different</em> remote is not: the remote would receive commits whose parents it doesn't have, and by default it refuses (<code>receive.shallowUpdate</code> is false).</p>
+<p>Check whether your repo is shallow:</p>
+<pre><code class="language-bash">git rev-parse --is-shallow-repository    # true / false
+cat .git/shallow                         # grafted commit IDs, if shallow
+git log --oneline | tail -3              # history stops early
+</code></pre>
+<h2 id="fix-1-fetch-the-full-history-then-push">Fix 1: fetch the full history, then push</h2>
+<p>If the original remote (where you cloned from) is still reachable:</p>
+<pre><code class="language-bash">git fetch --unshallow origin
+git push new-remote main
+</code></pre>
+<p>To mirror <em>all</em> branches and tags to the new remote:</p>
+<pre><code class="language-bash">git fetch --unshallow origin
+git fetch origin '+refs/heads/*:refs/remotes/origin/*'
+git push new-remote --all
+git push new-remote --tags
+</code></pre>
+<p>A single-branch shallow clone only tracks one branch; the second fetch line widens it. Alternatively, start over with a full mirror clone:</p>
+<pre><code class="language-bash">git clone --mirror https://github.com/old/repo.git
+cd repo.git
+git push --mirror https://github.com/me/new-repo.git
+</code></pre>
+<h2 id="fix-2-the-original-history-isnt-available">Fix 2: the original history isn't available</h2>
+<p>If you can't unshallow (template download, deleted upstream, you only have the snapshot), create a new root commit from the current files:</p>
+<pre><code class="language-bash">git checkout --orphan fresh
+git add -A
+git commit -m &quot;Initial import&quot;
+git branch -D main
+git branch -m main
+git push -u new-remote main
+</code></pre>
+<p>The old history is dropped; the remote gets a clean single-commit history.</p>
+<h2 id="fix-3-ci-pipelines">Fix 3: CI pipelines</h2>
+<p>Most CI systems clone shallow by default. If a job pushes to another remote (mirroring to GitLab, deploying to Heroku/Dokku via git push), fetch full history.</p>
+<p>GitHub Actions:</p>
+<pre><code class="language-yaml">- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0
+</code></pre>
+<p>GitLab CI:</p>
+<pre><code class="language-yaml">variables:
+  GIT_DEPTH: 0
+</code></pre>
+<p>Shallow clones also break tools that need history, e.g. <code>git describe</code> (version from tags), changelog generators, and SonarQube blame. <code>fetch-depth: 0</code> fixes those too.</p>
+<h2 id="fix-4-allow-shallow-pushes-on-your-own-server">Fix 4: allow shallow pushes on your own server</h2>
+<p>On a self-hosted bare repo you control, you can accept shallow pushes:</p>
+<pre><code class="language-bash">git -C /srv/git/repo.git config receive.shallowUpdate true
+</code></pre>
+<p>The server's repo then becomes shallow too, which is rarely what you want. Prefer Fix 1.</p>
+<h2 id="related-pulling-into-a-shallow-clone">Related: pulling into a shallow clone</h2>
+<p><code>fatal: refusing to merge unrelated histories</code> after pulling in a shallow clone happens when the merge base is older than your depth. Deepen with <code>git fetch --deepen=100</code> or <code>git fetch --unshallow</code>, then merge again.</p>
+<p class="upd">Last updated 2026-11-23.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-refusing-to-merge-unrelated-histories/">fatal: refusing to merge unrelated histories</a></li><li><a href="/git/git-rpc-failed-curl-92-early-eof/">error: RPC failed; curl 92 HTTP/2 stream 0 was not closed cleanly</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

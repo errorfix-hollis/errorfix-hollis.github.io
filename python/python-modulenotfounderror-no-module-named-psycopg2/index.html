@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;psycopg2&#x27; (Python) — how to fix</title>
+<meta name="description" content="The PostgreSQL driver psycopg2 isn&#x27;t installed in the Python environment that runs your code. Django, SQLAlchemy and Airflow raise it too when you use a postgresql:// database URL.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-psycopg2/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;psycopg2&#x27; (Python) — how to fix"><meta property="og:description" content="The PostgreSQL driver psycopg2 isn&#x27;t installed in the Python environment that runs your code. Django, SQLAlchemy and Airflow raise it too when you use a postgresql:// database URL.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-psycopg2/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'psycopg2' (Python) \u2014 how to fix", "description": "The PostgreSQL driver psycopg2 isn't installed in the Python environment that runs your code. Django, SQLAlchemy and Airflow raise it too when you use a postgresql:// database URL.", "dateModified": "2026-11-25", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-psycopg2/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'psycopg2'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-psycopg2/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;psycopg2&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 1, in &lt;module&gt;
+    import psycopg2
+ModuleNotFoundError: No module named &#x27;psycopg2&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install the binary wheel: <code>python -m pip install psycopg2-binary</code> (no compiler or libpq needed). For production builds from source use <code>pip install psycopg2</code> after installing <code>libpq-dev</code> and <code>python3-dev</code>. Or switch to psycopg 3: <code>pip install "psycopg[binary]"</code> and use <code>postgresql+psycopg://</code> in SQLAlchemy.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>psycopg2</code> is the most common PostgreSQL adapter for Python. It isn't in the standard library, and the package you install has a different name from the module you import, which trips many people up:</p>
+<table>
+<thead>
+<tr>
+<th>pip package</th>
+<th>import as</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>psycopg2-binary</code></td>
+<td><code>import psycopg2</code></td>
+</tr>
+<tr>
+<td><code>psycopg2</code> (source build)</td>
+<td><code>import psycopg2</code></td>
+</tr>
+<tr>
+<td><code>psycopg[binary]</code> (v3)</td>
+<td><code>import psycopg</code></td>
+</tr>
+</tbody>
+</table>
+<p>You also see this error indirectly: Django with <code>ENGINE: django.db.backends.postgresql</code>, or SQLAlchemy with a <code>postgresql://</code> URL, import psycopg2 for you.</p>
+<h2 id="fix-1-install-the-binary-package">Fix 1: install the binary package</h2>
+<pre><code class="language-bash">python -m pip install psycopg2-binary
+python -c &quot;import psycopg2; print(psycopg2.__version__)&quot;
+</code></pre>
+<p><code>psycopg2-binary</code> bundles libpq, so no compiler or PostgreSQL client libs are needed. Add it to <code>requirements.txt</code> too, so your deployment and Docker image get it.</p>
+<h2 id="fix-2-wrong-interpreter-or-venv">Fix 2: wrong interpreter or venv</h2>
+<p>If pip says <em>Requirement already satisfied</em> but the import still fails, pip and your app use different Pythons:</p>
+<pre><code class="language-bash">python -c &quot;import sys; print(sys.executable)&quot;
+which pip   # Windows: where pip
+</code></pre>
+<p>Activate the venv first (<code>source .venv/bin/activate</code>), or select the right interpreter in your IDE, then reinstall with <code>python -m pip</code>. For Poetry: <code>poetry add psycopg2-binary</code>; for Pipenv: <code>pipenv install psycopg2-binary</code>.</p>
+<h2 id="fix-3-building-psycopg2-from-source-fails">Fix 3: building <code>psycopg2</code> from source fails</h2>
+<p><code>pip install psycopg2</code> (without <code>-binary</code>) compiles a C extension. Typical failure:</p>
+<pre><code>Error: pg_config executable not found.
+</code></pre>
+<p>Install the build dependencies, then retry:</p>
+<pre><code class="language-bash"># Debian/Ubuntu
+sudo apt install libpq-dev python3-dev build-essential
+# Fedora/RHEL
+sudo dnf install libpq-devel python3-devel gcc
+# macOS
+brew install libpq &amp;&amp; export PATH=&quot;$(brew --prefix libpq)/bin:$PATH&quot;
+# Alpine (Docker)
+apk add --no-cache postgresql-dev gcc musl-dev
+</code></pre>
+<p>Or simply use <code>psycopg2-binary</code> unless you have a reason not to.</p>
+<h2 id="fix-4-docker-images">Fix 4: Docker images</h2>
+<p>On <code>python:3.x-slim</code> the wheel works out of the box:</p>
+<pre><code class="language-dockerfile">FROM python:3.12-slim
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt   # contains psycopg2-binary
+</code></pre>
+<p>If the error appears only in the container, the package is missing from <code>requirements.txt</code> or you installed it on the host instead of in the image. Rebuild with <code>docker compose build --no-cache</code>.</p>
+<h2 id="fix-5-use-psycopg-3-instead">Fix 5: use psycopg 3 instead</h2>
+<p>New projects can use psycopg 3:</p>
+<pre><code class="language-bash">python -m pip install &quot;psycopg[binary]&quot;
+</code></pre>
+<ul>
+<li>SQLAlchemy URL: <code>postgresql+psycopg://user:pass@host/db</code> (a plain <code>postgresql://</code> still means psycopg2).</li>
+<li>Django 4.2+ uses psycopg 3 automatically if installed, with the same <code>postgresql</code> engine.</li>
+</ul>
+<h2 id="related-importerror-libpqso5">Related: <code>ImportError: ... libpq.so.5</code></h2>
+<p>If the import fails with a shared-library error instead, libpq isn't present at runtime. Install <code>libpq5</code> (Debian) / <code>libpq</code> (Alpine), or use the <code>-binary</code> package.</p>
+<p class="upd">Last updated 2026-11-25.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-postgres-connection-refused/">psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused</a></li><li><a href="/python/python-failed-building-wheel/">error: Failed building wheel for X</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

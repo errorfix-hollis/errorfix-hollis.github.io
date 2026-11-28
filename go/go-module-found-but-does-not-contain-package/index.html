@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>module found, but does not contain package (Go) — how to fix</title>
+<meta name="description" content="Go found the module you asked for, but the import path doesn&#x27;t match any package directory in the version it resolved. Usually a missing /vN major-version suffix, a package that was moved or removed, or a typo in the import path.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-module-found-but-does-not-contain-package/">
+<meta property="og:title" content="module found, but does not contain package (Go) — how to fix"><meta property="og:description" content="Go found the module you asked for, but the import path doesn&#x27;t match any package directory in the version it resolved. Usually a missing /vN major-version suffix, a package that was moved or removed, or a typo in the import path.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-module-found-but-does-not-contain-package/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "module found, but does not contain package (Go) \u2014 how to fix", "description": "Go found the module you asked for, but the import path doesn't match any package directory in the version it resolved. Usually a missing /vN major-version suffix, a package that was moved or removed, or a typo in the import path.", "dateModified": "2026-11-27", "url": "https://errorfix-hollis.github.io/go/go-module-found-but-does-not-contain-package/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "module found, but does not contain package", "item": "https://errorfix-hollis.github.io/go/go-module-found-but-does-not-contain-package/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>module found, but does not contain package (Go) — how to fix</h1>
+<pre class="err"><code>go: finding module for package github.com/example/lib/v2/client
+main.go:5:2: module github.com/example/lib@latest found (v1.8.0), but does not contain package github.com/example/lib/v2/client
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the import path against the module's go.mod and folder layout. For v2+ modules include the suffix in both places: <code>import "github.com/example/lib/v2/client"</code> and <code>go get github.com/example/lib/v2@latest</code>. If the package moved, update the import; if it exists only in a newer/older tag, <code>go get module@version</code> that has it, then <code>go mod tidy</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>An import path is <code>&lt;module path&gt;/&lt;subdirectory&gt;</code>. Go looks for the longest module path that matches your import, downloads that module (at <code>@latest</code> if it's not in <code>go.mod</code>), and then looks for the subdirectory. The module exists, but that folder with <code>.go</code> files doesn't exist in that version.</p>
+<p>The error names the version Go picked — <code>@latest found (v1.8.0)</code> — which is the key clue. Inspect it:</p>
+<pre><code class="language-bash">go list -m -versions github.com/example/lib
+go mod download -json github.com/example/lib@v1.8.0   # shows the local Dir
+ls &quot;$(go env GOMODCACHE)/github.com/example/lib@v1.8.0&quot;
+</code></pre>
+<h2 id="cause-1-missing-or-wrong-major-version-suffix">Cause 1: missing or wrong major version suffix</h2>
+<p>Since modules v2+, the major version is part of the module path (<code>module github.com/example/lib/v2</code> in its <code>go.mod</code>). Without the suffix, Go resolves the latest <strong>v0/v1</strong> release, which may not have the package:</p>
+<pre><code class="language-go">import &quot;github.com/go-chi/chi/middleware&quot;     // resolves v1.x
+import &quot;github.com/go-chi/chi/v5/middleware&quot;  // v5
+</code></pre>
+<pre><code class="language-bash">go get github.com/go-chi/chi/v5@latest
+go mod tidy
+</code></pre>
+<p>The reverse also happens: an import with <code>/v2</code> for a module that never published a v2 module path. Check the <code>module</code> line of the repo's <code>go.mod</code> on the tag you want.</p>
+<h2 id="cause-2-the-package-moved-was-renamed-or-removed">Cause 2: the package moved, was renamed or removed</h2>
+<p>Libraries reorganize: packages move under <code>pkg/</code>, <code>internal/</code>, or into separate modules. Look at the repository for that version tag, or the docs on pkg.go.dev, and update the import. Packages under <code>internal/</code> can't be imported from another module at all.</p>
+<h2 id="cause-3-the-package-lives-in-a-separate-nested-module">Cause 3: the package lives in a separate (nested) module</h2>
+<p>Some repos contain multiple modules, e.g. <code>github.com/aws/aws-sdk-go-v2/service/s3</code> has its own <code>go.mod</code>. The root module doesn't contain that package; get the nested module explicitly:</p>
+<pre><code class="language-bash">go get github.com/aws/aws-sdk-go-v2/service/s3
+</code></pre>
+<h2 id="cause-4-the-version-you-pinned-doesnt-have-it-yet">Cause 4: the version you pinned doesn't have it yet</h2>
+<p>The package was added after the version in your <code>go.mod</code>, or only exists on a branch:</p>
+<pre><code class="language-bash">go get github.com/example/lib@v1.9.0
+go get github.com/example/lib@main        # pseudo-version from a branch
+</code></pre>
+<h2 id="cause-5-your-own-module-path-doesnt-match-the-import">Cause 5: your own module path doesn't match the import</h2>
+<p>Importing your own packages with a path that doesn't start with the <code>module</code> line in your <code>go.mod</code> makes Go fetch your repo from the network (often an old pushed version):</p>
+<pre><code>// go.mod
+module github.com/me/app
+
+// main.go
+import &quot;github.com/me/app/internal/db&quot;   // must use exactly this prefix
+</code></pre>
+<p>After renaming the module or repo, update the <code>module</code> line and all imports. While developing two local modules together, use a <code>replace</code> directive or a workspace:</p>
+<pre><code class="language-bash">go mod edit -replace github.com/me/lib=../lib
+# or
+go work init . ../lib
+</code></pre>
+<h2 id="cause-6-a-stale-proxy-or-cache">Cause 6: a stale proxy or cache</h2>
+<p>A freshly pushed tag may not be visible through <code>proxy.golang.org</code> yet. For private repos set <code>GOPRIVATE</code>:</p>
+<pre><code class="language-bash">go env -w GOPRIVATE=github.com/mycompany/*
+GOPROXY=direct go get github.com/example/lib@v1.9.0
+</code></pre>
+<p class="upd">Last updated 2026-11-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-cannot-find-main-module/">go: cannot find main module, but found .git/config</a></li><li><a href="/go/go-missing-go-sum-entry/">missing go.sum entry for module providing package</a></li><li><a href="/go/go-no-required-module-provides-package/">no required module provides package</a></li><li><a href="/go/go-all-goroutines-are-asleep-deadlock/">fatal error: all goroutines are asleep - deadlock!</a></li><li><a href="/go/go-cannot-use-as-value-in-assignment/">cannot use x (variable of type T) as U value in assignment</a></li><li><a href="/go/go-cannot-use-nil-as-type/">cannot use nil as string value in assignment</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

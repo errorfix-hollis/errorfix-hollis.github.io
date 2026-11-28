@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>requests.exceptions.ConnectionError: HTTPConnectionPool: Max retries exceeded with url (Python) — how to fix</title>
+<meta name="description" content="requests could not open a TCP connection to the host at all. The real reason is in the Caused by part: connection refused, DNS failure, timeout, SSL error or a proxy problem.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-requests-connectionerror-max-retries-exceeded/">
+<meta property="og:title" content="requests.exceptions.ConnectionError: HTTPConnectionPool: Max retries exceeded with url (Python) — how to fix"><meta property="og:description" content="requests could not open a TCP connection to the host at all. The real reason is in the Caused by part: connection refused, DNS failure, timeout, SSL error or a proxy problem.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-requests-connectionerror-max-retries-exceeded/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "requests.exceptions.ConnectionError: HTTPConnectionPool: Max retries exceeded with url (Python) \u2014 how to fix", "description": "requests could not open a TCP connection to the host at all. The real reason is in the Caused by part: connection refused, DNS failure, timeout, SSL error or a proxy problem.", "dateModified": "2026-11-24", "url": "https://errorfix-hollis.github.io/python/python-requests-connectionerror-max-retries-exceeded/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "requests.exceptions.ConnectionError: HTTPConnectionPool: Max retries exceeded with url", "item": "https://errorfix-hollis.github.io/python/python-requests-connectionerror-max-retries-exceeded/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>requests.exceptions.ConnectionError: HTTPConnectionPool: Max retries exceeded with url (Python) — how to fix</h1>
+<pre class="err"><code>requests.exceptions.ConnectionError: HTTPSConnectionPool(host=&#x27;api.example.com&#x27;, port=443): Max retries exceeded with url: /v1/items (Caused by NewConnectionError(&#x27;&lt;urllib3.connection.HTTPSConnection object at 0x7f...&gt;: Failed to establish a new connection: [Errno 111] Connection refused&#x27;))
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Read the <code>Caused by</code> text. <code>Connection refused</code> = nothing listening on that host/port (start the server, fix the port, use the service name instead of <code>localhost</code> in Docker). <code>Name or service not known</code> / <code>getaddrinfo failed</code> = DNS or typo in the hostname. <code>timed out</code> = firewall/proxy. Test with <code>curl -v URL</code> first, and always pass <code>timeout=</code> to requests.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>"Max retries exceeded" sounds like requests retried many times, but by default it doesn't retry at all; urllib3 just wraps every connection failure in a <code>MaxRetryError</code>. Ignore that part and look at the end of the message, <code>Caused by ...</code>. Reproduce outside Python first:</p>
+<pre><code class="language-bash">curl -v https://api.example.com/v1/items
+</code></pre>
+<p>If curl fails the same way, the problem is network/server, not your code.</p>
+<h2 id="cause-1-errno-111-connection-refused-windows-winerror-10061">Cause 1: <code>[Errno 111] Connection refused</code> (Windows: <code>WinError 10061</code>)</h2>
+<p>The host is reachable but nothing is listening on that port.</p>
+<ul>
+<li>The server isn't running, or crashed. Start it and check: <code>ss -ltnp | grep 8000</code>.</li>
+<li>Wrong port or scheme: <code>http://</code> vs <code>https://</code>, <code>:8000</code> vs <code>:5000</code>.</li>
+<li>The server listens on <code>127.0.0.1</code> only, and you connect from another machine/container. Bind it to <code>0.0.0.0</code> (e.g. <code>flask run --host 0.0.0.0</code>, <code>uvicorn app:app --host 0.0.0.0</code>).</li>
+<li><strong>Docker</strong>: <code>localhost</code> inside a container is the container itself. Use the compose service name (<code>http://api:8000</code>) or <code>host.docker.internal</code> to reach the host.</li>
+</ul>
+<h2 id="cause-2-dns-name-or-service-not-known-getaddrinfo-failed-nodename-nor-servname-provided">Cause 2: DNS - <code>Name or service not known</code> / <code>getaddrinfo failed</code> / <code>nodename nor servname provided</code></h2>
+<p>The hostname can't be resolved. Check for typos and that you didn't include the scheme twice (<code>https://https://...</code>) or a path in the host. Test with <code>nslookup api.example.com</code>. In containers or WSL, see <a href="/linux/linux-temporary-failure-in-name-resolution/">Temporary failure in name resolution</a>.</p>
+<h2 id="cause-3-connection-timed-out-connecttimeouterror">Cause 3: <code>Connection timed out</code> / <code>ConnectTimeoutError</code></h2>
+<p>Packets are dropped: firewall, security group, VPN, or a corporate network that requires a proxy. Set the proxy for requests:</p>
+<pre><code class="language-bash">export HTTPS_PROXY=http://proxy.corp:3128
+export HTTP_PROXY=http://proxy.corp:3128
+</code></pre>
+<p>Or <code>requests.get(url, proxies={"https": "http://proxy.corp:3128"})</code>. Conversely, a stale <code>HTTP_PROXY</code> in your environment causes <code>ProxyError</code>; <code>unset</code> it or set <code>NO_PROXY=localhost,127.0.0.1</code>.</p>
+<h2 id="cause-4-the-server-is-rate-limiting-or-dropping-you">Cause 4: the server is rate-limiting or dropping you</h2>
+<p><code>RemoteDisconnected</code> / <code>Connection aborted</code> / <code>Connection reset by peer</code> on many quick requests means the server closes connections (rate limit, bot protection). Slow down, reuse a <code>Session</code>, and add real retries with backoff:</p>
+<pre><code class="language-python">import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+s = requests.Session()
+retry = Retry(total=5, backoff_factor=1,
+              status_forcelist=[429, 500, 502, 503, 504])
+s.mount(&quot;https://&quot;, HTTPAdapter(max_retries=retry))
+s.mount(&quot;http://&quot;, HTTPAdapter(max_retries=retry))
+
+r = s.get(&quot;https://api.example.com/v1/items&quot;, timeout=10)
+</code></pre>
+<h2 id="cause-5-ssl-errors">Cause 5: SSL errors</h2>
+<p>If <code>Caused by SSLError(...)</code>, the TCP connection worked but TLS failed. See <a href="/python/python-ssl-certificate-verify-failed/">SSL: CERTIFICATE_VERIFY_FAILED</a>. Don't hide it with <code>verify=False</code> in production.</p>
+<h2 id="handle-it-in-code">Handle it in code</h2>
+<p>Catch the exception so one bad host doesn't crash the program, and always set a timeout (requests waits forever by default):</p>
+<pre><code class="language-python">try:
+    r = requests.get(url, timeout=(5, 30))
+    r.raise_for_status()
+except requests.exceptions.ConnectionError as e:
+    print(&quot;could not connect:&quot;, e)
+</code></pre>
+<p class="upd">Last updated 2026-11-24.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-temporary-failure-in-name-resolution/">Temporary failure in name resolution</a></li><li><a href="/python/python-ssl-certificate-verify-failed/">ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate</a></li><li><a href="/web/web-err-connection-refused/">ERR_CONNECTION_REFUSED</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

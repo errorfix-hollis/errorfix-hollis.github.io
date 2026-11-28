@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error[E0432]: unresolved import (Rust) — how to fix</title>
+<meta name="description" content="A use statement names a path the compiler can&#x27;t find: a module that isn&#x27;t declared with mod, a crate missing from Cargo.toml, an item that&#x27;s behind a disabled feature, or a wrong path.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/rust/rust-e0432-unresolved-import/">
+<meta property="og:title" content="error[E0432]: unresolved import (Rust) — how to fix"><meta property="og:description" content="A use statement names a path the compiler can&#x27;t find: a module that isn&#x27;t declared with mod, a crate missing from Cargo.toml, an item that&#x27;s behind a disabled feature, or a wrong path.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/rust/rust-e0432-unresolved-import/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error[E0432]: unresolved import (Rust) \u2014 how to fix", "description": "A use statement names a path the compiler can't find: a module that isn't declared with mod, a crate missing from Cargo.toml, an item that's behind a disabled feature, or a wrong path.", "dateModified": "2026-11-26", "url": "https://errorfix-hollis.github.io/rust/rust-e0432-unresolved-import/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Rust", "item": "https://errorfix-hollis.github.io/rust/"}, {"@type": "ListItem", "position": 3, "name": "error[E0432]: unresolved import", "item": "https://errorfix-hollis.github.io/rust/rust-e0432-unresolved-import/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/rust/">Rust</a></p>
+<article><h1>error[E0432]: unresolved import (Rust) — how to fix</h1>
+<pre class="err"><code>error[E0432]: unresolved import `crate::utils`
+ --&gt; src/main.rs:1:5
+  |
+1 | use crate::utils::helper;
+  |     ^^^^^^^^^^^^ could not find `utils` in the crate root
+error[E0432]: unresolved import `tokio`
+ --&gt; src/main.rs:2:5
+  |
+2 | use tokio::sync::Mutex;
+  |     ^^^^^ use of undeclared crate or module `tokio`
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> For your own modules add <code>mod utils;</code> in main.rs/lib.rs (with src/utils.rs or src/utils/mod.rs) and import with <code>use crate::utils::helper;</code>. For external crates run <code>cargo add tokio --features full</code>. For items behind features, enable the feature in Cargo.toml. Check the exact path in the crate docs.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>use</code> brings an item into scope by path. E0432 means the compiler walked that path and some segment doesn't exist. The note under the error says which part failed: <code>could not find X in Y</code>, <code>no X in Y</code>, or <code>use of undeclared crate or module</code>.</p>
+<p>Its sibling <a href="/rust/rust-e0433-failed-to-resolve/">E0433 failed to resolve</a> is the same problem in an expression path (<code>foo::bar()</code>) instead of a <code>use</code>.</p>
+<h2 id="cause-1-the-module-isnt-declared">Cause 1: the module isn't declared</h2>
+<p>Creating <code>src/utils.rs</code> is not enough. Rust only compiles files reachable via <code>mod</code> declarations from the crate root (<code>main.rs</code> or <code>lib.rs</code>).</p>
+<pre><code class="language-rust">// src/main.rs
+use crate::utils::helper;   // E0432: could not find `utils` in the crate root
+</code></pre>
+<h2 id="fix-1-add-mod">Fix 1: add <code>mod</code></h2>
+<pre><code class="language-rust">// src/main.rs
+mod utils;                  // loads src/utils.rs or src/utils/mod.rs
+use crate::utils::helper;
+</code></pre>
+<p>For nested modules, declare each level in its parent: <code>src/net/mod.rs</code> (or <code>src/net.rs</code>) must contain <code>mod client;</code> for <code>src/net/client.rs</code>.</p>
+<h2 id="cause-2-crate-missing-from-cargotoml">Cause 2: crate missing from Cargo.toml</h2>
+<pre><code>use of undeclared crate or module `serde_json`
+</code></pre>
+<h2 id="fix-2-add-the-dependency">Fix 2: add the dependency</h2>
+<pre><code class="language-bash">cargo add serde_json
+cargo add tokio --features full
+</code></pre>
+<p>In a workspace, add it to the member crate that uses it, not only the root. Crate names with hyphens are imported with underscores: <code>my-crate</code> → <code>use my_crate::...</code>.</p>
+<h2 id="cause-3-the-item-is-behind-a-disabled-feature">Cause 3: the item is behind a disabled feature</h2>
+<p>Many crates compile items only with a feature flag:</p>
+<pre><code class="language-rust">use tokio::sync::Mutex;            // needs &quot;sync&quot;
+use serde::{Serialize, Deserialize}; // needs &quot;derive&quot; for the derive macros
+use reqwest::blocking::Client;     // needs &quot;blocking&quot;
+</code></pre>
+<h2 id="fix-3-enable-the-feature">Fix 3: enable the feature</h2>
+<pre><code class="language-toml">[dependencies]
+serde = { version = &quot;1&quot;, features = [&quot;derive&quot;] }
+reqwest = { version = &quot;0.12&quot;, features = [&quot;blocking&quot;, &quot;json&quot;] }
+tokio = { version = &quot;1&quot;, features = [&quot;full&quot;] }
+</code></pre>
+<p>docs.rs shows "Available on crate feature X only" for gated items.</p>
+<h2 id="cause-4-wrong-path-or-renamed-item">Cause 4: wrong path or renamed item</h2>
+<p>Paths change between crate versions (e.g. <code>clap::App</code> was removed in clap 4; it is now <code>clap::Command</code>). Check the version in <code>Cargo.lock</code> and use that version's docs:</p>
+<pre><code class="language-bash">cargo tree -i clap
+cargo doc --open
+</code></pre>
+<h2 id="cause-5-importing-from-mainrs-inside-librs-or-binary-from-library">Cause 5: importing from main.rs inside lib.rs (or binary from library)</h2>
+<p>In a package with both <code>src/lib.rs</code> and <code>src/main.rs</code>, they're two crates. In <code>main.rs</code>, items from the library are imported by the package name, not <code>crate</code>:</p>
+<pre><code class="language-rust">// src/main.rs
+use my_app::config::Config;   // not crate::config
+</code></pre>
+<p>And <code>lib.rs</code> cannot import from <code>main.rs</code> at all — move shared code into the library.</p>
+<h2 id="cause-6-relative-path-confusion-2018-edition">Cause 6: relative path confusion (2018+ edition)</h2>
+<p>Inside a submodule, <code>use utils::x;</code> looks for a crate named <code>utils</code>. Use <code>crate::</code> (from the root), <code>super::</code> (parent) or <code>self::</code> (current module):</p>
+<pre><code class="language-rust">use super::models::User;
+use crate::db::pool;
+</code></pre>
+<h2 id="cause-7-the-item-is-private">Cause 7: the item is private</h2>
+<p>If the module exists but the item isn't <code>pub</code>, you normally get E0603 instead; but a private <code>mod</code> in the path can also surface here. Mark it <code>pub mod</code> / <code>pub fn</code>, or <code>pub(crate)</code>.</p>
+<p class="upd">Last updated 2026-11-26.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/rust/rust-e0433-failed-to-resolve/">error[E0433]: failed to resolve: use of undeclared crate or module</a></li><li><a href="/rust/rust-e0463-cant-find-crate/">error[E0463]: can&#x27;t find crate for `std`</a></li><li><a href="/rust/rust-e0603-struct-is-private/">error[E0603]: struct is private</a></li><li><a href="/rust/rust-borrow-of-moved-value/">error[E0382]: borrow of moved value</a></li><li><a href="/rust/rust-called-option-unwrap-on-a-none-value/">thread &#x27;main&#x27; panicked at called `Option::unwrap()` on a `None` value</a></li><li><a href="/rust/rust-called-result-unwrap-on-an-err-value/">thread &#x27;main&#x27; panicked at &#x27;called `Result::unwrap()` on an `Err` value&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>0/3 nodes are available: 3 node(s) had untolerated taint (Kubernetes) — how to fix</title>
+<meta name="description" content="The pod stays Pending because every node carries a taint the pod doesn&#x27;t tolerate. The taint in braces tells you why: control-plane nodes, nodes that are NotReady/unreachable/under pressure, or custom taints like dedicated=gpu.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-nodes-had-untolerated-taint/">
+<meta property="og:title" content="0/3 nodes are available: 3 node(s) had untolerated taint (Kubernetes) — how to fix"><meta property="og:description" content="The pod stays Pending because every node carries a taint the pod doesn&#x27;t tolerate. The taint in braces tells you why: control-plane nodes, nodes that are NotReady/unreachable/under pressure, or custom taints like dedicated=gpu.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-nodes-had-untolerated-taint/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "0/3 nodes are available: 3 node(s) had untolerated taint (Kubernetes) \u2014 how to fix", "description": "The pod stays Pending because every node carries a taint the pod doesn't tolerate. The taint in braces tells you why: control-plane nodes, nodes that are NotReady/unreachable/under pressure, or custom taints like dedicated=gpu.", "dateModified": "2026-11-25", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-nodes-had-untolerated-taint/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "0/3 nodes are available: 3 node(s) had untolerated taint", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-nodes-had-untolerated-taint/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>0/3 nodes are available: 3 node(s) had untolerated taint (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Warning  FailedScheduling  default-scheduler  0/3 nodes are available: 1 node(s) had untolerated taint {node-role.kubernetes.io/control-plane: }, 2 node(s) had untolerated taint {node.kubernetes.io/not-ready: }. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Read the taint in <code>{...}</code>. <code>control-plane</code> on a single-node cluster → <code>kubectl taint nodes --all node-role.kubernetes.io/control-plane-</code>. <code>not-ready</code>/<code>unreachable</code> → fix the node (<code>kubectl describe node</code>, CNI, kubelet). Custom taints → add a matching <code>tolerations:</code> entry to the pod spec, or remove the taint with <code>kubectl taint nodes &lt;node&gt; key=value:NoSchedule-</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A taint on a node repels pods unless the pod has a matching toleration. The scheduler checked every node and each one has at least one <code>NoSchedule</code> (or <code>NoExecute</code>) taint your pod doesn't tolerate, so the pod stays <code>Pending</code>.</p>
+<p>Older Kubernetes versions phrase it as <code>node(s) had taint {...}, that the pod didn't tolerate</code>.</p>
+<p>List the taints:</p>
+<pre><code class="language-bash">kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
+kubectl describe node &lt;node&gt; | grep -A3 Taints
+</code></pre>
+<h2 id="cause-1-control-plane-taint-on-a-single-node-small-cluster">Cause 1: control-plane taint on a single-node / small cluster</h2>
+<p>kubeadm taints control-plane nodes with <code>node-role.kubernetes.io/control-plane:NoSchedule</code> (older: <code>node-role.kubernetes.io/master</code>). With no worker nodes, nothing can run.</p>
+<p>For a lab or single-node cluster, remove it:</p>
+<pre><code class="language-bash">kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+# older clusters
+kubectl taint nodes --all node-role.kubernetes.io/master-
+</code></pre>
+<p>The trailing <code>-</code> removes the taint. In production, add worker nodes instead.</p>
+<h2 id="cause-2-nodekubernetesionot-ready-or-unreachable">Cause 2: <code>node.kubernetes.io/not-ready</code> or <code>unreachable</code></h2>
+<p>Kubernetes adds these automatically when a node is unhealthy. The fix is the node, not the pod:</p>
+<pre><code class="language-bash">kubectl get nodes
+kubectl describe node &lt;node&gt;          # Conditions, Events
+journalctl -u kubelet -n 100          # on the node
+</code></pre>
+<p>A very common cause on fresh kubeadm clusters is a missing CNI plugin: the node stays <code>NotReady</code> until you install one (Calico, Flannel, Cilium). Other causes: kubelet stopped, expired certificates, node out of disk.</p>
+<h2 id="cause-3-resource-pressure-taints">Cause 3: resource pressure taints</h2>
+<p><code>node.kubernetes.io/disk-pressure</code>, <code>memory-pressure</code>, <code>pid-pressure</code>: the kubelet is short of resources.</p>
+<pre><code class="language-bash">df -h /var/lib/kubelet /var/lib/containerd
+crictl rmi --prune                    # remove unused images on the node
+</code></pre>
+<p>Free space or memory and the taint is removed automatically.</p>
+<h2 id="cause-4-custom-taints-dedicated-nodes">Cause 4: custom taints (dedicated nodes)</h2>
+<p>Clusters often reserve nodes, e.g. <code>dedicated=gpu:NoSchedule</code> or managed node pools with taints (<code>CriticalAddonsOnly</code>, spot instances). Either tolerate the taint in your pod template:</p>
+<pre><code class="language-yaml">spec:
+  tolerations:
+    - key: &quot;dedicated&quot;
+      operator: &quot;Equal&quot;
+      value: &quot;gpu&quot;
+      effect: &quot;NoSchedule&quot;
+  nodeSelector:
+    dedicated: gpu        # also pin it there, tolerations alone don't attract pods
+</code></pre>
+<p>or remove the taint if it was added by mistake:</p>
+<pre><code class="language-bash">kubectl taint nodes &lt;node&gt; dedicated=gpu:NoSchedule-
+</code></pre>
+<p>For a Deployment, the tolerations go under <code>spec.template.spec</code>. Helm charts usually expose a <code>tolerations:</code> value.</p>
+<h2 id="cause-5-nodekubernetesiounschedulable">Cause 5: <code>node.kubernetes.io/unschedulable</code></h2>
+<p>The node was cordoned (<code>kubectl cordon</code> or a drain during an upgrade). Bring it back:</p>
+<pre><code class="language-bash">kubectl uncordon &lt;node&gt;
+</code></pre>
+<h2 id="cause-6-combined-with-other-reasons">Cause 6: combined with other reasons</h2>
+<p>The message can list several reasons, e.g. <code>1 node(s) had untolerated taint ..., 2 Insufficient memory</code>. Fix each group: the taint on one node and resources on the others. Check pod events with <code>kubectl describe pod &lt;pod&gt;</code>.</p>
+<p class="upd">Last updated 2026-11-25.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-container-is-waiting-to-start/">Error from server (BadRequest): container is waiting to start: ContainerCreating</a></li><li><a href="/kubernetes/k8s-pod-has-unbound-immediate-persistentvolumeclaims/">pod has unbound immediate PersistentVolumeClaims</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

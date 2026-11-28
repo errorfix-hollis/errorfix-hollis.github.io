@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FATAL: the database system is in recovery mode (PostgreSQL) — how to fix</title>
+<meta name="description" content="PostgreSQL is replaying its write-ahead log after a crash (often a backend killed by the OOM killer), and refuses connections until recovery finishes. Wait, then find out why it crashed.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-database-system-is-in-recovery-mode/">
+<meta property="og:title" content="FATAL: the database system is in recovery mode (PostgreSQL) — how to fix"><meta property="og:description" content="PostgreSQL is replaying its write-ahead log after a crash (often a backend killed by the OOM killer), and refuses connections until recovery finishes. Wait, then find out why it crashed.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-database-system-is-in-recovery-mode/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "FATAL: the database system is in recovery mode (PostgreSQL) \u2014 how to fix", "description": "PostgreSQL is replaying its write-ahead log after a crash (often a backend killed by the OOM killer), and refuses connections until recovery finishes. Wait, then find out why it crashed.", "dateModified": "2026-11-27", "url": "https://errorfix-hollis.github.io/database/db-postgres-database-system-is-in-recovery-mode/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "FATAL: the database system is in recovery mode", "item": "https://errorfix-hollis.github.io/database/db-postgres-database-system-is-in-recovery-mode/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>FATAL: the database system is in recovery mode (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: FATAL:  the database system is in recovery mode
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Usually just wait a few seconds to minutes and reconnect. Then check the server log for the crash cause (<code>terminated by signal 9: Killed</code> = OOM killer; <code>No space left on device</code> = full disk) and fix it: lower <code>work_mem</code>/<code>shared_buffers</code> or add RAM, free disk space. If it loops forever, look at the log for repeated crashes.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When any PostgreSQL backend process crashes, the postmaster kills <strong>all</strong> other connections and restarts in recovery mode, replaying the WAL from the last checkpoint so the data is consistent. While that happens, new connections get this error. It is a symptom: something crashed just before.</p>
+<p>Typical log sequence:</p>
+<pre><code>LOG:  server process (PID 12345) was terminated by signal 9: Killed
+DETAIL:  Failed process was running: SELECT ...
+LOG:  terminating any other active server processes
+LOG:  all server processes terminated; reinitializing
+LOG:  database system was not properly shut down; automatic recovery in progress
+LOG:  redo starts at 0/1A2B3C4D
+LOG:  database system is ready to accept connections
+</code></pre>
+<p>If you are connecting to a <strong>standby replica</strong> that is still starting up, you may see this or <code>the database system is starting up</code> instead — the cause is the same: wait until it reaches a consistent state.</p>
+<h2 id="fix-1-wait-and-retry">Fix 1: wait and retry</h2>
+<p>Recovery usually takes seconds. Large WAL volumes (after a long time since the last checkpoint, or high <code>max_wal_size</code>) can take minutes. Watch the log:</p>
+<pre><code class="language-bash">sudo journalctl -u postgresql -f
+# or
+sudo tail -f /var/log/postgresql/postgresql-16-main.log
+docker logs -f &lt;postgres-container&gt;
+</code></pre>
+<p>Apps should retry connections with a back-off instead of failing hard.</p>
+<h2 id="cause-1-the-oom-killer-signal-9">Cause 1: the OOM killer (signal 9)</h2>
+<p>The most common reason. Confirm in the kernel log:</p>
+<pre><code class="language-bash">sudo dmesg -T | grep -iE 'killed process|out of memory'
+</code></pre>
+<p>Fixes:</p>
+<ul>
+<li>Lower <code>work_mem</code> — each sort/hash node in each connection can use this much, so <code>work_mem × connections × nodes</code> can exceed RAM.</li>
+<li>Keep <code>shared_buffers</code> around 25% of RAM, not more.</li>
+<li>Reduce <code>max_connections</code> and use a pooler like PgBouncer.</li>
+<li>In Docker/Kubernetes, raise the container memory limit.</li>
+<li>Avoid memory overcommit on dedicated DB servers: <code>vm.overcommit_memory = 2</code> (as recommended in the PostgreSQL docs).</li>
+</ul>
+<h2 id="cause-2-disk-full">Cause 2: disk full</h2>
+<pre><code class="language-bash">df -h /var/lib/postgresql
+</code></pre>
+<p>If WAL can't be written, PostgreSQL PANICs and restarts. Free space (old logs, dumps), but <strong>never delete files from <code>pg_wal</code> by hand</strong>. Check for an inactive replication slot holding WAL:</p>
+<pre><code class="language-sql">SELECT slot_name, active, pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn))
+FROM pg_replication_slots;
+SELECT pg_drop_replication_slot('unused_slot');
+</code></pre>
+<h2 id="cause-3-segfault-in-an-extension-or-a-bug">Cause 3: segfault in an extension or a bug</h2>
+<p><code>terminated by signal 11: Segmentation fault</code> points at an extension (PostGIS, TimescaleDB, a custom C function) or a PostgreSQL bug. Update PostgreSQL to the latest minor release and the extension, and reproduce with the query shown in the <code>DETAIL:</code> line.</p>
+<h2 id="cause-4-stuck-in-a-crash-loop">Cause 4: stuck in a crash loop</h2>
+<p>If the server crashes again during or right after recovery, it never accepts connections. Read the log from the first error. Data-corruption messages (<code>invalid page</code>, <code>could not read block</code>) mean you should restore from backup; don't run <code>pg_resetwal</code> unless you understand it can lose data.</p>
+<p class="upd">Last updated 2026-11-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-postgres-canceling-statement-due-to-conflict-with-recovery/">ERROR: canceling statement due to conflict with recovery</a></li><li><a href="/database/db-postgres-connection-refused/">psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused</a></li><li><a href="/linux/linux-no-space-left-on-device/">No space left on device</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1046-no-database-selected/">ERROR 1046 (3D000): No database selected</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

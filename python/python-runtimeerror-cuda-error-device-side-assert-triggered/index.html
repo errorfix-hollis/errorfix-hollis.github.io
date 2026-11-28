@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RuntimeError: CUDA error: device-side assert triggered (Python) — how to fix</title>
+<meta name="description" content="A PyTorch CUDA kernel hit an assertion, almost always an index out of range: class labels outside [0, num_classes), token ids larger than the embedding size, or bad values passed to a loss function.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-runtimeerror-cuda-error-device-side-assert-triggered/">
+<meta property="og:title" content="RuntimeError: CUDA error: device-side assert triggered (Python) — how to fix"><meta property="og:description" content="A PyTorch CUDA kernel hit an assertion, almost always an index out of range: class labels outside [0, num_classes), token ids larger than the embedding size, or bad values passed to a loss function.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-runtimeerror-cuda-error-device-side-assert-triggered/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "RuntimeError: CUDA error: device-side assert triggered (Python) \u2014 how to fix", "description": "A PyTorch CUDA kernel hit an assertion, almost always an index out of range: class labels outside [0, num_classes), token ids larger than the embedding size, or bad values passed to a loss function.", "dateModified": "2026-11-22", "url": "https://errorfix-hollis.github.io/python/python-runtimeerror-cuda-error-device-side-assert-triggered/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "RuntimeError: CUDA error: device-side assert triggered", "item": "https://errorfix-hollis.github.io/python/python-runtimeerror-cuda-error-device-side-assert-triggered/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>RuntimeError: CUDA error: device-side assert triggered (Python) — how to fix</h1>
+<pre class="err"><code>RuntimeError: CUDA error: device-side assert triggered
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Rerun with <code>CUDA_LAUNCH_BLOCKING=1 python train.py</code> (or run on CPU) to get the real line and message. Then check <code>labels.min()</code>, <code>labels.max()</code> vs your number of classes, token ids vs <code>nn.Embedding</code> size / <code>len(tokenizer)</code>, and that BCELoss inputs are in [0, 1]. Restart the Python process afterwards: the CUDA context is broken.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A check inside a GPU kernel failed. On the CPU the same bug would raise a clear error like <code>IndexError: Target 5 is out of bounds.</code>; on the GPU you only get this generic message. Because CUDA runs asynchronously, the traceback often points to a later, innocent line (<code>loss.item()</code>, <code>.to("cpu")</code>, <code>optimizer.step()</code>).</p>
+<p>After this error the CUDA context is corrupted: every following CUDA call fails. In Jupyter you must <strong>restart the kernel</strong>.</p>
+<h2 id="step-1-get-the-real-error">Step 1: get the real error</h2>
+<p>Make CUDA synchronous so the traceback points at the failing op:</p>
+<pre><code class="language-bash">CUDA_LAUNCH_BLOCKING=1 python train.py
+</code></pre>
+<p>In a notebook, set it before importing torch (first cell, then restart):</p>
+<pre><code class="language-python">import os
+os.environ[&quot;CUDA_LAUNCH_BLOCKING&quot;] = &quot;1&quot;
+import torch
+</code></pre>
+<p>Even better: run one batch on the CPU (<code>device = "cpu"</code>). The CPU kernels raise readable errors such as <code>IndexError: index out of range in self</code> or <code>Target 10 is out of bounds</code>.</p>
+<h2 id="cause-1-labels-outside-the-number-of-classes">Cause 1: labels outside the number of classes</h2>
+<p><code>nn.CrossEntropyLoss</code> / <code>NLLLoss</code> need integer targets in <code>[0, C-1]</code>, where <code>C</code> is the size of the model's last layer.</p>
+<pre><code class="language-python">print(labels.min().item(), labels.max().item(), model_output.shape[-1])
+</code></pre>
+<p>Typical bugs:</p>
+<ul>
+<li>Labels are 1-based (<code>1..C</code>): subtract 1.</li>
+<li>Output layer too small: <code>nn.Linear(hidden, num_classes)</code> with the wrong <code>num_classes</code>.</li>
+<li><code>-1</code> used for "ignore": pass <code>ignore_index=-1</code> (default ignore value is <code>-100</code>).</li>
+</ul>
+<h2 id="cause-2-token-id-larger-than-the-embedding-table">Cause 2: token id larger than the embedding table</h2>
+<p><code>nn.Embedding(num_embeddings, dim)</code> asserts when an index is <code>&gt;= num_embeddings</code>. With Hugging Face this happens after adding tokens to the tokenizer without resizing the model:</p>
+<pre><code class="language-python">tokenizer.add_special_tokens({&quot;pad_token&quot;: &quot;[PAD]&quot;})
+model.resize_token_embeddings(len(tokenizer))
+</code></pre>
+<p>Also check that the tokenizer and model come from the same checkpoint, and that inputs don't exceed <code>max_position_embeddings</code> (truncate with <code>truncation=True, max_length=...</code>).</p>
+<h2 id="cause-3-invalid-values-for-the-loss">Cause 3: invalid values for the loss</h2>
+<p><code>nn.BCELoss</code> requires predictions and targets in <code>[0, 1]</code>. Raw logits or NaN break it.</p>
+<pre><code class="language-python">loss_fn = nn.BCEWithLogitsLoss()   # apply to raw logits, no sigmoid needed
+</code></pre>
+<p>Check for NaN with <code>torch.isnan(x).any()</code>.</p>
+<h2 id="cause-4-indexing-a-tensor-on-the-gpu">Cause 4: indexing a tensor on the GPU</h2>
+<p>Any <code>tensor[idx]</code>, <code>torch.gather</code>, <code>index_select</code> or <code>scatter</code> with an out-of-range index triggers it. Validate indices:</p>
+<pre><code class="language-python">assert idx.max() &lt; t.size(0) and idx.min() &gt;= -t.size(0)
+</code></pre>
+<h2 id="after-the-fix">After the fix</h2>
+<p>Restart the process or notebook kernel, remove <code>CUDA_LAUNCH_BLOCKING=1</code> (it slows training), and run again. If you then hit <code>CUDA out of memory</code>, see the related page.</p>
+<p class="upd">Last updated 2026-11-22.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-cuda-out-of-memory/">torch.cuda.OutOfMemoryError: CUDA out of memory</a></li><li><a href="/python/python-indexerror-list-index-out-of-range/">IndexError: list index out of range</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-torch/">ModuleNotFoundError: No module named &#x27;torch&#x27;</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

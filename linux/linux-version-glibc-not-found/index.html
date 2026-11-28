@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>version `GLIBC_2.34&#x27; not found (Linux) — how to fix</title>
+<meta name="description" content="The binary was built against a newer GNU C library (glibc) than the one installed on this system. glibc is backward compatible only: programs built on an older glibc run on newer systems, not the other way round.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-version-glibc-not-found/">
+<meta property="og:title" content="version `GLIBC_2.34&#x27; not found (Linux) — how to fix"><meta property="og:description" content="The binary was built against a newer GNU C library (glibc) than the one installed on this system. glibc is backward compatible only: programs built on an older glibc run on newer systems, not the other way round.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-version-glibc-not-found/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "version `GLIBC_2.34' not found (Linux) \u2014 how to fix", "description": "The binary was built against a newer GNU C library (glibc) than the one installed on this system. glibc is backward compatible only: programs built on an older glibc run on newer systems, not the other way round.", "dateModified": "2026-11-28", "url": "https://errorfix-hollis.github.io/linux/linux-version-glibc-not-found/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "version `GLIBC_2.34' not found", "item": "https://errorfix-hollis.github.io/linux/linux-version-glibc-not-found/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>version `GLIBC_2.34&#x27; not found (Linux) — how to fix</h1>
+<pre class="err"><code>./myapp: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.34&#x27; not found (required by ./myapp)
+./myapp: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.32&#x27; not found (required by ./myapp)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check your version with <code>ldd --version</code>. Then get a build made for your glibc (an older-distro, <code>musl</code> or static release), rebuild on the oldest system you need to support (e.g. inside an older distro container), run it in a container with a newer distro, or upgrade the OS. Never replace the system glibc manually.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Almost every Linux program links to glibc (<code>libc.so.6</code>). glibc uses symbol versioning: a program compiled on a system with glibc 2.34 may require symbols tagged <code>GLIBC_2.34</code>, which an older glibc (say 2.31 on Ubuntu 20.04) doesn't have. The loader refuses to start the program.</p>
+<p>Compare what you have with what the binary needs:</p>
+<pre><code class="language-bash">ldd --version | head -1
+# ldd (Ubuntu GLIBC 2.31-0ubuntu9) 2.31
+
+objdump -T ./myapp | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1
+# GLIBC_2.34
+</code></pre>
+<p>Some reference points: Ubuntu 20.04 has 2.31, Ubuntu 22.04 has 2.35, Debian 11 has 2.31, Debian 12 has 2.36, RHEL/CentOS 7 has 2.17, RHEL 8 has 2.28.</p>
+<h2 id="fix-1-download-a-build-for-your-system">Fix 1: download a build for your system</h2>
+<p>Many projects publish several Linux builds. Look for:</p>
+<ul>
+<li>a <code>musl</code> build (<code>x86_64-unknown-linux-musl</code>, <code>linux-musl</code>): statically linked, no glibc dependency;</li>
+<li>a build marked for older distributions or a specific glibc;</li>
+<li>a distro package (<code>apt</code>, <code>dnf</code>) built for your release, or an older release of the tool.</li>
+</ul>
+<p>Python wheels encode this in the name: <code>manylinux_2_28</code> needs glibc 2.28 or newer, <code>manylinux2014</code> needs 2.17. pip picks a compatible wheel automatically if one exists; if not, it builds from source.</p>
+<h2 id="fix-2-build-on-the-oldest-system-you-target">Fix 2: build on the oldest system you target</h2>
+<p>If it's your software, compile on the oldest distro you need to support, e.g. in a container:</p>
+<pre><code class="language-bash">docker run --rm -v &quot;$PWD&quot;:/src -w /src debian:11 bash -c 'apt-get update &amp;&amp; apt-get install -y build-essential &amp;&amp; make'
+</code></pre>
+<p>Language-specific options:</p>
+<pre><code class="language-bash"># Go: pure-Go binaries without cgo don't link glibc at all
+CGO_ENABLED=0 go build -o myapp .
+
+# Rust: static musl binary
+rustup target add x86_64-unknown-linux-musl
+cargo build --release --target x86_64-unknown-linux-musl
+
+# Rust: target a specific glibc with cargo-zigbuild
+cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.17
+</code></pre>
+<h2 id="fix-3-run-it-in-a-container">Fix 3: run it in a container</h2>
+<p>If you can't rebuild, run the program in a container whose distro has a new enough glibc:</p>
+<pre><code class="language-bash">docker run --rm -v &quot;$PWD&quot;:/work -w /work ubuntu:24.04 ./myapp
+</code></pre>
+<h2 id="fix-4-upgrade-the-os">Fix 4: upgrade the OS</h2>
+<p>When many tools start failing this way (for example official Node.js 18+ binaries need glibc 2.28, so they don't run on CentOS 7), the system is simply too old. Upgrading the distribution release is the durable fix.</p>
+<h2 id="do-not-replace-the-system-glibc">Do not replace the system glibc</h2>
+<p>Copying a newer <code>libc.so.6</code> into <code>/lib</code> or installing glibc from source over the system one breaks every program on the machine, including <code>ls</code> and <code>sudo</code>, and can leave the system unbootable. If you truly need a second glibc, install it in a separate prefix and start the program through that loader, which is fragile; prefer Fixes 1 to 3.</p>
+<h2 id="related-no-such-file-or-directory-for-an-existing-file">Related: "No such file or directory" for an existing file</h2>
+<p>If running <code>./myapp</code> says <code>No such file or directory</code> although the file exists, the binary's ELF interpreter (e.g. <code>/lib64/ld-linux-x86-64.so.2</code>, or musl's loader) is missing. Check with <code>file ./myapp</code>.</p>
+<p class="upd">Last updated 2026-11-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-exec-format-error/">exec format error</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li><li><a href="/linux/linux-cannot-execute-binary-file/">cannot execute binary file: Exec format error</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-apt-expkeysig/">The following signatures were invalid: EXPKEYSIG</a></li><li><a href="/linux/linux-apt-hash-sum-mismatch/">E: Failed to fetch ... Hash Sum mismatch</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

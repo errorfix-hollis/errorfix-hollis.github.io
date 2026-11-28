@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Request method &#x27;POST&#x27; is not supported (Java) — how to fix</title>
+<meta name="description" content="Spring found a handler for the URL but not for that HTTP method, so it returned 405 Method Not Allowed. The mapping uses a different method, the path doesn&#x27;t match, or the request was redirected/forwarded (often by Spring Security or a form).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-spring-request-method-post-not-supported/">
+<meta property="og:title" content="Request method &#x27;POST&#x27; is not supported (Java) — how to fix"><meta property="og:description" content="Spring found a handler for the URL but not for that HTTP method, so it returned 405 Method Not Allowed. The mapping uses a different method, the path doesn&#x27;t match, or the request was redirected/forwarded (often by Spring Security or a form).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-spring-request-method-post-not-supported/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Request method 'POST' is not supported (Java) \u2014 how to fix", "description": "Spring found a handler for the URL but not for that HTTP method, so it returned 405 Method Not Allowed. The mapping uses a different method, the path doesn't match, or the request was redirected/forwarded (often by Spring Security or a form).", "dateModified": "2026-11-22", "url": "https://errorfix-hollis.github.io/java/java-spring-request-method-post-not-supported/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "Request method 'POST' is not supported", "item": "https://errorfix-hollis.github.io/java/java-spring-request-method-post-not-supported/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>Request method &#x27;POST&#x27; is not supported (Java) — how to fix</h1>
+<pre class="err"><code>WARN 12345 --- [nio-8080-exec-1] .w.s.m.s.DefaultHandlerExceptionResolver : Resolved [org.springframework.web.HttpRequestMethodNotSupportedException: Request method &#x27;POST&#x27; is not supported]
+{&quot;timestamp&quot;:&quot;2026-11-22T10:15:30.000+00:00&quot;,&quot;status&quot;:405,&quot;error&quot;:&quot;Method Not Allowed&quot;,&quot;path&quot;:&quot;/api/users&quot;}
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Make the controller method match the request: <code>@PostMapping("/api/users")</code> for POST (check <code>@RequestMapping</code> on the class for a path prefix). Check the <code>Allow</code> response header to see what is supported. If a POST works only after login or ends at /error, look at Spring Security (CSRF) and redirects.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>HttpRequestMethodNotSupportedException</code> is thrown when a request URL matches at least one handler mapping, but none accepts the request's method. Spring answers <code>405 Method Not Allowed</code> and lists the allowed methods in the <code>Allow</code> header:</p>
+<pre><code class="language-bash">curl -i -X POST http://localhost:8080/api/users
+# HTTP/1.1 405
+# Allow: GET
+</code></pre>
+<p>The method in the message varies: <code>'GET' is not supported</code> is equally common.</p>
+<h2 id="cause-1-the-mapping-uses-another-method">Cause 1: the mapping uses another method</h2>
+<pre><code class="language-java">@RestController
+@RequestMapping(&quot;/api/users&quot;)
+public class UserController {
+
+    @GetMapping           // only GET /api/users
+    public List&lt;User&gt; list() { ... }
+
+    @PostMapping          // add this for POST /api/users
+    public User create(@RequestBody User user) { ... }
+}
+</code></pre>
+<p><code>@RequestMapping</code> without <code>method</code> accepts all methods; <code>@GetMapping</code>, <code>@PostMapping</code>, <code>@PutMapping</code>, <code>@DeleteMapping</code>, <code>@PatchMapping</code> accept one each.</p>
+<h2 id="cause-2-the-path-only-matches-another-endpoint">Cause 2: the path only matches another endpoint</h2>
+<p>A POST to <code>/api/users/42</code> may match <code>@GetMapping("/{id}")</code> but no POST mapping, giving 405 instead of 404. Check the full path including the class-level <code>@RequestMapping</code> prefix and <code>server.servlet.context-path</code>. Trailing slashes: since Spring Boot 3 (Spring 6), <code>/api/users/</code> no longer matches <code>/api/users</code>.</p>
+<h2 id="cause-3-spring-security-csrf-turns-it-into-a-forward-or-redirect">Cause 3: Spring Security / CSRF turns it into a forward or redirect</h2>
+<p>With Spring Security, a POST without a CSRF token is rejected (403). Errors are forwarded to <code>/error</code>, and redirects (e.g. to <code>/login</code>) make the browser follow with GET. Either can surface as a confusing 405 on another URL.</p>
+<p>For a stateless REST API using tokens:</p>
+<pre><code class="language-java">@Bean
+SecurityFilterChain api(HttpSecurity http) throws Exception {
+    http.csrf(csrf -&gt; csrf.disable())
+        .authorizeHttpRequests(a -&gt; a.anyRequest().authenticated())
+        .httpBasic(Customizer.withDefaults());
+    return http.build();
+}
+</code></pre>
+<p>Keep CSRF on for browser sessions with form login, and include the token in forms (Thymeleaf adds it automatically with <code>th:action</code>).</p>
+<h2 id="cause-4-html-form-or-client-sends-the-wrong-method">Cause 4: HTML form or client sends the wrong method</h2>
+<ul>
+<li>HTML forms only send GET and POST. To send PUT/DELETE, add a hidden <code>_method</code> field and enable <code>spring.mvc.hiddenmethod.filter.enabled=true</code>.</li>
+<li>A <code>&lt;form&gt;</code> without <code>method="post"</code> sends GET.</li>
+<li>In JavaScript, <code>fetch(url, { method: "POST", ... })</code>; the default is GET.</li>
+</ul>
+<h2 id="cause-5-browser-preflight-cors">Cause 5: browser preflight (CORS)</h2>
+<p>A cross-origin request with JSON first sends <code>OPTIONS</code>. If CORS isn't configured, the preflight fails and the browser reports a CORS error. Configure <code>@CrossOrigin</code> or a <code>CorsConfigurationSource</code>; see the CORS page.</p>
+<h2 id="debugging">Debugging</h2>
+<p>Turn on mapping logs to see exactly which handlers are registered:</p>
+<pre><code class="language-properties">logging.level.org.springframework.web=DEBUG
+</code></pre>
+<p>Spring logs <code>Mapped to ...</code> per request and lists all mappings at startup. Look up status codes in the <a href="/tools/http-status-codes/">HTTP status codes reference</a>.</p>
+<p class="upd">Last updated 2026-11-22.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-spring-field-required-a-bean-of-type-that-could-not-be-found/">Field required a bean of type that could not be found.</a></li><li><a href="/java/java-spring-whitelabel-error-page/">Whitelabel Error Page</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

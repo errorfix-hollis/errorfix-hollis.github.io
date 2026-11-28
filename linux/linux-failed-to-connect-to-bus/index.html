@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Failed to connect to bus: No such file or directory (Linux) — how to fix</title>
+<meta name="description" content="systemctl, timedatectl, hostnamectl or loginctl can&#x27;t reach the D-Bus socket. Usually systemd isn&#x27;t running as PID 1 (Docker, WSL, chroot), or there&#x27;s no user session bus because you used su/sudo or SSH without a login session.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-failed-to-connect-to-bus/">
+<meta property="og:title" content="Failed to connect to bus: No such file or directory (Linux) — how to fix"><meta property="og:description" content="systemctl, timedatectl, hostnamectl or loginctl can&#x27;t reach the D-Bus socket. Usually systemd isn&#x27;t running as PID 1 (Docker, WSL, chroot), or there&#x27;s no user session bus because you used su/sudo or SSH without a login session.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-failed-to-connect-to-bus/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Failed to connect to bus: No such file or directory (Linux) \u2014 how to fix", "description": "systemctl, timedatectl, hostnamectl or loginctl can't reach the D-Bus socket. Usually systemd isn't running as PID 1 (Docker, WSL, chroot), or there's no user session bus because you used su/sudo or SSH without a login session.", "dateModified": "2026-11-25", "url": "https://errorfix-hollis.github.io/linux/linux-failed-to-connect-to-bus/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "Failed to connect to bus: No such file or directory", "item": "https://errorfix-hollis.github.io/linux/linux-failed-to-connect-to-bus/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>Failed to connect to bus: No such file or directory (Linux) — how to fix</h1>
+<pre class="err"><code>$ systemctl --user status
+Failed to connect to bus: No such file or directory
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check <code>ps -p 1 -o comm=</code>. If it isn't <code>systemd</code> (containers, old WSL), use <code>service name start</code> or run the program directly; on WSL add <code>[boot] systemd=true</code> to /etc/wsl.conf then <code>wsl --shutdown</code>. For <code>systemctl --user</code> errors, log in as that user directly (<code>machinectl shell user@</code> or SSH) instead of <code>su</code>, or run <code>sudo loginctl enable-linger user</code> and set <code>XDG_RUNTIME_DIR=/run/user/$(id -u)</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>systemd tools don't do the work themselves; they send requests over D-Bus:</p>
+<ul>
+<li><code>systemctl</code>, <code>timedatectl</code>, <code>hostnamectl</code> → the <strong>system bus</strong> at <code>/run/dbus/system_bus_socket</code> or systemd's private socket.</li>
+<li><code>systemctl --user</code>, <code>journalctl --user</code> → the <strong>user bus</strong> at <code>/run/user/&lt;UID&gt;/bus</code>.</li>
+</ul>
+<p>"No such file or directory" means that socket file doesn't exist.</p>
+<p>First, find out which case you're in:</p>
+<pre><code class="language-bash">ps -p 1 -o comm=                 # is PID 1 systemd?
+echo $XDG_RUNTIME_DIR            # should be /run/user/&lt;uid&gt; for --user
+ls -l /run/user/$(id -u)/bus
+</code></pre>
+<h2 id="cause-1-not-running-under-systemd-docker-chroot-old-wsl">Cause 1: not running under systemd (Docker, chroot, old WSL)</h2>
+<p>Inside a container or chroot, PID 1 is your app or a shell, so there is no systemd and no bus. You'll often also see <code>System has not been booted with systemd as init system</code>.</p>
+<ul>
+<li>Start services the classic way: <code>service nginx start</code> or run the binary directly (<code>nginx -g 'daemon off;'</code>).</li>
+<li>In Docker, the container's main process should be the service itself (<code>CMD ["nginx", "-g", "daemon off;"]</code>), not systemd.</li>
+</ul>
+<p><strong>WSL 2</strong>: enable systemd in the distro:</p>
+<pre><code class="language-bash">sudo tee /etc/wsl.conf &lt;&lt;'CONF'
+[boot]
+systemd=true
+CONF
+</code></pre>
+<p>Then in PowerShell: <code>wsl --shutdown</code>, and reopen the distro. Requires a recent WSL (<code>wsl --update</code>).</p>
+<h2 id="cause-2-systemctl-user-after-su-or-sudo-u">Cause 2: <code>systemctl --user</code> after <code>su</code> or <code>sudo -u</code></h2>
+<p><code>su otheruser</code> doesn't create a login session, so <code>/run/user/&lt;uid&gt;</code> and the user's systemd instance may not exist, and <code>XDG_RUNTIME_DIR</code> still points to the old user.</p>
+<p>Options:</p>
+<pre><code class="language-bash"># proper login session for the user
+sudo machinectl shell otheruser@
+# or SSH in as that user
+ssh otheruser@localhost
+</code></pre>
+<p>If the user's manager is running but env vars are missing:</p>
+<pre><code class="language-bash">export XDG_RUNTIME_DIR=/run/user/$(id -u)
+export DBUS_SESSION_BUS_ADDRESS=unix:path=$XDG_RUNTIME_DIR/bus
+systemctl --user status
+</code></pre>
+<h2 id="cause-3-user-services-for-an-account-that-isnt-logged-in">Cause 3: user services for an account that isn't logged in</h2>
+<p>The user manager only runs while the user has a session. For service accounts and headless servers enable lingering so it starts at boot:</p>
+<pre><code class="language-bash">sudo loginctl enable-linger otheruser
+</code></pre>
+<p>This is also the fix for rootless Podman/Docker and user services in cron jobs (set <code>XDG_RUNTIME_DIR</code> in the cron line).</p>
+<h2 id="cause-4-dbus-not-installed-or-not-running">Cause 4: dbus not installed or not running</h2>
+<p>Minimal images may lack D-Bus entirely:</p>
+<pre><code class="language-bash">sudo apt install dbus        # Debian/Ubuntu
+sudo systemctl start dbus
+</code></pre>
+<p>For user sessions on minimal desktops you may need <code>dbus-user-session</code> (<code>sudo apt install dbus-user-session</code>, then log out and in).</p>
+<h2 id="cause-5-running-with-sudo-in-a-script-for-user">Cause 5: running with <code>sudo</code> in a script for <code>--user</code></h2>
+<p><code>sudo systemctl --user ...</code> talks to <strong>root's</strong> user bus, which usually doesn't exist. Drop <code>sudo</code> for <code>--user</code> commands, or target the right user:</p>
+<pre><code class="language-bash">sudo systemctl --user -M otheruser@ status myapp.service
+</code></pre>
+<p class="upd">Last updated 2026-11-25.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-system-has-not-been-booted-with-systemd/">System has not been booted with systemd as init system (PID 1). Can&#x27;t operate.</a></li><li><a href="/linux/linux-unit-service-not-found/">Failed to start nginx.service: Unit nginx.service not found.</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-apt-expkeysig/">The following signatures were invalid: EXPKEYSIG</a></li><li><a href="/linux/linux-apt-hash-sum-mismatch/">E: Failed to fetch ... Hash Sum mismatch</a></li><li><a href="/linux/linux-apt-no-pubkey/">The following signatures couldn&#x27;t be verified because the public key is not available: NO_PUBKEY</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

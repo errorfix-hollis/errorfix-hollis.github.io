@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: &#x27;int&#x27; object is not iterable (Python) — how to fix</title>
+<meta name="description" content="You used an integer where Python expects something it can loop over (a list, string, range, dict...). Usually a `for` loop over a number instead of `range(number)`.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-int-object-is-not-iterable/">
+<meta property="og:title" content="TypeError: &#x27;int&#x27; object is not iterable (Python) — how to fix"><meta property="og:description" content="You used an integer where Python expects something it can loop over (a list, string, range, dict...). Usually a `for` loop over a number instead of `range(number)`.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-int-object-is-not-iterable/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: 'int' object is not iterable (Python) \u2014 how to fix", "description": "You used an integer where Python expects something it can loop over (a list, string, range, dict...). Usually a `for` loop over a number instead of `range(number)`.", "dateModified": "2026-11-20", "url": "https://errorfix-hollis.github.io/python/python-typeerror-int-object-is-not-iterable/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: 'int' object is not iterable", "item": "https://errorfix-hollis.github.io/python/python-typeerror-int-object-is-not-iterable/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: &#x27;int&#x27; object is not iterable (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;main.py&quot;, line 3, in &lt;module&gt;
+    for i in n:
+TypeError: &#x27;int&#x27; object is not iterable
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Loop over <code>range(n)</code> instead of <code>n</code>: <code>for i in range(n):</code>. For <code>len()</code> results use <code>for i in range(len(items)):</code> (or better, <code>for item in items:</code>). Don't pass a bare int to <code>list()</code>, <code>sum()</code>, <code>max()</code>, <code>sorted()</code> or tuple unpacking; wrap it in a list: <code>[n]</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Python tried to iterate over a value of type <code>int</code>. Iteration happens in <code>for</code> loops, comprehensions, <code>in</code> checks, unpacking (<code>a, b = x</code>), and in functions that consume iterables like <code>list()</code>, <code>sum()</code>, <code>max()</code>, <code>min()</code>, <code>sorted()</code>, <code>set()</code>, <code>zip()</code>, <code>enumerate()</code> and <code>str.join()</code>. An integer is a single value, so none of these work on it.</p>
+<p>The traceback line shows exactly which expression was the int.</p>
+<h2 id="cause-1-looping-over-a-number-instead-of-a-range">Cause 1: looping over a number instead of a range</h2>
+<pre><code class="language-python">n = 5
+for i in n:          # TypeError
+    print(i)
+</code></pre>
+<p>Fix with <code>range()</code>:</p>
+<pre><code class="language-python">for i in range(n):          # 0..4
+    print(i)
+for i in range(1, n + 1):   # 1..5
+    print(i)
+</code></pre>
+<p>The same mistake with <code>len()</code>:</p>
+<pre><code class="language-python">for i in len(items):          # TypeError: len() returns an int
+for i in range(len(items)):   # works
+for i, item in enumerate(items):  # usually nicer
+</code></pre>
+<h2 id="cause-2-passing-an-int-to-sum-max-list">Cause 2: passing an int to sum(), max(), list()...</h2>
+<pre><code class="language-python">total = sum(5)          # TypeError
+biggest = max(price)    # price is a single int
+</code></pre>
+<p>These functions take a collection. Either pass the collection, or compare values directly:</p>
+<pre><code class="language-python">total = sum([a, b, c])
+biggest = max(a, b)      # max/min also accept several arguments
+nums = list(range(10))   # not list(10)
+digits = [int(d) for d in str(12345)]   # iterate over the digits of a number
+</code></pre>
+<h2 id="cause-3-unpacking-a-single-integer">Cause 3: unpacking a single integer</h2>
+<pre><code class="language-python">def stats(data):
+    return len(data)          # returns one int
+
+count, total = stats(data)    # TypeError: cannot unpack int
+</code></pre>
+<p>Return a tuple when the caller expects several values:</p>
+<pre><code class="language-python">def stats(data):
+    return len(data), sum(data)
+</code></pre>
+<h2 id="cause-4-in-on-an-integer">Cause 4: <code>in</code> on an integer</h2>
+<pre><code class="language-python">if 3 in 12345:      # TypeError: argument of type 'int' is not iterable
+</code></pre>
+<p>Convert to a string if you meant digits: <code>if "3" in str(12345):</code>. If you meant a collection, make sure the variable actually holds one.</p>
+<h2 id="cause-5-a-variable-that-changed-type">Cause 5: a variable that changed type</h2>
+<p>A name that held a list was later reassigned to a number, often a counter or an accumulator:</p>
+<pre><code class="language-python">scores = [10, 20, 30]
+for s in scores:
+    scores = s * 2     # overwrites the list with an int
+for s in scores:       # TypeError on the second loop
+    ...
+</code></pre>
+<p>Use different names, and check with <code>print(type(x), x)</code> just before the failing line. Values read from JSON or an API may also be a number where you expected a list (e.g. <code>{"items": 3}</code> vs <code>{"items": [...]}</code>); validate with <code>isinstance(value, list)</code>.</p>
+<p class="upd">Last updated 2026-11-20.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-typeerror-float-object-is-not-iterable/">TypeError: &#x27;float&#x27; object is not iterable</a></li><li><a href="/python/python-typeerror-int-object-is-not-subscriptable/">TypeError: &#x27;int&#x27; object is not subscriptable</a></li><li><a href="/python/python-typeerror-nonetype-object-is-not-iterable/">TypeError: &#x27;NoneType&#x27; object is not iterable</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

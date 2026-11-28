@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>0/3 nodes are available: 3 node(s) didn&#x27;t match Pod&#x27;s node affinity/selector. (Kubernetes) — how to fix</title>
+<meta name="description" content="The pod has a nodeSelector or required nodeAffinity rule that no node satisfies, usually because the label it asks for doesn&#x27;t exist on any node, has a typo, or the matching node pool is scaled to zero.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-nodes-didnt-match-pods-node-affinity-selector/">
+<meta property="og:title" content="0/3 nodes are available: 3 node(s) didn&#x27;t match Pod&#x27;s node affinity/selector. (Kubernetes) — how to fix"><meta property="og:description" content="The pod has a nodeSelector or required nodeAffinity rule that no node satisfies, usually because the label it asks for doesn&#x27;t exist on any node, has a typo, or the matching node pool is scaled to zero.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-nodes-didnt-match-pods-node-affinity-selector/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "0/3 nodes are available: 3 node(s) didn't match Pod's node affinity/selector. (Kubernetes) \u2014 how to fix", "description": "The pod has a nodeSelector or required nodeAffinity rule that no node satisfies, usually because the label it asks for doesn't exist on any node, has a typo, or the matching node pool is scaled to zero.", "dateModified": "2026-11-26", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-nodes-didnt-match-pods-node-affinity-selector/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "0/3 nodes are available: 3 node(s) didn't match Pod's node affinity/selector.", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-nodes-didnt-match-pods-node-affinity-selector/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>0/3 nodes are available: 3 node(s) didn&#x27;t match Pod&#x27;s node affinity/selector. (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Warning  FailedScheduling  default-scheduler  0/3 nodes are available: 3 node(s) didn&#x27;t match Pod&#x27;s node affinity/selector. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Compare the pod's rules with node labels: <code>kubectl get pod POD -o jsonpath='{.spec.nodeSelector}{.spec.affinity}'</code> and <code>kubectl get nodes --show-labels</code>. Then either label a node (<code>kubectl label node NODE disktype=ssd</code>), fix the selector in the Deployment, or switch to <code>preferredDuringSchedulingIgnoredDuringExecution</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The scheduler filtered every node and none passed the pod's <strong>node selection rules</strong>, so the pod stays <code>Pending</code>. The rules come from one of:</p>
+<ul>
+<li><code>spec.nodeSelector</code> (exact label match)</li>
+<li><code>spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution</code></li>
+</ul>
+<p>Rules under <code>preferredDuringScheduling...</code> never cause this error; they're only preferences.</p>
+<p>The message can be combined with others, e.g. <code>1 node(s) had untolerated taint {node-role.kubernetes.io/control-plane: }, 2 node(s) didn't match Pod's node affinity/selector</code>. Each node is counted under the first filter it failed.</p>
+<p>If the message is <code>volume node affinity conflict</code>, that's a different problem: the PersistentVolume is pinned to another zone (see <a href="/kubernetes/k8s-volume-node-affinity-conflict/">volume node affinity conflict</a>).</p>
+<h2 id="step-1-see-what-the-pod-is-asking-for">Step 1: see what the pod is asking for</h2>
+<pre><code class="language-bash">kubectl get pod POD -o yaml | grep -A15 -E 'nodeSelector|nodeAffinity'
+kubectl describe pod POD | sed -n '/Node-Selectors/,/Tolerations/p'
+</code></pre>
+<h2 id="step-2-see-what-labels-the-nodes-have">Step 2: see what labels the nodes have</h2>
+<pre><code class="language-bash">kubectl get nodes --show-labels
+kubectl get nodes -L disktype,kubernetes.io/arch,topology.kubernetes.io/zone
+</code></pre>
+<h2 id="cause-1-label-doesnt-exist-on-any-node">Cause 1: label doesn't exist on any node</h2>
+<pre><code class="language-yaml">nodeSelector:
+  disktype: ssd
+</code></pre>
+<p>but no node has <code>disktype=ssd</code>.</p>
+<h2 id="fix-1-label-a-node-or-change-the-selector">Fix 1: label a node, or change the selector</h2>
+<pre><code class="language-bash">kubectl label node worker-1 disktype=ssd
+</code></pre>
+<p>Labels added by hand are lost if the node is recreated; on managed clusters set them on the node pool instead (EKS node group labels, GKE <code>--node-labels</code>, AKS <code>--labels</code>).</p>
+<p>Or remove/fix the selector in the Deployment:</p>
+<pre><code class="language-bash">kubectl edit deployment myapp
+# or
+kubectl patch deployment myapp --type=json -p='[{&quot;op&quot;:&quot;remove&quot;,&quot;path&quot;:&quot;/spec/template/spec/nodeSelector&quot;}]'
+</code></pre>
+<h2 id="cause-2-typo-or-wrong-value">Cause 2: typo or wrong value</h2>
+<p>Label keys and values are case-sensitive: <code>Disktype</code> ≠ <code>disktype</code>, <code>SSD</code> ≠ <code>ssd</code>. Deprecated labels like <code>beta.kubernetes.io/arch</code> may not exist on new nodes; use <code>kubernetes.io/arch</code>, <code>kubernetes.io/os</code>, <code>topology.kubernetes.io/zone</code>, <code>node.kubernetes.io/instance-type</code>.</p>
+<h2 id="cause-3-architecture-or-os-mismatch">Cause 3: architecture or OS mismatch</h2>
+<p>Helm charts often require <code>kubernetes.io/arch: amd64</code> or <code>kubernetes.io/os: linux</code>. On an all-arm64 cluster (Graviton, Apple Silicon kind/minikube) or with Windows-only nodes, nothing matches. Override in the chart values, and make sure the image is multi-arch, or the pod will start and then crash with <code>exec format error</code>.</p>
+<h2 id="cause-4-matching-node-pool-is-scaled-to-zero-or-gone">Cause 4: matching node pool is scaled to zero or gone</h2>
+<p>The node with the right label was deleted, cordoned for an upgrade, or its pool scaled down. If the cluster autoscaler can't create a node that would match (labels not declared on the node group template), the pod stays Pending. Check autoscaler events:</p>
+<pre><code class="language-bash">kubectl get events --field-selector reason=NotTriggerScaleUp
+</code></pre>
+<h2 id="cause-5-affinity-rule-logic">Cause 5: affinity rule logic</h2>
+<p><code>nodeSelectorTerms</code> are <strong>ORed</strong>; <code>matchExpressions</code> inside one term are <strong>ANDed</strong>. Putting two expressions in one term when you meant either/or makes it unsatisfiable:</p>
+<pre><code class="language-yaml">affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: topology.kubernetes.io/zone
+          operator: In
+          values: [eu-west-1a, eu-west-1b]   # OR within values
+</code></pre>
+<h2 id="fix-make-it-a-preference-if-it-isnt-a-hard-requirement">Fix: make it a preference if it isn't a hard requirement</h2>
+<pre><code class="language-yaml">preferredDuringSchedulingIgnoredDuringExecution:
+- weight: 100
+  preference:
+    matchExpressions:
+    - key: disktype
+      operator: In
+      values: [ssd]
+</code></pre>
+<p>After any fix, the Pending pod is rescheduled automatically; for Deployments, the new ReplicaSet's pods replace it.</p>
+<p class="upd">Last updated 2026-11-26.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-nodes-had-untolerated-taint/">0/3 nodes are available: 3 node(s) had untolerated taint</a></li><li><a href="/kubernetes/k8s-volume-node-affinity-conflict/">1 node(s) had volume node affinity conflict</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-container-is-waiting-to-start/">Error from server (BadRequest): container is waiting to start: ContainerCreating</a></li><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>react-scripts: not found (Node.js) — how to fix</title>
+<meta name="description" content="npm ran the `start`/`build` script but the `react-scripts` binary isn&#x27;t in node_modules/.bin. Almost always the dependencies were never installed, the install failed, or node_modules is broken.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-react-scripts-not-found/">
+<meta property="og:title" content="react-scripts: not found (Node.js) — how to fix"><meta property="og:description" content="npm ran the `start`/`build` script but the `react-scripts` binary isn&#x27;t in node_modules/.bin. Almost always the dependencies were never installed, the install failed, or node_modules is broken.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-react-scripts-not-found/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "react-scripts: not found (Node.js) \u2014 how to fix", "description": "npm ran the `start`/`build` script but the `react-scripts` binary isn't in node_modules/.bin. Almost always the dependencies were never installed, the install failed, or node_modules is broken.", "dateModified": "2026-11-17", "url": "https://errorfix-hollis.github.io/npm/npm-react-scripts-not-found/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "react-scripts: not found", "item": "https://errorfix-hollis.github.io/npm/npm-react-scripts-not-found/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>react-scripts: not found (Node.js) — how to fix</h1>
+<pre class="err"><code>&gt; my-app@0.1.0 start
+&gt; react-scripts start
+
+sh: 1: react-scripts: not found
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>npm install</code> in the project folder (where package.json is), then <code>npm start</code>. If it's still missing, reinstall cleanly: <code>rm -rf node_modules package-lock.json &amp;&amp; npm install</code>, or add it explicitly: <code>npm install react-scripts --save</code>. On Windows the message is <code>'react-scripts' is not recognized as an internal or external command</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>npm start</code> runs the <code>"start": "react-scripts start"</code> entry from <code>package.json</code>. npm puts <code>node_modules/.bin</code> on the <code>PATH</code> for scripts, so <code>react-scripts</code> must exist at <code>node_modules/.bin/react-scripts</code>. If it doesn't, the shell reports:</p>
+<ul>
+<li>Linux/macOS: <code>sh: 1: react-scripts: not found</code> or <code>sh: react-scripts: command not found</code></li>
+<li>Windows: <code>'react-scripts' is not recognized as an internal or external command, operable program or batch file.</code></li>
+</ul>
+<p>npm then reports the failure as <code>ELIFECYCLE</code> / <code>code 127</code>.</p>
+<h2 id="fix-1-install-dependencies">Fix 1: install dependencies</h2>
+<p>Freshly cloned repos don't include <code>node_modules</code>:</p>
+<pre><code class="language-bash">cd my-app            # the folder that contains package.json
+npm install
+npm start
+</code></pre>
+<p>Use the project's package manager if it has a lock file: <code>yarn</code> (yarn.lock) or <code>pnpm install</code> (pnpm-lock.yaml).</p>
+<h2 id="fix-2-the-install-failed-or-node_modules-is-broken">Fix 2: the install failed or node_modules is broken</h2>
+<p>Scroll up in the <code>npm install</code> output: an <code>ERESOLVE</code> or network error means the install never completed. Then reinstall cleanly:</p>
+<pre><code class="language-bash">rm -rf node_modules package-lock.json
+npm cache verify
+npm install
+</code></pre>
+<p>On Windows PowerShell: <code>Remove-Item -Recurse -Force node_modules, package-lock.json</code>.</p>
+<p>If <code>npm install</code> fails with <code>ERESOLVE unable to resolve dependency tree</code> (common with old CRA projects on React 18/19), see <a href="/npm/npm-eresolve-unable-to-resolve-dependency-tree/">ERESOLVE</a>; <code>npm install --legacy-peer-deps</code> usually gets it through.</p>
+<h2 id="fix-3-react-scripts-isnt-in-packagejson">Fix 3: react-scripts isn't in package.json</h2>
+<p>Check:</p>
+<pre><code class="language-bash">npm ls react-scripts
+grep react-scripts package.json
+</code></pre>
+<p>If it's missing (deleted by accident, or the project was ejected), add it:</p>
+<pre><code class="language-bash">npm install react-scripts --save
+</code></pre>
+<h2 id="fix-4-node_envproduction-skipped-it">Fix 4: NODE_ENV=production skipped it</h2>
+<p><code>npm install</code> skips <code>devDependencies</code> when <code>NODE_ENV=production</code> is set or with <code>--omit=dev</code>. If <code>react-scripts</code> is listed under <code>devDependencies</code> (common in some templates), it won't be installed in CI or Docker. Install with dev deps for the build:</p>
+<pre><code class="language-bash">NODE_ENV=development npm ci
+npm run build
+</code></pre>
+<p>In a Dockerfile, run <code>npm ci</code> before setting <code>ENV NODE_ENV=production</code>, or move <code>react-scripts</code> to <code>dependencies</code>.</p>
+<h2 id="fix-5-docker-bind-mount-hides-node_modules">Fix 5: Docker bind mount hides node_modules</h2>
+<p><code>docker compose</code> with <code>volumes: - .:/app</code> replaces the image's <code>/app/node_modules</code> with your host folder (which may be empty). Add an anonymous volume so the container keeps its own:</p>
+<pre><code class="language-yaml">volumes:
+  - .:/app
+  - /app/node_modules
+</code></pre>
+<h2 id="fix-6-permission-or-path-problems">Fix 6: permission or path problems</h2>
+<ul>
+<li><code>sh: 1: react-scripts: Permission denied</code> means the file exists but isn't executable (e.g. copied from Windows): <code>chmod +x node_modules/.bin/react-scripts</code>, or just reinstall.</li>
+<li>A project path containing <code>&amp;</code>, <code>#</code> or similar on Windows can break <code>.bin</code> shims; move it to a simple path like <code>C:\dev\my-app</code>.</li>
+</ul>
+<h2 id="consider-migrating">Consider migrating</h2>
+<p>Create React App is deprecated (officially since February 2025) and <code>react-scripts</code> hasn't kept up with React 19. For new work, use Vite: <code>npm create vite@latest my-app -- --template react</code>.</p>
+<p class="upd">Last updated 2026-11-17.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/npm-elifecycle/">npm ERR! code ELIFECYCLE</a></li><li><a href="/npm/npm-eresolve-unable-to-resolve-dependency-tree/">npm ERR! code ERESOLVE unable to resolve dependency tree</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li><li><a href="/npm/node-err-require-esm/">Error [ERR_REQUIRE_ESM]: require() of ES Module not supported</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Field required a bean of type that could not be found. (Java) — how to fix</title>
+<meta name="description" content="Spring tried to inject a dependency but no bean of that type exists in the application context. Usually the class is outside the component-scan package, is missing a stereotype annotation, or its auto-configuration didn&#x27;t activate.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-spring-field-required-a-bean-of-type-that-could-not-be-found/">
+<meta property="og:title" content="Field required a bean of type that could not be found. (Java) — how to fix"><meta property="og:description" content="Spring tried to inject a dependency but no bean of that type exists in the application context. Usually the class is outside the component-scan package, is missing a stereotype annotation, or its auto-configuration didn&#x27;t activate.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-spring-field-required-a-bean-of-type-that-could-not-be-found/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Field required a bean of type that could not be found. (Java) \u2014 how to fix", "description": "Spring tried to inject a dependency but no bean of that type exists in the application context. Usually the class is outside the component-scan package, is missing a stereotype annotation, or its auto-configuration didn't activate.", "dateModified": "2026-11-19", "url": "https://errorfix-hollis.github.io/java/java-spring-field-required-a-bean-of-type-that-could-not-be-found/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "Field required a bean of type that could not be found.", "item": "https://errorfix-hollis.github.io/java/java-spring-field-required-a-bean-of-type-that-could-not-be-found/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>Field required a bean of type that could not be found. (Java) — how to fix</h1>
+<pre class="err"><code>***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Field userRepository in com.example.demo.service.UserService required a bean of type &#x27;com.example.demo.repo.UserRepository&#x27; that could not be found.
+
+The injection point has the following annotations:
+	- @org.springframework.beans.factory.annotation.Autowired(required=true)
+
+Action:
+
+Consider defining a bean of type &#x27;com.example.demo.repo.UserRepository&#x27; in your configuration.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Make sure the class is annotated (<code>@Service</code>, <code>@Component</code>, <code>@Repository</code>, or extends <code>JpaRepository</code>) and lives in the same package as your <code>@SpringBootApplication</code> class or a sub-package. Otherwise add <code>@ComponentScan</code>/<code>@EnableJpaRepositories(basePackages = "...")</code>, or declare it with a <code>@Bean</code> method.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>At startup Spring builds the <em>application context</em>: it scans packages for annotated classes and creates beans. When it reaches an <code>@Autowired</code> field (or constructor parameter) whose type has no matching bean, startup fails with this message. Under the hood it's a <code>NoSuchBeanDefinitionException</code>.</p>
+<p>The type named in the message is the one that's missing — not the class that asks for it.</p>
+<h2 id="cause-1-the-class-is-outside-the-scanned-packages">Cause 1: the class is outside the scanned packages</h2>
+<p><code>@SpringBootApplication</code> scans only its own package and sub-packages:</p>
+<pre><code class="language-text">com.example.demo.DemoApplication        &lt;- @SpringBootApplication
+com.example.demo.service.UserService    &lt;- scanned
+com.example.repo.UserRepository         &lt;- NOT scanned (sibling package)
+</code></pre>
+<p><strong>Fix:</strong> move the main class up to the root package (best), or widen the scan:</p>
+<pre><code class="language-java">@SpringBootApplication(scanBasePackages = &quot;com.example&quot;)
+public class DemoApplication { ... }
+</code></pre>
+<p>For Spring Data repositories and JPA entities in other packages you also need:</p>
+<pre><code class="language-java">@EnableJpaRepositories(basePackages = &quot;com.example.repo&quot;)
+@EntityScan(basePackages = &quot;com.example.model&quot;)
+</code></pre>
+<h2 id="cause-2-missing-annotation">Cause 2: missing annotation</h2>
+<p>A plain class is not a bean. Add a stereotype annotation:</p>
+<pre><code class="language-java">@Service                       // or @Component / @Repository / @Controller
+public class EmailSender { ... }
+</code></pre>
+<p>Repositories must be interfaces extending a Spring Data type:</p>
+<pre><code class="language-java">public interface UserRepository extends JpaRepository&lt;User, Long&gt; { }
+</code></pre>
+<p>Also check you imported the Spring annotation (<code>org.springframework.stereotype.Service</code>), not a same-named one from another library.</p>
+<h2 id="cause-3-third-party-class-with-no-bean-definition">Cause 3: third-party class with no bean definition</h2>
+<p>Classes from libraries (<code>RestTemplate</code>, <code>ObjectMapper</code> in some setups, <code>ModelMapper</code>, an SDK client) are not beans unless something defines them:</p>
+<pre><code class="language-java">@Configuration
+public class AppConfig {
+    @Bean
+    public RestTemplate restTemplate(RestTemplateBuilder builder) {
+        return builder.build();
+    }
+}
+</code></pre>
+<h2 id="cause-4-the-starter-auto-configuration-isnt-active">Cause 4: the starter / auto-configuration isn't active</h2>
+<p>Spring Data repositories need <code>spring-boot-starter-data-jpa</code> (or <code>-data-mongodb</code>, etc.) on the classpath. If the dependency is missing, or the auto-configuration is excluded (<code>exclude = DataSourceAutoConfiguration.class</code>), no repository beans are created. Check the conditions report:</p>
+<pre><code class="language-bash">./mvnw spring-boot:run -Dspring-boot.run.arguments=--debug
+# or
+java -jar app.jar --debug
+</code></pre>
+<p>Look under "Negative matches" for the auto-configuration you expected.</p>
+<h2 id="cause-5-conditional-or-profile-specific-beans">Cause 5: conditional or profile-specific beans</h2>
+<p>A bean annotated <code>@Profile("prod")</code> or <code>@ConditionalOnProperty(...)</code> doesn't exist when that profile/property isn't set. Activate it (<code>--spring.profiles.active=prod</code>) or provide a default implementation.</p>
+<h2 id="cause-6-in-tests-a-slice-doesnt-load-the-bean">Cause 6: in tests, a slice doesn't load the bean</h2>
+<p><code>@WebMvcTest</code> and <code>@DataJpaTest</code> load only part of the context. A service your controller needs won't be there — mock it:</p>
+<pre><code class="language-java">@WebMvcTest(UserController.class)
+class UserControllerTest {
+    @MockitoBean   // Spring Boot 3.4+; older versions: @MockBean
+    UserService userService;
+}
+</code></pre>
+<h2 id="prefer-constructor-injection">Prefer constructor injection</h2>
+<p>It makes missing dependencies obvious and testable:</p>
+<pre><code class="language-java">@Service
+public class UserService {
+    private final UserRepository repo;
+    public UserService(UserRepository repo) { this.repo = repo; }
+}
+</code></pre>
+<p>The error text then reads "Parameter 0 of constructor in ... required a bean of type ..." — same causes, same fixes.</p>
+<p class="upd">Last updated 2026-11-19.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-failed-to-load-applicationcontext/">java.lang.IllegalStateException: Failed to load ApplicationContext</a></li><li><a href="/java/java-spring-failed-to-configure-a-datasource/">Failed to configure a DataSource: &#x27;url&#x27; attribute is not specified and no embedded datasource could be configured.</a></li><li><a href="/java/java-spring-port-8080-was-already-in-use/">Web server failed to start. Port 8080 was already in use.</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

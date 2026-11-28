@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PermissionError: [Errno 13] Permission denied (Python) — how to fix</title>
+<meta name="description" content="Python asked the OS to open, write, delete or execute a path and the OS refused. Either your user lacks permission, the path is a directory, or (on Windows) another program has the file locked.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-permissionerror-errno-13-permission-denied/">
+<meta property="og:title" content="PermissionError: [Errno 13] Permission denied (Python) — how to fix"><meta property="og:description" content="Python asked the OS to open, write, delete or execute a path and the OS refused. Either your user lacks permission, the path is a directory, or (on Windows) another program has the file locked.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-permissionerror-errno-13-permission-denied/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "PermissionError: [Errno 13] Permission denied (Python) \u2014 how to fix", "description": "Python asked the OS to open, write, delete or execute a path and the OS refused. Either your user lacks permission, the path is a directory, or (on Windows) another program has the file locked.", "dateModified": "2026-11-24", "url": "https://errorfix-hollis.github.io/python/python-permissionerror-errno-13-permission-denied/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "PermissionError: [Errno 13] Permission denied", "item": "https://errorfix-hollis.github.io/python/python-permissionerror-errno-13-permission-denied/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>PermissionError: [Errno 13] Permission denied (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;main.py&quot;, line 3, in &lt;module&gt;
+    with open(&quot;/var/log/app.log&quot;, &quot;w&quot;) as f:
+PermissionError: [Errno 13] Permission denied: &#x27;/var/log/app.log&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check what the path is and who owns it: <code>ls -ld /path/to/file</code>. If it's a directory, open a file inside it instead. Write to a location you own (e.g. your home or project dir), fix ownership with <code>sudo chown $USER /path</code>, or close the program (Excel, an editor) that holds the file open on Windows. Don't run pip with sudo; use a venv.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>Errno 13</code> is <code>EACCES</code> from the operating system. Python only reports it; the fix is about the path, the user running the script, or another process. The path in the message tells you exactly which file was refused.</p>
+<pre><code class="language-bash">ls -ld /var/log/app.log /var/log   # owner, group, mode of the file and its folder
+id                                 # which user/groups you are
+</code></pre>
+<p>To create or delete a file you need write permission on the <strong>folder</strong>; to modify an existing file you need write permission on the <strong>file</strong>. Use the <a href="/tools/chmod-calculator/">chmod calculator</a> to decode modes like <code>drwxr-xr-x</code>.</p>
+<h2 id="cause-1-the-path-is-a-directory">Cause 1: the path is a directory</h2>
+<p>The most common case on Windows: <code>open("C:\\data")</code> or <code>open(folder)</code> where <code>folder</code> is a directory gives <code>Permission denied</code> (on Linux it's <code>IsADirectoryError</code>). Build the full file path:</p>
+<pre><code class="language-python">from pathlib import Path
+
+out = Path(&quot;C:/data&quot;) / &quot;result.csv&quot;
+with open(out, &quot;w&quot;) as f:
+    f.write(&quot;...&quot;)
+</code></pre>
+<p>Same with <code>shutil.copy(src, dst_dir)</code>: fine on most systems, but <code>shutil.copyfile</code> requires a file path for <code>dst</code>.</p>
+<h2 id="cause-2-you-dont-own-the-location">Cause 2: you don't own the location</h2>
+<p>Writing to <code>/var/log</code>, <code>/etc</code>, <code>/usr</code>, <code>C:\Program Files</code> or the filesystem root needs admin rights. Write somewhere you own instead:</p>
+<pre><code class="language-python">from pathlib import Path
+log = Path.home() / &quot;.myapp&quot; / &quot;app.log&quot;
+log.parent.mkdir(parents=True, exist_ok=True)
+</code></pre>
+<p>If the file really belongs in a system location, give your user ownership once:</p>
+<pre><code class="language-bash">sudo mkdir -p /var/log/myapp
+sudo chown &quot;$USER&quot;: /var/log/myapp
+</code></pre>
+<p>Files previously created by <code>sudo python ...</code> are owned by root; fix with <code>sudo chown -R "$USER": path</code>.</p>
+<h2 id="cause-3-the-file-is-locked-by-another-program-windows">Cause 3: the file is locked by another program (Windows)</h2>
+<p>Windows refuses to open or delete a file that another process has open, e.g. a CSV/XLSX open in Excel, or a file still open in your own script. Close it in the other program, and close your own handles with <code>with</code> blocks before calling <code>os.remove()</code> or <code>os.rename()</code>.</p>
+<p>Antivirus and OneDrive sync can briefly lock files too; moving the project out of a OneDrive folder often helps.</p>
+<h2 id="cause-4-pip-install-into-system-python">Cause 4: pip install into system Python</h2>
+<p><code>ERROR: Could not install packages due to an OSError: [Errno 13] Permission denied: '/usr/lib/python3/dist-packages/...'</code> means pip tried to write into a system folder. Don't use <code>sudo pip</code>; use a virtual environment:</p>
+<pre><code class="language-bash">python3 -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install requests
+</code></pre>
+<p>Or <code>pip install --user package</code> for a per-user install.</p>
+<h2 id="cause-5-executing-a-file-without-the-execute-bit">Cause 5: executing a file without the execute bit</h2>
+<p><code>subprocess.run(["./script.sh"])</code> raises <code>PermissionError</code> if the script isn't executable:</p>
+<pre><code class="language-bash">chmod +x script.sh
+</code></pre>
+<p>Or call it through the interpreter: <code>subprocess.run(["bash", "script.sh"])</code>.</p>
+<h2 id="cause-6-docker-volumes">Cause 6: Docker volumes</h2>
+<p>Inside a container running as a non-root user, a bind-mounted host folder owned by another UID is read-only to you. Match the UID (<code>docker run --user "$(id -u):$(id -g)" ...</code>) or <code>chown</code> the host folder to the container's UID.</p>
+<p class="upd">Last updated 2026-11-24.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-permission-denied-running-script/">bash: ./script.sh: Permission denied</a></li><li><a href="/python/python-externally-managed-environment/">error: externally-managed-environment</a></li><li><a href="/python/python-filenotfounderror-no-such-file-or-directory/">FileNotFoundError: [Errno 2] No such file or directory</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

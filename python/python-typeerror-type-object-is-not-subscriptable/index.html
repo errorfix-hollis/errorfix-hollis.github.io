@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: &#x27;type&#x27; object is not subscriptable (Python) — how to fix</title>
+<meta name="description" content="You used square brackets on a class rather than an instance. Most often it&#x27;s a built-in generic type hint like list[str] or dict[str, int] on Python 3.8 or older, or a variable named after a type (list, dict, str).">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-type-object-is-not-subscriptable/">
+<meta property="og:title" content="TypeError: &#x27;type&#x27; object is not subscriptable (Python) — how to fix"><meta property="og:description" content="You used square brackets on a class rather than an instance. Most often it&#x27;s a built-in generic type hint like list[str] or dict[str, int] on Python 3.8 or older, or a variable named after a type (list, dict, str).">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-type-object-is-not-subscriptable/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: 'type' object is not subscriptable (Python) \u2014 how to fix", "description": "You used square brackets on a class rather than an instance. Most often it's a built-in generic type hint like list[str] or dict[str, int] on Python 3.8 or older, or a variable named after a type (list, dict, str).", "dateModified": "2026-11-16", "url": "https://errorfix-hollis.github.io/python/python-typeerror-type-object-is-not-subscriptable/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: 'type' object is not subscriptable", "item": "https://errorfix-hollis.github.io/python/python-typeerror-type-object-is-not-subscriptable/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: &#x27;type&#x27; object is not subscriptable (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 3, in &lt;module&gt;
+    def load(names: list[str]) -&gt; dict[str, int]:
+TypeError: &#x27;type&#x27; object is not subscriptable
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> On Python 3.8 and older, either add <code>from __future__ import annotations</code> at the top of the file, or use <code>typing.List[str]</code>, <code>typing.Dict[str, int]</code>. Better: upgrade to Python 3.9+. If it's not a type hint, you're indexing the class itself (<code>list[0]</code>) — index your variable instead, and don't name variables <code>list</code>/<code>dict</code>/<code>str</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Subscripting means using <code>[...]</code> on an object. <code>x[0]</code> calls <code>x.__getitem__</code>; <code>SomeClass[int]</code> calls <code>SomeClass.__class_getitem__</code>. If the class defines neither for the class itself, Python raises <code>'type' object is not subscriptable</code> — "type" here means "a class".</p>
+<h2 id="cause-1-built-in-generics-on-python-38-or-older">Cause 1: built-in generics on Python 3.8 or older</h2>
+<p>PEP 585 (Python <strong>3.9</strong>) made <code>list[str]</code>, <code>dict[str, int]</code>, <code>tuple[int, ...]</code>, <code>set[str]</code>, <code>type[Foo]</code> valid. On 3.8 and older these lines fail as soon as the function is defined:</p>
+<pre><code class="language-python">def load(names: list[str]) -&gt; dict[str, int]:   # TypeError on 3.8
+    ...
+</code></pre>
+<p>Check the version that actually runs the code (CI, Docker image, server):</p>
+<pre><code class="language-bash">python --version
+</code></pre>
+<p>Fixes, best first:</p>
+<ol>
+<li><strong>Upgrade to Python 3.9+</strong> (3.8 is end-of-life since October 2024).</li>
+<li><strong>Postpone evaluation of annotations</strong> (works on 3.7+) — annotations are stored as strings and never evaluated:</li>
+</ol>
+<p>```python
+   from <strong>future</strong> import annotations</p>
+<p>def load(names: list[str]) -&gt; dict[str, int]:
+       ...
+   ```</p>
+<p>This only covers annotations. Code that evaluates the type at runtime still fails, e.g. <code>Names = list[str]</code> (type alias), <code>cast(list[str], x)</code>, <code>isinstance</code> checks, or libraries like pydantic/FastAPI that resolve hints on old Python versions.
+3. <strong>Use the <code>typing</code> equivalents</strong>, which work on every Python 3 version:</p>
+<p>```python
+   from typing import Dict, List, Optional</p>
+<p>Names = List[str]
+   def load(names: List[str]) -&gt; Dict[str, int]: ...
+   ```</p>
+<p>The same applies to <code>collections.abc</code> types: <code>collections.abc.Callable[[int], str]</code> and <code>Iterable[str]</code> need 3.9+ (or <code>typing.Callable</code>, <code>typing.Iterable</code>).</p>
+<h2 id="cause-2-indexing-a-class-instead-of-an-instance">Cause 2: indexing a class instead of an instance</h2>
+<pre><code class="language-python">class Config:
+    def __init__(self):
+        self.data = {&quot;port&quot;: 8080}
+
+Config[&quot;port&quot;]            # TypeError: 'type' object is not subscriptable
+cfg = Config()
+cfg.data[&quot;port&quot;]          # OK
+</code></pre>
+<p>A common variant is forgetting the parentheses when creating an object: <code>cfg = Config</code> (assigns the class) instead of <code>cfg = Config()</code>.</p>
+<p>If you want instances to support <code>obj["key"]</code>, implement <code>__getitem__</code>:</p>
+<pre><code class="language-python">class Config:
+    def __getitem__(self, key):
+        return self.data[key]
+</code></pre>
+<h2 id="cause-3-a-variable-shadowed-by-a-built-in-type-name">Cause 3: a variable shadowed by a built-in type name</h2>
+<pre><code class="language-python">def total(list):           # parameter named 'list'
+    ...
+
+list = [1, 2, 3]
+del list
+print(list[0])             # 'list' is the built-in class again -&gt; TypeError
+</code></pre>
+<p>More often it's the reverse: you meant to index your variable but used a name like <code>str</code>, <code>dict</code>, <code>list</code> or <code>type</code> that refers to the class. Rename variables so they don't collide with built-ins (<code>items</code>, <code>names</code>, <code>row</code>).</p>
+<h2 id="cause-4-your-own-generic-classes">Cause 4: your own generic classes</h2>
+<p>To make your class subscriptable in hints, inherit from <code>typing.Generic</code>:</p>
+<pre><code class="language-python">from typing import Generic, TypeVar
+T = TypeVar(&quot;T&quot;)
+
+class Box(Generic[T]):
+    def __init__(self, item: T):
+        self.item = item
+
+b: Box[int] = Box(1)
+</code></pre>
+<p>Python 3.12+ also allows <code>class Box[T]: ...</code>.</p>
+<h2 id="related-messages">Related messages</h2>
+<ul>
+<li><code>'int' object is not subscriptable</code>, <code>'NoneType' object is not subscriptable</code> — you indexed an instance that doesn't support it.</li>
+<li><code>'function' object is not subscriptable</code> — you wrote <code>func[0]</code> instead of <code>func(0)</code> or <code>func()[0]</code>.</li>
+<li><code>'method' object is not subscriptable</code> — e.g. <code>df.groupby["col"]</code> instead of <code>df.groupby("col")</code>.</li>
+</ul>
+<p class="upd">Last updated 2026-11-16.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-typeerror-int-object-is-not-subscriptable/">TypeError: &#x27;int&#x27; object is not subscriptable</a></li><li><a href="/python/python-typeerror-list-object-is-not-callable/">TypeError: &#x27;list&#x27; object is not callable</a></li><li><a href="/python/python-typeerror-nonetype-object-is-not-subscriptable/">TypeError: &#x27;NoneType&#x27; object is not subscriptable</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

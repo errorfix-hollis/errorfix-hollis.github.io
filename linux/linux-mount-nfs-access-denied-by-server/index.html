@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>mount.nfs: access denied by server while mounting (Linux) — how to fix</title>
+<meta name="description" content="The NFS server rejected the mount request: the export doesn&#x27;t exist at that path, your client&#x27;s IP isn&#x27;t allowed in /etc/exports, or (on NAS devices) the share&#x27;s NFS permissions or NFSv4 pseudo-root path don&#x27;t match what you asked for.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-mount-nfs-access-denied-by-server/">
+<meta property="og:title" content="mount.nfs: access denied by server while mounting (Linux) — how to fix"><meta property="og:description" content="The NFS server rejected the mount request: the export doesn&#x27;t exist at that path, your client&#x27;s IP isn&#x27;t allowed in /etc/exports, or (on NAS devices) the share&#x27;s NFS permissions or NFSv4 pseudo-root path don&#x27;t match what you asked for.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-mount-nfs-access-denied-by-server/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "mount.nfs: access denied by server while mounting (Linux) \u2014 how to fix", "description": "The NFS server rejected the mount request: the export doesn't exist at that path, your client's IP isn't allowed in /etc/exports, or (on NAS devices) the share's NFS permissions or NFSv4 pseudo-root path don't match what you asked for.", "dateModified": "2026-11-26", "url": "https://errorfix-hollis.github.io/linux/linux-mount-nfs-access-denied-by-server/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "mount.nfs: access denied by server while mounting", "item": "https://errorfix-hollis.github.io/linux/linux-mount-nfs-access-denied-by-server/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>mount.nfs: access denied by server while mounting (Linux) — how to fix</h1>
+<pre class="err"><code>mount.nfs: access denied by server while mounting 192.168.1.10:/srv/share
+mount.nfs4: access denied by server while mounting nas:/volume1/data
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> On the server, check <code>/etc/exports</code> allows your client IP (e.g. <code>/srv/share 192.168.1.0/24(rw,sync,no_subtree_check)</code>), run <code>sudo exportfs -ra</code>, and confirm with <code>showmount -e SERVER</code> from the client. Mount the exact exported path; for NFSv4 with <code>fsid=0</code> mount relative to the root (<code>server:/share</code>), or force v3 with <code>-o vers=3</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The client reached the NFS server, but the server's <code>mountd</code> (v3) or export table (v4) refused the request. It's an export/permission decision on the <strong>server</strong>, not a file permission problem on the client. (If you get <code>wrong fs type</code> instead, the client is missing <code>nfs-common</code>/<code>nfs-utils</code>, see <a href="/linux/linux-mount-wrong-fs-type-bad-option-bad-superblock/">mount wrong fs type</a>.)</p>
+<p>Start by asking the server what it exports and to whom:</p>
+<pre><code class="language-bash">showmount -e 192.168.1.10
+# Export list for 192.168.1.10:
+# /srv/share 192.168.1.0/24
+</code></pre>
+<p><code>showmount</code> uses NFSv3's mountd; on NFSv4-only servers it may fail even when mounting works.</p>
+<h2 id="cause-1-client-ip-not-allowed-in-etcexports">Cause 1: client IP not allowed in /etc/exports</h2>
+<h2 id="fix-1-allow-your-client-and-re-export">Fix 1: allow your client and re-export</h2>
+<p>On the server:</p>
+<pre><code class="language-bash">sudo nano /etc/exports
+</code></pre>
+<pre><code class="language-text">/srv/share  192.168.1.0/24(rw,sync,no_subtree_check)
+</code></pre>
+<p>Watch the syntax: <strong>no space</strong> between the client and the options. <code>/srv/share 192.168.1.0/24 (rw)</code> exports read-write to <em>everyone</em> and read-only to the subnet.</p>
+<p>Apply and verify:</p>
+<pre><code class="language-bash">sudo exportfs -ra
+sudo exportfs -v
+</code></pre>
+<p>Check which address the server sees from you. Behind NAT, a VPN or Docker, it may be a different IP than you expect; the server log (<code>journalctl -u nfs-server</code> or <code>/var/log/syslog</code>, <code>rpc.mountd: refused mount request from ...</code>) shows the source address. Hostnames in exports must resolve (forward and reverse) on the server; using IPs/subnets avoids that.</p>
+<h2 id="cause-2-wrong-path">Cause 2: wrong path</h2>
+<p>The path must match an export exactly (or be a subdirectory, with <code>no_subtree_check</code> exports). <code>server:/share</code> vs <code>server:/srv/share</code> is a common mismatch.</p>
+<h2 id="cause-3-nfsv4-pseudo-root-fsid0">Cause 3: NFSv4 pseudo-root (fsid=0)</h2>
+<p>If the server uses <code>fsid=0</code>, e.g.</p>
+<pre><code class="language-text">/srv/nfs        192.168.1.0/24(rw,fsid=0,no_subtree_check)
+/srv/nfs/share  192.168.1.0/24(rw,no_subtree_check)
+</code></pre>
+<p>then NFSv4 clients mount paths <strong>relative to</strong> <code>/srv/nfs</code>:</p>
+<pre><code class="language-bash">sudo mount -t nfs4 192.168.1.10:/share /mnt/share
+</code></pre>
+<h2 id="fix-3-or-use-nfsv3-explicitly">Fix 3: or use NFSv3 explicitly</h2>
+<pre><code class="language-bash">sudo mount -t nfs -o vers=3 192.168.1.10:/srv/share /mnt/share
+</code></pre>
+<p>If v3 works and v4 doesn't (or vice versa), the issue is version-specific path handling or the server only enabling one version.</p>
+<h2 id="cause-4-nas-share-permissions-synology-qnap-truenas">Cause 4: NAS share permissions (Synology, QNAP, TrueNAS)</h2>
+<p>Enabling NFS on the NAS isn't enough; each shared folder needs an NFS rule:</p>
+<ul>
+<li><strong>Synology</strong>: Control Panel → Shared Folder → Edit → NFS Permissions → add the client IP/subnet. Mount path is <code>/volume1/&lt;share&gt;</code>.</li>
+<li><strong>TrueNAS</strong>: Shares → NFS → add the network/hosts under the share.</li>
+<li><strong>QNAP</strong>: Shared folder → Edit Shared Folder Permission → NFS host access.</li>
+</ul>
+<h2 id="cause-5-non-privileged-source-port">Cause 5: non-privileged source port</h2>
+<p>By default Linux servers require client requests from a port below 1024 (<code>secure</code>). macOS clients and some containers use higher ports and get denied. Either mount with <code>-o resvport</code> on macOS, or add <code>insecure</code> to the export options.</p>
+<h2 id="cause-6-kerberos-sec-mismatch">Cause 6: Kerberos / sec mismatch</h2>
+<p>If the export uses <code>sec=krb5</code>, a client mounting with the default <code>sec=sys</code> is denied. Match the option: <code>-o sec=krb5</code>, with Kerberos configured on the client.</p>
+<p class="upd">Last updated 2026-11-26.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-device-or-resource-busy/">umount: target is busy / Device or resource busy</a></li><li><a href="/linux/linux-mount-wrong-fs-type-bad-option-bad-superblock/">mount: wrong fs type, bad option, bad superblock</a></li><li><a href="/linux/linux-permission-denied-running-script/">bash: ./script.sh: Permission denied</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-apt-expkeysig/">The following signatures were invalid: EXPKEYSIG</a></li><li><a href="/linux/linux-apt-hash-sum-mismatch/">E: Failed to fetch ... Hash Sum mismatch</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

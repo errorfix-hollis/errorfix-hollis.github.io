@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Subnet Calculator (CIDR) — network, broadcast, netmask, host range, IPv4 &amp; IPv6</title>
+<meta name="description" content="Free IPv4 and IPv6 subnet calculator: get the network and broadcast address, netmask, wildcard mask, first and last host and host count for any CIDR, check whether an IP is in a subnet, find overlapping ranges and split a network into subnets.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/tools/subnet-calculator/">
+<meta property="og:title" content="Subnet Calculator (CIDR) — network, broadcast, netmask, host range, IPv4 &amp; IPv6"><meta property="og:description" content="Free IPv4 and IPv6 subnet calculator: get the network and broadcast address, netmask, wildcard mask, first and last host and host count for any CIDR, check whether an IP is in a subnet, find overlapping ranges and split a network into subnets.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/tools/subnet-calculator/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "Subnet / CIDR calculator", "url": "https://errorfix-hollis.github.io/tools/subnet-calculator/", "description": "Free IPv4 and IPv6 subnet calculator: get the network and broadcast address, netmask, wildcard mask, first and last host and host count for any CIDR, check whether an IP is in a subnet, find overlapping ranges and split a network into subnets.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Any (runs in the browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "dateModified": "2026-11-20", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Tools", "item": "https://errorfix-hollis.github.io/tools/"}, {"@type": "ListItem", "position": 3, "name": "Subnet / CIDR calculator", "item": "https://errorfix-hollis.github.io/tools/subnet-calculator/"}]}</script><script src="/tools.js?v=4ee891c8" defer></script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/tools/">Tools</a></p>
+<article class="toolpage"><h1>Subnet and CIDR calculator</h1>
+<p class="lead">Enter an address with a prefix (192.168.1.10/24), a netmask (10.0.0.5 255.255.255.0) or an IPv6 prefix. Then check whether an address is in the range, test two ranges for overlap, or split the network into smaller subnets.</p>
+<p class="private">🔒 Runs entirely in your browser. Nothing you paste is uploaded or sent to a server.</p>
+<div class="tool" data-tool="subnet"><label for="net-in">IPv4 or IPv6 address with prefix <small>(192.168.1.10/24, 10.0.0.5 255.255.255.0, 2001:db8::1/64)</small></label>
+<input type="text" id="net-in" class="big" spellcheck="false" autocomplete="off" value="192.168.1.10/24">
+<div class="row presets"><button class="sec" data-net="10.0.0.0/8">10.0.0.0/8</button><button class="sec" data-net="172.16.0.0/12">172.16.0.0/12</button><button class="sec" data-net="192.168.0.0/16">192.168.0.0/16</button><button class="sec" data-net="172.17.0.0/16">Docker bridge</button><button class="sec" data-net="10.244.0.0/16">k8s pods (flannel)</button><button class="sec" data-net="100.64.0.0/10">CGNAT</button><button class="sec" data-net="fe80::1/64">IPv6 link-local</button><button class="sec" data-net="2001:db8:abcd:12::/64">IPv6 /64</button></div>
+<div id="net-msg" class="msg" hidden></div>
+<table id="net-out" class="kv"></table>
+<h3>Does an address belong to this network?</h3>
+<div class="row"><input type="text" id="net-ip" class="grow" spellcheck="false" autocomplete="off" placeholder="IP address, or another CIDR to check for overlap, e.g. 192.168.1.200 or 192.168.0.0/23" aria-label="IP address or CIDR to check"></div>
+<div id="net-cmsg" class="msg" hidden></div>
+<h3>Split into smaller subnets</h3>
+<div class="row"><label>New prefix <select id="net-split" class="inline"></select></label><span class="small" id="net-scount"></span></div>
+<table id="net-subs" class="kv"></table>
+<noscript><p class="msg bad">This tool needs JavaScript enabled.</p></noscript></div>
+<h2 id="cidr-cheat-sheet">CIDR cheat sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Prefix</th>
+<th>Netmask</th>
+<th>Addresses</th>
+<th>Usable hosts</th>
+<th>Typical use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>/32</td>
+<td>255.255.255.255</td>
+<td>1</td>
+<td>1</td>
+<td>a single host (firewall rules, security groups)</td>
+</tr>
+<tr>
+<td>/31</td>
+<td>255.255.255.254</td>
+<td>2</td>
+<td>2</td>
+<td>point-to-point links (RFC 3021)</td>
+</tr>
+<tr>
+<td>/30</td>
+<td>255.255.255.252</td>
+<td>4</td>
+<td>2</td>
+<td>old-style point-to-point links</td>
+</tr>
+<tr>
+<td>/28</td>
+<td>255.255.255.240</td>
+<td>16</td>
+<td>14</td>
+<td>small DMZ; AWS subnets lose 5 addresses</td>
+</tr>
+<tr>
+<td>/24</td>
+<td>255.255.255.0</td>
+<td>256</td>
+<td>254</td>
+<td>a typical LAN</td>
+</tr>
+<tr>
+<td>/22</td>
+<td>255.255.252.0</td>
+<td>1,024</td>
+<td>1,022</td>
+<td>office or VPC subnet</td>
+</tr>
+<tr>
+<td>/16</td>
+<td>255.255.0.0</td>
+<td>65,536</td>
+<td>65,534</td>
+<td>Docker's default bridge (172.17.0.0/16), a VPC</td>
+</tr>
+<tr>
+<td>/8</td>
+<td>255.0.0.0</td>
+<td>16,777,216</td>
+<td>16,777,214</td>
+<td>10.0.0.0/8 private range</td>
+</tr>
+</tbody>
+</table>
+<p>Usable hosts = 2<sup>32 − prefix</sup> − 2, because the first address names the network and the last one is the broadcast address.</p>
+<h2 id="private-ranges-and-conflicts">Private ranges and conflicts</h2>
+<p>RFC 1918 reserves <code>10.0.0.0/8</code>, <code>172.16.0.0/12</code> and <code>192.168.0.0/16</code> for private networks, and <code>100.64.0.0/10</code> is used for carrier-grade NAT (and by Tailscale). Many "it times out" problems come from <strong>overlapping ranges</strong>. Docker creates bridge networks in <code>172.17–172.31.x.x</code> and <code>192.168.x.x</code>, Kubernetes pod and service CIDRs often use <code>10.x</code>, and if one of them overlaps your LAN or VPN, traffic to those hosts goes into the container network instead. The symptoms look like <a href="/kubernetes/k8s-unable-to-connect-to-the-server-dial-tcp-i-o-timeout/">dial tcp: i/o timeout</a>, <a href="/web/web-err-connection-timed-out/">ERR_CONNECTION_TIMED_OUT</a> or DNS failures inside containers (<a href="/linux/linux-temporary-failure-in-name-resolution/">Temporary failure in name resolution</a>). Paste one range above and the other into the check box to test for overlap. Then move Docker with <code>default-address-pools</code> in <code>/etc/docker/daemon.json</code>, or create the network with an explicit <code>--subnet</code>.</p>
+<h2 id="ipv6-notes">IPv6 notes</h2>
+<p>IPv6 subnets for LANs are almost always <strong>/64</strong>. <code>::</code> stands for the single longest run of zero groups, and leading zeros in each group can be dropped (RFC 5952): <code>2001:0db8:0000:0000:0000:ff00:0042:8329</code> is <code>2001:db8::ff00:42:8329</code>. <code>fe80::/10</code> addresses are link-local and need a zone (<code>%eth0</code>) to be usable, and <code>fc00::/7</code> is the private (ULA) range.</p>
+<p class="upd">Last updated 2026-11-20.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-network-has-active-endpoints/">Error response from daemon: error while removing network: network has active endpoints</a></li><li><a href="/kubernetes/k8s-unable-to-connect-to-the-server-dial-tcp-i-o-timeout/">Unable to connect to the server: dial tcp: i/o timeout</a></li><li><a href="/web/web-err-connection-timed-out/">ERR_CONNECTION_TIMED_OUT</a></li><li><a href="/linux/linux-temporary-failure-in-name-resolution/">Temporary failure in name resolution</a></li></ul><h2>More developer tools</h2><ul class="list"><li><a href="/tools/json-formatter/">JSON formatter &amp; validator</a></li><li><a href="/tools/cron-expression-explainer/">Cron expression explainer</a></li><li><a href="/tools/chmod-calculator/">chmod calculator</a></li><li><a href="/tools/unix-timestamp-converter/">Unix timestamp converter</a></li><li><a href="/tools/base64-encode-decode/">Base64 encode / decode</a></li><li><a href="/tools/url-encode-decode/">URL encode / decode</a></li><li><a href="/tools/jwt-decoder/">JWT decoder</a></li><li><a href="/tools/regex-tester/">Regex tester</a></li><li><a href="/tools/yaml-validator/">YAML validator &amp; YAML ↔ JSON converter</a></li><li><a href="/tools/uuid-generator/">UUID generator &amp; validator (v4, v7)</a></li><li><a href="/tools/text-diff/">Text diff checker</a></li><li><a href="/tools/http-status-codes/">HTTP status codes reference</a></li><li><a href="/tools/hash-generator/">Hash generator (MD5, SHA-256, SHA-512)</a></li><li><a href="/tools/line-ending-whitespace-inspector/">Line ending &amp; whitespace inspector</a></li><li><a href="/tools/sql-formatter/">SQL formatter</a></li><li><a href="/tools/curl-to-code/">cURL to code converter</a></li><li><a href="/tools/gitignore-generator/">.gitignore generator &amp; tester</a></li><li><a href="/tools/csv-to-json/">CSV ↔ JSON converter</a></li><li><a href="/tools/docker-run-to-compose/">docker run to Compose converter</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

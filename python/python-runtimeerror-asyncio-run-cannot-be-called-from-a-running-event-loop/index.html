@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RuntimeError: asyncio.run() cannot be called from a running event loop (Python) — how to fix</title>
+<meta name="description" content="`asyncio.run()` creates and starts a new event loop, and only one loop can run per thread. You called it from code that is already inside a running loop, typically Jupyter, IPython, or an async function/framework.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-runtimeerror-asyncio-run-cannot-be-called-from-a-running-event-loop/">
+<meta property="og:title" content="RuntimeError: asyncio.run() cannot be called from a running event loop (Python) — how to fix"><meta property="og:description" content="`asyncio.run()` creates and starts a new event loop, and only one loop can run per thread. You called it from code that is already inside a running loop, typically Jupyter, IPython, or an async function/framework.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-runtimeerror-asyncio-run-cannot-be-called-from-a-running-event-loop/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "RuntimeError: asyncio.run() cannot be called from a running event loop (Python) \u2014 how to fix", "description": "`asyncio.run()` creates and starts a new event loop, and only one loop can run per thread. You called it from code that is already inside a running loop, typically Jupyter, IPython, or an async function/framework.", "dateModified": "2026-11-23", "url": "https://errorfix-hollis.github.io/python/python-runtimeerror-asyncio-run-cannot-be-called-from-a-running-event-loop/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "RuntimeError: asyncio.run() cannot be called from a running event loop", "item": "https://errorfix-hollis.github.io/python/python-runtimeerror-asyncio-run-cannot-be-called-from-a-running-event-loop/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>RuntimeError: asyncio.run() cannot be called from a running event loop (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;&lt;stdin&gt;&quot;, line 1, in &lt;module&gt;
+  File &quot;/usr/lib/python3.12/asyncio/runners.py&quot;, line 190, in run
+    raise RuntimeError(
+RuntimeError: asyncio.run() cannot be called from a running event loop
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Inside Jupyter or an <code>async def</code>, don't call <code>asyncio.run()</code>; use <code>await main()</code> directly. From sync code that is called by a running loop, schedule work with <code>asyncio.create_task()</code> or run it in a separate thread (<code>concurrent.futures.ThreadPoolExecutor().submit(asyncio.run, main()).result()</code>). <code>nest_asyncio.apply()</code> is a last-resort workaround.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>asyncio.run(coro)</code> is the entry point for asyncio programs: it creates a loop, runs <code>coro</code> to completion and closes the loop. It refuses to start if the current thread already has a running loop. A related message is <code>RuntimeError: This event loop is already running</code>, from <code>loop.run_until_complete()</code> in the same situation.</p>
+<h2 id="cause-1-jupyter-notebook-jupyterlab-ipython-colab">Cause 1: Jupyter Notebook, JupyterLab, IPython, Colab</h2>
+<p>Jupyter kernels run an event loop already, and support top-level <code>await</code>. Replace:</p>
+<pre><code class="language-python">asyncio.run(main())
+</code></pre>
+<p>with:</p>
+<pre><code class="language-python">await main()
+</code></pre>
+<p>In a plain <code>.py</code> script, keep <code>asyncio.run(main())</code> under <code>if __name__ == "__main__":</code>.</p>
+<h2 id="cause-2-calling-asynciorun-inside-an-async-function">Cause 2: calling asyncio.run() inside an async function</h2>
+<pre><code class="language-python">async def handler():
+    result = asyncio.run(fetch_data())   # error
+</code></pre>
+<p>You are already in a coroutine, so just await:</p>
+<pre><code class="language-python">async def handler():
+    result = await fetch_data()
+</code></pre>
+<p>Run several at once with <code>await asyncio.gather(fetch_a(), fetch_b())</code>.</p>
+<p>This also applies to FastAPI, aiohttp, Discord bots, Playwright async, etc.: their handlers run in a loop the framework owns.</p>
+<h2 id="cause-3-sync-code-called-from-async-code">Cause 3: sync code called from async code</h2>
+<p>A library function is synchronous but internally calls <code>asyncio.run()</code>, and you call it from an async context. Options:</p>
+<p>Run the sync function in a worker thread (no loop there, so <code>asyncio.run()</code> works):</p>
+<pre><code class="language-python">async def handler():
+    result = await asyncio.to_thread(sync_function_that_uses_asyncio_run)
+</code></pre>
+<p>Or from purely sync code that might be under a running loop:</p>
+<pre><code class="language-python">import asyncio, concurrent.futures
+
+def run_sync(coro):
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)          # no loop: normal path
+    with concurrent.futures.ThreadPoolExecutor(1) as pool:
+        return pool.submit(asyncio.run, coro).result()
+</code></pre>
+<p>Better still, use the library's async API if it has one.</p>
+<h2 id="cause-4-fire-and-forget-inside-a-running-loop">Cause 4: fire-and-forget inside a running loop</h2>
+<p>If you don't need the result immediately, schedule a task instead:</p>
+<pre><code class="language-python">task = asyncio.create_task(send_metrics())
+# keep a reference to `task` so it isn't garbage-collected
+</code></pre>
+<h2 id="workaround-nest_asyncio">Workaround: nest_asyncio</h2>
+<pre><code class="language-bash">pip install nest_asyncio
+</code></pre>
+<pre><code class="language-python">import nest_asyncio
+nest_asyncio.apply()
+asyncio.run(main())
+</code></pre>
+<p>It patches asyncio to allow re-entrant loops. It is handy in notebooks for libraries you can't change, but it is monkey-patching (the project is no longer maintained) and can break with uvloop or newer Python versions, so prefer the fixes above.</p>
+<h2 id="dont-use-get_event_looprun_until_complete-as-a-fix">Don't use get_event_loop().run_until_complete() as a fix</h2>
+<p><code>asyncio.get_event_loop().run_until_complete(main())</code> hits the same problem ("This event loop is already running") and <code>get_event_loop()</code> without a running loop is deprecated since Python 3.12. Use <code>asyncio.run()</code> at the top level and <code>await</code> everywhere below it.</p>
+<p class="upd">Last updated 2026-11-23.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-recursionerror-maximum-recursion-depth/">RecursionError: maximum recursion depth exceeded</a></li><li><a href="/python/python-typeerror-nonetype-object-is-not-callable/">TypeError: &#x27;NoneType&#x27; object is not callable</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

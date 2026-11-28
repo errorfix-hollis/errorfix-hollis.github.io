@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>cannot use nil as string value in assignment (Go) — how to fix</title>
+<meta name="description" content="In Go, `nil` is only a valid value for pointers, slices, maps, channels, functions and interfaces. Basic types (`string`, `int`, `bool`) and structs have zero values instead and can never be nil.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-cannot-use-nil-as-type/">
+<meta property="og:title" content="cannot use nil as string value in assignment (Go) — how to fix"><meta property="og:description" content="In Go, `nil` is only a valid value for pointers, slices, maps, channels, functions and interfaces. Basic types (`string`, `int`, `bool`) and structs have zero values instead and can never be nil.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-cannot-use-nil-as-type/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "cannot use nil as string value in assignment (Go) \u2014 how to fix", "description": "In Go, `nil` is only a valid value for pointers, slices, maps, channels, functions and interfaces. Basic types (`string`, `int`, `bool`) and structs have zero values instead and can never be nil.", "dateModified": "2026-11-23", "url": "https://errorfix-hollis.github.io/go/go-cannot-use-nil-as-type/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "cannot use nil as string value in assignment", "item": "https://errorfix-hollis.github.io/go/go-cannot-use-nil-as-type/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>cannot use nil as string value in assignment (Go) — how to fix</h1>
+<pre class="err"><code>./main.go:8:9: cannot use nil as string value in assignment
+./main.go:14:10: cannot use nil as int value in return statement
+./main.go:20:15: cannot use nil as type MyStruct in argument to process
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Use the type's zero value (<code>""</code>, <code>0</code>, <code>false</code>, <code>MyStruct{}</code>), or change the type to something nillable: a pointer (<code>*string</code>, <code>*MyStruct</code>) for an optional value, or return <code>(T, error)</code> / <code>(T, bool)</code> to signal "no result". For JSON/SQL nullable fields use <code>*string</code> or <code>sql.NullString</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>nil</code> is the zero value for pointer, slice, map, channel, func and interface types only. Every other type has its own zero value:</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Zero value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>string</code></td>
+<td><code>""</code></td>
+</tr>
+<tr>
+<td><code>int</code>, <code>float64</code>, ...</td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td>struct <code>T</code></td>
+<td><code>T{}</code> (all fields zero)</td>
+</tr>
+<tr>
+<td>array <code>[3]int</code></td>
+<td><code>[3]int{}</code></td>
+</tr>
+</tbody>
+</table>
+<p>Assigning, returning or passing <code>nil</code> where one of those is expected is a compile error. Older Go versions (before 1.20) word it <code>cannot use nil as type string in assignment</code>.</p>
+<h2 id="cause-1-returning-nil-for-not-found">Cause 1: returning nil for "not found"</h2>
+<pre><code class="language-go">func findName(id int) string {
+    if id == 0 {
+        return nil   // error
+    }
+    return &quot;alice&quot;
+}
+</code></pre>
+<p>Idiomatic Go returns a second value:</p>
+<pre><code class="language-go">func findName(id int) (string, bool) {
+    if id == 0 {
+        return &quot;&quot;, false
+    }
+    return &quot;alice&quot;, true
+}
+
+if name, ok := findName(id); ok { ... }
+</code></pre>
+<p>or an error:</p>
+<pre><code class="language-go">var ErrNotFound = errors.New(&quot;not found&quot;)
+
+func findUser(id int) (User, error) {
+    if id == 0 {
+        return User{}, ErrNotFound
+    }
+    return User{ID: id}, nil   // nil is fine here: error is an interface
+}
+</code></pre>
+<h2 id="cause-2-returning-nil-for-a-struct">Cause 2: returning nil for a struct</h2>
+<pre><code class="language-go">func load() (Config, error) {
+    return nil, err      // cannot use nil as Config value in return statement
+}
+</code></pre>
+<p>Return the zero struct, or switch to a pointer if callers should check for "no value":</p>
+<pre><code class="language-go">func load() (Config, error)  { return Config{}, err }
+func load() (*Config, error) { return nil, err }
+</code></pre>
+<h2 id="cause-3-optional-values-json-config-sql">Cause 3: optional values (JSON, config, SQL)</h2>
+<p>A plain <code>string</code> can't distinguish "empty" from "missing". Use a pointer:</p>
+<pre><code class="language-go">type Update struct {
+    Name  *string `json:&quot;name,omitempty&quot;`
+    Age   *int    `json:&quot;age,omitempty&quot;`
+}
+
+name := &quot;bob&quot;
+u := Update{Name: &amp;name}   // Age stays nil
+</code></pre>
+<p>For database columns that can be <code>NULL</code>, scanning into a plain <code>string</code> fails at runtime; use <code>sql.NullString</code> / <code>sql.NullInt64</code> (or <code>sql.Null[T]</code> in Go 1.22+):</p>
+<pre><code class="language-go">var email sql.NullString
+err := row.Scan(&amp;email)
+if email.Valid { fmt.Println(email.String) }
+</code></pre>
+<p>Remember to check pointers before dereferencing, or you'll get <a href="/go/go-invalid-memory-address-or-nil-pointer-dereference/">invalid memory address or nil pointer dereference</a>.</p>
+<h2 id="cause-4-resetting-a-variable">Cause 4: resetting a variable</h2>
+<pre><code class="language-go">var count int = 5
+count = nil      // error
+count = 0        // reset to zero value
+</code></pre>
+<h2 id="cause-5-generics">Cause 5: generics</h2>
+<p>In a generic function, <code>nil</code> isn't valid for an arbitrary <code>T</code>. Use the zero value of the type parameter:</p>
+<pre><code class="language-go">func First[T any](xs []T) (T, bool) {
+    var zero T
+    if len(xs) == 0 {
+        return zero, false
+    }
+    return xs[0], true
+}
+</code></pre>
+<h2 id="comparing-with-nil">Comparing with nil</h2>
+<p>The same rule gives <code>invalid operation: s == nil (mismatched types string and untyped nil)</code>. Compare with the zero value instead: <code>if s == "" { ... }</code>.</p>
+<p class="upd">Last updated 2026-11-23.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-cannot-use-as-value-in-assignment/">cannot use x (variable of type T) as U value in assignment</a></li><li><a href="/go/go-invalid-memory-address-or-nil-pointer-dereference/">panic: runtime error: invalid memory address or nil pointer dereference</a></li><li><a href="/go/go-multiple-value-in-single-value-context/">multiple-value in single-value context</a></li><li><a href="/go/go-all-goroutines-are-asleep-deadlock/">fatal error: all goroutines are asleep - deadlock!</a></li><li><a href="/go/go-cannot-find-main-module/">go: cannot find main module, but found .git/config</a></li><li><a href="/go/go-declared-and-not-used/">declared and not used</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

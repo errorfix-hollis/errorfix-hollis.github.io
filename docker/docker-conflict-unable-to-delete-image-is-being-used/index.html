@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error response from daemon: conflict: unable to delete image - image is being used by stopped container (Docker) — how to fix</title>
+<meta name="description" content="Docker won&#x27;t remove an image that a container (running or stopped) still uses, or that has several tags pointing to it. Remove the containers first, untag the image, or force it.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-conflict-unable-to-delete-image-is-being-used/">
+<meta property="og:title" content="Error response from daemon: conflict: unable to delete image - image is being used by stopped container (Docker) — how to fix"><meta property="og:description" content="Docker won&#x27;t remove an image that a container (running or stopped) still uses, or that has several tags pointing to it. Remove the containers first, untag the image, or force it.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-conflict-unable-to-delete-image-is-being-used/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error response from daemon: conflict: unable to delete image - image is being used by stopped container (Docker) \u2014 how to fix", "description": "Docker won't remove an image that a container (running or stopped) still uses, or that has several tags pointing to it. Remove the containers first, untag the image, or force it.", "dateModified": "2026-11-17", "url": "https://errorfix-hollis.github.io/docker/docker-conflict-unable-to-delete-image-is-being-used/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "Error response from daemon: conflict: unable to delete image - image is being used by stopped container", "item": "https://errorfix-hollis.github.io/docker/docker-conflict-unable-to-delete-image-is-being-used/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>Error response from daemon: conflict: unable to delete image - image is being used by stopped container (Docker) — how to fix</h1>
+<pre class="err"><code>Error response from daemon: conflict: unable to delete 3f57d9401f8d (must be forced) - image is being used by stopped container 9b1e1c7a2d3f
+Error response from daemon: conflict: unable to delete 3f57d9401f8d (cannot be forced) - image is being used by running container 4c2a8e0b7d11
+Error response from daemon: conflict: unable to delete 3f57d9401f8d (must be forced) - image is referenced in multiple repositories
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find the containers with <code>docker ps -a --filter ancestor=IMAGE</code>, remove them (<code>docker rm -f CONTAINER</code>), then <code>docker rmi IMAGE</code>. For 'referenced in multiple repositories', delete by tag (<code>docker rmi repo:tag</code>) or use <code>docker rmi -f IMAGE_ID</code>. To clean everything unused: <code>docker container prune</code> then <code>docker image prune -a</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Every container - including stopped ones you may have forgotten about - keeps a reference to the image it was created from. <code>docker rmi</code> refuses to delete an image that's still referenced. There are three variants:</p>
+<ul>
+<li><strong>used by stopped container ... (must be forced)</strong>: an exited container uses it. <code>-f</code> would work, but removing the container is cleaner.</li>
+<li><strong>used by running container ... (cannot be forced)</strong>: you must stop/remove the container first; even <code>-f</code> won't work.</li>
+<li><strong>referenced in multiple repositories (must be forced)</strong>: the same image ID has several tags (e.g. <code>myapp:latest</code> and <code>registry.example.com/myapp:1.2</code>).</li>
+</ul>
+<h2 id="fix-1-remove-the-containers-using-the-image">Fix 1: remove the containers using the image</h2>
+<pre><code class="language-bash">docker ps -a --filter ancestor=myapp:latest
+docker rm -f 9b1e1c7a2d3f            # container ID from the error message
+docker rmi myapp:latest
+</code></pre>
+<p>To remove every container created from that image in one go:</p>
+<pre><code class="language-bash">docker rm -f $(docker ps -aq --filter ancestor=myapp:latest)
+</code></pre>
+<p>With Compose, the simplest way is to remove the project's containers and images together:</p>
+<pre><code class="language-bash">docker compose down --rmi local     # or --rmi all to also remove pulled images
+</code></pre>
+<h2 id="fix-2-the-image-has-several-tags">Fix 2: the image has several tags</h2>
+<p>List tags sharing the ID:</p>
+<pre><code class="language-bash">docker images | grep 3f57d9401f8d
+</code></pre>
+<p>Removing a <em>tag</em> (<code>docker rmi repo:tag</code>) just untags it; the image itself is deleted when the last tag goes. Remove each tag, or force by ID:</p>
+<pre><code class="language-bash">docker rmi myapp:latest registry.example.com/myapp:1.2
+# or
+docker rmi -f 3f57d9401f8d
+</code></pre>
+<h2 id="fix-3-clean-up-in-bulk">Fix 3: clean up in bulk</h2>
+<pre><code class="language-bash">docker container prune        # remove all stopped containers
+docker image prune            # remove dangling (&lt;none&gt;) images
+docker image prune -a         # remove every image not used by any container
+docker system df              # see what's using space
+</code></pre>
+<p><code>docker system prune -a</code> does all of the above plus unused networks and build cache. Add <code>--volumes</code> only if you also want unused volumes (data!) gone.</p>
+<h2 id="image-has-dependent-child-images">"image has dependent child images"</h2>
+<p>A different conflict: <code>conflict: unable to delete ... (cannot be forced) - image has dependent child images</code>. Another image was built <code>FROM</code> this one (or shares its layers as a parent in the legacy builder). Delete the child images first; find them with:</p>
+<pre><code class="language-bash">docker images --filter since=3f57d9401f8d
+</code></pre>
+<h2 id="why-f-is-not-always-the-answer">Why <code>-f</code> is not always the answer</h2>
+<p><code>docker rmi -f</code> on an image used by a stopped container only removes the tag; the layers stay on disk as an untagged <code>&lt;none&gt;</code> image until the container is gone. So for freeing space, remove the containers - <code>docker container prune</code> - and then the images.</p>
+<p class="upd">Last updated 2026-11-17.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-container-name-already-in-use/">Conflict. The container name is already in use by container</a></li><li><a href="/docker/docker-network-has-active-endpoints/">Error response from daemon: error while removing network: network has active endpoints</a></li><li><a href="/docker/docker-no-space-left-on-device/">no space left on device (Docker)</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-additional-property-is-not-allowed/">Additional property is not allowed</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

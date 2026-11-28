@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The following signatures couldn&#x27;t be verified because the public key is not available: NO_PUBKEY (Linux) — how to fix</title>
+<meta name="description" content="apt has a repository configured but not the GPG key that signs it, so it refuses to trust it. Download the vendor&#x27;s key into /etc/apt/keyrings and reference it with signed-by in the source entry.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-apt-no-pubkey/">
+<meta property="og:title" content="The following signatures couldn&#x27;t be verified because the public key is not available: NO_PUBKEY (Linux) — how to fix"><meta property="og:description" content="apt has a repository configured but not the GPG key that signs it, so it refuses to trust it. Download the vendor&#x27;s key into /etc/apt/keyrings and reference it with signed-by in the source entry.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-apt-no-pubkey/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The following signatures couldn't be verified because the public key is not available: NO_PUBKEY (Linux) \u2014 how to fix", "description": "apt has a repository configured but not the GPG key that signs it, so it refuses to trust it. Download the vendor's key into /etc/apt/keyrings and reference it with signed-by in the source entry.", "dateModified": "2026-11-18", "url": "https://errorfix-hollis.github.io/linux/linux-apt-no-pubkey/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "The following signatures couldn't be verified because the public key is not available: NO_PUBKEY", "item": "https://errorfix-hollis.github.io/linux/linux-apt-no-pubkey/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>The following signatures couldn&#x27;t be verified because the public key is not available: NO_PUBKEY (Linux) — how to fix</h1>
+<pre class="err"><code>W: GPG error: https://download.docker.com/linux/ubuntu jammy InRelease: The following signatures couldn&#x27;t be verified because the public key is not available: NO_PUBKEY 7EA0A9C3F273FCD8
+E: The repository &#x27;https://download.docker.com/linux/ubuntu jammy InRelease&#x27; is not signed.
+N: Updating from such a repository can&#x27;t be done securely, and is therefore disabled by default.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Fetch the repo's key and point the source at it: <code>sudo install -d -m 0755 /etc/apt/keyrings &amp;&amp; curl -fsSL &lt;KEY_URL&gt; | sudo gpg --dearmor -o /etc/apt/keyrings/vendor.gpg</code>, then use <code>deb [signed-by=/etc/apt/keyrings/vendor.gpg] ...</code> in /etc/apt/sources.list.d/vendor.list and run <code>sudo apt-get update</code>. <code>apt-key adv --recv-keys</code> is deprecated.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Third-party apt repositories (Docker, Google Chrome, NodeSource, PostgreSQL, Microsoft...) are signed with the vendor's GPG key. apt verifies the repository's <code>InRelease</code> file against the keys it trusts. <code>NO_PUBKEY 7EA0A9C3F273FCD8</code> means the signature was made with a key apt doesn't have, so the repo is disabled (<code>is not signed</code>) and its packages can't be installed.</p>
+<p>Typical reasons: the key was never added, it was added to the wrong place, the source line's <code>signed-by</code> points to a missing file, or the vendor rotated its key.</p>
+<h2 id="fix-1-add-the-key-the-modern-way-signed-by">Fix 1: add the key the modern way (signed-by)</h2>
+<p>Download the vendor's key (the URL is in their install docs) into <code>/etc/apt/keyrings</code>:</p>
+<pre><code class="language-bash">sudo install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+  | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+</code></pre>
+<p>Then reference it in the source entry:</p>
+<pre><code class="language-bash">echo &quot;deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+https://download.docker.com/linux/ubuntu $(. /etc/os-release &amp;&amp; echo $VERSION_CODENAME) stable&quot; \
+  | sudo tee /etc/apt/sources.list.d/docker.list
+sudo apt-get update
+</code></pre>
+<p>If the key file is already binary (<code>file key.gpg</code> says "OpenPGP Public Key" rather than "PGP public key block"), skip <code>--dearmor</code>; ASCII-armored <code>.asc</code> files can also be used directly with <code>signed-by</code>.</p>
+<h2 id="fix-2-the-key-id-is-known-but-you-have-no-url">Fix 2: the key ID is known but you have no URL</h2>
+<p>Fetch by fingerprint from a keyserver into a dedicated keyring:</p>
+<pre><code class="language-bash">sudo gpg --no-default-keyring --keyring /etc/apt/keyrings/vendor.gpg \
+  --keyserver hkps://keyserver.ubuntu.com --recv-keys 7EA0A9C3F273FCD8
+sudo chmod a+r /etc/apt/keyrings/vendor.gpg
+</code></pre>
+<p>Then add <code>signed-by=/etc/apt/keyrings/vendor.gpg</code> to that repo's line. Only trust a key whose fingerprint matches the vendor's documentation.</p>
+<h2 id="fix-3-the-old-apt-key-approach">Fix 3: the old apt-key approach</h2>
+<p>Older guides say:</p>
+<pre><code class="language-bash">sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 7EA0A9C3F273FCD8
+</code></pre>
+<p><code>apt-key</code> is deprecated (it warns since Ubuntu 22.04 and is no longer shipped in the newest Debian and Ubuntu releases) because a key in the global keyring is trusted for <em>every</em> repository. It may still work on older systems, but prefer Fix 1. If you see <code>Key is stored in legacy trusted.gpg keyring</code>, migrate that key to <code>/etc/apt/keyrings</code> with <code>signed-by</code>.</p>
+<h2 id="fix-4-the-vendor-rotated-or-the-key-expired">Fix 4: the vendor rotated or the key expired</h2>
+<p>If the key used to work, the vendor likely published a new one, or the old one expired (<code>EXPKEYSIG</code> / <code>KEYEXPIRED</code> instead of <code>NO_PUBKEY</code>). Re-download the key from the vendor's current docs, overwriting the old file, and <code>apt-get update</code>.</p>
+<h2 id="fix-5-signed-by-path-is-wrong">Fix 5: signed-by path is wrong</h2>
+<p>Check the source entry and that the file exists and is readable:</p>
+<pre><code class="language-bash">grep -r signed-by /etc/apt/sources.list /etc/apt/sources.list.d/
+ls -l /etc/apt/keyrings/ /usr/share/keyrings/
+</code></pre>
+<p>A file with mode <code>0600</code> owned by root fails, because apt reads keys as the unprivileged <code>_apt</code> user: <code>sudo chmod 644</code> it. Two entries for the same repo with different <code>signed-by</code> values cause <code>Conflicting values set for option Signed-By</code>; remove the duplicate.</p>
+<h2 id="fix-6-you-dont-need-the-repo-anymore">Fix 6: you don't need the repo anymore</h2>
+<p>Remove the stale entry so <code>apt update</code> is clean:</p>
+<pre><code class="language-bash">sudo rm /etc/apt/sources.list.d/oldvendor.list
+sudo apt-get update
+</code></pre>
+<h2 id="dont">Don't</h2>
+<p>Avoid <code>[trusted=yes]</code> or <code>--allow-unauthenticated</code>. They disable signature checks and let anyone on the network path feed you packages.</p>
+<p class="upd">Last updated 2026-11-18.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-apt-hash-sum-mismatch/">E: Failed to fetch ... Hash Sum mismatch</a></li><li><a href="/linux/linux-dpkg-returned-an-error-code-1/">E: Sub-process /usr/bin/dpkg returned an error code (1)</a></li><li><a href="/linux/linux-e-unable-to-locate-package/">E: Unable to locate package</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-apt-expkeysig/">The following signatures were invalid: EXPKEYSIG</a></li><li><a href="/linux/linux-apt-release-file-is-not-valid-yet/">Release file is not valid yet</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

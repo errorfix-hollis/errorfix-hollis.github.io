@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FATAL: no pg_hba.conf entry for host (PostgreSQL) — how to fix</title>
+<meta name="description" content="PostgreSQL received the connection, but no line in pg_hba.conf allows that combination of client IP, user, database and SSL mode. Add a matching rule, or connect with SSL if only hostssl rules exist.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-no-pg-hba-conf-entry-for-host/">
+<meta property="og:title" content="FATAL: no pg_hba.conf entry for host (PostgreSQL) — how to fix"><meta property="og:description" content="PostgreSQL received the connection, but no line in pg_hba.conf allows that combination of client IP, user, database and SSL mode. Add a matching rule, or connect with SSL if only hostssl rules exist.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-no-pg-hba-conf-entry-for-host/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "FATAL: no pg_hba.conf entry for host (PostgreSQL) \u2014 how to fix", "description": "PostgreSQL received the connection, but no line in pg_hba.conf allows that combination of client IP, user, database and SSL mode. Add a matching rule, or connect with SSL if only hostssl rules exist.", "dateModified": "2026-11-22", "url": "https://errorfix-hollis.github.io/database/db-postgres-no-pg-hba-conf-entry-for-host/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "FATAL: no pg_hba.conf entry for host", "item": "https://errorfix-hollis.github.io/database/db-postgres-no-pg-hba-conf-entry-for-host/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>FATAL: no pg_hba.conf entry for host (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>FATAL:  no pg_hba.conf entry for host &quot;192.168.1.50&quot;, user &quot;app&quot;, database &quot;appdb&quot;, no encryption
+FATAL: no pg_hba.conf entry for host &quot;10.0.0.5&quot;, user &quot;app&quot;, database &quot;appdb&quot;, SSL off
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find the file with <code>psql -c 'SHOW hba_file;'</code>, add a line such as <code>host appdb app 192.168.1.0/24 scram-sha-256</code>, then reload with <code>SELECT pg_reload_conf();</code> or <code>sudo systemctl reload postgresql</code>. On managed services (AWS RDS, Azure, Heroku) the fix is usually to connect with <code>sslmode=require</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>pg_hba.conf</code> (host-based authentication) is a list of rules checked top to bottom. Each rule matches a connection type, database, user and client address, and says how to authenticate. If no rule matches, the server rejects the connection with this error, before any password check.</p>
+<p>The message tells you exactly what didn't match: the client IP, user, database, and whether SSL was used (<code>no encryption</code> / <code>SSL off</code>).</p>
+<p>Since the server answered, networking and <code>listen_addresses</code> are already fine. (If they weren't, you'd get <code>Connection refused</code> or a timeout.)</p>
+<h2 id="fix-1-add-a-rule-for-the-client">Fix 1: add a rule for the client</h2>
+<p>Find the file:</p>
+<pre><code class="language-bash">sudo -u postgres psql -c 'SHOW hba_file;'
+# e.g. /etc/postgresql/16/main/pg_hba.conf  or  /var/lib/pgsql/data/pg_hba.conf
+</code></pre>
+<p>Add a line (format: <code>TYPE DATABASE USER ADDRESS METHOD</code>):</p>
+<pre><code># allow user app to db appdb from the local network
+host    appdb    app    192.168.1.0/24    scram-sha-256
+# a single host
+host    appdb    app    192.168.1.50/32   scram-sha-256
+</code></pre>
+<p>Rules are matched in order, so put specific rules above any broad <code>reject</code> rule. Then reload (no restart needed):</p>
+<pre><code class="language-bash">sudo -u postgres psql -c 'SELECT pg_reload_conf();'
+# or
+sudo systemctl reload postgresql
+</code></pre>
+<p>Check for typos: <code>SELECT * FROM pg_hba_file_rules WHERE error IS NOT NULL;</code> (PostgreSQL 10+).</p>
+<p>Need help with the CIDR mask? Use the <a href="/tools/subnet-calculator/">subnet calculator</a>. Avoid <code>0.0.0.0/0</code> with <code>trust</code>: that lets anyone in without a password.</p>
+<h2 id="fix-2-the-server-only-allows-ssl-managed-databases">Fix 2: the server only allows SSL (managed databases)</h2>
+<p><code>no encryption</code> / <code>SSL off</code> plus a server that only has <code>hostssl</code> rules (AWS RDS with <code>rds.force_ssl=1</code>, Azure, Heroku, Supabase, many cloud providers) means you must connect with TLS:</p>
+<pre><code class="language-bash">psql &quot;host=db.example.com dbname=appdb user=app sslmode=require&quot;
+</code></pre>
+<pre><code>postgresql://app:pass@db.example.com:5432/appdb?sslmode=require
+</code></pre>
+<p>In Node <code>pg</code>: <code>ssl: { rejectUnauthorized: false }</code> (or provide the CA). In JDBC: <code>?sslmode=require</code>.</p>
+<h2 id="fix-3-docker-and-container-networks">Fix 3: Docker and container networks</h2>
+<p>From another container, the client IP is the Docker bridge address (e.g. <code>172.18.0.5</code>), not <code>127.0.0.1</code>. The official <code>postgres</code> image adds <code>host all all all scram-sha-256</code> when <code>POSTGRES_PASSWORD</code> is set; a custom <code>pg_hba.conf</code> may lack it. Add the Docker subnet:</p>
+<pre><code>host    all    all    172.16.0.0/12    scram-sha-256
+</code></pre>
+<h2 id="fix-4-wrong-database-or-user-name">Fix 4: wrong database or user name</h2>
+<p>The rule might exist for <code>appdb</code> but you connected to <code>postgres</code> (the default when no database is given). Compare the names in the error with your rule; use <code>all</code> to match any.</p>
+<h2 id="next-error">Next error</h2>
+<p>Once a rule matches, you may see <code>password authentication failed</code>: that's the password or the <code>md5</code>/<code>scram-sha-256</code> method. See the related page.</p>
+<p class="upd">Last updated 2026-11-22.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-postgres-connection-refused/">psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused</a></li><li><a href="/database/db-postgres-password-authentication-failed/">FATAL: password authentication failed for user &quot;postgres&quot;</a></li><li><a href="/database/db-postgres-peer-authentication-failed/">FATAL: Peer authentication failed for user &quot;postgres&quot;</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1046-no-database-selected/">ERROR 1046 (3D000): No database selected</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

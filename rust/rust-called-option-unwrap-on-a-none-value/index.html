@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>thread &#x27;main&#x27; panicked at called `Option::unwrap()` on a `None` value (Rust) — how to fix</title>
+<meta name="description" content="You called .unwrap() on an Option that was None at runtime: a missing map key, an empty iterator, a failed lookup or an absent env var/argument. Handle the None case instead of unwrapping.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/rust/rust-called-option-unwrap-on-a-none-value/">
+<meta property="og:title" content="thread &#x27;main&#x27; panicked at called `Option::unwrap()` on a `None` value (Rust) — how to fix"><meta property="og:description" content="You called .unwrap() on an Option that was None at runtime: a missing map key, an empty iterator, a failed lookup or an absent env var/argument. Handle the None case instead of unwrapping.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/rust/rust-called-option-unwrap-on-a-none-value/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "thread 'main' panicked at called `Option::unwrap()` on a `None` value (Rust) \u2014 how to fix", "description": "You called .unwrap() on an Option that was None at runtime: a missing map key, an empty iterator, a failed lookup or an absent env var/argument. Handle the None case instead of unwrapping.", "dateModified": "2026-11-22", "url": "https://errorfix-hollis.github.io/rust/rust-called-option-unwrap-on-a-none-value/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Rust", "item": "https://errorfix-hollis.github.io/rust/"}, {"@type": "ListItem", "position": 3, "name": "thread 'main' panicked at called `Option::unwrap()` on a `None` value", "item": "https://errorfix-hollis.github.io/rust/rust-called-option-unwrap-on-a-none-value/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/rust/">Rust</a></p>
+<article><h1>thread &#x27;main&#x27; panicked at called `Option::unwrap()` on a `None` value (Rust) — how to fix</h1>
+<pre class="err"><code>thread &#x27;main&#x27; panicked at src/main.rs:8:38:
+called `Option::unwrap()` on a `None` value
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Go to the file:line in the panic. Replace <code>.unwrap()</code> with real handling: <code>if let Some(x) = opt { ... }</code>, <code>match</code>, <code>opt.unwrap_or(default)</code>, <code>opt.ok_or("msg")?</code> in a function returning Result, or at least <code>.expect("why this must exist")</code>. Run with <code>RUST_BACKTRACE=1</code> to see the call chain.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>Option&lt;T&gt;</code> is either <code>Some(value)</code> or <code>None</code>. <code>.unwrap()</code> returns the value or <strong>panics</strong> if it's <code>None</code>. The panic message gives the exact location (<code>src/main.rs:8:38</code>); for code inside a library or a helper, get the full call stack:</p>
+<pre><code class="language-bash">RUST_BACKTRACE=1 cargo run
+</code></pre>
+<p>The related <code>called Result::unwrap() on an Err value: ...</code> panic is the same idea for <code>Result</code>, and prints the error after the colon.</p>
+<h2 id="common-sources-of-none">Common sources of None</h2>
+<pre><code class="language-rust">map.get(&quot;key&quot;)             // key not present
+vec.first() / vec.last()   // empty vec
+vec.get(10)                // index out of range
+iter.next()                // iterator exhausted
+std::env::args().nth(1)    // argument not given
+s.find(':')                // substring not found
+s.parse::&lt;u32&gt;().ok()      // parse failed
+path.file_name()           // path ends in &quot;..&quot; or is &quot;/&quot;
+</code></pre>
+<h2 id="fix-1-handle-both-cases">Fix 1: handle both cases</h2>
+<pre><code class="language-rust">match config.get(&quot;port&quot;) {
+    Some(port) =&gt; println!(&quot;port {port}&quot;),
+    None =&gt; eprintln!(&quot;no port configured&quot;),
+}
+
+if let Some(first) = items.first() {
+    process(first);
+}
+
+// Rust 1.65+: let-else for early exit
+let Some(name) = std::env::args().nth(1) else {
+    eprintln!(&quot;usage: app &lt;name&gt;&quot;);
+    std::process::exit(1);
+};
+</code></pre>
+<h2 id="fix-2-use-a-default">Fix 2: use a default</h2>
+<pre><code class="language-rust">let port = config.get(&quot;port&quot;).copied().unwrap_or(8080);
+let name = user.nickname.clone().unwrap_or_default();     // &quot;&quot; for String
+let v = cache.get(&amp;k).cloned().unwrap_or_else(|| compute(&amp;k));
+</code></pre>
+<p><code>unwrap_or_else</code> is lazy: the closure only runs when the value is <code>None</code>.</p>
+<h2 id="fix-3-turn-none-into-an-error-and-propagate-with">Fix 3: turn None into an error and propagate with <code>?</code></h2>
+<p>In a function returning <code>Result</code>, convert the Option with <code>ok_or</code> / <code>ok_or_else</code>:</p>
+<pre><code class="language-rust">fn db_url() -&gt; Result&lt;String, String&gt; {
+    let url = std::env::var(&quot;DATABASE_URL&quot;).ok().ok_or(&quot;DATABASE_URL not set&quot;)?;
+    Ok(url)
+}
+</code></pre>
+<p>With <code>anyhow</code>:</p>
+<pre><code class="language-rust">use anyhow::Context;
+let user = users.get(&amp;id).context(format!(&quot;user {id} not found&quot;))?;
+</code></pre>
+<p>Inside a function that itself returns <code>Option</code>, <code>?</code> works on Options directly:</p>
+<pre><code class="language-rust">fn first_word_len(s: &amp;str) -&gt; Option&lt;usize&gt; {
+    Some(s.split_whitespace().next()?.len())
+}
+</code></pre>
+<h2 id="fix-4-if-it-truly-cant-be-none-use-expect">Fix 4: if it truly can't be None, use expect</h2>
+<p>When None means a bug (an invariant), keep the panic but make it explain itself:</p>
+<pre><code class="language-rust">let home = std::env::var_os(&quot;HOME&quot;).expect(&quot;HOME must be set&quot;);
+</code></pre>
+<p>The panic then reads <code>HOME must be set</code>, which is much easier to debug than the generic message.</p>
+<h2 id="avoiding-it-in-the-first-place">Avoiding it in the first place</h2>
+<ul>
+<li>Don't <code>.unwrap()</code> on user input, files, network data or env vars.</li>
+<li><code>clippy</code> can flag unwraps: add <code>#![warn(clippy::unwrap_used)]</code> to your crate root and run <code>cargo clippy</code>.</li>
+<li>In tests, <code>unwrap()</code> is fine: a panic is a failed test.</li>
+</ul>
+<p class="upd">Last updated 2026-11-22.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/rust/rust-borrow-of-moved-value/">error[E0382]: borrow of moved value</a></li><li><a href="/rust/rust-e0308-mismatched-types/">error[E0308]: mismatched types</a></li><li><a href="/rust/rust-e0599-no-method-named-found/">error[E0599]: no method named `x` found for struct `T` in the current scope</a></li><li><a href="/rust/rust-called-result-unwrap-on-an-err-value/">thread &#x27;main&#x27; panicked at &#x27;called `Result::unwrap()` on an `Err` value&#x27;</a></li><li><a href="/rust/rust-cannot-borrow-as-mutable/">error[E0502]: cannot borrow as mutable because it is also borrowed as immutable</a></li><li><a href="/rust/rust-e0106-missing-lifetime-specifier/">error[E0106]: missing lifetime specifier</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

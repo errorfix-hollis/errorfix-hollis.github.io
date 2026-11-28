@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>java.net.ConnectException: Connection refused — how to fix</title>
+<meta name="description" content="The target host answered, but nothing was listening on that port (the OS sent a TCP reset). The server isn&#x27;t running, listens on a different port or interface, or you&#x27;re connecting to the wrong host, often localhost inside Docker.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-connectexception-connection-refused/">
+<meta property="og:title" content="java.net.ConnectException: Connection refused — how to fix"><meta property="og:description" content="The target host answered, but nothing was listening on that port (the OS sent a TCP reset). The server isn&#x27;t running, listens on a different port or interface, or you&#x27;re connecting to the wrong host, often localhost inside Docker.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-connectexception-connection-refused/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "java.net.ConnectException: Connection refused \u2014 how to fix", "description": "The target host answered, but nothing was listening on that port (the OS sent a TCP reset). The server isn't running, listens on a different port or interface, or you're connecting to the wrong host, often localhost inside Docker.", "dateModified": "2026-11-22", "url": "https://errorfix-hollis.github.io/java/java-connectexception-connection-refused/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "java.net.ConnectException: Connection refused", "item": "https://errorfix-hollis.github.io/java/java-connectexception-connection-refused/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>java.net.ConnectException: Connection refused — how to fix</h1>
+<pre class="err"><code>java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Net.java:672)
+	at java.base/sun.nio.ch.NioSocketImpl.timedFinishConnect(NioSocketImpl.java:547)
+	at java.base/java.net.Socket.connect(Socket.java:751)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the server is up and listening: <code>ss -ltnp | grep PORT</code> (or <code>netstat -ano | findstr PORT</code> on Windows), and test with <code>nc -vz HOST PORT</code>. Fix the host/port in your config. In Docker, use the service name (e.g. <code>jdbc:mysql://db:3306/app</code>) instead of <code>localhost</code>. Make the server bind to <code>0.0.0.0</code> if it's remote.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The client reached the machine but no process accepted connections on that port, so the operating system rejected it immediately. This is different from:</p>
+<ul>
+<li><code>connect timed out</code> / <code>SocketTimeoutException</code>: packets got no answer (firewall, wrong IP, host down).</li>
+<li><code>UnknownHostException</code>: the host name didn't resolve.</li>
+</ul>
+<p>Look at the "Caused by" chain to see which component failed: JDBC (<code>Communications link failure</code> for MySQL, <code>Connection to localhost:5432 refused</code> for PostgreSQL), <code>RestTemplate</code>/<code>WebClient</code> (<code>I/O error on GET request</code>), Kafka, Redis (<code>Unable to connect to Redis</code>), etc.</p>
+<h2 id="step-1-is-anything-listening">Step 1: is anything listening?</h2>
+<p>On the server machine:</p>
+<pre><code class="language-bash">ss -ltnp | grep 8080          # Linux
+lsof -iTCP:8080 -sTCP:LISTEN  # macOS
+netstat -ano | findstr :8080  # Windows
+</code></pre>
+<p>From the client machine:</p>
+<pre><code class="language-bash">nc -vz host 8080
+curl -v http://host:8080/
+</code></pre>
+<h2 id="cause-1-the-server-isnt-running-or-crashed">Cause 1: the server isn't running (or crashed)</h2>
+<p>Start it and check its logs: <code>systemctl status mysql</code>, <code>docker ps</code>, <code>docker logs db</code>. In Spring Boot integration tests, the dependent service (database, mock server) must be up before the application context starts; Testcontainers handles this for you.</p>
+<h2 id="cause-2-wrong-host-or-port">Cause 2: wrong host or port</h2>
+<p>Print the configured values: a typo in <code>application.properties</code>, a profile that overrides them, or a default port (<code>localhost:8080</code>) used because a property wasn't set.</p>
+<pre><code class="language-properties">spring.datasource.url=jdbc:postgresql://db.internal:5432/app
+app.api.base-url=http://orders:8081
+</code></pre>
+<h2 id="cause-3-localhost-inside-a-docker-container">Cause 3: <code>localhost</code> inside a Docker container</h2>
+<p>Inside a container, <code>localhost</code> is the container itself. To reach another container in the same Compose project, use its service name:</p>
+<pre><code class="language-yaml">services:
+  app:
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/app
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: mysql:8.4
+</code></pre>
+<p>To reach a service on the host from a container, use <code>host.docker.internal</code> (Docker Desktop; on Linux add <code>extra_hosts: ["host.docker.internal:host-gateway"]</code>).</p>
+<p><code>depends_on</code> without a healthcheck only waits for the container to start, not for the database to accept connections, so the app can still get <code>Connection refused</code> on boot. Add a healthcheck or retry logic.</p>
+<h2 id="cause-4-server-only-listens-on-127001">Cause 4: server only listens on 127.0.0.1</h2>
+<p>If <code>ss -ltn</code> shows <code>127.0.0.1:5432</code>, remote clients are refused. Bind to all interfaces:</p>
+<ul>
+<li>Spring Boot: <code>server.address=0.0.0.0</code> (the default is all interfaces unless set).</li>
+<li>MySQL: <code>bind-address = 0.0.0.0</code> in <code>mysqld.cnf</code>.</li>
+<li>PostgreSQL: <code>listen_addresses = '*'</code>.</li>
+<li>Redis: <code>bind 0.0.0.0</code> (and set a password).</li>
+<li>Kafka: <code>listeners</code>/<code>advertised.listeners</code> must advertise an address clients can reach; a broker advertising <code>localhost:9092</code> makes remote clients connect to themselves.</li>
+</ul>
+<h2 id="cause-5-ipv6-vs-ipv4">Cause 5: IPv6 vs IPv4</h2>
+<p><code>localhost</code> may resolve to <code>::1</code> first while the server listens only on IPv4. Use <code>127.0.0.1</code> explicitly, or start the JVM with <code>-Djava.net.preferIPv4Stack=true</code>.</p>
+<h2 id="cause-6-android-emulator">Cause 6: Android emulator</h2>
+<p>In the Android emulator, <code>localhost</code> is the emulator. Use <code>10.0.2.2</code> to reach the development machine.</p>
+<p class="upd">Last updated 2026-11-22.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-error-2003-cant-connect-to-mysql-server/">ERROR 2003 (HY000): Can&#x27;t connect to MySQL server on &#x27;host&#x27; (111)</a></li><li><a href="/database/db-postgres-connection-refused/">psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused</a></li><li><a href="/java/java-spring-port-8080-was-already-in-use/">Web server failed to start. Port 8080 was already in use.</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

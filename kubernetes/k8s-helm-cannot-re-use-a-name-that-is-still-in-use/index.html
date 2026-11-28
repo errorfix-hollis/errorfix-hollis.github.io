@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error: INSTALLATION FAILED: cannot re-use a name that is still in use (Kubernetes) — how to fix</title>
+<meta name="description" content="helm install was run with a release name that already exists in that namespace, possibly as a failed or pending release. Upgrade the existing release, or uninstall it first.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-helm-cannot-re-use-a-name-that-is-still-in-use/">
+<meta property="og:title" content="Error: INSTALLATION FAILED: cannot re-use a name that is still in use (Kubernetes) — how to fix"><meta property="og:description" content="helm install was run with a release name that already exists in that namespace, possibly as a failed or pending release. Upgrade the existing release, or uninstall it first.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-helm-cannot-re-use-a-name-that-is-still-in-use/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error: INSTALLATION FAILED: cannot re-use a name that is still in use (Kubernetes) \u2014 how to fix", "description": "helm install was run with a release name that already exists in that namespace, possibly as a failed or pending release. Upgrade the existing release, or uninstall it first.", "dateModified": "2026-11-27", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-helm-cannot-re-use-a-name-that-is-still-in-use/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "Error: INSTALLATION FAILED: cannot re-use a name that is still in use", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-helm-cannot-re-use-a-name-that-is-still-in-use/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>Error: INSTALLATION FAILED: cannot re-use a name that is still in use (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Error: INSTALLATION FAILED: cannot re-use a name that is still in use
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Use <code>helm upgrade --install myrelease ./chart -n myns</code> instead of <code>helm install</code> so it works whether or not the release exists. To start over: <code>helm list -a -n myns</code> to find it, then <code>helm uninstall myrelease -n myns</code>. A release stuck in <code>pending-install</code> can be removed the same way.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Helm 3 stores each release as a Secret in the release's namespace (<code>sh.helm.release.v1.&lt;name&gt;.v&lt;revision&gt;</code>). <code>helm install</code> refuses to create a release whose name already has records there — even if the previous install <strong>failed</strong> or was interrupted, and even if none of its pods are running.</p>
+<p>Find it (note <code>-a</code> / <code>--all</code>, which includes failed and pending releases that <code>helm list</code> hides):</p>
+<pre><code class="language-bash">helm list -a -n myns
+helm status myrelease -n myns
+kubectl get secrets -n myns -l owner=helm,name=myrelease
+</code></pre>
+<p>Release names are per namespace: the same name can exist in two namespaces. Check you're looking at the right one (<code>-n</code>, or the namespace from your current kube context).</p>
+<h2 id="fix-1-use-upgrade-install-idempotent">Fix 1: use upgrade --install (idempotent)</h2>
+<p>For scripts and CI pipelines, this is the standard command — it installs if missing, upgrades if present:</p>
+<pre><code class="language-bash">helm upgrade --install myrelease ./chart -n myns --create-namespace -f values.yaml
+</code></pre>
+<p>Add <code>--atomic</code> so a failed install/upgrade is rolled back automatically instead of leaving a failed release behind, and <code>--wait</code> to wait for resources to become ready.</p>
+<h2 id="fix-2-uninstall-the-old-release-and-install-again">Fix 2: uninstall the old release and install again</h2>
+<p>If you really want a fresh install:</p>
+<pre><code class="language-bash">helm uninstall myrelease -n myns
+helm install myrelease ./chart -n myns
+</code></pre>
+<p>This deletes the chart's resources. PersistentVolumeClaims created by StatefulSets are usually <strong>not</strong> deleted, so data volumes survive; delete them manually if you want a clean slate.</p>
+<h2 id="fix-3-release-stuck-in-pending-install-pending-upgrade">Fix 3: release stuck in pending-install / pending-upgrade</h2>
+<p>If an install was killed (Ctrl+C, CI timeout), the release may be stuck in <code>pending-install</code>, and later commands fail with this error or <code>another operation (install/upgrade/rollback) is in progress</code>.</p>
+<pre><code class="language-bash">helm history myrelease -n myns
+</code></pre>
+<ul>
+<li>Stuck first install: <code>helm uninstall myrelease -n myns</code>, then install again.</li>
+<li>Stuck upgrade with an earlier good revision: <code>helm rollback myrelease &lt;good-revision&gt; -n myns</code>.</li>
+</ul>
+<p>As a last resort, delete the Secret of the stuck revision (only that one):</p>
+<pre><code class="language-bash">kubectl delete secret sh.helm.release.v1.myrelease.v3 -n myns
+</code></pre>
+<h2 id="fix-4-just-pick-another-name">Fix 4: just pick another name</h2>
+<p>If the existing release is someone else's (shared cluster), install under a different name or namespace, or let Helm generate one with <code>helm install ./chart --generate-name</code>.</p>
+<h2 id="related-resources-exist-but-no-release">Related: resources exist but no release</h2>
+<p>If resources from the chart already exist without Helm owning them, you get a different error: <code>rendered manifests contain a resource that already exists ... invalid ownership metadata</code>. Delete those objects or adopt them by adding the <code>app.kubernetes.io/managed-by: Helm</code> label and <code>meta.helm.sh/release-name</code> / <code>meta.helm.sh/release-namespace</code> annotations.</p>
+<p class="upd">Last updated 2026-11-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-error-from-server-forbidden/">Error from server (Forbidden): User cannot list resource in API group at the cluster scope</a></li><li><a href="/kubernetes/k8s-field-is-immutable/">spec.selector: Invalid value: field is immutable</a></li><li><a href="/kubernetes/k8s-no-matches-for-kind/">error: resource mapping not found ... no matches for kind &quot;Deployment&quot; in version &quot;extensions/v1beta1&quot;</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-container-is-waiting-to-start/">Error from server (BadRequest): container is waiting to start: ContainerCreating</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error: UPGRADE FAILED: another operation (install/upgrade/rollback) is in progress (Kubernetes) — how to fix</title>
+<meta name="description" content="Helm keeps release state in Secrets, and the latest revision is stuck in a pending-install, pending-upgrade or pending-rollback status, usually because an earlier helm command was interrupted or timed out. Helm refuses to start a new operation until that status is cleared.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-helm-another-operation-is-in-progress/">
+<meta property="og:title" content="Error: UPGRADE FAILED: another operation (install/upgrade/rollback) is in progress (Kubernetes) — how to fix"><meta property="og:description" content="Helm keeps release state in Secrets, and the latest revision is stuck in a pending-install, pending-upgrade or pending-rollback status, usually because an earlier helm command was interrupted or timed out. Helm refuses to start a new operation until that status is cleared.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-helm-another-operation-is-in-progress/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error: UPGRADE FAILED: another operation (install/upgrade/rollback) is in progress (Kubernetes) \u2014 how to fix", "description": "Helm keeps release state in Secrets, and the latest revision is stuck in a pending-install, pending-upgrade or pending-rollback status, usually because an earlier helm command was interrupted or timed out. Helm refuses to start a new operation until that status is cleared.", "dateModified": "2026-11-28", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-helm-another-operation-is-in-progress/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "Error: UPGRADE FAILED: another operation (install/upgrade/rollback) is in progress", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-helm-another-operation-is-in-progress/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>Error: UPGRADE FAILED: another operation (install/upgrade/rollback) is in progress (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Error: UPGRADE FAILED: another operation (install/upgrade/rollback) is in progress
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find the stuck revision with <code>helm history RELEASE -n NS</code>. If an older revision is <code>deployed</code>, run <code>helm rollback RELEASE &lt;that-revision&gt; -n NS</code>, then upgrade again. If the only revision is <code>pending-install</code>, run <code>helm uninstall RELEASE -n NS</code> and install again. Last resort: delete the pending revision's secret <code>sh.helm.release.v1.RELEASE.vN</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Every Helm 3 release revision is stored as a Secret named <code>sh.helm.release.v1.&lt;release&gt;.v&lt;revision&gt;</code> in the release namespace. When an install, upgrade or rollback starts, Helm writes the new revision with a <code>pending-*</code> status and changes it to <code>deployed</code> or <code>failed</code> when done.</p>
+<p>If the Helm process dies in between (Ctrl-C, CI job cancelled, runner killed, <code>--wait</code> timeout while the client lost connection), the revision stays <code>pending-*</code> forever and every later command fails with this error.</p>
+<p>Confirm it:</p>
+<pre><code class="language-bash">helm history myapp -n prod
+# REVISION  STATUS           CHART        DESCRIPTION
+# 7         deployed         myapp-1.4.0  Upgrade complete
+# 8         pending-upgrade  myapp-1.5.0  Preparing upgrade
+
+helm list -n prod --pending
+</code></pre>
+<p>First make sure no other <code>helm</code> process (another pipeline, a colleague) is really running against this release. If one is, wait for it.</p>
+<h2 id="fix-1-roll-back-to-the-last-good-revision">Fix 1: roll back to the last good revision</h2>
+<p>When an earlier revision is <code>deployed</code>, roll back to it. This creates a new revision with a final status and unblocks the release:</p>
+<pre><code class="language-bash">helm rollback myapp 7 -n prod
+helm upgrade myapp ./chart -n prod -f values.yaml
+</code></pre>
+<h2 id="fix-2-stuck-in-pending-install">Fix 2: stuck in pending-install</h2>
+<p>If the very first install was interrupted, there is no good revision to go back to. Uninstall and install again:</p>
+<pre><code class="language-bash">helm uninstall myapp -n prod
+helm install myapp ./chart -n prod -f values.yaml
+</code></pre>
+<p>Check that resources you care about (PersistentVolumeClaims, for example) are handled the way you expect before uninstalling; PVCs created by StatefulSet volumeClaimTemplates are not deleted by Helm.</p>
+<h2 id="fix-3-delete-the-pending-revision-secret">Fix 3: delete the pending revision secret</h2>
+<p>If rollback also refuses, remove the stuck revision record itself. This only deletes Helm's bookkeeping, not your workloads:</p>
+<pre><code class="language-bash">kubectl get secrets -n prod -l owner=helm,name=myapp
+kubectl delete secret sh.helm.release.v1.myapp.v8 -n prod
+helm history myapp -n prod      # latest is now revision 7, deployed
+</code></pre>
+<p>Then run your upgrade again. Only delete the newest <code>pending-*</code> revision, never the <code>deployed</code> one.</p>
+<h2 id="prevent-it">Prevent it</h2>
+<ul>
+<li>Don't cancel Helm mid-operation; give CI jobs a timeout longer than Helm's own <code>--timeout</code>.</li>
+<li>Use <code>--atomic</code> on upgrades so a failed or timed-out upgrade is rolled back automatically instead of left half-done.</li>
+<li>Serialize deployments of the same release in CI (one concurrent job per environment), so two pipelines never upgrade the same release at once.</li>
+<li>If you use <code>--wait</code>, set a realistic <code>--timeout</code> (default is 5m) for slow rollouts.</li>
+</ul>
+<p class="upd">Last updated 2026-11-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-error-from-server-forbidden/">Error from server (Forbidden): User cannot list resource in API group at the cluster scope</a></li><li><a href="/kubernetes/k8s-field-is-immutable/">spec.selector: Invalid value: field is immutable</a></li><li><a href="/kubernetes/k8s-helm-cannot-re-use-a-name-that-is-still-in-use/">Error: INSTALLATION FAILED: cannot re-use a name that is still in use</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-container-is-waiting-to-start/">Error from server (BadRequest): container is waiting to start: ContainerCreating</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

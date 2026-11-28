@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Warning: A component is changing an uncontrolled input to be controlled. (JavaScript) — how to fix</title>
+<meta name="description" content="An input&#x27;s `value` (or `checked`) prop started as undefined or null, so React treated it as uncontrolled, and later became a real value. Give it a defined initial value.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-a-component-is-changing-an-uncontrolled-input-to-be-controlled/">
+<meta property="og:title" content="Warning: A component is changing an uncontrolled input to be controlled. (JavaScript) — how to fix"><meta property="og:description" content="An input&#x27;s `value` (or `checked`) prop started as undefined or null, so React treated it as uncontrolled, and later became a real value. Give it a defined initial value.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-a-component-is-changing-an-uncontrolled-input-to-be-controlled/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Warning: A component is changing an uncontrolled input to be controlled. (JavaScript) \u2014 how to fix", "description": "An input's `value` (or `checked`) prop started as undefined or null, so React treated it as uncontrolled, and later became a real value. Give it a defined initial value.", "dateModified": "2026-11-22", "url": "https://errorfix-hollis.github.io/javascript/js-a-component-is-changing-an-uncontrolled-input-to-be-controlled/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "Warning: A component is changing an uncontrolled input to be controlled.", "item": "https://errorfix-hollis.github.io/javascript/js-a-component-is-changing-an-uncontrolled-input-to-be-controlled/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>Warning: A component is changing an uncontrolled input to be controlled. (JavaScript) — how to fix</h1>
+<pre class="err"><code>Warning: A component is changing an uncontrolled input to be controlled. This is likely caused by the value changing from undefined to a defined value, which should not happen. Decide between using a controlled or uncontrolled input element for the lifetime of the component.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Initialize state with an empty string instead of undefined: <code>useState("")</code>, not <code>useState()</code>. For possibly-missing data use <code>value={name ?? ""}</code>, and for checkboxes <code>checked={!!flag}</code>. Or make it uncontrolled with <code>defaultValue</code> and no <code>value</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>React has two kinds of form fields:</p>
+<ul>
+<li><strong>Controlled</strong>: you pass <code>value</code> (or <code>checked</code>) and update it with <code>onChange</code>. React owns the value.</li>
+<li><strong>Uncontrolled</strong>: no <code>value</code> prop (or <code>value={undefined}</code>); the DOM keeps the value, optionally seeded with <code>defaultValue</code>.</li>
+</ul>
+<p><code>value={undefined}</code> and <code>value={null}</code> mean "uncontrolled". When that later becomes a string, React warns because the field switched modes mid-life. The reverse message, <em>changing a controlled input to be uncontrolled</em>, means a defined value became <code>undefined</code>.</p>
+<h2 id="cause-1-state-initialised-without-a-value">Cause 1: state initialised without a value</h2>
+<pre><code class="language-jsx">const [email, setEmail] = useState();        // undefined
+&lt;input value={email} onChange={e =&gt; setEmail(e.target.value)} /&gt;
+</code></pre>
+<p>Fix: start with an empty string:</p>
+<pre><code class="language-jsx">const [email, setEmail] = useState(&quot;&quot;);
+</code></pre>
+<p>For checkboxes start with a boolean: <code>useState(false)</code>.</p>
+<h2 id="cause-2-form-object-with-missing-fields">Cause 2: form object with missing fields</h2>
+<pre><code class="language-jsx">const [form, setForm] = useState({});
+&lt;input name=&quot;city&quot; value={form.city} onChange={handleChange} /&gt;
+</code></pre>
+<p><code>form.city</code> is <code>undefined</code> until the user types. Declare every field up front:</p>
+<pre><code class="language-jsx">const [form, setForm] = useState({ name: &quot;&quot;, email: &quot;&quot;, city: &quot;&quot; });
+
+const handleChange = e =&gt;
+  setForm(f =&gt; ({ ...f, [e.target.name]: e.target.value }));
+</code></pre>
+<p>A bad <code>setForm({ [e.target.name]: e.target.value })</code> (without spreading <code>...f</code>) drops the other fields and triggers the reverse warning.</p>
+<h2 id="cause-3-data-loaded-from-an-api">Cause 3: data loaded from an API</h2>
+<p>Fields from a fetch are <code>undefined</code> before loading and <code>null</code> for empty database columns:</p>
+<pre><code class="language-jsx">&lt;input value={user?.phone ?? &quot;&quot;} onChange={...} /&gt;
+&lt;input type=&quot;checkbox&quot; checked={!!user?.subscribed} onChange={...} /&gt;
+</code></pre>
+<p>Use <code>??</code> (not <code>||</code>) if <code>0</code> is a valid value for number inputs.</p>
+<p>Alternatively render the form only after the data arrives: <code>if (!user) return &lt;Spinner /&gt;;</code></p>
+<h2 id="cause-4-you-actually-want-an-uncontrolled-field">Cause 4: you actually want an uncontrolled field</h2>
+<p>If you don't need the value on every keystroke, drop <code>value</code> and use <code>defaultValue</code>, then read it on submit:</p>
+<pre><code class="language-jsx">&lt;form onSubmit={e =&gt; {
+  e.preventDefault();
+  const data = new FormData(e.currentTarget);
+  console.log(data.get(&quot;email&quot;));
+}}&gt;
+  &lt;input name=&quot;email&quot; defaultValue=&quot;&quot; /&gt;
+&lt;/form&gt;
+</code></pre>
+<p>Note <code>defaultValue</code> is only read on first render; changing it later does nothing (change the <code>key</code> to reset the field).</p>
+<h2 id="libraries">Libraries</h2>
+<ul>
+<li><strong>react-hook-form</strong>: pass <code>defaultValues</code> to <code>useForm({ defaultValues: { email: "" } })</code>, especially when using <code>Controller</code>.</li>
+<li><strong>MUI / Ant Design</strong> inputs wrap a native input and show the same warning (MUI phrases it as <em>A component is changing the uncontrolled value state</em>). Same fix: never pass <code>undefined</code> as <code>value</code>.</li>
+<li><strong>Select elements</strong>: <code>&lt;select value={x ?? ""}&gt;</code> with a matching <code>&lt;option value=""&gt;Choose…&lt;/option&gt;</code>.</li>
+</ul>
+<p class="upd">Last updated 2026-11-22.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li><li><a href="/javascript/js-each-child-in-a-list-should-have-a-unique-key-prop/">Each child in a list should have a unique &quot;key&quot; prop.</a></li><li><a href="/javascript/js-too-many-re-renders/">Too many re-renders. React limits the number of renders to prevent an infinite loop.</a></li><li><a href="/javascript/js-cannot-read-properties-of-null/">TypeError: Cannot read properties of null (reading &#x27;...&#x27;)</a></li><li><a href="/javascript/js-cannot-set-properties-of-null/">Uncaught TypeError: Cannot set properties of null (setting &#x27;innerHTML&#x27;)</a></li><li><a href="/javascript/js-cannot-set-properties-of-undefined/">TypeError: Cannot set properties of undefined (setting &#x27;...&#x27;)</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

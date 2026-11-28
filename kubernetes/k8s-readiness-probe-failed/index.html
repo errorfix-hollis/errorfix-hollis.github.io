@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Readiness probe failed (Kubernetes) — how to fix</title>
+<meta name="description" content="The kubelet&#x27;s readiness check against the container failed, so the pod is marked NotReady (0/1) and removed from Service endpoints. The app isn&#x27;t listening yet, listens on another port/address, returns a non-2xx/3xx status, or answers too slowly.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-readiness-probe-failed/">
+<meta property="og:title" content="Readiness probe failed (Kubernetes) — how to fix"><meta property="og:description" content="The kubelet&#x27;s readiness check against the container failed, so the pod is marked NotReady (0/1) and removed from Service endpoints. The app isn&#x27;t listening yet, listens on another port/address, returns a non-2xx/3xx status, or answers too slowly.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-readiness-probe-failed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Readiness probe failed (Kubernetes) \u2014 how to fix", "description": "The kubelet's readiness check against the container failed, so the pod is marked NotReady (0/1) and removed from Service endpoints. The app isn't listening yet, listens on another port/address, returns a non-2xx/3xx status, or answers too slowly.", "dateModified": "2026-11-19", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-readiness-probe-failed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "Readiness probe failed", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-readiness-probe-failed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>Readiness probe failed (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Warning  Unhealthy  12s (x6 over 62s)  kubelet  Readiness probe failed: Get &quot;http://10.244.1.17:8080/health&quot;: dial tcp 10.244.1.17:8080: connect: connection refused
+Warning  Unhealthy  5s                 kubelet  Readiness probe failed: HTTP probe failed with statuscode: 503
+Warning  Unhealthy  3s                 kubelet  Readiness probe failed: Get &quot;http://10.244.1.17:8080/ready&quot;: context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>kubectl describe pod &lt;pod&gt;</code> to see the exact probe failure, then test the endpoint from inside: <code>kubectl exec &lt;pod&gt; -- wget -qO- localhost:8080/health</code>. Fix the probe's <code>port</code>/<code>path</code> to match the app, make the app bind <code>0.0.0.0</code>, and raise <code>initialDelaySeconds</code>/<code>timeoutSeconds</code> or add a <code>startupProbe</code> for slow starts.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A <strong>readiness</strong> probe decides whether a pod should receive traffic. When it fails, the container keeps running but shows <code>READY 0/1</code>, and the pod is taken out of the Service's endpoints — so requests through the Service or Ingress get 502/503 or "no endpoints".</p>
+<p>Unlike a <strong>liveness</strong> probe, a failing readiness probe never restarts the container. If you also see restarts, the liveness probe is failing too (or the app crashes — see CrashLoopBackOff).</p>
+<pre><code class="language-bash">kubectl get pods
+kubectl describe pod &lt;pod&gt;          # Events show the exact probe error
+kubectl get endpoints &lt;service&gt;     # empty = no ready pods
+kubectl logs &lt;pod&gt;
+</code></pre>
+<p>The text after <code>Readiness probe failed:</code> tells you which cause applies.</p>
+<h2 id="cause-1-connection-refused-wrong-port-or-app-not-listening-yet">Cause 1: <code>connection refused</code> — wrong port, or app not listening yet</h2>
+<p>The probe connected to the pod IP and nothing was listening on that port.</p>
+<ul>
+<li>Check the port the app actually uses (<code>kubectl logs</code>, or <code>kubectl exec &lt;pod&gt; -- netstat -tlnp</code> / <code>ss -tlnp</code> if available).</li>
+<li>The app must listen on <code>0.0.0.0</code> (all interfaces), not <code>127.0.0.1</code>. The kubelet probes the <strong>pod IP</strong>, so a localhost-only server refuses it. E.g. Flask <code>app.run(host="0.0.0.0")</code>, Node <code>server.listen(8080, "0.0.0.0")</code>.</li>
+<li>A named port (<code>port: http</code>) must match a <code>containerPort</code> name.</li>
+</ul>
+<pre><code class="language-yaml">readinessProbe:
+  httpGet:
+    path: /health
+    port: 8080          # must match what the app listens on
+  periodSeconds: 5
+</code></pre>
+<h2 id="cause-2-statuscode-503-404-endpoint-returns-failure">Cause 2: <code>statuscode: 503</code> / <code>404</code> — endpoint returns failure</h2>
+<p>HTTP probes succeed only with status 200–399. A 404 means the <code>path</code> is wrong; a 5xx means your health handler reports unhealthy (often a dependency such as the database is unreachable). Test it from inside the pod:</p>
+<pre><code class="language-bash">kubectl exec -it &lt;pod&gt; -- wget -qO- http://localhost:8080/health
+# or: curl -i http://localhost:8080/health
+</code></pre>
+<p>Keep readiness checks cheap and decide carefully which dependencies should make the pod unready — if every pod checks the same database, a DB blip takes all of them out of service at once.</p>
+<p>Spring Boot exposes <code>/actuator/health/readiness</code> when <code>management.endpoint.health.probes.enabled=true</code> (on by default in Kubernetes).</p>
+<h2 id="cause-3-context-deadline-exceeded-too-slow">Cause 3: <code>context deadline exceeded</code> — too slow</h2>
+<p>The default <code>timeoutSeconds</code> is <strong>1 second</strong>. A slow health endpoint, CPU throttling (low <code>resources.limits.cpu</code>) or a JVM warming up will exceed it.</p>
+<pre><code class="language-yaml">readinessProbe:
+  httpGet: { path: /ready, port: 8080 }
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+</code></pre>
+<h2 id="cause-4-slow-startup">Cause 4: slow startup</h2>
+<p>For apps that take a long time to boot, add a <code>startupProbe</code>; readiness and liveness checks wait until it succeeds:</p>
+<pre><code class="language-yaml">startupProbe:
+  httpGet: { path: /health, port: 8080 }
+  periodSeconds: 5
+  failureThreshold: 30      # up to 150 s to start
+</code></pre>
+<p>Readiness failures during the first seconds after start are normal and harmless; only persistent ones matter.</p>
+<h2 id="cause-5-exec-probe-returns-non-zero">Cause 5: exec probe returns non-zero</h2>
+<p>For <code>exec</code> probes, the command's exit code must be 0. Run the same command manually:</p>
+<pre><code class="language-bash">kubectl exec &lt;pod&gt; -- sh -c 'pg_isready -U postgres; echo exit=$?'
+</code></pre>
+<p>Common problems: the binary isn't in the image (distroless/scratch images have no shell), or the command needs env vars it doesn't get.</p>
+<h2 id="validate-the-yaml">Validate the YAML</h2>
+<p>Probe fields are easy to mis-indent (they belong under the container, not the pod spec). Check with the <a href="/tools/yaml-validator/">YAML validator</a> and <code>kubectl apply --dry-run=server -f deploy.yaml</code>.</p>
+<p class="upd">Last updated 2026-11-19.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-oomkilled/">OOMKilled (exit code 137)</a></li><li><a href="/kubernetes/k8s-unable-to-connect-to-the-server-dial-tcp-i-o-timeout/">Unable to connect to the server: dial tcp: i/o timeout</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-container-is-waiting-to-start/">Error from server (BadRequest): container is waiting to start: ContainerCreating</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

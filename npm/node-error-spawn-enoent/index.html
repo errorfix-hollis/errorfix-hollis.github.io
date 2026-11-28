@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error: spawn ENOENT (Node.js) — how to fix</title>
+<meta name="description" content="Node&#x27;s child_process tried to start a program that it could not find: the command isn&#x27;t installed, isn&#x27;t on PATH, the cwd doesn&#x27;t exist, or on Windows it&#x27;s a .cmd/.bat file that needs a shell.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/node-error-spawn-enoent/">
+<meta property="og:title" content="Error: spawn ENOENT (Node.js) — how to fix"><meta property="og:description" content="Node&#x27;s child_process tried to start a program that it could not find: the command isn&#x27;t installed, isn&#x27;t on PATH, the cwd doesn&#x27;t exist, or on Windows it&#x27;s a .cmd/.bat file that needs a shell.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/node-error-spawn-enoent/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error: spawn ENOENT (Node.js) \u2014 how to fix", "description": "Node's child_process tried to start a program that it could not find: the command isn't installed, isn't on PATH, the cwd doesn't exist, or on Windows it's a .cmd/.bat file that needs a shell.", "dateModified": "2026-11-21", "url": "https://errorfix-hollis.github.io/npm/node-error-spawn-enoent/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "Error: spawn ENOENT", "item": "https://errorfix-hollis.github.io/npm/node-error-spawn-enoent/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>Error: spawn ENOENT (Node.js) — how to fix</h1>
+<pre class="err"><code>node:events:497
+      throw er; // Unhandled &#x27;error&#x27; event
+      ^
+
+Error: spawn python ENOENT
+    at ChildProcess._handle.onexit (node:internal/child_process:286:19)
+    at onErrorNT (node:internal/child_process:484:16)
+  errno: -2,
+  code: &#x27;ENOENT&#x27;,
+  syscall: &#x27;spawn python&#x27;,
+  path: &#x27;python&#x27;,
+  spawnargs: [ &#x27;script.py&#x27; ]
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the <code>path</code> field in the error and run <code>which &lt;cmd&gt;</code> (<code>where &lt;cmd&gt;</code> on Windows). Install the program or use its absolute path. On Windows use <code>spawn('npm.cmd', ...)</code> or pass <code>{ shell: true }</code>. Make sure the <code>cwd</code> option points to an existing directory.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>spawn()</code>, <code>execFile()</code> and libraries built on them (cross-spawn, execa, electron-builder, many CLIs) ask the OS to run a program directly. <code>ENOENT</code> ("no such file or directory") means the executable named in <code>path</code> / <code>syscall: 'spawn &lt;cmd&gt;'</code> could not be found. It's the program that's missing, not your script file.</p>
+<h2 id="cause-1-the-program-isnt-installed-or-not-on-path">Cause 1: the program isn't installed or not on PATH</h2>
+<pre><code class="language-bash">which python python3 git ffmpeg     # macOS/Linux
+where python                        # Windows
+</code></pre>
+<p>Many systems have only <code>python3</code>, not <code>python</code>. Install the tool or call the name that exists:</p>
+<pre><code class="language-js">const { spawn } = require(&quot;node:child_process&quot;);
+spawn(&quot;python3&quot;, [&quot;script.py&quot;], { stdio: &quot;inherit&quot; });
+</code></pre>
+<p>PATH can differ between your terminal and the process running Node (systemd services, cron, GUI apps, IDE run configs, Docker images). Use an absolute path (<code>/usr/bin/ffmpeg</code>) or set <code>env: { ...process.env, PATH: ... }</code>.</p>
+<h2 id="cause-2-windows-cmd-bat-shims">Cause 2: Windows <code>.cmd</code> / <code>.bat</code> shims</h2>
+<p>On Windows, <code>npm</code>, <code>npx</code>, <code>yarn</code>, <code>pnpm</code> and most global CLIs are <code>.cmd</code> files. <code>spawn("npm", ...)</code> looks for <code>npm.exe</code> and fails.</p>
+<pre><code class="language-js">const cmd = process.platform === &quot;win32&quot; ? &quot;npm.cmd&quot; : &quot;npm&quot;;
+spawn(cmd, [&quot;run&quot;, &quot;build&quot;], { stdio: &quot;inherit&quot;, shell: process.platform === &quot;win32&quot; });
+</code></pre>
+<p>Since Node 18.20.2 / 20.12.2 (security fix CVE-2024-27980), spawning <code>.cmd</code>/<code>.bat</code> files without <code>shell: true</code> throws <code>EINVAL</code> instead, so <code>shell: true</code> is required on Windows. Alternatively use the <code>cross-spawn</code> package.</p>
+<h2 id="cause-3-command-and-arguments-in-one-string">Cause 3: command and arguments in one string</h2>
+<p><code>spawn</code> does not parse a command line:</p>
+<pre><code class="language-js">spawn(&quot;git status --short&quot;);                // ENOENT: looks for a program literally named &quot;git status --short&quot;
+spawn(&quot;git&quot;, [&quot;status&quot;, &quot;--short&quot;]);        // correct
+exec(&quot;git status --short&quot;, cb);             // exec runs through a shell
+</code></pre>
+<h2 id="cause-4-the-cwd-doesnt-exist">Cause 4: the <code>cwd</code> doesn't exist</h2>
+<p>If the <code>cwd</code> option points to a missing directory, Node also reports <code>spawn &lt;cmd&gt; ENOENT</code>, even though the command exists.</p>
+<pre><code class="language-js">const fs = require(&quot;node:fs&quot;);
+const dir = path.resolve(__dirname, &quot;build&quot;);
+if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+spawn(&quot;make&quot;, [], { cwd: dir });
+</code></pre>
+<h2 id="cause-5-npm-err-code-enoent-with-syscall-spawn">Cause 5: <code>npm ERR! code ENOENT</code> with <code>syscall spawn</code></h2>
+<p>When npm reports <code>syscall spawn</code> / <code>spawn sh ENOENT</code> or <code>spawn bash ENOENT</code>, the shell used for scripts is missing or misconfigured (common in minimal Docker images such as <code>distroless</code>, or a bad <code>script-shell</code> setting):</p>
+<pre><code class="language-bash">npm config get script-shell
+npm config delete script-shell
+</code></pre>
+<p>In Alpine images use <code>/bin/sh</code> in scripts rather than bash, or <code>apk add bash</code>. If a script calls a local binary (<code>spawn vite ENOENT</code>), run <code>npm install</code> so <code>node_modules/.bin</code> exists.</p>
+<h2 id="handle-the-error">Handle the error</h2>
+<p>Always attach an <code>error</code> listener so a missing program doesn't crash the process with <code>Unhandled 'error' event</code>:</p>
+<pre><code class="language-js">const child = spawn(&quot;ffmpeg&quot;, args);
+child.on(&quot;error&quot;, (err) =&gt; {
+  if (err.code === &quot;ENOENT&quot;) console.error(&quot;ffmpeg is not installed or not on PATH&quot;);
+  else console.error(err);
+});
+</code></pre>
+<p class="upd">Last updated 2026-11-21.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/npm-elifecycle/">npm ERR! code ELIFECYCLE</a></li><li><a href="/npm/npm-npx-command-not-found/">npx: command not found</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li><li><a href="/npm/node-err-require-esm/">Error [ERR_REQUIRE_ESM]: require() of ES Module not supported</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

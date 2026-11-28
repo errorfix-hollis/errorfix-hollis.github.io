@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>npm WARN EBADENGINE Unsupported engine — how to fix</title>
+<meta name="description" content="A package declares in its `engines` field that it needs a different Node.js (or npm) version than the one you&#x27;re running. It&#x27;s a warning by default, but the package may really fail on your Node version.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-warn-ebadengine-unsupported-engine/">
+<meta property="og:title" content="npm WARN EBADENGINE Unsupported engine — how to fix"><meta property="og:description" content="A package declares in its `engines` field that it needs a different Node.js (or npm) version than the one you&#x27;re running. It&#x27;s a warning by default, but the package may really fail on your Node version.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-warn-ebadengine-unsupported-engine/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "npm WARN EBADENGINE Unsupported engine \u2014 how to fix", "description": "A package declares in its `engines` field that it needs a different Node.js (or npm) version than the one you're running. It's a warning by default, but the package may really fail on your Node version.", "dateModified": "2026-11-20", "url": "https://errorfix-hollis.github.io/npm/npm-warn-ebadengine-unsupported-engine/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "npm WARN EBADENGINE Unsupported engine", "item": "https://errorfix-hollis.github.io/npm/npm-warn-ebadengine-unsupported-engine/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>npm WARN EBADENGINE Unsupported engine — how to fix</h1>
+<pre class="err"><code>npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: &#x27;vite@6.0.0&#x27;,
+npm WARN EBADENGINE   required: { node: &#x27;^18.0.0 || ^20.0.0 || &gt;=22.0.0&#x27; },
+npm WARN EBADENGINE   current: { node: &#x27;v16.20.2&#x27;, npm: &#x27;8.19.4&#x27; }
+npm WARN EBADENGINE }
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Compare <code>required</code> with <code>current</code>, then upgrade Node to a matching version: <code>nvm install 22 &amp;&amp; nvm use 22</code> (or <code>fnm</code>, or the installer from nodejs.org), delete <code>node_modules</code> and <code>package-lock.json</code> if needed, and run <code>npm install</code> again. If it's an error (<code>EBADENGINE</code> with <code>engine-strict</code>), that's the same fix.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Packages can declare which runtimes they support in <code>package.json</code>:</p>
+<pre><code class="language-json">&quot;engines&quot;: { &quot;node&quot;: &quot;&gt;=18&quot; }
+</code></pre>
+<p>During <code>npm install</code>, npm compares that range with your Node and npm versions. If they don't match, it prints <code>EBADENGINE</code> with three useful lines:</p>
+<ul>
+<li><code>package</code> — which dependency complained</li>
+<li><code>required</code> — the versions it supports</li>
+<li><code>current</code> — what you have</li>
+</ul>
+<p>By default it's only a <strong>warning</strong> and installation continues. But the authors are telling you the package uses features your Node doesn't have, so expect errors like <code>SyntaxError: Unexpected token '?'</code>, <code>fetch is not defined</code>, or <code>structuredClone is not defined</code> at runtime.</p>
+<h2 id="fix-1-upgrade-nodejs-the-real-fix">Fix 1: upgrade Node.js (the real fix)</h2>
+<p>Check your version:</p>
+<pre><code class="language-bash">node -v
+npm -v
+</code></pre>
+<p>With <strong>nvm</strong> (Linux/macOS):</p>
+<pre><code class="language-bash">nvm install 22        # or the version the &quot;required&quot; range wants
+nvm use 22
+nvm alias default 22
+</code></pre>
+<p>With <strong>fnm</strong>: <code>fnm install 22 &amp;&amp; fnm use 22</code>. On Windows use <strong>nvm-windows</strong> (<code>nvm install 22.11.0</code>, <code>nvm use 22.11.0</code>) or the installer from nodejs.org.</p>
+<p>Then reinstall so native modules are rebuilt for the new Node:</p>
+<pre><code class="language-bash">rm -rf node_modules
+npm install
+</code></pre>
+<p>Pin the version for your team with an <code>.nvmrc</code> file (<code>echo 22 &gt; .nvmrc</code>, then <code>nvm use</code>) and an <code>engines</code> field in your own <code>package.json</code>.</p>
+<h2 id="fix-2-the-warning-is-about-npm-not-node">Fix 2: the warning is about npm, not Node</h2>
+<p>If <code>required</code> contains <code>npm: '&gt;=9'</code>, update npm:</p>
+<pre><code class="language-bash">npm install -g npm@latest
+</code></pre>
+<p>Each Node release bundles a specific npm; upgrading Node often fixes this too.</p>
+<h2 id="fix-3-ci-or-docker-uses-an-old-node">Fix 3: CI or Docker uses an old Node</h2>
+<p>Locally it works, but CI prints <code>EBADENGINE</code>. Set the version explicitly:</p>
+<pre><code class="language-yaml"># GitHub Actions
+- uses: actions/setup-node@v4
+  with:
+    node-version: 22
+</code></pre>
+<pre><code class="language-dockerfile">FROM node:22-alpine
+</code></pre>
+<p>Old base images like <code>node:16</code> are end-of-life and trigger this warning for most current packages.</p>
+<h2 id="fix-4-you-cant-upgrade-node-right-now">Fix 4: you can't upgrade Node right now</h2>
+<p>Install an older version of the package that still supports your Node. Look at the <code>engines</code> history:</p>
+<pre><code class="language-bash">npm view vite@5 engines
+npm install vite@5
+</code></pre>
+<h2 id="when-its-an-error-not-a-warning">When it's an error, not a warning</h2>
+<p>If your project or <code>.npmrc</code> sets <code>engine-strict=true</code>, npm fails with <code>npm ERR! code EBADENGINE</code>. Yarn and pnpm also check engines (<code>The engine "node" is incompatible with this module</code>). Upgrading Node is still the right fix. You can bypass the check with <code>npm install --engine-strict=false</code> (or <code>yarn --ignore-engines</code>), but only do that when you know the package works.</p>
+<p class="upd">Last updated 2026-11-20.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/npm-eresolve-unable-to-resolve-dependency-tree/">npm ERR! code ERESOLVE unable to resolve dependency tree</a></li><li><a href="/npm/npm-err-ossl-evp-unsupported/">Error: error:0308010C:digital envelope routines::unsupported</a></li><li><a href="/npm/npm-warn-deprecated/">npm WARN deprecated &lt;package&gt;@&lt;version&gt;: &lt;message&gt;</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

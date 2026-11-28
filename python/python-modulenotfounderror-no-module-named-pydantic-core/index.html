@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;pydantic_core._pydantic_core&#x27; (Python) — how to fix</title>
+<meta name="description" content="pydantic v2 depends on pydantic-core, a compiled Rust extension. This error means the installed binary doesn&#x27;t match your Python version, OS or CPU architecture (very common on AWS Lambda and in Docker), or the package is missing.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-pydantic-core/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;pydantic_core._pydantic_core&#x27; (Python) — how to fix"><meta property="og:description" content="pydantic v2 depends on pydantic-core, a compiled Rust extension. This error means the installed binary doesn&#x27;t match your Python version, OS or CPU architecture (very common on AWS Lambda and in Docker), or the package is missing.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-pydantic-core/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'pydantic_core._pydantic_core' (Python) \u2014 how to fix", "description": "pydantic v2 depends on pydantic-core, a compiled Rust extension. This error means the installed binary doesn't match your Python version, OS or CPU architecture (very common on AWS Lambda and in Docker), or the package is missing.", "dateModified": "2026-11-27", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-pydantic-core/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'pydantic_core._pydantic_core'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-pydantic-core/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;pydantic_core._pydantic_core&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;/var/task/app.py&quot;, line 1, in &lt;module&gt;
+    from pydantic import BaseModel
+  ...
+  File &quot;/var/task/pydantic_core/__init__.py&quot;, line 6, in &lt;module&gt;
+    from ._pydantic_core import (
+ModuleNotFoundError: No module named &#x27;pydantic_core._pydantic_core&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Reinstall in the same interpreter: <code>python -m pip install --force-reinstall pydantic pydantic-core</code>. For AWS Lambda, install wheels for the Lambda platform: <code>pip install --platform manylinux2014_x86_64 --only-binary=:all: --python-version 3.12 --target ./package pydantic</code> (use <code>manylinux2014_aarch64</code> for arm64).</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>pydantic_core</code> is a Python package wrapping a compiled extension file, e.g. <code>_pydantic_core.cpython-312-x86_64-linux-gnu.so</code> (or <code>.pyd</code> on Windows). Python only loads it if the filename's Python version, OS and architecture match the running interpreter. If they don't, Python sees the <code>pydantic_core</code> folder but no loadable <code>_pydantic_core</code> module, and raises this error.</p>
+<p>Check what you have:</p>
+<pre><code class="language-bash">python -c &quot;import sys, platform; print(sys.version, platform.machine())&quot;
+ls &quot;$(python -c 'import pydantic_core, os; print(os.path.dirname(pydantic_core.__file__))')&quot;
+</code></pre>
+<p>(If the second command itself fails, look in <code>site-packages/pydantic_core/</code> manually.)</p>
+<h2 id="cause-1-built-on-one-platform-run-on-another-aws-lambda-docker">Cause 1: built on one platform, run on another (AWS Lambda, Docker)</h2>
+<p>You ran <code>pip install -t package/</code> on macOS or Windows, zipped it, and deployed to Lambda (Linux). Or you installed on an x86_64 machine and the Lambda function / container runs on arm64 (Graviton, Apple Silicon images).</p>
+<h2 id="fix-1-install-wheels-for-the-target-platform">Fix 1: install wheels for the target platform</h2>
+<pre><code class="language-bash">pip install \
+  --platform manylinux2014_x86_64 \
+  --implementation cp \
+  --python-version 3.12 \
+  --only-binary=:all: \
+  --target ./package \
+  pydantic
+</code></pre>
+<ul>
+<li>Use <code>manylinux2014_aarch64</code> if the Lambda architecture is <strong>arm64</strong>.</li>
+<li><code>--python-version</code> must match the Lambda runtime (<code>python3.12</code> → <code>3.12</code>).</li>
+</ul>
+<p>Or build inside a matching container:</p>
+<pre><code class="language-bash">docker run --rm -v &quot;$PWD&quot;:/var/task -w /var/task public.ecr.aws/lambda/python:3.12 \
+  pip install -r requirements.txt -t package
+</code></pre>
+<p>With AWS SAM, <code>sam build --use-container</code> does this for you. In Lambda layers, put packages under <code>python/</code> in the zip.</p>
+<h2 id="cause-2-python-version-changed">Cause 2: Python version changed</h2>
+<p>You upgraded Python (e.g. 3.11 → 3.12) or switched interpreters but kept the old virtual environment or <code>site-packages</code>. The <code>.so</code> is tagged for the old version.</p>
+<h2 id="fix-2-reinstall-for-the-current-interpreter">Fix 2: reinstall for the current interpreter</h2>
+<pre><code class="language-bash">python -m pip install --force-reinstall --no-cache-dir pydantic pydantic-core
+</code></pre>
+<p>Use <code>python -m pip</code> so pip installs into the interpreter you actually run. If the venv was created by the old Python, recreate it:</p>
+<pre><code class="language-bash">rm -rf .venv
+python3.12 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+</code></pre>
+<h2 id="cause-3-mismatched-pydantic-and-pydantic-core-versions">Cause 3: mismatched pydantic and pydantic-core versions</h2>
+<p>Each pydantic release pins an exact pydantic-core version. Pinning <code>pydantic-core</code> separately in <code>requirements.txt</code> can install an incompatible one (this usually gives a <code>SystemError</code>/version error, but sometimes broken imports). Remove the explicit <code>pydantic-core</code> pin and let pydantic pull the right version:</p>
+<pre><code class="language-bash">pip install -U pydantic
+pip show pydantic pydantic-core
+</code></pre>
+<h2 id="cause-4-docker-image-with-a-different-libc">Cause 4: Docker image with a different libc</h2>
+<p>Wheels for <code>manylinux</code> (glibc) don't work on Alpine (<code>musllinux</code>). If you copy <code>site-packages</code> from a Debian build stage into an Alpine image, imports break. Install dependencies in the same base image you run, or use <code>python:3.12-slim</code> for both stages.</p>
+<h2 id="cause-5-a-local-file-shadows-the-package">Cause 5: a local file shadows the package</h2>
+<p>A file or folder named <code>pydantic_core</code> or <code>pydantic.py</code> in your project directory shadows the real package. Rename it.</p>
+<p class="upd">Last updated 2026-11-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-externally-managed-environment/">error: externally-managed-environment</a></li><li><a href="/python/python-importerror-dll-load-failed/">ImportError: DLL load failed while importing</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

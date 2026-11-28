@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Whitelabel Error Page (Java) — how to fix</title>
+<meta name="description" content="Spring Boot&#x27;s default error view. It means a request failed (most often 404 because no controller handles the URL, or 500 from an exception) and you have no custom error page. The status line tells you which.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-spring-whitelabel-error-page/">
+<meta property="og:title" content="Whitelabel Error Page (Java) — how to fix"><meta property="og:description" content="Spring Boot&#x27;s default error view. It means a request failed (most often 404 because no controller handles the URL, or 500 from an exception) and you have no custom error page. The status line tells you which.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-spring-whitelabel-error-page/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Whitelabel Error Page (Java) \u2014 how to fix", "description": "Spring Boot's default error view. It means a request failed (most often 404 because no controller handles the URL, or 500 from an exception) and you have no custom error page. The status line tells you which.", "dateModified": "2026-11-21", "url": "https://errorfix-hollis.github.io/java/java-spring-whitelabel-error-page/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "Whitelabel Error Page", "item": "https://errorfix-hollis.github.io/java/java-spring-whitelabel-error-page/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>Whitelabel Error Page (Java) — how to fix</h1>
+<pre class="err"><code>Whitelabel Error Page
+This application has no explicit mapping for /error, so you are seeing this as a fallback.
+
+Sat Nov 21 10:15:42 UTC 2026
+There was an unexpected error (type=Not Found, status=404).
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Read <code>status=</code> on the page. For 404, check that your controller is in the main class's package or a subpackage, uses <code>@RestController</code> (or <code>@Controller</code> with a real template), and that the URL and HTTP method match the mapping. For 500, look at the stack trace in the console log. Add <code>src/main/resources/templates/error.html</code> or <code>server.error.whitelabel.enabled=false</code> to replace the page.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>When a request fails, Spring Boot forwards it to <code>/error</code>. If you haven't defined a view for that, <code>ErrorMvcAutoConfiguration</code> renders this "whitelabel" HTML page. The page itself is not the bug; the line <code>type=..., status=...</code> is. Turn on more detail while developing:</p>
+<pre><code class="language-properties">server.error.include-message=always
+server.error.include-stacktrace=on_param
+</code></pre>
+<p>With <code>on_param</code>, add <code>?trace=true</code> to the URL to see the stack trace.</p>
+<h2 id="cause-1-404-controller-not-picked-up-by-component-scanning">Cause 1 (404): controller not picked up by component scanning</h2>
+<p><code>@SpringBootApplication</code> scans only its own package and subpackages. A controller in a sibling package is never registered:</p>
+<pre><code>com.example.demo.DemoApplication      &lt;- scans com.example.demo.**
+com.example.controller.HelloController &lt;- NOT scanned
+</code></pre>
+<p>Move controllers under <code>com.example.demo</code> (e.g. <code>com.example.demo.web</code>), or widen the scan:</p>
+<pre><code class="language-java">@SpringBootApplication(scanBasePackages = &quot;com.example&quot;)
+public class DemoApplication { ... }
+</code></pre>
+<p>Check the startup log with <code>logging.level.org.springframework.web=DEBUG</code>: registered mappings are listed.</p>
+<h2 id="cause-2-404-url-method-or-context-path-doesnt-match">Cause 2 (404): URL, method or context path doesn't match</h2>
+<pre><code class="language-java">@RestController
+@RequestMapping(&quot;/api&quot;)
+public class HelloController {
+    @GetMapping(&quot;/hello&quot;)
+    public String hello() { return &quot;hi&quot;; }
+}
+</code></pre>
+<p>This answers <code>GET /api/hello</code> only. <code>/hello</code> gives 404; a <code>POST</code> gives 405. If <code>server.servlet.context-path=/app</code> is set, the URL becomes <code>/app/api/hello</code>.</p>
+<h2 id="cause-3-404-or-500-controller-returning-a-view-that-doesnt-exist">Cause 3 (404 or 500): <code>@Controller</code> returning a view that doesn't exist</h2>
+<p>With <code>@Controller</code>, a returned string is a <strong>template name</strong>:</p>
+<pre><code class="language-java">@Controller
+public class HomeController {
+    @GetMapping(&quot;/&quot;)
+    public String home() { return &quot;index&quot;; }   // needs templates/index.html
+}
+</code></pre>
+<p>Without a template engine dependency (<code>spring-boot-starter-thymeleaf</code>) or without <code>src/main/resources/templates/index.html</code>, it fails. If you meant to return text or JSON, use <code>@RestController</code> or add <code>@ResponseBody</code>.</p>
+<h2 id="cause-4-404-on-no-home-page">Cause 4 (404 on <code>/</code>): no home page</h2>
+<p>A new project has no mapping for <code>/</code>. Add a controller, or put a static file at <code>src/main/resources/static/index.html</code>, which Spring Boot serves automatically.</p>
+<h2 id="cause-5-500-an-exception-in-your-code">Cause 5 (500): an exception in your code</h2>
+<p><code>status=500</code> means a controller or service threw. The stack trace is in the application log (console), not on the page. Fix the exception, or handle it and return a proper status:</p>
+<pre><code class="language-java">@RestControllerAdvice
+public class ApiErrors {
+    @ExceptionHandler(NoSuchElementException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Map&lt;String, String&gt; notFound(NoSuchElementException e) {
+        return Map.of(&quot;error&quot;, e.getMessage());
+    }
+}
+</code></pre>
+<h2 id="cause-6-403401-spring-security">Cause 6 (403/401): Spring Security</h2>
+<p>With <code>spring-boot-starter-security</code> on the classpath, unauthenticated requests are redirected to <code>/login</code> or rejected, and a 403 can surface as this page (CSRF blocks <code>POST</code> by default). Configure a <code>SecurityFilterChain</code> that permits your routes.</p>
+<h2 id="replace-the-page">Replace the page</h2>
+<p>Add a custom template (<code>src/main/resources/templates/error.html</code>, or <code>templates/error/404.html</code> for specific codes; static <code>static/error/404.html</code> works without a template engine), or disable it so the servlet container's default page is used:</p>
+<pre><code class="language-properties">server.error.whitelabel.enabled=false
+</code></pre>
+<p class="upd">Last updated 2026-11-21.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-failed-to-load-applicationcontext/">java.lang.IllegalStateException: Failed to load ApplicationContext</a></li><li><a href="/java/java-spring-field-required-a-bean-of-type-that-could-not-be-found/">Field required a bean of type that could not be found.</a></li><li><a href="/java/java-spring-port-8080-was-already-in-use/">Web server failed to start. Port 8080 was already in use.</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

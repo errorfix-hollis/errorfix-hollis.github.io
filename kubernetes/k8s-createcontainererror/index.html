@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CreateContainerError (Kubernetes) — how to fix</title>
+<meta name="description" content="The kubelet pulled the image and prepared the config, but the container runtime (containerd / CRI-O) failed to create the container. The real reason is in the pod events: usually no command in the image, a bad volume mount, or a runtime/node problem.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-createcontainererror/">
+<meta property="og:title" content="CreateContainerError (Kubernetes) — how to fix"><meta property="og:description" content="The kubelet pulled the image and prepared the config, but the container runtime (containerd / CRI-O) failed to create the container. The real reason is in the pod events: usually no command in the image, a bad volume mount, or a runtime/node problem.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-createcontainererror/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "CreateContainerError (Kubernetes) \u2014 how to fix", "description": "The kubelet pulled the image and prepared the config, but the container runtime (containerd / CRI-O) failed to create the container. The real reason is in the pod events: usually no command in the image, a bad volume mount, or a runtime/node problem.", "dateModified": "2026-11-28", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-createcontainererror/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "CreateContainerError", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-createcontainererror/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>CreateContainerError (Kubernetes) — how to fix</h1>
+<pre class="err"><code>NAME                     READY   STATUS                 RESTARTS   AGE
+api-7d9f8c6b5d-x2kqp     0/1     CreateContainerError   0          2m
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>kubectl describe pod POD -n NS</code> and read the <code>Failed</code> event under Events. Fix what it names: set <code>command:</code> if the image has no CMD/ENTRYPOINT, correct <code>volumeMounts</code> / <code>subPath</code> / <code>hostPath</code> paths, or cordon and investigate the node (<code>journalctl -u containerd</code>, disk space) if the runtime itself is failing.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Pod startup goes: schedule → pull image → build the container config → <strong>create container</strong> → start it. <code>CreateContainerError</code> means the create step failed in the runtime. It is different from:</p>
+<ul>
+<li><code>CreateContainerConfigError</code>: Kubernetes couldn't build the config (missing ConfigMap/Secret key, bad env reference).</li>
+<li><code>CrashLoopBackOff</code>: the container started and then exited.</li>
+</ul>
+<p>The status alone never tells you why. Get the event message:</p>
+<pre><code class="language-bash">kubectl describe pod api-7d9f8c6b5d-x2kqp -n prod
+# Events:
+#   Warning  Failed  kubelet  Error: failed to generate container &quot;...&quot; spec: ...
+kubectl get events -n prod --sort-by=.lastTimestamp | tail -20
+</code></pre>
+<h2 id="cause-1-no-command-specified">Cause 1: no command specified</h2>
+<p>If the image defines neither <code>ENTRYPOINT</code> nor <code>CMD</code> and the pod spec gives no <code>command</code>, the runtime has nothing to run and reports <code>no command specified</code>. Check the image:</p>
+<pre><code class="language-bash">docker image inspect myimage:tag --format '{{.Config.Entrypoint}} {{.Config.Cmd}}'
+</code></pre>
+<p>Fix the Dockerfile (<code>CMD ["node", "server.js"]</code>) or set it in the manifest:</p>
+<pre><code class="language-yaml">containers:
+  - name: api
+    image: myimage:tag
+    command: [&quot;node&quot;]
+    args: [&quot;server.js&quot;]
+</code></pre>
+<h2 id="cause-2-the-command-doesnt-exist-in-the-image">Cause 2: the command doesn't exist in the image</h2>
+<p>A <code>command:</code> that points to a binary missing from the image (typo, wrong path, a shell like <code>/bin/bash</code> in an Alpine or distroless image) fails with <code>executable file not found in $PATH</code>. Depending on the runtime this appears as <code>CreateContainerError</code>, <code>RunContainerError</code> or <code>StartError</code>. Use the exact path that exists in the image, or <code>sh</code> instead of <code>bash</code> on Alpine.</p>
+<h2 id="cause-3-volume-mount-problems">Cause 3: volume mount problems</h2>
+<p>The runtime creates mounts while creating the container, so mount mistakes surface here:</p>
+<ul>
+<li><code>subPath</code> pointing to something that doesn't exist or is the wrong type (mounting a file onto a path that is a directory in the image, or the reverse, gives <code>not a directory</code> / <code>is a directory</code>).</li>
+<li><code>hostPath</code> with <code>type: Directory</code> or <code>type: File</code> where that path is missing on the node.</li>
+<li>The same <code>mountPath</code> used twice in one container.</li>
+</ul>
+<pre><code class="language-yaml">volumeMounts:
+  - name: config
+    mountPath: /app/config.yaml   # a file path
+    subPath: config.yaml          # key must exist in the ConfigMap
+</code></pre>
+<p>Compare the paths in the event message against your <code>volumeMounts</code> and <code>volumes</code>.</p>
+<h2 id="cause-4-node-or-runtime-trouble">Cause 4: node or runtime trouble</h2>
+<p>If many unrelated pods on one node show <code>CreateContainerError</code> (messages like <code>context deadline exceeded</code>, <code>failed to reserve container name</code>, or storage errors), the problem is the node:</p>
+<pre><code class="language-bash">kubectl get pods -A -o wide --field-selector spec.nodeName=NODE
+kubectl cordon NODE
+# on the node:
+df -h /var/lib/containerd /var/lib/kubelet
+journalctl -u containerd -u kubelet --since &quot;30 min ago&quot;
+</code></pre>
+<p>Full disks, an overloaded runtime and leftover containers after a crash are common. Free space or restart the runtime, then <code>kubectl uncordon NODE</code>; deleting the stuck pod lets its controller recreate it.</p>
+<h2 id="cause-5-security-settings-the-image-cant-satisfy">Cause 5: security settings the image can't satisfy</h2>
+<p><code>runAsNonRoot: true</code> with an image whose user is root (or numeric UID not set) is refused, and is reported as <code>CreateContainerConfigError</code> on most clusters. Seccomp/AppArmor profiles that don't exist on the node also block container creation. Read the event text: it names the profile or setting.</p>
+<p class="upd">Last updated 2026-11-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-container-is-waiting-to-start/">Error from server (BadRequest): container is waiting to start: ContainerCreating</a></li><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-error-converting-yaml-to-json-mapping-values-are-not-allowed/">error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

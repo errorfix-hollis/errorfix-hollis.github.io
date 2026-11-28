@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>E: Package &#x27;X&#x27; has no installation candidate (Linux) — how to fix</title>
+<meta name="description" content="APT knows the package name (something references it) but no enabled repository offers an installable version. The package was renamed or removed in your release, the package lists are stale, or the repository/architecture is missing.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-package-has-no-installation-candidate/">
+<meta property="og:title" content="E: Package &#x27;X&#x27; has no installation candidate (Linux) — how to fix"><meta property="og:description" content="APT knows the package name (something references it) but no enabled repository offers an installable version. The package was renamed or removed in your release, the package lists are stale, or the repository/architecture is missing.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-package-has-no-installation-candidate/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "E: Package 'X' has no installation candidate (Linux) \u2014 how to fix", "description": "APT knows the package name (something references it) but no enabled repository offers an installable version. The package was renamed or removed in your release, the package lists are stale, or the repository/architecture is missing.", "dateModified": "2026-11-22", "url": "https://errorfix-hollis.github.io/linux/linux-package-has-no-installation-candidate/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "E: Package 'X' has no installation candidate", "item": "https://errorfix-hollis.github.io/linux/linux-package-has-no-installation-candidate/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>E: Package &#x27;X&#x27; has no installation candidate (Linux) — how to fix</h1>
+<pre class="err"><code>Package python-pip is not available, but is referred to by another package.
+This may mean that the package is missing, has been obsoleted, or
+is only available from another source
+
+E: Package &#x27;python-pip&#x27; has no installation candidate
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>sudo apt update</code> first. Then check <code>apt-cache policy PACKAGE</code> and <code>apt search NAME</code> for the new name (e.g. <code>python3-pip</code> instead of <code>python-pip</code>, <code>libgl1</code> instead of <code>libgl1-mesa-glx</code>). Enable the universe repo with <code>sudo add-apt-repository universe</code> if needed, or add the vendor's repository.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>APT has the name in its database (because another package mentions it, or it existed in an older index), but there is no version it could install from your current sources. Compare with <code>E: Unable to locate package</code>, where APT has never heard of the name at all.</p>
+<p>Inspect it:</p>
+<pre><code class="language-bash">apt-cache policy python-pip
+#   Installed: (none)
+#   Candidate: (none)      &lt;- no repository offers it
+apt-cache showpkg python-pip   # who refers to it / what replaces it
+</code></pre>
+<h2 id="cause-1-package-lists-not-updated">Cause 1: package lists not updated</h2>
+<p>Typical in fresh Docker images and new servers, where <code>/var/lib/apt/lists</code> is empty:</p>
+<pre><code class="language-bash">sudo apt update
+sudo apt install PACKAGE
+</code></pre>
+<p>In a Dockerfile, always combine them in one layer:</p>
+<pre><code class="language-dockerfile">RUN apt-get update &amp;&amp; apt-get install -y --no-install-recommends python3-pip \
+    &amp;&amp; rm -rf /var/lib/apt/lists/*
+</code></pre>
+<h2 id="cause-2-the-package-was-renamed-or-dropped">Cause 2: the package was renamed or dropped</h2>
+<p>Old tutorials use names that no longer exist in current Ubuntu/Debian:</p>
+<table>
+<thead>
+<tr>
+<th>Old name</th>
+<th>Use instead</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>python-pip</code>, <code>python-dev</code></td>
+<td><code>python3-pip</code>, <code>python3-dev</code></td>
+</tr>
+<tr>
+<td><code>python</code></td>
+<td><code>python3</code> (or <code>python-is-python3</code>)</td>
+</tr>
+<tr>
+<td><code>libgl1-mesa-glx</code></td>
+<td><code>libgl1</code></td>
+</tr>
+<tr>
+<td><code>mysql-server</code> (Debian)</td>
+<td><code>default-mysql-server</code> (MariaDB)</td>
+</tr>
+<tr>
+<td><code>openjdk-8-jdk</code> (newer releases)</td>
+<td><code>openjdk-17-jdk</code> / <code>openjdk-21-jdk</code></td>
+</tr>
+<tr>
+<td><code>docker-compose</code> (v1)</td>
+<td><code>docker-compose-plugin</code> from Docker's repo (<code>docker compose</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Search for the current name:</p>
+<pre><code class="language-bash">apt search --names-only pip
+apt-file search bin/pip3     # which package ships a file (sudo apt install apt-file &amp;&amp; sudo apt-file update)
+</code></pre>
+<p>You can also check packages.ubuntu.com or packages.debian.org for your release.</p>
+<h2 id="cause-3-the-repository-component-is-disabled">Cause 3: the repository component is disabled</h2>
+<p>On Ubuntu many packages live in <code>universe</code> or <code>multiverse</code>:</p>
+<pre><code class="language-bash">sudo add-apt-repository universe
+sudo apt update
+</code></pre>
+<p>On Debian, <code>non-free</code>/<code>non-free-firmware</code> and <code>contrib</code> must be listed in <code>/etc/apt/sources.list</code> (or <code>/etc/apt/sources.list.d/debian.sources</code>).</p>
+<h2 id="cause-4-the-software-comes-from-a-vendor-repository">Cause 4: the software comes from a vendor repository</h2>
+<p>Packages like <code>docker-ce</code>, <code>google-chrome-stable</code>, <code>code</code>, <code>nodejs</code> (current versions), <code>mongodb-org</code> and <code>terraform</code> are not in the default repos. Follow the vendor's install guide to add their repository and signing key, then <code>sudo apt update</code>. If <code>apt update</code> shows a <code>NO_PUBKEY</code> error for that repo, fix the key first (see related page).</p>
+<h2 id="cause-5-wrong-architecture-or-release">Cause 5: wrong architecture or release</h2>
+<ul>
+<li>On ARM (Raspberry Pi, Apple Silicon VMs), some packages exist only for <code>amd64</code>. Check with <code>dpkg --print-architecture</code>.</li>
+<li>A PPA or vendor repo may not publish packages for your release yet (e.g. a brand-new Ubuntu version). Check the repo's <code>dists/</code> folder for your codename (<code>lsb_release -cs</code>).</li>
+<li>End-of-life releases are moved to <code>old-releases.ubuntu.com</code>; <code>apt update</code> then shows 404 errors.</li>
+</ul>
+<p class="upd">Last updated 2026-11-22.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-apt-no-pubkey/">The following signatures couldn&#x27;t be verified because the public key is not available: NO_PUBKEY</a></li><li><a href="/linux/linux-dpkg-returned-an-error-code-1/">E: Sub-process /usr/bin/dpkg returned an error code (1)</a></li><li><a href="/linux/linux-e-unable-to-locate-package/">E: Unable to locate package</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-apt-expkeysig/">The following signatures were invalid: EXPKEYSIG</a></li><li><a href="/linux/linux-apt-hash-sum-mismatch/">E: Failed to fetch ... Hash Sum mismatch</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

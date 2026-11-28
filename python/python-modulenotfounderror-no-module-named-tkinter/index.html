@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;tkinter&#x27; (Python) — how to fix</title>
+<meta name="description" content="Tkinter is part of the standard library but it depends on the Tk C library, so many Linux distros, Homebrew and pyenv builds ship Python without it. It is not installed with pip.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-tkinter/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;tkinter&#x27; (Python) — how to fix"><meta property="og:description" content="Tkinter is part of the standard library but it depends on the Tk C library, so many Linux distros, Homebrew and pyenv builds ship Python without it. It is not installed with pip.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-tkinter/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'tkinter' (Python) \u2014 how to fix", "description": "Tkinter is part of the standard library but it depends on the Tk C library, so many Linux distros, Homebrew and pyenv builds ship Python without it. It is not installed with pip.", "dateModified": "2026-11-23", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-tkinter/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'tkinter'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-tkinter/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;tkinter&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 1, in &lt;module&gt;
+    import tkinter as tk
+ModuleNotFoundError: No module named &#x27;tkinter&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install the system package, not pip: Debian/Ubuntu <code>sudo apt install python3-tk</code>, Fedora <code>sudo dnf install python3-tkinter</code>, Arch <code>sudo pacman -S tk</code>, macOS Homebrew <code>brew install python-tk@3.12</code> (match your version). On Windows re-run the installer and tick "tcl/tk and IDLE". On Python 2 the module is <code>Tkinter</code> (capital T).</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>tkinter</code> ships with CPython, but only if Python was built against Tcl/Tk. Distros split it into a separate package, and source builds (pyenv, asdf) skip it if Tk headers were missing at build time.</p>
+<p><code>pip install tkinter</code> does not work: there is no such PyPI package (<code>pip install tk</code> installs something unrelated).</p>
+<p>Test which interpreter you are using and whether Tk loads:</p>
+<pre><code class="language-bash">python3 -c &quot;import sys; print(sys.executable, sys.version)&quot;
+python3 -m tkinter        # opens a small test window if it works
+</code></pre>
+<h2 id="fix-1-debian-ubuntu-mint-wsl">Fix 1: Debian / Ubuntu / Mint / WSL</h2>
+<pre><code class="language-bash">sudo apt update
+sudo apt install python3-tk
+</code></pre>
+<p>If you use a specific version from the deadsnakes PPA, install the matching one: <code>sudo apt install python3.12-tk</code>.</p>
+<h2 id="fix-2-fedora-rhel-arch-alpine">Fix 2: Fedora / RHEL / Arch / Alpine</h2>
+<pre><code class="language-bash">sudo dnf install python3-tkinter     # Fedora, RHEL, Rocky
+sudo pacman -S tk                    # Arch
+sudo apk add python3-tkinter         # Alpine
+</code></pre>
+<h2 id="fix-3-macos-with-homebrew">Fix 3: macOS with Homebrew</h2>
+<p>Homebrew's Python is built without Tk; it lives in a separate formula per version:</p>
+<pre><code class="language-bash">python3 --version          # e.g. 3.12.x
+brew install python-tk@3.12
+</code></pre>
+<p>The python.org installer for macOS includes Tk, so that is an alternative.</p>
+<h2 id="fix-4-pyenv-asdf-source-builds">Fix 4: pyenv / asdf / source builds</h2>
+<p>The Tk development headers must be present <em>before</em> building Python, then rebuild:</p>
+<pre><code class="language-bash"># Ubuntu/Debian
+sudo apt install tk-dev
+# macOS
+brew install tcl-tk
+
+pyenv uninstall 3.12.4
+pyenv install 3.12.4
+</code></pre>
+<p>If the build finishes with a warning like <code>The necessary bits to build these optional modules were not found: _tkinter</code>, the headers still weren't found.</p>
+<h2 id="fix-5-windows">Fix 5: Windows</h2>
+<p>Tk is an optional component in the python.org installer. Run the installer again (or Settings &gt; Apps &gt; Python &gt; Modify), choose <strong>Modify</strong> and tick <strong>tcl/tk and IDLE</strong>.</p>
+<h2 id="fix-6-virtual-environments-and-docker">Fix 6: virtual environments and Docker</h2>
+<p>A venv uses the base interpreter's stdlib, so install Tk for the base Python, then recreate the venv if needed. In slim Docker images:</p>
+<pre><code class="language-dockerfile">FROM python:3.12-slim
+RUN apt-get update &amp;&amp; apt-get install -y --no-install-recommends tk &amp;&amp; rm -rf /var/lib/apt/lists/*
+</code></pre>
+<p>The official <code>python:</code> images already include <code>_tkinter</code>; you need the <code>tk</code> libs at runtime. Note that a GUI in a container also needs a display (<code>DISPLAY</code> / X11 forwarding), otherwise you get <code>_tkinter.TclError: no display name and no $DISPLAY environment variable</code>.</p>
+<h2 id="python-2-code">Python 2 code</h2>
+<p>Old code uses <code>import Tkinter</code> and <code>import tkMessageBox</code>. In Python 3 those are <code>tkinter</code> and <code>tkinter.messagebox</code>.</p>
+<p class="upd">Last updated 2026-11-23.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-command-not-found/">python: command not found</a></li><li><a href="/python/python-externally-managed-environment/">error: externally-managed-environment</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

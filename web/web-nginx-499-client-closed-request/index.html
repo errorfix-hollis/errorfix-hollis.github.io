@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>499 Client Closed Request (nginx) — how to fix</title>
+<meta name="description" content="499 is an nginx-only log status: the client closed the connection before nginx sent a response. Usually the upstream (app server) was too slow and the client, a load balancer or a proxy in front gave up first.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-nginx-499-client-closed-request/">
+<meta property="og:title" content="499 Client Closed Request (nginx) — how to fix"><meta property="og:description" content="499 is an nginx-only log status: the client closed the connection before nginx sent a response. Usually the upstream (app server) was too slow and the client, a load balancer or a proxy in front gave up first.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-nginx-499-client-closed-request/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "499 Client Closed Request (nginx) \u2014 how to fix", "description": "499 is an nginx-only log status: the client closed the connection before nginx sent a response. Usually the upstream (app server) was too slow and the client, a load balancer or a proxy in front gave up first.", "dateModified": "2026-11-21", "url": "https://errorfix-hollis.github.io/web/web-nginx-499-client-closed-request/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "499 Client Closed Request", "item": "https://errorfix-hollis.github.io/web/web-nginx-499-client-closed-request/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>499 Client Closed Request (nginx) — how to fix</h1>
+<pre class="err"><code>192.0.2.10 - - [21/Nov/2026:10:15:42 +0000] &quot;POST /api/report HTTP/1.1&quot; 499 0 &quot;-&quot; &quot;Mozilla/5.0 ...&quot;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find what's slow: add <code>$request_time $upstream_response_time</code> to the nginx log format. Speed up or make async the slow endpoint, and align timeouts so the client/load balancer waits at least as long as nginx (<code>proxy_read_timeout</code>). If nginx is behind another proxy or LB, raise that proxy's idle timeout. Use <code>proxy_ignore_client_abort on;</code> only if the upstream must finish.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>499</code> is not a real HTTP status sent to anyone. nginx writes it to <code>access.log</code> when the client disconnected while nginx was still waiting to send the response. The browser or caller never sees 499; it sees a cancelled request, a timeout, or whatever the proxy in front of nginx returned (often 504).</p>
+<p>A few 499s are normal (users closing tabs, navigating away, mobile networks). Many 499s on the same endpoint mean that endpoint is too slow for someone in the chain.</p>
+<p>The <a href="/tools/http-status-codes/">HTTP status codes reference</a> lists the related 502/504 codes.</p>
+<h2 id="step-1-measure">Step 1: measure</h2>
+<p>Add timing to the log format in the <code>http</code> block:</p>
+<pre><code class="language-nginx">log_format timed '$remote_addr &quot;$request&quot; $status '
+                 'rt=$request_time urt=$upstream_response_time '
+                 'ua=&quot;$http_user_agent&quot;';
+access_log /var/log/nginx/access.log timed;
+</code></pre>
+<pre><code class="language-bash">sudo nginx -t &amp;&amp; sudo systemctl reload nginx
+awk '$0 ~ / 499 /' /var/log/nginx/access.log | tail
+</code></pre>
+<p>If every 499 has <code>rt</code> close to the same number (e.g. 30.0 or 60.0), something upstream of nginx (client or proxy) has that timeout.</p>
+<h2 id="cause-1-slow-upstream-application">Cause 1: slow upstream application</h2>
+<p>The backend (Node, PHP-FPM, Gunicorn, Spring) takes longer than the client is willing to wait. Fix the cause: slow database queries, external API calls, missing indexes, too few workers. For long jobs (exports, reports, AI calls), return <code>202 Accepted</code> with a job ID and let the client poll, or stream progress.</p>
+<h2 id="cause-2-load-balancer-or-cdn-timeout-in-front-of-nginx">Cause 2: load balancer or CDN timeout in front of nginx</h2>
+<p>Cloud load balancers close idle connections: AWS ALB defaults to 60 s, Cloudflare to 100 s, GCP's to 30 s backend timeout. When they give up, nginx logs 499. Raise the LB timeout to more than your slowest legitimate request, and keep nginx's own timeouts consistent:</p>
+<pre><code class="language-nginx">location /api/ {
+    proxy_pass http://app;
+    proxy_connect_timeout 5s;
+    proxy_read_timeout 120s;
+    proxy_send_timeout 120s;
+}
+</code></pre>
+<h2 id="cause-3-client-side-timeouts-and-cancellations">Cause 3: client-side timeouts and cancellations</h2>
+<p>HTTP clients with short timeouts (axios <code>timeout</code>, <code>fetch</code> with <code>AbortController</code>, curl <code>--max-time</code>, health checks with 1–5 s limits) abort and nginx logs 499. Single-page apps also cancel in-flight requests on navigation or search-as-you-type. Increase the client timeout, or debounce requests. For Kubernetes probes, raise <code>timeoutSeconds</code>.</p>
+<h2 id="cause-4-health-checks-hitting-a-slow-route">Cause 4: health checks hitting a slow route</h2>
+<p>If 499s come from the LB's user agent (<code>ELB-HealthChecker</code>, <code>kube-probe</code>), point the health check at a lightweight endpoint that doesn't touch the database.</p>
+<h2 id="optional-let-the-upstream-finish-anyway">Optional: let the upstream finish anyway</h2>
+<p>By default nginx closes the upstream connection when the client leaves, which can interrupt work. To keep it running:</p>
+<pre><code class="language-nginx">proxy_ignore_client_abort on;
+# for PHP-FPM / FastCGI
+fastcgi_ignore_client_abort on;
+</code></pre>
+<p>This hides the symptom only; the request is still slow. Make non-idempotent operations (payments, emails) safe to retry either way.</p>
+<p class="upd">Last updated 2026-11-21.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/node-error-socket-hang-up-econnreset/">Error: socket hang up (ECONNRESET)</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-nginx-502-bad-gateway/">502 Bad Gateway (nginx)</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/web/web-dns-probe-finished-no-internet/">DNS_PROBE_FINISHED_NO_INTERNET</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

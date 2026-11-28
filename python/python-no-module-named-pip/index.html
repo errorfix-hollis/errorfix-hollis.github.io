@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>No module named pip (Python) — how to fix</title>
+<meta name="description" content="The Python interpreter you ran doesn&#x27;t have pip installed (common on Debian/Ubuntu, in fresh virtual environments created without pip, or after a broken pip upgrade). Bootstrap it with ensurepip or install the OS package.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-no-module-named-pip/">
+<meta property="og:title" content="No module named pip (Python) — how to fix"><meta property="og:description" content="The Python interpreter you ran doesn&#x27;t have pip installed (common on Debian/Ubuntu, in fresh virtual environments created without pip, or after a broken pip upgrade). Bootstrap it with ensurepip or install the OS package.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-no-module-named-pip/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "No module named pip (Python) \u2014 how to fix", "description": "The Python interpreter you ran doesn't have pip installed (common on Debian/Ubuntu, in fresh virtual environments created without pip, or after a broken pip upgrade). Bootstrap it with ensurepip or install the OS package.", "dateModified": "2026-11-27", "url": "https://errorfix-hollis.github.io/python/python-no-module-named-pip/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "No module named pip", "item": "https://errorfix-hollis.github.io/python/python-no-module-named-pip/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>No module named pip (Python) — how to fix</h1>
+<pre class="err"><code>/usr/bin/python3: No module named pip
+ModuleNotFoundError: No module named &#x27;pip&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Try <code>python3 -m ensurepip --upgrade</code> first. On Debian/Ubuntu install the package: <code>sudo apt install python3-pip</code> (and <code>python3-venv</code> for venvs). On Windows run <code>py -m ensurepip --upgrade</code>. If that's missing too, download https://bootstrap.pypa.io/get-pip.py and run <code>python3 get-pip.py</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>python -m pip</code> runs pip as a module <em>inside</em> that specific interpreter. "No module named pip" means pip isn't installed for that Python (its <code>site-packages</code> has no <code>pip</code> folder). Find out which interpreter you're using:</p>
+<pre><code class="language-bash">which -a python python3          # macOS/Linux
+py -0p                           # Windows: lists installed Pythons
+python3 -c &quot;import sys; print(sys.executable, sys.version)&quot;
+</code></pre>
+<h2 id="fix-1-ensurepip-built-into-python">Fix 1: ensurepip (built into Python)</h2>
+<p>CPython ships a copy of pip that can be installed offline:</p>
+<pre><code class="language-bash">python3 -m ensurepip --upgrade
+python3 -m pip --version
+</code></pre>
+<p>On Windows: <code>py -m ensurepip --upgrade</code>. If you get <code>No module named ensurepip</code>, your distribution removed it — see Fix 2.</p>
+<h2 id="fix-2-debian-ubuntu-wsl">Fix 2: Debian / Ubuntu / WSL</h2>
+<p>Debian-based systems split pip and venv support into separate packages and disable <code>ensurepip</code> for the system Python:</p>
+<pre><code class="language-bash">sudo apt update
+sudo apt install python3-pip python3-venv
+</code></pre>
+<p>For a specific version from the deadsnakes PPA: <code>sudo apt install python3.12-venv</code> and then create a venv, which includes pip. On Ubuntu 23.04+ / Debian 12+, installing packages into the system Python with pip is blocked (<code>externally-managed-environment</code>), so use a virtual environment:</p>
+<pre><code class="language-bash">python3 -m venv .venv
+. .venv/bin/activate
+pip install requests
+</code></pre>
+<p>Other distros: Fedora <code>sudo dnf install python3-pip</code>, Arch <code>sudo pacman -S python-pip</code>, Alpine <code>apk add py3-pip</code>.</p>
+<h2 id="fix-3-virtual-environment-created-without-pip">Fix 3: virtual environment created without pip</h2>
+<p>A venv created with <code>--without-pip</code>, or with Debian's Python while <code>python3-venv</code> was missing, has no pip. You might see <code>The virtual environment was not created successfully because ensurepip is not available</code>. Install <code>python3-venv</code> and recreate it:</p>
+<pre><code class="language-bash">rm -rf .venv
+python3 -m venv .venv
+.venv/bin/python -m pip --version
+</code></pre>
+<h2 id="fix-4-get-pippy">Fix 4: get-pip.py</h2>
+<p>Works when nothing else does (e.g. custom builds, embedded Python):</p>
+<pre><code class="language-bash">curl -sSLO https://bootstrap.pypa.io/get-pip.py
+python3 get-pip.py
+</code></pre>
+<p>For the Windows <strong>embeddable</strong> zip distribution, you also need to uncomment <code>import site</code> in the <code>python3XX._pth</code> file so installed packages are found.</p>
+<h2 id="cause-pip-broke-during-an-upgrade">Cause: pip broke during an upgrade</h2>
+<p>If <code>pip install --upgrade pip</code> was interrupted (or ran as a different user), the old pip can be removed and the new one never installed. <code>python -m ensurepip --upgrade</code> or <code>get-pip.py</code> restores it. On Linux, avoid <code>sudo pip install --upgrade pip</code> on the system Python — it can conflict with the OS-managed pip.</p>
+<h2 id="cause-you-are-running-a-different-python-than-you-think">Cause: you are running a different Python than you think</h2>
+<p><code>pip</code> installed for Python 3.11 doesn't help when you run <code>python3.12</code>. Always call pip through the interpreter you use: <code>python3.12 -m pip install ...</code>. In IDEs (VS Code, PyCharm), check the selected interpreter in the status bar.</p>
+<p class="upd">Last updated 2026-11-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-externally-managed-environment/">error: externally-managed-environment</a></li><li><a href="/python/python-no-module-named-distutils/">ModuleNotFoundError: No module named &#x27;distutils&#x27;</a></li><li><a href="/python/python-pip-command-not-found/">pip: command not found</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ValueError: Found input variables with inconsistent numbers of samples (Python) — how to fix</title>
+<meta name="description" content="scikit-learn received X and y (or y_true and y_pred) with different numbers of rows. The two numbers in brackets are the row counts it found.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-valueerror-found-input-variables-with-inconsistent-numbers-of-samples/">
+<meta property="og:title" content="ValueError: Found input variables with inconsistent numbers of samples (Python) — how to fix"><meta property="og:description" content="scikit-learn received X and y (or y_true and y_pred) with different numbers of rows. The two numbers in brackets are the row counts it found.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-valueerror-found-input-variables-with-inconsistent-numbers-of-samples/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ValueError: Found input variables with inconsistent numbers of samples (Python) \u2014 how to fix", "description": "scikit-learn received X and y (or y_true and y_pred) with different numbers of rows. The two numbers in brackets are the row counts it found.", "dateModified": "2026-11-23", "url": "https://errorfix-hollis.github.io/python/python-valueerror-found-input-variables-with-inconsistent-numbers-of-samples/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ValueError: Found input variables with inconsistent numbers of samples", "item": "https://errorfix-hollis.github.io/python/python-valueerror-found-input-variables-with-inconsistent-numbers-of-samples/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ValueError: Found input variables with inconsistent numbers of samples (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;train.py&quot;, line 14, in &lt;module&gt;
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+ValueError: Found input variables with inconsistent numbers of samples: [800, 1000]
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check <code>X.shape</code> and <code>y.shape</code> (or <code>len(...)</code>) right before the call; the first dimension must match. Common fixes: drop NaNs from X and y together (<code>df = df.dropna(); X = df[features]; y = df[target]</code>), don't transpose X, use <code>y_test</code> (not <code>y_train</code>) when scoring <code>model.predict(X_test)</code>, and pass a 1-D column with <code>df["target"]</code> rather than a row.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Every sklearn function that takes several arrays (<code>fit</code>, <code>train_test_split</code>, <code>cross_val_score</code>, <code>accuracy_score</code>, <code>mean_squared_error</code>...) calls <code>check_consistent_length</code>, which requires the same number of samples (rows) in each. <code>[800, 1000]</code> means one input has 800 rows and the other 1000.</p>
+<p>Start by printing shapes right before the failing line:</p>
+<pre><code class="language-python">print(X.shape, y.shape)
+</code></pre>
+<h2 id="cause-1-rows-removed-from-x-but-not-y">Cause 1: rows removed from X but not y</h2>
+<pre><code class="language-python">X = df[[&quot;age&quot;, &quot;income&quot;]].dropna()     # 800 rows
+y = df[&quot;bought&quot;]                       # 1000 rows
+model.fit(X, y)                        # error
+</code></pre>
+<p>Clean the DataFrame first, then split into X and y so they stay aligned:</p>
+<pre><code class="language-python">df = df.dropna(subset=[&quot;age&quot;, &quot;income&quot;, &quot;bought&quot;])
+X = df[[&quot;age&quot;, &quot;income&quot;]]
+y = df[&quot;bought&quot;]
+</code></pre>
+<p>The same goes for filtering (<code>df[df.age &gt; 18]</code>), deduplication and outlier removal: apply them to the whole DataFrame, or use the same boolean mask on both.</p>
+<h2 id="cause-2-comparing-predictions-with-the-wrong-labels">Cause 2: comparing predictions with the wrong labels</h2>
+<pre><code class="language-python">model.fit(X_train, y_train)
+pred = model.predict(X_test)
+accuracy_score(y_train, pred)      # error: train labels vs test predictions
+</code></pre>
+<p>Use the matching set:</p>
+<pre><code class="language-python">accuracy_score(y_test, pred)
+</code></pre>
+<p>Also check the unpacking order of <code>train_test_split</code>: it returns <code>X_train, X_test, y_train, y_test</code> (all X parts first, then all y parts).</p>
+<h2 id="cause-3-x-is-transposed-or-reshaped-wrongly">Cause 3: X is transposed or reshaped wrongly</h2>
+<p>sklearn expects X as <code>(n_samples, n_features)</code>. If you build it from lists of columns, it ends up <code>(n_features, n_samples)</code>:</p>
+<pre><code class="language-python">import numpy as np
+X = np.array([ages, incomes])     # shape (2, 1000) — wrong
+X = np.column_stack([ages, incomes])  # shape (1000, 2) — right
+</code></pre>
+<p>A single feature must be 2-D: <code>X = df[["age"]]</code> or <code>x.reshape(-1, 1)</code>. Using <code>reshape(1, -1)</code> makes 1 sample with N features and triggers this error (see <a href="/python/python-valueerror-expected-2d-array-got-1d-array/">Expected 2D array, got 1D array</a>).</p>
+<h2 id="cause-4-target-selected-as-a-row-or-the-whole-dataframe">Cause 4: target selected as a row or the whole DataFrame</h2>
+<pre><code class="language-python">y = df.loc[&quot;bought&quot;]     # a row label, not a column
+y = df.iloc[0]           # first row
+</code></pre>
+<p>Select the column:</p>
+<pre><code class="language-python">y = df[&quot;bought&quot;]
+</code></pre>
+<h2 id="cause-5-text-features-with-vectorizers">Cause 5: text features with vectorizers</h2>
+<p>When fitting a <code>CountVectorizer</code>/<code>TfidfVectorizer</code>, pass a 1-D sequence of strings. Passing a DataFrame (<code>df[["text"]]</code>) makes the vectorizer iterate over column names, giving 1 sample:</p>
+<pre><code class="language-python">vec = TfidfVectorizer()
+X = vec.fit_transform(df[&quot;text&quot;])   # not df[[&quot;text&quot;]]
+</code></pre>
+<p>And transform the test set with the fitted vectorizer: <code>vec.transform(test_df["text"])</code>.</p>
+<h2 id="cause-6-reading-files-that-differ-in-length">Cause 6: reading files that differ in length</h2>
+<p>Features and labels loaded from separate files (CSV, images folder, labels file) can be off because of a header row, a trailing blank line or a missing file. Compare lengths after loading, and prefer joining on an ID column over relying on row order.</p>
+<p class="upd">Last updated 2026-11-23.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-modulenotfounderror-no-module-named-sklearn/">ModuleNotFoundError: No module named &#x27;sklearn&#x27;</a></li><li><a href="/python/python-valueerror-expected-2d-array-got-1d-array/">ValueError: Expected 2D array, got 1D array instead</a></li><li><a href="/python/python-valueerror-input-contains-nan/">ValueError: Input contains NaN, infinity or a value too large for dtype(&#x27;float64&#x27;).</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

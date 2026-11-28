@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>upstream sent too big header while reading response header from upstream (nginx) — how to fix</title>
+<meta name="description" content="The response headers from your backend (often large cookies or long redirect URLs) didn&#x27;t fit in nginx&#x27;s proxy buffer, so nginx returned 502 Bad Gateway. Increase the buffer sizes.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-nginx-upstream-sent-too-big-header/">
+<meta property="og:title" content="upstream sent too big header while reading response header from upstream (nginx) — how to fix"><meta property="og:description" content="The response headers from your backend (often large cookies or long redirect URLs) didn&#x27;t fit in nginx&#x27;s proxy buffer, so nginx returned 502 Bad Gateway. Increase the buffer sizes.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-nginx-upstream-sent-too-big-header/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "upstream sent too big header while reading response header from upstream (nginx) \u2014 how to fix", "description": "The response headers from your backend (often large cookies or long redirect URLs) didn't fit in nginx's proxy buffer, so nginx returned 502 Bad Gateway. Increase the buffer sizes.", "dateModified": "2026-11-27", "url": "https://errorfix-hollis.github.io/web/web-nginx-upstream-sent-too-big-header/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "upstream sent too big header while reading response header from upstream", "item": "https://errorfix-hollis.github.io/web/web-nginx-upstream-sent-too-big-header/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>upstream sent too big header while reading response header from upstream (nginx) — how to fix</h1>
+<pre class="err"><code>[error] 1234#1234: *56 upstream sent too big header while reading response header from upstream, client: 203.0.113.5, server: example.com, request: &quot;GET / HTTP/1.1&quot;, upstream: &quot;http://127.0.0.1:3000/&quot;, host: &quot;example.com&quot;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Raise the header buffer in the location that proxies the request: <code>proxy_buffer_size 16k; proxy_buffers 8 16k; proxy_busy_buffers_size 32k;</code> (for PHP-FPM use <code>fastcgi_buffer_size 32k; fastcgi_buffers 16 16k;</code>), then <code>sudo nginx -t &amp;&amp; sudo systemctl reload nginx</code>. Also check why the headers are so large (huge cookies).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>nginx reads the backend's status line and headers into a single buffer of size <code>proxy_buffer_size</code> (or <code>fastcgi_buffer_size</code> / <code>uwsgi_buffer_size</code>). The default is one memory page: 4k or 8k. If the headers are bigger, nginx gives up, logs this message in <code>error.log</code> and returns <strong>502 Bad Gateway</strong> to the client.</p>
+<p>Typical triggers:</p>
+<ul>
+<li>Large <code>Set-Cookie</code> headers (session data stored in cookies, many auth cookies from OAuth/OpenID Connect, Keycloak, NextAuth)</li>
+<li>Long <code>Location</code> redirect URLs with big query strings</li>
+<li>Debug headers from frameworks (e.g. PHP debug bars, Laravel/Symfony profilers)</li>
+<li>Big CSP or <code>Link</code> headers</li>
+</ul>
+<p>See the size of the headers directly from the backend:</p>
+<pre><code class="language-bash">curl -s -D - -o /dev/null http://127.0.0.1:3000/ | wc -c
+</code></pre>
+<h2 id="fix-1-proxy_pass-node-python-java-go-backends">Fix 1: proxy_pass (Node, Python, Java, Go backends)</h2>
+<pre><code class="language-nginx">location / {
+    proxy_pass http://127.0.0.1:3000;
+
+    proxy_buffer_size        16k;
+    proxy_buffers            8 16k;
+    proxy_busy_buffers_size  32k;
+}
+</code></pre>
+<p><code>proxy_busy_buffers_size</code> must be at least as large as <code>proxy_buffer_size</code> and smaller than the total of <code>proxy_buffers</code> minus one buffer, or <code>nginx -t</code> fails with <code>"proxy_busy_buffers_size" must be less than the size of all "proxy_buffers" minus one buffer</code>.</p>
+<pre><code class="language-bash">sudo nginx -t &amp;&amp; sudo systemctl reload nginx
+</code></pre>
+<h2 id="fix-2-php-fpm-fastcgi_pass">Fix 2: PHP-FPM (fastcgi_pass)</h2>
+<p>The proxy directives don't apply to FastCGI. Use the fastcgi equivalents:</p>
+<pre><code class="language-nginx">location ~ \.php$ {
+    include fastcgi_params;
+    fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+
+    fastcgi_buffer_size       32k;
+    fastcgi_buffers           16 16k;
+    fastcgi_busy_buffers_size 32k;
+}
+</code></pre>
+<p>For uWSGI use <code>uwsgi_buffer_size</code> / <code>uwsgi_buffers</code>.</p>
+<h2 id="fix-3-kubernetes-ingress-nginx">Fix 3: Kubernetes ingress-nginx</h2>
+<p>Set it per Ingress with an annotation:</p>
+<pre><code class="language-yaml">metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffer-size: &quot;16k&quot;
+</code></pre>
+<p>or globally with <code>proxy-buffer-size: "16k"</code> in the controller ConfigMap.</p>
+<h2 id="fix-4-shrink-the-headers">Fix 4: shrink the headers</h2>
+<p>Bigger buffers treat the symptom. If headers are tens of kilobytes, the client will also hit limits (browsers cap cookie size at ~4 KB per cookie, and many servers reject requests with large <code>Cookie</code> headers). Store session data server-side and keep only a session ID in the cookie, and turn off debug headers in production.</p>
+<h2 id="related-request-headers-too-large">Related: request headers too large</h2>
+<p>If the problem is the <em>client's</em> request headers (big cookies sent to nginx), you instead get <code>400 Bad Request — Request Header Or Cookie Too Large</code>. That is controlled by <code>large_client_header_buffers 4 16k;</code> in the <code>server</code> or <code>http</code> block.</p>
+<p class="upd">Last updated 2026-11-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-nginx-413-request-entity-too-large/">413 Request Entity Too Large (nginx)</a></li><li><a href="/web/web-nginx-502-bad-gateway/">502 Bad Gateway (nginx)</a></li><li><a href="/web/web-nginx-upstream-timed-out-110-connection-timed-out/">upstream timed out (110: Connection timed out) while reading response header from upstream</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

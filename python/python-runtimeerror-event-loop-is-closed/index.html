@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RuntimeError: Event loop is closed (Python) — how to fix</title>
+<meta name="description" content="Something tried to use an asyncio event loop after it was closed: often aiohttp/httpx transports cleaned up after asyncio.run() finished (especially on Windows), or code reusing a loop across asyncio.run() calls or tests.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-runtimeerror-event-loop-is-closed/">
+<meta property="og:title" content="RuntimeError: Event loop is closed (Python) — how to fix"><meta property="og:description" content="Something tried to use an asyncio event loop after it was closed: often aiohttp/httpx transports cleaned up after asyncio.run() finished (especially on Windows), or code reusing a loop across asyncio.run() calls or tests.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-runtimeerror-event-loop-is-closed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "RuntimeError: Event loop is closed (Python) \u2014 how to fix", "description": "Something tried to use an asyncio event loop after it was closed: often aiohttp/httpx transports cleaned up after asyncio.run() finished (especially on Windows), or code reusing a loop across asyncio.run() calls or tests.", "dateModified": "2026-11-25", "url": "https://errorfix-hollis.github.io/python/python-runtimeerror-event-loop-is-closed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "RuntimeError: Event loop is closed", "item": "https://errorfix-hollis.github.io/python/python-runtimeerror-event-loop-is-closed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>RuntimeError: Event loop is closed (Python) — how to fix</h1>
+<pre class="err"><code>Exception ignored in: &lt;function _ProactorBasePipeTransport.__del__ at 0x000001&gt;
+Traceback (most recent call last):
+  File &quot;C:\Python311\Lib\asyncio\proactor_events.py&quot;, line 116, in __del__
+    self.close()
+  File &quot;C:\Python311\Lib\asyncio\base_events.py&quot;, line 519, in _check_closed
+    raise RuntimeError(&#x27;Event loop is closed&#x27;)
+RuntimeError: Event loop is closed
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Close async clients inside the coroutine (<code>async with aiohttp.ClientSession() as s:</code> / <code>await client.aclose()</code>) before <code>asyncio.run()</code> returns. Don't store loops or clients created in one <code>asyncio.run()</code> and use them in another. On Windows with old aiohttp, the harmless shutdown warning goes away with <code>asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())</code>. In pytest use pytest-asyncio fixtures instead of a global loop.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>asyncio.run()</code> creates a new event loop, runs your coroutine, then <strong>closes</strong> the loop. Anything that later calls <code>loop.call_soon()</code> on that loop (a transport's <code>__del__</code>, a callback, a client reused in another run) raises <code>RuntimeError: Event loop is closed</code>.</p>
+<p>There are two flavours:</p>
+<ul>
+<li><code>Exception ignored in: ... __del__</code> at program exit: a cleanup message, your program already finished its work.</li>
+<li>A real traceback in the middle of your code: you are using a closed loop, and results are lost.</li>
+</ul>
+<h2 id="cause-1-client-sessions-not-closed-before-the-loop-ends">Cause 1: client sessions not closed before the loop ends</h2>
+<p>aiohttp, httpx, asyncpg, Redis etc. hold sockets bound to the loop. If they are garbage-collected after <code>asyncio.run()</code> returns, their cleanup hits a closed loop.</p>
+<pre><code class="language-python">import asyncio, aiohttp
+
+async def main():
+    async with aiohttp.ClientSession() as session:   # closed inside the loop
+        async with session.get(&quot;https://example.com&quot;) as r:
+            print(r.status)
+
+asyncio.run(main())
+</code></pre>
+<p>httpx: <code>async with httpx.AsyncClient() as client:</code> or <code>await client.aclose()</code>.</p>
+<h2 id="cause-2-windows-proactor-loop-shutdown-warning">Cause 2: Windows Proactor loop shutdown warning</h2>
+<p>On Windows the default <code>ProactorEventLoop</code> plus older aiohttp versions print the <code>_ProactorBasePipeTransport.__del__</code> message on exit even when everything worked. Fixes, in order of preference:</p>
+<ol>
+<li>Upgrade: <code>pip install -U aiohttp</code> and close sessions as above.</li>
+<li>Use the selector loop:</li>
+</ol>
+<pre><code class="language-python">import asyncio, sys
+if sys.platform == &quot;win32&quot;:
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+asyncio.run(main())
+</code></pre>
+<p>(The selector loop does not support subprocesses on Windows; keep the Proactor loop if you need <code>asyncio.create_subprocess_exec</code>.)</p>
+<h2 id="cause-3-reusing-objects-across-several-asynciorun-calls">Cause 3: reusing objects across several <code>asyncio.run()</code> calls</h2>
+<pre><code class="language-python">client = None
+async def init():
+    global client
+    client = httpx.AsyncClient()
+asyncio.run(init())
+asyncio.run(use(client))   # client is bound to the first, closed loop
+</code></pre>
+<p>Run everything in <strong>one</strong> <code>asyncio.run(main())</code>, and create clients inside it. Don't call <code>asyncio.get_event_loop()</code> at import time and keep it; in Python 3.10+ that is deprecated anyway.</p>
+<h2 id="cause-4-closing-the-loop-yourself">Cause 4: closing the loop yourself</h2>
+<p>Old-style code:</p>
+<pre><code class="language-python">loop = asyncio.get_event_loop()
+loop.run_until_complete(a())
+loop.close()
+loop.run_until_complete(b())   # Event loop is closed
+</code></pre>
+<p>Close the loop only once at the very end, or switch to <code>asyncio.run()</code>.</p>
+<h2 id="cause-5-pytest">Cause 5: pytest</h2>
+<p>Each pytest-asyncio test gets its own loop by default. A module-level client or a session-scoped fixture created on another loop fails in later tests. Create async resources in fixtures with matching scope:</p>
+<pre><code class="language-python">import pytest_asyncio, httpx
+
+@pytest_asyncio.fixture
+async def client():
+    async with httpx.AsyncClient() as c:
+        yield c
+</code></pre>
+<p>If you need one loop for the whole session, configure the loop scope (pytest-asyncio 0.24+: <code>asyncio_default_fixture_loop_scope = session</code> and <code>@pytest.mark.asyncio(loop_scope="session")</code>).</p>
+<h2 id="cause-6-jupyter-frameworks-with-their-own-loop">Cause 6: Jupyter / frameworks with their own loop</h2>
+<p>In Jupyter, FastAPI, discord.py etc. a loop is already managed for you. Use <code>await coro()</code> directly instead of <code>asyncio.run()</code>, and don't close the framework's loop.</p>
+<p class="upd">Last updated 2026-11-25.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-requests-connectionerror-max-retries-exceeded/">requests.exceptions.ConnectionError: HTTPConnectionPool: Max retries exceeded with url</a></li><li><a href="/python/python-runtimeerror-asyncio-run-cannot-be-called-from-a-running-event-loop/">RuntimeError: asyncio.run() cannot be called from a running event loop</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

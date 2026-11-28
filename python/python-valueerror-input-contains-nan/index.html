@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ValueError: Input contains NaN, infinity or a value too large for dtype(&#x27;float64&#x27;). (Python) — how to fix</title>
+<meta name="description" content="scikit-learn refuses to fit or predict on data with missing values (NaN) or infinite values. Find them, then drop, impute or replace them before calling fit().">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-valueerror-input-contains-nan/">
+<meta property="og:title" content="ValueError: Input contains NaN, infinity or a value too large for dtype(&#x27;float64&#x27;). (Python) — how to fix"><meta property="og:description" content="scikit-learn refuses to fit or predict on data with missing values (NaN) or infinite values. Find them, then drop, impute or replace them before calling fit().">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-valueerror-input-contains-nan/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ValueError: Input contains NaN, infinity or a value too large for dtype('float64'). (Python) \u2014 how to fix", "description": "scikit-learn refuses to fit or predict on data with missing values (NaN) or infinite values. Find them, then drop, impute or replace them before calling fit().", "dateModified": "2026-11-22", "url": "https://errorfix-hollis.github.io/python/python-valueerror-input-contains-nan/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ValueError: Input contains NaN, infinity or a value too large for dtype('float64').", "item": "https://errorfix-hollis.github.io/python/python-valueerror-input-contains-nan/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ValueError: Input contains NaN, infinity or a value too large for dtype(&#x27;float64&#x27;). (Python) — how to fix</h1>
+<pre class="err"><code>ValueError: Input contains NaN, infinity or a value too large for dtype(&#x27;float64&#x27;).
+ValueError: Input X contains NaN.
+LinearRegression does not accept missing values encoded as NaN natively.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find the bad values with <code>df.isna().sum()</code> and <code>np.isinf(df.select_dtypes('number')).sum()</code>. Then drop them (<code>df.dropna()</code>), replace infinities (<code>df.replace([np.inf, -np.inf], np.nan)</code>), or impute with <code>sklearn.impute.SimpleImputer</code> inside a Pipeline.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Most scikit-learn estimators (LinearRegression, SVC, KMeans, LogisticRegression, ...) validate their input with <code>check_array</code>. If the array contains <code>NaN</code>, <code>inf</code>/<code>-inf</code>, or numbers too large for float64, they raise this error. Newer versions are more specific: <code>Input X contains NaN.</code> or <code>Input y contains infinity</code>.</p>
+<p>Note whether it says <code>X</code> or <code>y</code>: the target column can contain NaN too.</p>
+<h2 id="step-1-find-the-bad-values">Step 1: find the bad values</h2>
+<pre><code class="language-python">import numpy as np
+import pandas as pd
+
+print(df.isna().sum())                                  # NaN per column
+num = df.select_dtypes(&quot;number&quot;)
+print(np.isinf(num).sum())                              # inf per column
+print(num.abs().max())                                  # suspiciously huge values
+</code></pre>
+<p>For a NumPy array: <code>np.isnan(X).sum()</code>, <code>np.isinf(X).sum()</code>.</p>
+<h2 id="fix-1-drop-rows-with-missing-values">Fix 1: drop rows with missing values</h2>
+<p>Simple, fine when only a few rows are affected. Drop from X and y together so they stay aligned:</p>
+<pre><code class="language-python">data = df[features + [target]].replace([np.inf, -np.inf], np.nan).dropna()
+X, y = data[features], data[target]
+</code></pre>
+<p>Dropping only from <code>X</code> leads to <code>Found input variables with inconsistent numbers of samples</code>.</p>
+<h2 id="fix-2-impute-instead-of-dropping">Fix 2: impute instead of dropping</h2>
+<p>Fill missing values with the mean/median/most frequent value. Use a Pipeline so the same imputation is learned on the training set and applied to test data:</p>
+<pre><code class="language-python">from sklearn.pipeline import make_pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LinearRegression
+
+model = make_pipeline(SimpleImputer(strategy=&quot;median&quot;), LinearRegression())
+model.fit(X_train, y_train)
+model.predict(X_test)
+</code></pre>
+<p>For mixed numeric and categorical columns, use a <code>ColumnTransformer</code> with <code>SimpleImputer(strategy="most_frequent")</code> for the categorical ones.</p>
+<h2 id="fix-3-infinity-from-your-own-feature-engineering">Fix 3: infinity from your own feature engineering</h2>
+<p>Divisions like <code>df["ratio"] = df.a / df.b</code> produce <code>inf</code> where <code>b == 0</code>, and <code>np.log(0)</code> gives <code>-inf</code>. Replace them:</p>
+<pre><code class="language-python">df[&quot;ratio&quot;] = (df.a / df.b).replace([np.inf, -np.inf], np.nan)
+df[&quot;log_x&quot;] = np.log1p(df.x)     # safe for x &gt;= 0
+</code></pre>
+<h2 id="fix-4-nan-appeared-after-a-transformation">Fix 4: NaN appeared after a transformation</h2>
+<p>Common sources:</p>
+<ul>
+<li><code>pd.to_numeric(col, errors="coerce")</code> turns unparseable strings into NaN.</li>
+<li><code>merge</code>/<code>join</code> with no match fills NaN.</li>
+<li><code>shift()</code>, <code>rolling()</code> and <code>pct_change()</code> leave NaN in the first rows.</li>
+</ul>
+<p>Check <code>isna().sum()</code> right before <code>fit()</code>, not just after loading.</p>
+<h2 id="fix-5-use-a-model-that-accepts-nan">Fix 5: use a model that accepts NaN</h2>
+<p><code>HistGradientBoostingClassifier</code>/<code>Regressor</code> handle missing values natively, as do XGBoost and LightGBM. Infinity is still not allowed, so replace it with NaN first.</p>
+<h2 id="value-too-large-for-dtype">Value too large for dtype</h2>
+<p>If there are no NaN/inf but huge values (e.g. <code>1e308</code>), scale or clip them: <code>np.clip(X, -1e10, 1e10)</code>, or check for unit/parsing errors in the column.</p>
+<p class="upd">Last updated 2026-11-22.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-pandas-settingwithcopywarning/">SettingWithCopyWarning: A value is trying to be set on a copy of a slice from a DataFrame</a></li><li><a href="/python/python-valueerror-could-not-convert-string-to-float/">ValueError: could not convert string to float</a></li><li><a href="/python/python-valueerror-expected-2d-array-got-1d-array/">ValueError: Expected 2D array, got 1D array instead</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

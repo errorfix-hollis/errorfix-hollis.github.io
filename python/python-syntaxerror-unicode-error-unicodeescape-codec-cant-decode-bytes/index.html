@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SyntaxError: (unicode error) &#x27;unicodeescape&#x27; codec can&#x27;t decode bytes in position 2-3: truncated \UXXXXXXXX escape (Python) — how to fix</title>
+<meta name="description" content="A Windows path in a normal string literal contains a backslash sequence like \U or \N that Python reads as a Unicode escape. Use a raw string, forward slashes, or doubled backslashes.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-syntaxerror-unicode-error-unicodeescape-codec-cant-decode-bytes/">
+<meta property="og:title" content="SyntaxError: (unicode error) &#x27;unicodeescape&#x27; codec can&#x27;t decode bytes in position 2-3: truncated \UXXXXXXXX escape (Python) — how to fix"><meta property="og:description" content="A Windows path in a normal string literal contains a backslash sequence like \U or \N that Python reads as a Unicode escape. Use a raw string, forward slashes, or doubled backslashes.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-syntaxerror-unicode-error-unicodeescape-codec-cant-decode-bytes/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "SyntaxError: (unicode error) 'unicodeescape' codec can't decode bytes in position 2-3: truncated \\UXXXXXXXX escape (Python) \u2014 how to fix", "description": "A Windows path in a normal string literal contains a backslash sequence like \\U or \\N that Python reads as a Unicode escape. Use a raw string, forward slashes, or doubled backslashes.", "dateModified": "2026-11-15", "url": "https://errorfix-hollis.github.io/python/python-syntaxerror-unicode-error-unicodeescape-codec-cant-decode-bytes/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "SyntaxError: (unicode error) 'unicodeescape' codec can't decode bytes in position 2-3: truncated \\UXXXXXXXX escape", "item": "https://errorfix-hollis.github.io/python/python-syntaxerror-unicode-error-unicodeescape-codec-cant-decode-bytes/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>SyntaxError: (unicode error) &#x27;unicodeescape&#x27; codec can&#x27;t decode bytes in position 2-3: truncated \UXXXXXXXX escape (Python) — how to fix</h1>
+<pre class="err"><code>  File &quot;script.py&quot;, line 3
+    df = pd.read_csv(&quot;C:\Users\me\Desktop\data.csv&quot;)
+                                                  ^
+SyntaxError: (unicode error) &#x27;unicodeescape&#x27; codec can&#x27;t decode bytes in position 2-3: truncated \UXXXXXXXX escape
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Prefix the string with r: <code>r"C:\Users\me\data.csv"</code>, or use forward slashes <code>"C:/Users/me/data.csv"</code>, or double every backslash <code>"C:\\Users\\me\\data.csv"</code>. Better still, build paths with <code>pathlib.Path</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>In a normal Python string, a backslash starts an escape sequence: <code>\n</code> is a newline, <code>\t</code> is a tab, and <code>\U</code> must be followed by <strong>8 hex digits</strong> (<code>\U0001F600</code>). In the path <code>"C:\Users\..."</code>, Python sees <code>\U</code> followed by <code>sers</code> (not hex) and refuses to compile the file. That's why this is a <code>SyntaxError</code> that appears before any code runs.</p>
+<p>Variants of the same problem:</p>
+<ul>
+<li><code>truncated \UXXXXXXXX escape</code>: <code>\U</code> as in <code>C:\Users</code></li>
+<li><code>truncated \xXX escape</code>: <code>\x</code> as in <code>C:\xampp</code></li>
+<li><code>malformed \N character escape</code>: <code>\N</code> as in <code>C:\New folder</code></li>
+<li>No error, but a wrong path: <code>\n</code>, <code>\t</code>, <code>\a</code>, <code>\b</code>, <code>\f</code>, <code>\r</code>, <code>\v</code> are <em>valid</em> escapes. They silently turn into control characters, so <code>"C:\data\new.csv"</code> contains a newline and later raises <code>FileNotFoundError</code> or <code>OSError: [Errno 22] Invalid argument</code>.</li>
+<li>On Python 3.12+, unknown escapes like <code>\d</code> give <code>SyntaxWarning: invalid escape sequence '\d'</code>.</li>
+</ul>
+<h2 id="fix-1-raw-string">Fix 1: raw string</h2>
+<p>Prefix the literal with <code>r</code> so backslashes are kept as-is:</p>
+<pre><code class="language-python">df = pd.read_csv(r&quot;C:\Users\me\Desktop\data.csv&quot;)
+</code></pre>
+<p>One catch: a raw string can't end with a single backslash (<code>r"C:\folder\"</code> is a syntax error). Leave the trailing backslash off, or use Fix 2 or Fix 4.</p>
+<h2 id="fix-2-forward-slashes">Fix 2: forward slashes</h2>
+<p>Windows accepts <code>/</code> as a path separator in nearly all APIs:</p>
+<pre><code class="language-python">df = pd.read_csv(&quot;C:/Users/me/Desktop/data.csv&quot;)
+</code></pre>
+<h2 id="fix-3-escape-each-backslash">Fix 3: escape each backslash</h2>
+<pre><code class="language-python">df = pd.read_csv(&quot;C:\\Users\\me\\Desktop\\data.csv&quot;)
+</code></pre>
+<h2 id="fix-4-pathlib-best-for-real-code">Fix 4: pathlib (best for real code)</h2>
+<pre><code class="language-python">from pathlib import Path
+
+data = Path.home() / &quot;Desktop&quot; / &quot;data.csv&quot;
+df = pd.read_csv(data)
+</code></pre>
+<p>No hard-coded separators, and it works on every OS. <code>Path(__file__).parent / "data.csv"</code> gives a path relative to the script instead of the current working directory.</p>
+<h2 id="same-error-in-other-places">Same error in other places</h2>
+<ul>
+<li><strong>Docstrings and comments in strings:</strong> a docstring with <code>"""Reads C:\Users\..."""</code> triggers it too. Make it a raw docstring <code>r"""..."""</code> or escape the backslash.</li>
+<li><strong>Regex patterns:</strong> always use raw strings, <code>re.compile(r"\d+\.\w+")</code>. This also avoids the Python 3.12 <code>invalid escape sequence</code> warning.</li>
+<li><strong>Strings read from files or <code>input()</code></strong> are <em>not</em> affected. Escapes only apply to literals in source code. If a path from a config file looks wrong, the problem is elsewhere.</li>
+</ul>
+<h2 id="unicodedecodeerror-unicodeescape-at-runtime"><code>UnicodeDecodeError: 'unicodeescape'</code> at runtime</h2>
+<p>If you see this while running code (not compiling), something is calling <code>.decode("unicode_escape")</code> or <code>codecs.decode(s, "unicode_escape")</code> on text that contains Windows paths. Don't decode paths that way. Treat them as plain strings.</p>
+<p class="upd">Last updated 2026-11-15.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-filenotfounderror-no-such-file-or-directory/">FileNotFoundError: [Errno 2] No such file or directory</a></li><li><a href="/python/python-syntaxerror-invalid-syntax/">SyntaxError: invalid syntax</a></li><li><a href="/python/python-unicodedecodeerror-utf-8/">UnicodeDecodeError: &#x27;utf-8&#x27; codec can&#x27;t decode byte 0xff in position 0: invalid start byte</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

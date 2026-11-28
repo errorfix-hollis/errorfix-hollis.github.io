@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WARNING: The requested image&#x27;s platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) (Docker) — how to fix</title>
+<meta name="description" content="The image you are running was built only for another CPU architecture than your machine (typically amd64 images on an Apple Silicon Mac or ARM server). Docker will try to run it under emulation, which is slow or fails with exec format error.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-requested-image-platform-does-not-match-host-platform/">
+<meta property="og:title" content="WARNING: The requested image&#x27;s platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) (Docker) — how to fix"><meta property="og:description" content="The image you are running was built only for another CPU architecture than your machine (typically amd64 images on an Apple Silicon Mac or ARM server). Docker will try to run it under emulation, which is slow or fails with exec format error.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-requested-image-platform-does-not-match-host-platform/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) (Docker) \u2014 how to fix", "description": "The image you are running was built only for another CPU architecture than your machine (typically amd64 images on an Apple Silicon Mac or ARM server). Docker will try to run it under emulation, which is slow or fails with exec format error.", "dateModified": "2026-11-28", "url": "https://errorfix-hollis.github.io/docker/docker-requested-image-platform-does-not-match-host-platform/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8)", "item": "https://errorfix-hollis.github.io/docker/docker-requested-image-platform-does-not-match-host-platform/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>WARNING: The requested image&#x27;s platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) (Docker) — how to fix</h1>
+<pre class="err"><code>WARNING: The requested image&#x27;s platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Use an image (or tag) that publishes your architecture, check with <code>docker buildx imagetools inspect IMAGE</code>. Build your own image for both platforms with <code>docker buildx build --platform linux/amd64,linux/arm64 -t you/app --push .</code>. If you really need the amd64 image, request it explicitly with <code>--platform linux/amd64</code> (or <code>platform: linux/amd64</code> in Compose).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Images are built for a specific OS/CPU combination (<code>linux/amd64</code>, <code>linux/arm64</code>, ...). A multi-arch image has a manifest list and Docker picks the variant matching your host. This warning means the image only has a variant for a different architecture, so Docker pulled that one anyway.</p>
+<p>What happens next depends on your setup:</p>
+<ul>
+<li><strong>Docker Desktop (Mac/Windows)</strong> has emulation built in, so the container usually runs, just slower, and some programs crash under emulation.</li>
+<li><strong>Plain Linux</strong> without QEMU binfmt handlers fails with <code>exec format error</code>.</li>
+</ul>
+<p>See which platforms an image provides:</p>
+<pre><code class="language-bash">docker buildx imagetools inspect nginx:latest
+docker image inspect --format '{{.Os}}/{{.Architecture}}' myimage
+</code></pre>
+<h2 id="fix-1-use-a-multi-arch-image-or-tag">Fix 1: use a multi-arch image or tag</h2>
+<p>Most official images (<code>node</code>, <code>python</code>, <code>postgres</code>, <code>nginx</code>, ...) are multi-arch. If you pinned a tag or a third-party image that is amd64-only, look for an arm64 tag or an alternative image. For databases check the vendor's docs: some publish arm64 only for newer versions.</p>
+<h2 id="fix-2-build-your-own-image-for-both-architectures">Fix 2: build your own image for both architectures</h2>
+<p>If the image is yours, it was probably built on an amd64 CI runner or laptop. Build and push a multi-arch image with buildx:</p>
+<pre><code class="language-bash">docker buildx create --use              # once, creates a builder that supports multi-platform
+docker buildx build --platform linux/amd64,linux/arm64 -t you/app:1.0 --push .
+</code></pre>
+<p>For a single local image for your machine only, <code>docker build .</code> on that machine is enough.</p>
+<h2 id="fix-3-run-the-foreign-image-on-purpose">Fix 3: run the foreign image on purpose</h2>
+<p>If there is no native version, ask for the platform explicitly. This silences the warning and makes the choice visible:</p>
+<pre><code class="language-bash">docker run --platform linux/amd64 some/amd64-only-image
+</code></pre>
+<p>In Compose:</p>
+<pre><code class="language-yaml">services:
+  legacy:
+    image: some/amd64-only-image
+    platform: linux/amd64
+</code></pre>
+<p>You can also set a default for the shell session with <code>export DOCKER_DEFAULT_PLATFORM=linux/amd64</code>, but that affects every pull and build, so prefer the per-service setting. You can convert an existing <code>docker run</code> command with the <a href="/tools/docker-run-to-compose/">docker run to compose converter</a>.</p>
+<h2 id="fix-4-enable-emulation-on-linux">Fix 4: enable emulation on Linux</h2>
+<p>On a Linux host, register QEMU binfmt handlers so foreign binaries can run:</p>
+<pre><code class="language-bash">docker run --privileged --rm tonistiigi/binfmt --install all
+</code></pre>
+<p>Emulated containers are much slower; use this for testing and building, not production.</p>
+<h2 id="fix-5-dockerfile-from-picks-the-wrong-platform">Fix 5: Dockerfile FROM picks the wrong platform</h2>
+<p>A <code>FROM --platform=linux/amd64 ...</code> line in a Dockerfile forces amd64 even on arm64 hosts. Remove it, or use the build arguments buildx provides:</p>
+<pre><code class="language-dockerfile">FROM --platform=$BUILDPLATFORM golang:1.22 AS build
+ARG TARGETOS TARGETARCH
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /app .
+</code></pre>
+<p class="upd">Last updated 2026-11-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-compose-no-configuration-file-provided/">no configuration file provided: not found</a></li><li><a href="/docker/docker-exec-format-error/">exec format error</a></li><li><a href="/docker/docker-no-matching-manifest/">no matching manifest for linux/arm64/v8 in the manifest list entries</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-additional-property-is-not-allowed/">Additional property is not allowed</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

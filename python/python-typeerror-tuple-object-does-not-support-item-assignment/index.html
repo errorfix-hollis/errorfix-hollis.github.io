@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: &#x27;tuple&#x27; object does not support item assignment (Python) — how to fix</title>
+<meta name="description" content="Tuples are immutable, so you can&#x27;t change, add or remove their elements with `t[i] = value`. Convert to a list, build a new tuple, or use a mutable type.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-tuple-object-does-not-support-item-assignment/">
+<meta property="og:title" content="TypeError: &#x27;tuple&#x27; object does not support item assignment (Python) — how to fix"><meta property="og:description" content="Tuples are immutable, so you can&#x27;t change, add or remove their elements with `t[i] = value`. Convert to a list, build a new tuple, or use a mutable type.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-tuple-object-does-not-support-item-assignment/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: 'tuple' object does not support item assignment (Python) \u2014 how to fix", "description": "Tuples are immutable, so you can't change, add or remove their elements with `t[i] = value`. Convert to a list, build a new tuple, or use a mutable type.", "dateModified": "2026-11-18", "url": "https://errorfix-hollis.github.io/python/python-typeerror-tuple-object-does-not-support-item-assignment/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: 'tuple' object does not support item assignment", "item": "https://errorfix-hollis.github.io/python/python-typeerror-tuple-object-does-not-support-item-assignment/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: &#x27;tuple&#x27; object does not support item assignment (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;main.py&quot;, line 3, in &lt;module&gt;
+    point[0] = 10
+    ~~~~~^^^
+TypeError: &#x27;tuple&#x27; object does not support item assignment
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Convert to a list, change it, and convert back if needed: <code>lst = list(t); lst[0] = 10; t = tuple(lst)</code>. Or build a new tuple: <code>t = (10,) + t[1:]</code>. For named records use <code>namedtuple._replace()</code> or a dataclass. Watch for accidental tuples from trailing commas (<code>x = 1, 2</code>).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A <code>tuple</code> is immutable: after it is created its elements can't be replaced. <code>t[0] = x</code>, <code>t[1] += 1</code> and <code>del t[0]</code> all raise this error. Lists support all of these.</p>
+<pre><code class="language-python">point = (3, 4)
+point[0] = 10   # TypeError
+</code></pre>
+<h2 id="fix-1-use-a-list-if-the-data-should-change">Fix 1: use a list if the data should change</h2>
+<p>If you control where the value is created, make it a list from the start:</p>
+<pre><code class="language-python">point = [3, 4]
+point[0] = 10
+</code></pre>
+<p>Or convert, modify, convert back:</p>
+<pre><code class="language-python">lst = list(point)
+lst[0] = 10
+point = tuple(lst)
+</code></pre>
+<h2 id="fix-2-build-a-new-tuple">Fix 2: build a new tuple</h2>
+<p>For a one-off change, create a new tuple with slicing:</p>
+<pre><code class="language-python">point = (10,) + point[1:]          # replace first element
+t = t[:i] + (new_value,) + t[i+1:] # replace element i
+</code></pre>
+<p>Note the comma in <code>(10,)</code> — <code>(10)</code> is just the integer 10.</p>
+<h2 id="fix-3-tuples-you-didnt-create-on-purpose">Fix 3: tuples you didn't create on purpose</h2>
+<p>Several APIs return tuples that people assume are lists:</p>
+<ul>
+<li><strong>Database rows</strong>: <code>cursor.fetchone()</code> / <code>fetchall()</code> in sqlite3, psycopg2 and MySQL connectors return tuples. Convert with <code>list(row)</code> (or <code>dict(row)</code> when using <code>sqlite3.Row</code>) before modifying.</li>
+<li><strong><code>*args</code></strong> inside a function is a tuple: <code>args = list(args)</code> before modifying.</li>
+<li><strong><code>zip()</code></strong> yields tuples: <code>[list(p) for p in zip(a, b)]</code>.</li>
+<li><strong>NumPy <code>.shape</code></strong> is a tuple; use <code>arr.reshape(...)</code> instead of editing the shape.</li>
+<li><strong><code>dict.items()</code></strong> yields <code>(key, value)</code> tuples — assign to <code>d[key]</code> instead.</li>
+</ul>
+<pre><code class="language-python">for k, v in d.items():
+    d[k] = v * 2        # correct: modify the dict, not the tuple
+</code></pre>
+<h2 id="fix-4-accidental-tuple-from-a-trailing-comma">Fix 4: accidental tuple from a trailing comma</h2>
+<p>A trailing comma creates a tuple silently:</p>
+<pre><code class="language-python">x = 1, 2, 3            # a tuple, not a list
+x[0] = 0               # TypeError
+
+values = sorted(data), # trailing comma: a 1-element tuple
+values[0] = []         # TypeError
+</code></pre>
+<p>Remove the comma. <code>print(type(x))</code> quickly confirms what you have.</p>
+<h2 id="fix-5-named-tuples-and-records">Fix 5: named tuples and records</h2>
+<p><code>namedtuple</code> is also immutable. Use <code>_replace</code>, which returns a new instance:</p>
+<pre><code class="language-python">from collections import namedtuple
+Point = namedtuple(&quot;Point&quot;, &quot;x y&quot;)
+p = Point(3, 4)
+p = p._replace(x=10)
+</code></pre>
+<p>If you need mutable fields, switch to a dataclass:</p>
+<pre><code class="language-python">from dataclasses import dataclass
+
+@dataclass
+class Point:
+    x: int
+    y: int
+
+p = Point(3, 4)
+p.x = 10
+</code></pre>
+<h2 id="note-mutable-items-inside-a-tuple">Note: mutable items inside a tuple</h2>
+<p>A tuple can contain mutable objects, and those <em>can</em> change: <code>t = ([1], 2); t[0].append(5)</code> works. But <code>t[0] += [5]</code> raises this error (and still mutates the list), because <code>+=</code> tries to reassign <code>t[0]</code> afterwards. Use <code>t[0].extend([5])</code> instead.</p>
+<p class="upd">Last updated 2026-11-18.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-indexerror-list-index-out-of-range/">IndexError: list index out of range</a></li><li><a href="/python/python-typeerror-int-object-is-not-subscriptable/">TypeError: &#x27;int&#x27; object is not subscriptable</a></li><li><a href="/python/python-typeerror-str-object-does-not-support-item-assignment/">TypeError: &#x27;str&#x27; object does not support item assignment</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

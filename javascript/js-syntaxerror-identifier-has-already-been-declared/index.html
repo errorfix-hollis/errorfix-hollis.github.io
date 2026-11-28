@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SyntaxError: Identifier has already been declared (JavaScript) — how to fix</title>
+<meta name="description" content="A `let`, `const` or `class` name was declared twice in the same scope, or a script that declares top-level `let`/`const` was loaded twice. Unlike `var`, these cannot be redeclared.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-syntaxerror-identifier-has-already-been-declared/">
+<meta property="og:title" content="SyntaxError: Identifier has already been declared (JavaScript) — how to fix"><meta property="og:description" content="A `let`, `const` or `class` name was declared twice in the same scope, or a script that declares top-level `let`/`const` was loaded twice. Unlike `var`, these cannot be redeclared.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-syntaxerror-identifier-has-already-been-declared/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "SyntaxError: Identifier has already been declared (JavaScript) \u2014 how to fix", "description": "A `let`, `const` or `class` name was declared twice in the same scope, or a script that declares top-level `let`/`const` was loaded twice. Unlike `var`, these cannot be redeclared.", "dateModified": "2026-11-17", "url": "https://errorfix-hollis.github.io/javascript/js-syntaxerror-identifier-has-already-been-declared/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "SyntaxError: Identifier has already been declared", "item": "https://errorfix-hollis.github.io/javascript/js-syntaxerror-identifier-has-already-been-declared/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>SyntaxError: Identifier has already been declared (JavaScript) — how to fix</h1>
+<pre class="err"><code>Uncaught SyntaxError: Identifier &#x27;count&#x27; has already been declared
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Rename or remove the second declaration, or turn it into an assignment (<code>count = 5</code> instead of <code>let count = 5</code>). In the browser console or when a script is included twice, wrap code in a block or module, or reload the page.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>let</code>, <code>const</code>, <code>class</code> (and function parameters with <code>let</code>) create bindings that may exist only once per scope. Declaring the same name again in the <em>same</em> scope is a <code>SyntaxError</code>, so the whole script fails to run - not just the line in question.</p>
+<pre><code class="language-js">let count = 0;
+let count = 1;   // SyntaxError: Identifier 'count' has already been declared
+</code></pre>
+<p><code>var</code> allows redeclaration, which is why older code never hit this.</p>
+<h2 id="cause-1-declaring-instead-of-reassigning">Cause 1: declaring instead of reassigning</h2>
+<pre><code class="language-js">let total = 0;
+// ... later in the same scope
+let total = 10;   // SyntaxError
+</code></pre>
+<h2 id="fix-1-assign-dont-redeclare">Fix 1: assign, don't redeclare</h2>
+<pre><code class="language-js">let total = 0;
+total = 10;
+</code></pre>
+<p>If you need a separate value, give it a different name, or put it in its own block <code>{ ... }</code> where shadowing is allowed.</p>
+<h2 id="cause-2-a-parameter-redeclared-in-the-function-body">Cause 2: a parameter redeclared in the function body</h2>
+<pre><code class="language-js">function greet(name) {
+  let name = name.trim();   // SyntaxError
+}
+</code></pre>
+<h2 id="fix-2-reassign-the-parameter-or-use-a-new-name">Fix 2: reassign the parameter or use a new name</h2>
+<pre><code class="language-js">function greet(name) {
+  const cleanName = name.trim();
+}
+</code></pre>
+<h2 id="cause-3-the-same-script-is-loaded-twice">Cause 3: the same script is loaded twice</h2>
+<p>Classic (non-module) scripts share one global scope. If <code>app.js</code> declares <code>const API = ...</code> at the top level and the page includes it twice, or two different scripts both declare <code>const config</code>, the second one throws.</p>
+<pre><code class="language-html">&lt;script src=&quot;app.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;app.js&quot;&gt;&lt;/script&gt;  &lt;!-- duplicate --&gt;
+</code></pre>
+<h2 id="fix-3-load-once-or-use-modules">Fix 3: load once, or use modules</h2>
+<ul>
+<li>Remove the duplicate <code>&lt;script&gt;</code> tag (check templates, layouts and tag managers).</li>
+<li>Use <code>&lt;script type="module"&gt;</code>: each module has its own scope, so top-level names don't collide.</li>
+<li>Or wrap the file in an IIFE: <code>(() =&gt; { ... })();</code></li>
+</ul>
+<h2 id="cause-4-browser-devtools-console">Cause 4: browser DevTools console</h2>
+<p>Each line you paste into the console runs in the same global scope. Running <code>let x = 1</code> twice gives this error. Chrome allows re-declaring <code>let</code>/<code>const</code> in the console since v80, but other consoles and REPLs may not. Reload the page, or use a block:</p>
+<pre><code class="language-js">{ let x = 1; console.log(x); }
+</code></pre>
+<h2 id="cause-5-import-name-collides-with-a-local-declaration">Cause 5: import name collides with a local declaration</h2>
+<pre><code class="language-js">import { useState } from &quot;react&quot;;
+const useState = () =&gt; {};   // SyntaxError: Identifier 'useState' has already been declared
+</code></pre>
+<p>Rename one of them, or alias the import: <code>import { useState as reactUseState } from "react";</code>.</p>
+<h2 id="cause-6-switch-cases-share-one-scope">Cause 6: switch cases share one scope</h2>
+<pre><code class="language-js">switch (type) {
+  case &quot;a&quot;:
+    const msg = &quot;A&quot;;
+    break;
+  case &quot;b&quot;:
+    const msg = &quot;B&quot;;   // SyntaxError
+    break;
+}
+</code></pre>
+<p>Wrap each case body in braces:</p>
+<pre><code class="language-js">case &quot;a&quot;: {
+  const msg = &quot;A&quot;;
+  break;
+}
+</code></pre>
+<p>ESLint rules <code>no-redeclare</code> and <code>no-case-declarations</code> catch most of these before you run the code.</p>
+<p class="upd">Last updated 2026-11-17.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-referenceerror-cannot-access-before-initialization/">ReferenceError: Cannot access &#x27;x&#x27; before initialization</a></li><li><a href="/javascript/js-referenceerror-is-not-defined/">ReferenceError: x is not defined</a></li><li><a href="/javascript/js-typeerror-assignment-to-constant-variable/">TypeError: Assignment to constant variable.</a></li><li><a href="/javascript/js-a-component-is-changing-an-uncontrolled-input-to-be-controlled/">Warning: A component is changing an uncontrolled input to be controlled.</a></li><li><a href="/javascript/js-cannot-read-properties-of-null/">TypeError: Cannot read properties of null (reading &#x27;...&#x27;)</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

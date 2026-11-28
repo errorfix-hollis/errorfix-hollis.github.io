@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>no new variables on left side of := (Go) — how to fix</title>
+<meta name="description" content="You used the short variable declaration := but every variable on the left already exists in the current scope. := must declare at least one new variable; use = to assign to existing ones.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/go/go-no-new-variables-on-left-side/">
+<meta property="og:title" content="no new variables on left side of := (Go) — how to fix"><meta property="og:description" content="You used the short variable declaration := but every variable on the left already exists in the current scope. := must declare at least one new variable; use = to assign to existing ones.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/go/go-no-new-variables-on-left-side/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "no new variables on left side of := (Go) \u2014 how to fix", "description": "You used the short variable declaration := but every variable on the left already exists in the current scope. := must declare at least one new variable; use = to assign to existing ones.", "dateModified": "2026-11-21", "url": "https://errorfix-hollis.github.io/go/go-no-new-variables-on-left-side/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Go", "item": "https://errorfix-hollis.github.io/go/"}, {"@type": "ListItem", "position": 3, "name": "no new variables on left side of :=", "item": "https://errorfix-hollis.github.io/go/go-no-new-variables-on-left-side/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/go/">Go</a></p>
+<article><h1>no new variables on left side of := (Go) — how to fix</h1>
+<pre class="err"><code>./main.go:12:6: no new variables on left side of :=
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Change <code>:=</code> to <code>=</code> when the variable already exists: <code>err = doThing()</code>. With multiple values, <code>:=</code> is fine as long as at least one name is new: <code>n, err := f()</code>. Watch for shadowing in inner blocks, where <code>:=</code> creates a new variable instead of updating the outer one.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>In Go, <code>x := value</code> means <em>declare and assign</em>. <code>x = value</code> means <em>assign to an existing variable</em>. If all names on the left of <code>:=</code> were already declared in the <strong>same scope</strong>, there's nothing new to declare, so the compiler stops.</p>
+<h2 id="cause-1-reassigning-a-variable">Cause 1: reassigning a variable</h2>
+<pre><code class="language-go">count := 0
+count := 5      // error
+count = 5       // correct
+</code></pre>
+<p>The most common case is <code>err</code>:</p>
+<pre><code class="language-go">err := step1()
+if err != nil { return err }
+err := step2()  // error: no new variables
+err = step2()   // correct
+</code></pre>
+<h2 id="cause-2-multi-value-assignment-where-all-names-exist">Cause 2: multi-value assignment where all names exist</h2>
+<p><code>:=</code> with several names is allowed when at least one is new; the existing ones are just assigned:</p>
+<pre><code class="language-go">f, err := os.Open(&quot;a.txt&quot;)   // declares f and err
+data, err := io.ReadAll(f)   // OK: data is new, err is reused
+f, err := os.Open(&quot;b.txt&quot;)   // error: f and err both exist
+f, err = os.Open(&quot;b.txt&quot;)    // correct
+</code></pre>
+<p>Reusing <code>err</code> this way is idiomatic.</p>
+<h2 id="cause-3-named-return-values">Cause 3: named return values</h2>
+<p>Named results are already declared in the function scope:</p>
+<pre><code class="language-go">func load() (cfg Config, err error) {
+    cfg, err := parse()   // error
+    cfg, err = parse()    // correct
+    return
+}
+</code></pre>
+<h2 id="cause-4-the-blank-identifier-doesnt-count">Cause 4: the blank identifier doesn't count</h2>
+<p><code>_</code> is never a new variable:</p>
+<pre><code class="language-go">_, err := f()       // OK if err is new
+_, err := g()       // error if err already exists in this scope
+_, err = g()        // correct
+</code></pre>
+<h2 id="the-opposite-trap-shadowing">The opposite trap: shadowing</h2>
+<p><code>:=</code> inside a new block (<code>if</code>, <code>for</code>, <code>switch</code>, closure) <em>does</em> compile, because the block is a new scope, but it creates a <strong>different</strong> variable that hides the outer one:</p>
+<pre><code class="language-go">var conn *Conn
+if useTLS {
+    conn, err := dialTLS()    // new conn, only inside the if
+    _ = err
+}
+// conn is still nil here
+</code></pre>
+<p>Declare outside and assign inside:</p>
+<pre><code class="language-go">var conn *Conn
+var err error
+if useTLS {
+    conn, err = dialTLS()
+} else {
+    conn, err = dial()
+}
+</code></pre>
+<p>Run <code>go vet</code> with the shadow analyzer to find these:</p>
+<pre><code class="language-bash">go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@latest
+go vet -vettool=$(which shadow) ./...
+</code></pre>
+<h2 id="package-level-variables">Package-level variables</h2>
+<p><code>:=</code> is not allowed outside functions at all (<code>syntax error: non-declaration statement outside function body</code>). At package level use <code>var x = value</code>.</p>
+<p class="upd">Last updated 2026-11-21.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/go/go-cannot-use-as-value-in-assignment/">cannot use x (variable of type T) as U value in assignment</a></li><li><a href="/go/go-declared-and-not-used/">declared and not used</a></li><li><a href="/go/go-undefined/">undefined: X</a></li><li><a href="/go/go-all-goroutines-are-asleep-deadlock/">fatal error: all goroutines are asleep - deadlock!</a></li><li><a href="/go/go-cannot-find-main-module/">go: cannot find main module, but found .git/config</a></li><li><a href="/go/go-cannot-use-nil-as-type/">cannot use nil as string value in assignment</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

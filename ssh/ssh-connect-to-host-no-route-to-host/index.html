@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ssh: connect to host port 22: No route to host — how to fix</title>
+<meta name="description" content="Your machine couldn&#x27;t reach the target IP at the network level. Either the host is down/unreachable (no ARP reply on the local network, no route), or a firewall on the target actively rejects the connection with an ICMP host-unreachable message.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/ssh/ssh-connect-to-host-no-route-to-host/">
+<meta property="og:title" content="ssh: connect to host port 22: No route to host — how to fix"><meta property="og:description" content="Your machine couldn&#x27;t reach the target IP at the network level. Either the host is down/unreachable (no ARP reply on the local network, no route), or a firewall on the target actively rejects the connection with an ICMP host-unreachable message.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/ssh/ssh-connect-to-host-no-route-to-host/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ssh: connect to host port 22: No route to host \u2014 how to fix", "description": "Your machine couldn't reach the target IP at the network level. Either the host is down/unreachable (no ARP reply on the local network, no route), or a firewall on the target actively rejects the connection with an ICMP host-unreachable message.", "dateModified": "2026-11-24", "url": "https://errorfix-hollis.github.io/ssh/ssh-connect-to-host-no-route-to-host/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "SSH", "item": "https://errorfix-hollis.github.io/ssh/"}, {"@type": "ListItem", "position": 3, "name": "ssh: connect to host port 22: No route to host", "item": "https://errorfix-hollis.github.io/ssh/ssh-connect-to-host-no-route-to-host/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/ssh/">SSH</a></p>
+<article><h1>ssh: connect to host port 22: No route to host — how to fix</h1>
+<pre class="err"><code>ssh: connect to host 192.168.1.50 port 22: No route to host
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the host is up and the IP is right: <code>ping 192.168.1.50</code>, <code>ip route get 192.168.1.50</code>. If it pings but SSH says no route, the target's firewall is rejecting port 22: allow it with <code>sudo firewall-cmd --permanent --add-service=ssh &amp;&amp; sudo firewall-cmd --reload</code> (RHEL/Fedora) or <code>sudo ufw allow ssh</code> (Ubuntu). Also check VPN, wrong subnet and whether the VM/container network is bridged.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>No route to host</code> is <code>EHOSTUNREACH</code>. Compare with similar SSH errors:</p>
+<table>
+<thead>
+<tr>
+<th>Error</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Connection refused</code></td>
+<td>Host reached, nothing listening on 22</td>
+</tr>
+<tr>
+<td><code>Connection timed out</code></td>
+<td>Packets silently dropped</td>
+</tr>
+<tr>
+<td><code>No route to host</code></td>
+<td>Host unreachable, or a firewall <em>rejected</em> with ICMP host-unreachable / host-prohibited</td>
+</tr>
+</tbody>
+</table>
+<p>So two very different situations produce it: the host really isn't there, or it is there and its firewall says no.</p>
+<h2 id="step-1-is-the-host-reachable-at-all">Step 1: is the host reachable at all?</h2>
+<pre><code class="language-bash">ping -c 3 192.168.1.50
+ip route get 192.168.1.50     # which interface/gateway would be used
+ip neigh | grep 192.168.1.50  # on the same LAN: FAILED/INCOMPLETE = no ARP reply
+</code></pre>
+<ul>
+<li><strong>No ping reply and ARP <code>FAILED</code></strong> on a local network: the machine is off, asleep, on another network, or has a different IP now (DHCP). Check the IP on the target (<code>ip -4 addr</code>) or your router's client list. Raspberry Pis and laptops often get a new address after a reboot; give them a DHCP reservation.</li>
+<li><strong>Wrong subnet</strong>: you're on <code>192.168.0.x</code> and the target is <code>192.168.1.x</code> with no router between them. Connect to the same network or add a route.</li>
+<li><strong>VPN</strong>: a full-tunnel VPN can route the LAN subnet into the tunnel. Disconnect it or enable "allow local network access".</li>
+</ul>
+<h2 id="step-2-host-pings-but-ssh-says-no-route-firewall">Step 2: host pings, but SSH says no route - firewall</h2>
+<p>RHEL, CentOS, Fedora and Rocky's <code>firewalld</code> (and iptables rules ending in <code>REJECT --reject-with icmp-host-prohibited</code>) return this error for blocked ports. On the target:</p>
+<pre><code class="language-bash">sudo firewall-cmd --list-all
+sudo firewall-cmd --permanent --add-service=ssh    # or --add-port=2222/tcp
+sudo firewall-cmd --reload
+</code></pre>
+<p>Ubuntu/Debian with ufw:</p>
+<pre><code class="language-bash">sudo ufw status
+sudo ufw allow OpenSSH
+</code></pre>
+<p>Raw iptables: <code>sudo iptables -L INPUT -n --line-numbers</code> and look for a <code>REJECT</code> before an <code>ACCEPT</code> for port 22.</p>
+<p>Also make sure <code>sshd</code> is actually running and listening: <code>sudo ss -ltnp | grep sshd</code>.</p>
+<h2 id="step-3-virtual-machines-and-containers">Step 3: virtual machines and containers</h2>
+<ul>
+<li><strong>VirtualBox/VMware with NAT</strong>: the VM's <code>10.0.2.15</code> isn't reachable from the host. Use a bridged or host-only adapter, or a port forward (host 2222 → guest 22) and <code>ssh -p 2222 user@127.0.0.1</code>.</li>
+<li><strong>WSL2</strong>: the WSL VM is behind NAT. Use <code>localhost</code> from Windows, or enable mirrored networking (<code>networkingMode=mirrored</code> in <code>.wslconfig</code>).</li>
+<li><strong>Docker</strong>: containers on the default bridge aren't reachable by their IP from other machines; publish the port (<code>-p 2222:22</code>).</li>
+</ul>
+<h2 id="step-4-cloud-servers">Step 4: cloud servers</h2>
+<p>In AWS, GCP and Azure a missing security group/firewall rule normally causes a <em>timeout</em>, but a wrong subnet route table, a stopped instance, or an IP that changed after stop/start can give <code>No route to host</code>. Check the instance state and current public IP, and that port 22 is allowed from your IP.</p>
+<h2 id="debug-output">Debug output</h2>
+<pre><code class="language-bash">ssh -v user@192.168.1.50
+nc -vz 192.168.1.50 22
+</code></pre>
+<p>If <code>nc</code> also fails with no route, the problem is the network or firewall, not SSH keys or config.</p>
+<p class="upd">Last updated 2026-11-24.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/ssh/ssh-connect-to-host-port-22-connection-refused/">ssh: connect to host port 22: Connection refused</a></li><li><a href="/ssh/ssh-connection-timed-out/">ssh: connect to host port 22: Connection timed out</a></li><li><a href="/ssh/ssh-could-not-resolve-hostname/">ssh: Could not resolve hostname: Name or service not known</a></li><li><a href="/ssh/ssh-bad-configuration-option/">Bad configuration option</a></li><li><a href="/ssh/ssh-bad-owner-or-permissions-on-ssh-config/">Bad owner or permissions on ~/.ssh/config</a></li><li><a href="/ssh/ssh-connection-closed-by-remote-host/">Connection closed by remote host</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;Crypto&#x27; (Python) — how to fix</title>
+<meta name="description" content="The `Crypto` package is provided by PyCryptodome (the maintained replacement for the dead PyCrypto). Installing a package called `crypto` or `pycrypto` does not give you a working `Crypto` module on modern Python.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-crypto/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;Crypto&#x27; (Python) — how to fix"><meta property="og:description" content="The `Crypto` package is provided by PyCryptodome (the maintained replacement for the dead PyCrypto). Installing a package called `crypto` or `pycrypto` does not give you a working `Crypto` module on modern Python.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-crypto/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'Crypto' (Python) \u2014 how to fix", "description": "The `Crypto` package is provided by PyCryptodome (the maintained replacement for the dead PyCrypto). Installing a package called `crypto` or `pycrypto` does not give you a working `Crypto` module on modern Python.", "dateModified": "2026-11-24", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-crypto/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'Crypto'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-crypto/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;Crypto&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 1, in &lt;module&gt;
+    from Crypto.Cipher import AES
+ModuleNotFoundError: No module named &#x27;Crypto&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Uninstall the wrong packages and install PyCryptodome into the same interpreter that runs your code: <code>python -m pip uninstall -y crypto pycrypto</code> then <code>python -m pip install pycryptodome</code>. Keep the import as <code>from Crypto.Cipher import AES</code>. If you want a separate namespace use <code>pip install pycryptodomex</code> and <code>from Cryptodome.Cipher import AES</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>import Crypto</code> (capital C) looks for a package directory called <code>Crypto</code>. Three different PyPI packages are involved, and only one is right today:</p>
+<table>
+<thead>
+<tr>
+<th>PyPI package</th>
+<th>Provides</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pycryptodome</code></td>
+<td><code>Crypto</code></td>
+<td>Maintained, drop-in replacement for PyCrypto</td>
+</tr>
+<tr>
+<td><code>pycryptodomex</code></td>
+<td><code>Cryptodome</code></td>
+<td>Same code, separate namespace</td>
+</tr>
+<tr>
+<td><code>pycrypto</code></td>
+<td><code>Crypto</code></td>
+<td>Dead since 2013, fails to build on Python 3.10+</td>
+</tr>
+<tr>
+<td><code>crypto</code></td>
+<td><code>crypto</code> (lowercase)</td>
+<td>Unrelated command-line tool</td>
+</tr>
+</tbody>
+</table>
+<h2 id="fix-1-install-pycryptodome">Fix 1: install PyCryptodome</h2>
+<pre><code class="language-bash">python -m pip uninstall -y crypto pycrypto
+python -m pip install pycryptodome
+</code></pre>
+<p>Using <code>python -m pip</code> guarantees the package goes into the interpreter you run. Verify:</p>
+<pre><code class="language-bash">python -c &quot;import Crypto; print(Crypto.__version__)&quot;
+</code></pre>
+<p>Add <code>pycryptodome</code> (not <code>pycrypto</code>) to <code>requirements.txt</code>.</p>
+<h2 id="fix-2-leftover-crypto-or-pycrypto-breaks-the-folder-name">Fix 2: leftover <code>crypto</code> or <code>pycrypto</code> breaks the folder name</h2>
+<p>If you installed <code>crypto</code> first, it may have created a lowercase <code>crypto</code> folder in <code>site-packages</code>. On case-insensitive filesystems (Windows, macOS) this can clash with <code>Crypto</code>. After uninstalling, check for stale folders:</p>
+<pre><code class="language-bash">python -c &quot;import site; print(site.getsitepackages())&quot;
+</code></pre>
+<p>Delete any leftover <code>crypto</code>/<code>Crypto</code> directory there, then reinstall <code>pycryptodome</code> with <code>--force-reinstall</code>.</p>
+<h2 id="fix-3-wrong-interpreter-or-virtual-environment">Fix 3: wrong interpreter or virtual environment</h2>
+<p>Installed but still missing? Your editor or script uses another Python:</p>
+<pre><code class="language-bash">which python; python -m pip show pycryptodome
+</code></pre>
+<p>In VS Code pick the venv via <em>Python: Select Interpreter</em>. In Jupyter run <code>%pip install pycryptodome</code> inside the notebook so it installs into the kernel's environment.</p>
+<h2 id="fix-4-use-the-separate-namespace">Fix 4: use the separate namespace</h2>
+<p>If another library still depends on old PyCrypto, install <code>pycryptodomex</code> so both can coexist:</p>
+<pre><code class="language-bash">python -m pip install pycryptodomex
+</code></pre>
+<pre><code class="language-python">from Cryptodome.Cipher import AES
+from Cryptodome.Random import get_random_bytes
+
+key = get_random_bytes(16)
+cipher = AES.new(key, AES.MODE_GCM)
+ciphertext, tag = cipher.encrypt_and_digest(b&quot;secret data&quot;)
+</code></pre>
+<h2 id="api-differences-from-pycrypto">API differences from PyCrypto</h2>
+<p>PyCryptodome is mostly compatible, but some old code needs small changes: <code>AES.new()</code> requires an explicit mode (<code>AES.MODE_GCM</code>, <code>AES.MODE_CBC</code>, ...), and keys and data must be <code>bytes</code>, not <code>str</code> (<code>b"..."</code> or <code>.encode()</code>). Prefer authenticated modes like GCM over ECB.</p>
+<p>If you only need simple symmetric encryption, the <code>cryptography</code> package (<code>from cryptography.fernet import Fernet</code>) is another well-maintained option.</p>
+<p class="upd">Last updated 2026-11-24.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-externally-managed-environment/">error: externally-managed-environment</a></li><li><a href="/python/python-failed-building-wheel/">error: Failed building wheel for X</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

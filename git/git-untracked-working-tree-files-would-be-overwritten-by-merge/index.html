@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: The following untracked working tree files would be overwritten by merge (Git) — how to fix</title>
+<meta name="description" content="Files that exist in your folder but are not tracked by git are also present in the commit you are pulling, merging or checking out. Git refuses to silently replace them.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-untracked-working-tree-files-would-be-overwritten-by-merge/">
+<meta property="og:title" content="error: The following untracked working tree files would be overwritten by merge (Git) — how to fix"><meta property="og:description" content="Files that exist in your folder but are not tracked by git are also present in the commit you are pulling, merging or checking out. Git refuses to silently replace them.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-untracked-working-tree-files-would-be-overwritten-by-merge/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: The following untracked working tree files would be overwritten by merge (Git) \u2014 how to fix", "description": "Files that exist in your folder but are not tracked by git are also present in the commit you are pulling, merging or checking out. Git refuses to silently replace them.", "dateModified": "2026-11-24", "url": "https://errorfix-hollis.github.io/git/git-untracked-working-tree-files-would-be-overwritten-by-merge/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "error: The following untracked working tree files would be overwritten by merge", "item": "https://errorfix-hollis.github.io/git/git-untracked-working-tree-files-would-be-overwritten-by-merge/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>error: The following untracked working tree files would be overwritten by merge (Git) — how to fix</h1>
+<pre class="err"><code>error: The following untracked working tree files would be overwritten by merge:
+        config/settings.json
+        src/generated/schema.ts
+Please move or remove them before you merge.
+Aborting
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Back up anything you need, then remove only the listed files and retry: <code>git clean -n</code> to preview, <code>git clean -f -- path/to/file</code> (or just <code>rm</code> them), then <code>git pull</code>. To keep your versions, move them aside first. To take the remote version of everything: <code>git fetch &amp;&amp; git reset --hard origin/main</code> (destroys local changes).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>An <em>untracked</em> file is in your working directory but has never been committed (<code>git status</code> shows it under "Untracked files"). The incoming commit adds a file at the same path. Git has no copy of your version, so overwriting it would lose data permanently. It aborts instead and leaves everything as it was.</p>
+<p>Common reasons: you created the file by hand before someone committed it, a build step generated it, or a file was removed from <code>.gitignore</code> upstream and committed.</p>
+<p>The same message appears with <code>by checkout</code> when switching branches, and with <code>git rebase</code>.</p>
+<h2 id="fix-1-remove-or-move-the-listed-files-safe-recommended">Fix 1: remove or move the listed files (safe, recommended)</h2>
+<p>First check whether your copy differs from the incoming one:</p>
+<pre><code class="language-bash">git fetch
+git diff --no-index config/settings.json &lt;(git show origin/main:config/settings.json)
+</code></pre>
+<p>If you don't need them, delete just those files and pull again:</p>
+<pre><code class="language-bash">rm config/settings.json src/generated/schema.ts
+git pull
+</code></pre>
+<p>If you want to keep them for reference, move them out of the way:</p>
+<pre><code class="language-bash">mkdir -p ../backup &amp;&amp; mv config/settings.json ../backup/
+git pull
+</code></pre>
+<h2 id="fix-2-many-files-git-clean">Fix 2: many files - <code>git clean</code></h2>
+<p><code>git clean</code> deletes untracked files. Always do a dry run first:</p>
+<pre><code class="language-bash">git clean -n            # list what would be deleted
+git clean -f            # delete untracked files
+git clean -fd           # ... and untracked directories
+</code></pre>
+<p><code>git clean</code> does not delete ignored files unless you add <code>-x</code>. Scope it to a path to be safe: <code>git clean -fd -- src/generated/</code>.</p>
+<h2 id="fix-3-stash-untracked-files-too">Fix 3: stash untracked files too</h2>
+<pre><code class="language-bash">git stash push --include-untracked
+git pull
+git stash pop
+</code></pre>
+<p><code>stash pop</code> may then report conflicts for those files; resolve as usual. Plain <code>git stash</code> ignores untracked files, which is why it doesn't help on its own.</p>
+<h2 id="fix-4-take-the-remote-version-of-everything">Fix 4: take the remote version of everything</h2>
+<p>When the local copy is a throwaway clone (CI, server deployment):</p>
+<pre><code class="language-bash">git fetch origin
+git reset --hard origin/main
+git clean -fd
+</code></pre>
+<p>This discards all local commits and changes. For checkout between branches, <code>git checkout -f other-branch</code> overwrites untracked files that conflict.</p>
+<h2 id="prevent-it">Prevent it</h2>
+<p>Generated files (build output, <code>.env</code>, IDE folders, lockfiles you regenerate) should not be committed. Add them to <code>.gitignore</code> (the <a href="/tools/gitignore-generator/">gitignore generator</a> helps) and remove them from the repo with <code>git rm --cached path</code>. If a teammate committed a generated file, agree on one policy, otherwise everyone hits this error after every build.</p>
+<h2 id="tracked-files-version">Tracked files version</h2>
+<p>If git lists files with <em>"Your local changes to the following files would be overwritten"</em>, they are tracked and modified; see <a href="/git/git-your-local-changes-would-be-overwritten/">Your local changes would be overwritten</a>.</p>
+<p class="upd">Last updated 2026-11-24.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li><li><a href="/git/git-merge-conflict/">CONFLICT (content): Merge conflict in</a></li><li><a href="/git/git-your-local-changes-would-be-overwritten/">error: Your local changes to the following files would be overwritten by merge</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-conflict-modify-delete/">CONFLICT (modify/delete): deleted in HEAD and modified in ...</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

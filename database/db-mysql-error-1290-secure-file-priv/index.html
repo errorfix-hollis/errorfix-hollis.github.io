@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR 1290 (HY000): The MySQL server is running with the --secure-file-priv option so it cannot execute this statement — how to fix</title>
+<meta name="description" content="SELECT ... INTO OUTFILE or LOAD DATA INFILE tried to use a path outside the directory allowed by secure_file_priv. Use the allowed directory, use LOAD DATA LOCAL, or change the setting.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-mysql-error-1290-secure-file-priv/">
+<meta property="og:title" content="ERROR 1290 (HY000): The MySQL server is running with the --secure-file-priv option so it cannot execute this statement — how to fix"><meta property="og:description" content="SELECT ... INTO OUTFILE or LOAD DATA INFILE tried to use a path outside the directory allowed by secure_file_priv. Use the allowed directory, use LOAD DATA LOCAL, or change the setting.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-mysql-error-1290-secure-file-priv/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR 1290 (HY000): The MySQL server is running with the --secure-file-priv option so it cannot execute this statement \u2014 how to fix", "description": "SELECT ... INTO OUTFILE or LOAD DATA INFILE tried to use a path outside the directory allowed by secure_file_priv. Use the allowed directory, use LOAD DATA LOCAL, or change the setting.", "dateModified": "2026-11-22", "url": "https://errorfix-hollis.github.io/database/db-mysql-error-1290-secure-file-priv/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR 1290 (HY000): The MySQL server is running with the --secure-file-priv option so it cannot execute this statement", "item": "https://errorfix-hollis.github.io/database/db-mysql-error-1290-secure-file-priv/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR 1290 (HY000): The MySQL server is running with the --secure-file-priv option so it cannot execute this statement — how to fix</h1>
+<pre class="err"><code>ERROR 1290 (HY000): The MySQL server is running with the --secure-file-priv option so it cannot execute this statement
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>SHOW VARIABLES LIKE 'secure_file_priv';</code> and write/read files only inside that directory (e.g. <code>/var/lib/mysql-files/</code>). For importing client-side files use <code>LOAD DATA LOCAL INFILE</code> with <code>local_infile</code> enabled. To change it, set <code>secure-file-priv=</code> in my.cnf under <code>[mysqld]</code> and restart MySQL.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>secure_file_priv</code> restricts which server-side directory MySQL may read from (<code>LOAD DATA INFILE</code>, <code>LOAD_FILE()</code>) and write to (<code>SELECT ... INTO OUTFILE</code>). Check it:</p>
+<pre><code class="language-sql">SHOW VARIABLES LIKE 'secure_file_priv';
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>a path, e.g. <code>/var/lib/mysql-files/</code></td>
+<td>only files in that directory</td>
+</tr>
+<tr>
+<td>empty string</td>
+<td>any path the mysqld user can access</td>
+</tr>
+<tr>
+<td><code>NULL</code></td>
+<td>import/export disabled entirely</td>
+</tr>
+</tbody>
+</table>
+<p>Default on Linux packages is <code>/var/lib/mysql-files/</code>; on Windows <code>C:\ProgramData\MySQL\MySQL Server 8.0\Uploads\</code>.</p>
+<h2 id="fix-1-use-the-allowed-directory">Fix 1: use the allowed directory</h2>
+<pre><code class="language-sql">SELECT id, name, email
+INTO OUTFILE '/var/lib/mysql-files/users.csv'
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '&quot;'
+LINES TERMINATED BY '\n'
+FROM users;
+</code></pre>
+<p>Then copy it out: <code>sudo cp /var/lib/mysql-files/users.csv ~/</code>. On Windows use forward slashes: <code>'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/users.csv'</code>.</p>
+<p><code>INTO OUTFILE</code> won't overwrite an existing file (error 1086); delete it first. The file is written on the <strong>database server</strong>, not your client machine.</p>
+<h2 id="fix-2-import-a-client-side-file-with-load-data-local">Fix 2: import a client-side file with LOAD DATA LOCAL</h2>
+<p><code>LOCAL</code> makes the client read the file and send it, so <code>secure_file_priv</code> doesn't apply:</p>
+<pre><code class="language-bash">mysql --local-infile=1 -u root -p mydb
+</code></pre>
+<pre><code class="language-sql">SET GLOBAL local_infile = 1;   -- server side, needs admin
+LOAD DATA LOCAL INFILE '/home/me/users.csv'
+INTO TABLE users
+FIELDS TERMINATED BY ',' ENCLOSED BY '&quot;'
+LINES TERMINATED BY '\n'
+IGNORE 1 LINES;
+</code></pre>
+<p>Without both settings you get <code>ERROR 3948 (42000): Loading local data is disabled</code>. In MySQL Workbench add <code>OPT_LOCAL_INFILE=1</code> under <em>Connection → Advanced → Others</em>.</p>
+<h2 id="fix-3-export-from-the-client-instead">Fix 3: export from the client instead</h2>
+<p>You often don't need <code>INTO OUTFILE</code> at all:</p>
+<pre><code class="language-bash">mysql -u root -p -B -e &quot;SELECT * FROM users&quot; mydb &gt; users.tsv
+</code></pre>
+<p><code>-B</code> gives tab-separated output. Convert CSV to JSON afterwards with the <a href="/tools/csv-to-json/">CSV to JSON tool</a> if needed.</p>
+<h2 id="fix-4-change-secure_file_priv">Fix 4: change secure_file_priv</h2>
+<p>It's read-only at runtime; set it in the config and restart. In <code>/etc/mysql/mysql.conf.d/mysqld.cnf</code> (or <code>my.cnf</code> / <code>my.ini</code>):</p>
+<pre><code class="language-ini">[mysqld]
+secure-file-priv = /srv/mysql-io
+</code></pre>
+<pre><code class="language-bash">sudo mkdir -p /srv/mysql-io &amp;&amp; sudo chown mysql:mysql /srv/mysql-io
+sudo systemctl restart mysql
+</code></pre>
+<p><code>secure-file-priv = ""</code> removes the restriction, which is less secure. On Ubuntu, AppArmor also limits mysqld paths; add the new directory to <code>/etc/apparmor.d/local/usr.sbin.mysqld</code> and reload AppArmor. In Docker, pass <code>--secure-file-priv=/path</code> as a command argument and mount that directory.</p>
+<p>The user also needs the <code>FILE</code> privilege for server-side files: <code>GRANT FILE ON *.* TO 'app'@'localhost';</code>.</p>
+<p class="upd">Last updated 2026-11-22.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li><li><a href="/database/db-mysql-error-1366-incorrect-string-value/">ERROR 1366 (HY000): Incorrect string value</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1046-no-database-selected/">ERROR 1046 (3D000): No database selected</a></li><li><a href="/database/db-mysql-error-1049-unknown-database/">ERROR 1049 (42000): Unknown database</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

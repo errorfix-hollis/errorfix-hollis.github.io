@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>java.net.SocketTimeoutException: Read timed out — how to fix</title>
+<meta name="description" content="The TCP connection was established, but the server sent no data within the read (socket) timeout. The server is slow, stuck, or a proxy/firewall is swallowing the response. It differs from `connect timed out`, which means the connection was never opened.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-sockettimeoutexception-read-timed-out/">
+<meta property="og:title" content="java.net.SocketTimeoutException: Read timed out — how to fix"><meta property="og:description" content="The TCP connection was established, but the server sent no data within the read (socket) timeout. The server is slow, stuck, or a proxy/firewall is swallowing the response. It differs from `connect timed out`, which means the connection was never opened.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-sockettimeoutexception-read-timed-out/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "java.net.SocketTimeoutException: Read timed out \u2014 how to fix", "description": "The TCP connection was established, but the server sent no data within the read (socket) timeout. The server is slow, stuck, or a proxy/firewall is swallowing the response. It differs from `connect timed out`, which means the connection was never opened.", "dateModified": "2026-11-23", "url": "https://errorfix-hollis.github.io/java/java-sockettimeoutexception-read-timed-out/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "java.net.SocketTimeoutException: Read timed out", "item": "https://errorfix-hollis.github.io/java/java-sockettimeoutexception-read-timed-out/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>java.net.SocketTimeoutException: Read timed out — how to fix</h1>
+<pre class="err"><code>java.net.SocketTimeoutException: Read timed out
+	at java.base/sun.nio.ch.NioSocketImpl.timedFinishRead(NioSocketImpl.java:288)
+	at java.base/sun.nio.ch.NioSocketImpl.implRead(NioSocketImpl.java:314)
+	at java.base/java.net.Socket$SocketInputStream.read(Socket.java:1099)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find out why the server is slow (check its logs, run the same request with <code>curl -m 120 -v</code>). If the operation is legitimately long, raise the read timeout on your client: <code>HttpURLConnection.setReadTimeout(60000)</code>, <code>HttpClient</code> <code>HttpRequest.newBuilder().timeout(Duration.ofSeconds(60))</code>, OkHttp <code>.readTimeout(60, SECONDS)</code>, JDBC <code>socketTimeout=60000</code>. Don't set it to 0 (infinite).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Two separate timeouts exist on a socket:</p>
+<ul>
+<li><strong>connect timeout</strong>: how long to wait for the TCP handshake. Exceeding it gives <code>SocketTimeoutException: connect timed out</code> (host unreachable, firewall drop, wrong IP).</li>
+<li><strong>read timeout</strong> (<code>SO_TIMEOUT</code>): the maximum gap between bytes once connected. Exceeding it gives <code>Read timed out</code>.</li>
+</ul>
+<p>So with <code>Read timed out</code>, the network path works; the server just didn't answer in time. It is not a total-request timeout: a slow trickle of data resets it.</p>
+<h2 id="step-1-measure-the-real-response-time">Step 1: measure the real response time</h2>
+<pre><code class="language-bash">curl -v -o /dev/null -m 120 -w 'connect=%{time_connect}s first-byte=%{time_starttransfer}s total=%{time_total}s\n' https://api.example.com/report
+</code></pre>
+<p>If <code>first-byte</code> is larger than your client's read timeout, either speed the server up or raise the timeout. If curl also hangs forever, the server (or a proxy in between) never responds: look at server logs, thread dumps (<code>jstack &lt;pid&gt;</code>), DB locks and slow queries.</p>
+<h2 id="fix-1-set-the-timeout-on-your-http-client">Fix 1: set the timeout on your HTTP client</h2>
+<p><code>HttpURLConnection</code> (default is infinite unless a library sets it):</p>
+<pre><code class="language-java">HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+c.setConnectTimeout(5_000);
+c.setReadTimeout(60_000);
+</code></pre>
+<p>Java 11+ <code>HttpClient</code> (throws <code>HttpTimeoutException</code> instead):</p>
+<pre><code class="language-java">HttpClient client = HttpClient.newBuilder()
+    .connectTimeout(Duration.ofSeconds(5)).build();
+HttpRequest req = HttpRequest.newBuilder(URI.create(url))
+    .timeout(Duration.ofSeconds(60)).build();
+</code></pre>
+<p>OkHttp (default 10 s read):</p>
+<pre><code class="language-java">OkHttpClient client = new OkHttpClient.Builder()
+    .connectTimeout(5, TimeUnit.SECONDS)
+    .readTimeout(60, TimeUnit.SECONDS)
+    .build();
+</code></pre>
+<p>Spring <code>RestTemplate</code>:</p>
+<pre><code class="language-java">SimpleClientHttpRequestFactory f = new SimpleClientHttpRequestFactory();
+f.setConnectTimeout(5_000);
+f.setReadTimeout(60_000);
+RestTemplate rest = new RestTemplate(f);
+</code></pre>
+<p>Spring Cloud OpenFeign (<code>application.yml</code>):</p>
+<pre><code class="language-yaml">spring:
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connect-timeout: 5000
+            read-timeout: 60000
+</code></pre>
+<h2 id="fix-2-database-connections">Fix 2: database connections</h2>
+<p>JDBC drivers raise it when a query runs longer than the socket timeout.</p>
+<pre><code>jdbc:mysql://db:3306/app?connectTimeout=5000&amp;socketTimeout=60000
+jdbc:postgresql://db:5432/app?connectTimeout=5&amp;socketTimeout=60
+</code></pre>
+<p>(MySQL Connector/J uses milliseconds, the PostgreSQL driver uses seconds.) Usually the better fix is the slow query: check <code>EXPLAIN</code>, missing indexes and lock waits.</p>
+<h2 id="fix-3-a-proxy-or-load-balancer-in-between">Fix 3: a proxy or load balancer in between</h2>
+<p>If the backend is fast when called directly but times out through a proxy, the proxy may be buffering or dropping idle connections. Check <code>proxy_read_timeout</code> in nginx, the idle timeout of AWS ALB (60 s default), and corporate proxies (<code>-Dhttps.proxyHost</code>). Long jobs are better as async: return <code>202 Accepted</code> and poll.</p>
+<h2 id="fix-4-stale-pooled-connections">Fix 4: stale pooled connections</h2>
+<p>Intermittent <code>Read timed out</code> on the first request after idle can mean a pooled keep-alive connection was silently dropped by a NAT/firewall. Evict idle connections (Apache HttpClient <code>evictIdleConnections(30, SECONDS)</code>), and enable retries for idempotent requests only.</p>
+<h2 id="dont">Don't</h2>
+<p>Avoid <code>setReadTimeout(0)</code>: an infinite timeout turns a slow server into hung threads in your app. Pick a value above the server's p99 latency and handle the exception (retry with backoff or fail fast).</p>
+<p class="upd">Last updated 2026-11-23.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-connectexception-connection-refused/">java.net.ConnectException: Connection refused</a></li><li><a href="/java/java-spring-failed-to-configure-a-datasource/">Failed to configure a DataSource: &#x27;url&#x27; attribute is not specified and no embedded datasource could be configured.</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

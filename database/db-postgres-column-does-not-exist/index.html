@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR: column does not exist (PostgreSQL) — how to fix</title>
+<meta name="description" content="PostgreSQL couldn&#x27;t find a column with that exact name. Usually a case-sensitivity issue (columns created with double quotes and capital letters), a string written in double quotes instead of single quotes, or a typo/missing migration.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-column-does-not-exist/">
+<meta property="og:title" content="ERROR: column does not exist (PostgreSQL) — how to fix"><meta property="og:description" content="PostgreSQL couldn&#x27;t find a column with that exact name. Usually a case-sensitivity issue (columns created with double quotes and capital letters), a string written in double quotes instead of single quotes, or a typo/missing migration.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-column-does-not-exist/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR: column does not exist (PostgreSQL) \u2014 how to fix", "description": "PostgreSQL couldn't find a column with that exact name. Usually a case-sensitivity issue (columns created with double quotes and capital letters), a string written in double quotes instead of single quotes, or a typo/missing migration.", "dateModified": "2026-11-17", "url": "https://errorfix-hollis.github.io/database/db-postgres-column-does-not-exist/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR: column does not exist", "item": "https://errorfix-hollis.github.io/database/db-postgres-column-does-not-exist/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR: column does not exist (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>ERROR:  column &quot;username&quot; does not exist
+LINE 1: SELECT username FROM users;
+               ^
+HINT:  Perhaps you meant to reference the column &quot;users.userName&quot;.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> If the column was created as "userName", you must quote it: <code>SELECT "userName" FROM users;</code>. Use single quotes for string values: <code>WHERE name = 'bob'</code>, not <code>"bob"</code>. List real column names with <code>\d users</code> in psql. Long-term, rename to lowercase: <code>ALTER TABLE users RENAME COLUMN "userName" TO user_name;</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>PostgreSQL folds unquoted identifiers to <strong>lowercase</strong>. <code>SELECT userName</code> is really <code>SELECT username</code>. Quoted identifiers keep their exact case. So if a table was created with a quoted mixed-case column (very common with ORMs like Prisma, Sequelize, TypeORM, EF Core), unquoted queries won't find it.</p>
+<p>The <code>HINT</code> line, when present, usually gives the correct name.</p>
+<h2 id="cause-1-mixed-case-column-names">Cause 1: mixed-case column names</h2>
+<pre><code class="language-sql">CREATE TABLE users (&quot;userName&quot; text);
+SELECT userName FROM users;     -- ERROR: column &quot;username&quot; does not exist
+</code></pre>
+<h2 id="fix-1-quote-it-or-rename-to-lowercase">Fix 1: quote it, or rename to lowercase</h2>
+<pre><code class="language-sql">SELECT &quot;userName&quot; FROM users;
+</code></pre>
+<p>Better long-term (if you control the schema and code):</p>
+<pre><code class="language-sql">ALTER TABLE users RENAME COLUMN &quot;userName&quot; TO user_name;
+</code></pre>
+<p>Check the real names:</p>
+<pre><code class="language-sql">\d users
+-- or
+SELECT column_name FROM information_schema.columns WHERE table_name = 'users';
+</code></pre>
+<h2 id="cause-2-double-quotes-around-a-string-value">Cause 2: double quotes around a string value</h2>
+<p>In SQL, double quotes mean <em>identifier</em>, single quotes mean <em>string</em>:</p>
+<pre><code class="language-sql">SELECT * FROM users WHERE name = &quot;bob&quot;;   -- ERROR: column &quot;bob&quot; does not exist
+</code></pre>
+<h2 id="fix-2-use-single-quotes">Fix 2: use single quotes</h2>
+<pre><code class="language-sql">SELECT * FROM users WHERE name = 'bob';
+</code></pre>
+<p>Escape a single quote inside a string by doubling it: <code>'O''Brien'</code>. In application code, use parameters (<code>WHERE name = $1</code>) instead of building strings.</p>
+<h2 id="cause-3-referencing-a-select-alias-in-where">Cause 3: referencing a SELECT alias in WHERE</h2>
+<pre><code class="language-sql">SELECT price * qty AS total FROM orders WHERE total &gt; 100;
+-- ERROR: column &quot;total&quot; does not exist
+</code></pre>
+<p><code>WHERE</code> is evaluated before the select list, so aliases aren't visible there (they are in <code>ORDER BY</code>).</p>
+<h2 id="fix-3-repeat-the-expression-or-use-a-subquery">Fix 3: repeat the expression or use a subquery</h2>
+<pre><code class="language-sql">SELECT price * qty AS total FROM orders WHERE price * qty &gt; 100;
+
+SELECT * FROM (SELECT price * qty AS total FROM orders) t WHERE total &gt; 100;
+</code></pre>
+<h2 id="cause-4-the-column-really-isnt-there">Cause 4: the column really isn't there</h2>
+<ul>
+<li>A migration wasn't applied to this database: run your migration tool (<code>npx prisma migrate deploy</code>, <code>rails db:migrate</code>, <code>alembic upgrade head</code>, <code>python manage.py migrate</code>).</li>
+<li>You're connected to a different database or schema than you think: <code>SELECT current_database(), current_schema();</code>.</li>
+<li>The column belongs to another table in a join - qualify it: <code>u.email</code> instead of <code>email</code>.</li>
+</ul>
+<h2 id="cause-5-wrong-table-in-update-from-or-in-a-trigger">Cause 5: wrong table in UPDATE ... FROM or in a trigger</h2>
+<p><code>ERROR: column "x" does not exist</code> raised from a trigger function references <code>NEW.x</code> where the table has no <code>x</code>. Check the <code>CONTEXT:</code> line, which names the function, and fix the function body.</p>
+<h2 id="cause-6-quoted-names-with-spaces-or-exact-case-from-spreadsheets">Cause 6: quoted names with spaces or exact case from spreadsheets</h2>
+<p>Imported CSVs often create columns like <code>"First Name"</code> or <code>"Email "</code> (trailing space). Quote them exactly, or rename once:</p>
+<pre><code class="language-sql">ALTER TABLE contacts RENAME COLUMN &quot;First Name&quot; TO first_name;
+</code></pre>
+<p class="upd">Last updated 2026-11-17.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-postgres-current-transaction-is-aborted/">ERROR: current transaction is aborted, commands ignored until end of transaction block</a></li><li><a href="/database/db-postgres-duplicate-key-value-violates-unique-constraint/">ERROR: duplicate key value violates unique constraint</a></li><li><a href="/database/db-postgres-relation-does-not-exist/">ERROR: relation does not exist</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1046-no-database-selected/">ERROR 1046 (3D000): No database selected</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

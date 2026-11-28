@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SSL_ERROR_RX_RECORD_TOO_LONG — how to fix</title>
+<meta name="description" content="Firefox expected a TLS handshake but the server answered with plain HTTP (or another non-TLS protocol) on that port. Almost always a server misconfiguration: HTTPS port without SSL enabled, or https:// used on an HTTP-only port.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-ssl-error-rx-record-too-long/">
+<meta property="og:title" content="SSL_ERROR_RX_RECORD_TOO_LONG — how to fix"><meta property="og:description" content="Firefox expected a TLS handshake but the server answered with plain HTTP (or another non-TLS protocol) on that port. Almost always a server misconfiguration: HTTPS port without SSL enabled, or https:// used on an HTTP-only port.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-ssl-error-rx-record-too-long/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "SSL_ERROR_RX_RECORD_TOO_LONG \u2014 how to fix", "description": "Firefox expected a TLS handshake but the server answered with plain HTTP (or another non-TLS protocol) on that port. Almost always a server misconfiguration: HTTPS port without SSL enabled, or https:// used on an HTTP-only port.", "dateModified": "2026-11-24", "url": "https://errorfix-hollis.github.io/web/web-ssl-error-rx-record-too-long/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "SSL_ERROR_RX_RECORD_TOO_LONG", "item": "https://errorfix-hollis.github.io/web/web-ssl-error-rx-record-too-long/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>SSL_ERROR_RX_RECORD_TOO_LONG — how to fix</h1>
+<pre class="err"><code>Secure Connection Failed
+An error occurred during a connection to example.com. SSL received a record that exceeded the maximum permissible length.
+Error code: SSL_ERROR_RX_RECORD_TOO_LONG
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Test with <code>curl -v http://example.com:443/</code>: if you get an HTTP response, the port speaks plain HTTP. In nginx use <code>listen 443 ssl;</code> (not just <code>listen 443;</code>) with <code>ssl_certificate</code> set; in Apache enable <code>mod_ssl</code> and a <code>&lt;VirtualHost *:443&gt;</code> with <code>SSLEngine on</code>. If it's your dev server, open <code>http://</code> instead of <code>https://</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>A TLS record has a 5-byte header containing a length. When the server sends <code>HTTP/1.1 400 Bad Request</code> instead of TLS, Firefox reads the text bytes as a header, gets an absurd length, and reports a record that is "too long". Chrome shows the same situation as <code>ERR_SSL_PROTOCOL_ERROR</code>; curl and OpenSSL say <code>wrong version number</code>.</p>
+<p>Confirm from a terminal:</p>
+<pre><code class="language-bash">curl -v https://example.com/         # SSL routines::wrong version number
+curl -v http://example.com:443/      # gets an HTTP answer = port 443 speaks plain HTTP
+openssl s_client -connect example.com:443 -servername example.com
+</code></pre>
+<h2 id="cause-1-nginx-listens-on-443-without-ssl">Cause 1: nginx listens on 443 without <code>ssl</code></h2>
+<pre><code class="language-nginx">server {
+    listen 443;              # wrong: plain HTTP on port 443
+    server_name example.com;
+}
+</code></pre>
+<p>Fix:</p>
+<pre><code class="language-nginx">server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;                # nginx 1.25.1+; older: listen 443 ssl http2;
+    server_name example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+}
+</code></pre>
+<pre><code class="language-bash">sudo nginx -t &amp;&amp; sudo systemctl reload nginx
+</code></pre>
+<p>Every <code>server</code> block listening on 443 needs <code>ssl</code>; one block without it can make that port plain HTTP for the default server. Search with <code>sudo nginx -T | grep -n 'listen'</code>.</p>
+<h2 id="cause-2-apache-without-mod_ssl-or-the-ssl-vhost">Cause 2: Apache without mod_ssl or the SSL vhost</h2>
+<pre><code class="language-bash">sudo a2enmod ssl
+sudo a2ensite default-ssl      # or your own *:443 vhost
+sudo apachectl configtest &amp;&amp; sudo systemctl reload apache2
+</code></pre>
+<p>The 443 vhost needs:</p>
+<pre><code class="language-apache">&lt;VirtualHost *:443&gt;
+    ServerName example.com
+    SSLEngine on
+    SSLCertificateFile    /etc/letsencrypt/live/example.com/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/example.com/privkey.pem
+&lt;/VirtualHost&gt;
+</code></pre>
+<p>If <code>Listen 443</code> exists but no vhost has <code>SSLEngine on</code>, Apache serves HTTP on 443. <code>sudo certbot --apache -d example.com</code> sets this up automatically.</p>
+<h2 id="cause-3-you-used-https-on-an-http-only-port">Cause 3: you used https:// on an HTTP-only port</h2>
+<p>Dev servers (<code>localhost:3000</code>, <code>:8080</code>, Django <code>runserver</code>, Flask) speak plain HTTP. Typing <code>https://localhost:3000</code> gives this error. Use <code>http://</code>. If the browser keeps upgrading to HTTPS, it's HSTS or Firefox's HTTPS-Only mode: add an exception, or clear the site's data. Some apps also redirect to <code>https://</code> themselves (e.g. Django <code>SECURE_SSL_REDIRECT = True</code>, Rails <code>force_ssl</code>) without TLS in front of them.</p>
+<h2 id="cause-4-reverse-proxy-load-balancer-misconfiguration">Cause 4: reverse proxy / load balancer misconfiguration</h2>
+<p>If TLS terminates at a load balancer or Cloudflare, the backend gets plain HTTP. Problems appear when:</p>
+<ul>
+<li>a load balancer listener on 443 is set to TCP/HTTP pass-through to a backend that doesn't do TLS;</li>
+<li>a port forward on your router maps external 443 to the backend's port 80;</li>
+<li>Docker maps <code>-p 443:80</code>.</li>
+</ul>
+<p>Point 443 at a port that actually terminates TLS, or terminate TLS at the proxy.</p>
+<h2 id="cause-5-proxy-settings-in-the-browser">Cause 5: proxy settings in the browser</h2>
+<p>A misconfigured HTTP proxy in Firefox (<em>Settings &gt; Network Settings</em>) or an antivirus doing HTTPS inspection can answer in plain text. Test with <em>No proxy</em> and with the antivirus web shield off.</p>
+<p class="upd">Last updated 2026-11-24.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/web/web-err-ssl-protocol-error/">ERR_SSL_PROTOCOL_ERROR</a></li><li><a href="/web/web-nginx-502-bad-gateway/">502 Bad Gateway (nginx)</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-dns-probe-finished-no-internet/">DNS_PROBE_FINISHED_NO_INTERNET</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

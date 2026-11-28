@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR 1054 (42S22): Unknown column in &#x27;field list&#x27; (MySQL) — how to fix</title>
+<meta name="description" content="MySQL couldn&#x27;t match an identifier in your query to a column of the tables in scope. Typical causes are a typo or missing migration, a string value written without quotes (or in backticks), a SELECT alias used in WHERE, and table aliases used out of scope in joins.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-mysql-error-1054-unknown-column-in-field-list/">
+<meta property="og:title" content="ERROR 1054 (42S22): Unknown column in &#x27;field list&#x27; (MySQL) — how to fix"><meta property="og:description" content="MySQL couldn&#x27;t match an identifier in your query to a column of the tables in scope. Typical causes are a typo or missing migration, a string value written without quotes (or in backticks), a SELECT alias used in WHERE, and table aliases used out of scope in joins.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-mysql-error-1054-unknown-column-in-field-list/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR 1054 (42S22): Unknown column in 'field list' (MySQL) \u2014 how to fix", "description": "MySQL couldn't match an identifier in your query to a column of the tables in scope. Typical causes are a typo or missing migration, a string value written without quotes (or in backticks), a SELECT alias used in WHERE, and table aliases used out of scope in joins.", "dateModified": "2026-11-28", "url": "https://errorfix-hollis.github.io/database/db-mysql-error-1054-unknown-column-in-field-list/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR 1054 (42S22): Unknown column in 'field list'", "item": "https://errorfix-hollis.github.io/database/db-mysql-error-1054-unknown-column-in-field-list/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR 1054 (42S22): Unknown column in &#x27;field list&#x27; (MySQL) — how to fix</h1>
+<pre class="err"><code>ERROR 1054 (42S22): Unknown column &#x27;emial&#x27; in &#x27;field list&#x27;
+ERROR 1054 (42S22): Unknown column &#x27;total&#x27; in &#x27;where clause&#x27;
+ERROR 1054 (42S22): Unknown column &#x27;u.id&#x27; in &#x27;on clause&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check the real columns with <code>SHOW COLUMNS FROM table;</code> and fix the name. Quote string values with single quotes (<code>VALUES ('john')</code>, not <code>VALUES (john)</code> or <code>(`john`)</code>). Don't use SELECT aliases in WHERE: repeat the expression or use HAVING. In joins, use explicit <code>JOIN ... ON</code> instead of mixing commas and JOIN.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The part in quotes at the end tells you <strong>where</strong> in the query MySQL failed to resolve the name:</p>
+<table>
+<thead>
+<tr>
+<th>Message ends with</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>in 'field list'</code></td>
+<td>the SELECT list, or the column list / VALUES / SET of INSERT and UPDATE</td>
+</tr>
+<tr>
+<td><code>in 'where clause'</code></td>
+<td>WHERE</td>
+</tr>
+<tr>
+<td><code>in 'on clause'</code></td>
+<td>a JOIN condition</td>
+</tr>
+<tr>
+<td><code>in 'order clause'</code> / <code>'group statement'</code> / <code>'having clause'</code></td>
+<td>ORDER BY / GROUP BY / HAVING</td>
+</tr>
+</tbody>
+</table>
+<p>Start by listing what actually exists:</p>
+<pre><code class="language-sql">SHOW COLUMNS FROM users;
+-- or
+SELECT column_name FROM information_schema.columns
+WHERE table_schema = DATABASE() AND table_name = 'users';
+</code></pre>
+<h2 id="cause-1-typo-renamed-column-or-migration-not-applied">Cause 1: typo, renamed column, or migration not applied</h2>
+<p><code>emial</code> vs <code>email</code>, <code>userId</code> vs <code>user_id</code>. Column names are not case-sensitive in MySQL, so case is rarely the issue; spelling is. If the column is new, check that the migration ran against <em>this</em> database (<code>SELECT DATABASE();</code>), not a local or test one.</p>
+<h2 id="cause-2-a-string-value-without-quotes">Cause 2: a string value without quotes</h2>
+<p>Unquoted words are treated as column names:</p>
+<pre><code class="language-sql">-- Wrong
+INSERT INTO users (name) VALUES (john);
+INSERT INTO users (name) VALUES (`john`);   -- backticks = identifier
+SELECT * FROM users WHERE status = active;
+
+-- Right
+INSERT INTO users (name) VALUES ('john');
+SELECT * FROM users WHERE status = 'active';
+</code></pre>
+<p>In application code, use parameterized queries instead of building SQL strings, which also prevents SQL injection:</p>
+<pre><code class="language-python">cur.execute(&quot;INSERT INTO users (name) VALUES (%s)&quot;, (name,))
+</code></pre>
+<p>Double quotes work as string quotes in default MySQL, but if <code>ANSI_QUOTES</code> is in <code>sql_mode</code> they become identifier quotes and cause this error. Single quotes are always safe.</p>
+<h2 id="cause-3-select-alias-used-in-where">Cause 3: SELECT alias used in WHERE</h2>
+<p>WHERE is evaluated before the SELECT list, so aliases defined there don't exist yet:</p>
+<pre><code class="language-sql">-- Error: Unknown column 'total' in 'where clause'
+SELECT price * qty AS total FROM order_items WHERE total &gt; 100;
+
+-- Fix: repeat the expression
+SELECT price * qty AS total FROM order_items WHERE price * qty &gt; 100;
+
+-- or filter with HAVING (MySQL allows aliases there)
+SELECT price * qty AS total FROM order_items HAVING total &gt; 100;
+</code></pre>
+<h2 id="cause-4-join-scope-on-clause">Cause 4: join scope ("on clause")</h2>
+<p>Mixing comma joins with explicit JOINs changes precedence: <code>JOIN</code> binds tighter than the comma, so the ON clause can't see the comma-joined table:</p>
+<pre><code class="language-sql">-- Error: Unknown column 'u.id' in 'on clause'
+SELECT * FROM users u, orders o JOIN payments p ON p.user_id = u.id;
+
+-- Fix: explicit joins throughout
+SELECT *
+FROM users u
+JOIN orders o   ON o.user_id = u.id
+JOIN payments p ON p.user_id = u.id;
+</code></pre>
+<p>Also check that each alias prefix (<code>u.</code>, <code>o.</code>) matches an alias you actually declared, and that you aren't using the original table name after giving it an alias.</p>
+<h2 id="cause-5-triggers-views-and-stored-procedures">Cause 5: triggers, views and stored procedures</h2>
+<p>If the failing statement looks correct, a trigger on the table may reference a column that was dropped or renamed (<code>NEW.old_column</code>). Check with <code>SHOW TRIGGERS LIKE 'users';</code>. Views and procedures saved before a schema change fail in the same way; recreate them.</p>
+<h2 id="cause-6-orm-model-out-of-sync">Cause 6: ORM model out of sync</h2>
+<p>When the SQL is generated (Hibernate, Sequelize, Django, Laravel), the model has a field the table lacks. Log the generated SQL, then add a migration or fix the field-to-column mapping.</p>
+<p class="upd">Last updated 2026-11-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-error-1046-no-database-selected/">ERROR 1046 (3D000): No database selected</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li><li><a href="/database/db-postgres-column-does-not-exist/">ERROR: column does not exist</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1049-unknown-database/">ERROR 1049 (42000): Unknown database</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

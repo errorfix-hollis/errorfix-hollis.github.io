@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR 1049 (42000): Unknown database (MySQL) — how to fix</title>
+<meta name="description" content="MySQL/MariaDB is reachable and your login worked, but the database (schema) name you asked for does not exist on that server.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-mysql-error-1049-unknown-database/">
+<meta property="og:title" content="ERROR 1049 (42000): Unknown database (MySQL) — how to fix"><meta property="og:description" content="MySQL/MariaDB is reachable and your login worked, but the database (schema) name you asked for does not exist on that server.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-mysql-error-1049-unknown-database/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR 1049 (42000): Unknown database (MySQL) \u2014 how to fix", "description": "MySQL/MariaDB is reachable and your login worked, but the database (schema) name you asked for does not exist on that server.", "dateModified": "2026-11-21", "url": "https://errorfix-hollis.github.io/database/db-mysql-error-1049-unknown-database/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR 1049 (42000): Unknown database", "item": "https://errorfix-hollis.github.io/database/db-mysql-error-1049-unknown-database/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR 1049 (42000): Unknown database (MySQL) — how to fix</h1>
+<pre class="err"><code>ERROR 1049 (42000): Unknown database &#x27;myapp&#x27;
+java.sql.SQLSyntaxErrorException: Unknown database &#x27;myapp&#x27;
+django.db.utils.OperationalError: (1049, &quot;Unknown database &#x27;myapp&#x27;&quot;)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> List databases with <code>mysql -u root -p -e "SHOW DATABASES;"</code>. If yours is missing, create it: <code>CREATE DATABASE myapp CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;</code>. Otherwise fix the name (case, typos, stray quotes) or point the app at the right server/port.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The client connected and authenticated, then tried to <code>USE</code> the database named in the command or connection string. The server has no schema with that name, so it returns error 1049. Nothing is wrong with the network or the password.</p>
+<p>Check what really exists on the server you are connected to:</p>
+<pre><code class="language-bash">mysql -h 127.0.0.1 -P 3306 -u root -p -e &quot;SHOW DATABASES;&quot;
+</code></pre>
+<h2 id="cause-1-the-database-was-never-created">Cause 1: the database was never created</h2>
+<p>A fresh install, a new container or a new environment has only the system schemas (<code>mysql</code>, <code>information_schema</code>, <code>performance_schema</code>, <code>sys</code>). Create yours:</p>
+<pre><code class="language-sql">CREATE DATABASE myapp CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT ALL PRIVILEGES ON myapp.* TO 'appuser'@'%';
+FLUSH PRIVILEGES;
+</code></pre>
+<p>Then run your migrations (<code>php artisan migrate</code>, <code>python manage.py migrate</code>, Flyway/Liquibase, etc.). Most frameworks create tables but <strong>not</strong> the database itself.</p>
+<h2 id="cause-2-typo-case-or-quoting-in-the-name">Cause 2: typo, case or quoting in the name</h2>
+<p>On Linux, database names are case-sensitive by default (<code>lower_case_table_names=0</code>), so <code>MyApp</code> and <code>myapp</code> are different. Also look for extra characters in <code>.env</code> files:</p>
+<pre><code class="language-ini"># wrong: quotes or trailing spaces become part of the name in some loaders
+DB_DATABASE=&quot;myapp &quot;
+# right
+DB_DATABASE=myapp
+</code></pre>
+<p>For JDBC, the database is the path part of the URL:</p>
+<pre><code>jdbc:mysql://localhost:3306/myapp?useSSL=false
+</code></pre>
+<h2 id="cause-3-connected-to-a-different-server-than-you-think">Cause 3: connected to a different server than you think</h2>
+<p>If you have a local MySQL <em>and</em> a Docker container, <code>localhost</code> may hit the local one (via the Unix socket) while your data is in the container. Force TCP and check the port:</p>
+<pre><code class="language-bash">mysql -h 127.0.0.1 -P 3307 -u root -p -e &quot;SELECT @@hostname, @@port; SHOW DATABASES;&quot;
+</code></pre>
+<h2 id="cause-4-docker-mysql_database-was-ignored">Cause 4: Docker <code>MYSQL_DATABASE</code> was ignored</h2>
+<p>The official <code>mysql</code>/<code>mariadb</code> images only create <code>MYSQL_DATABASE</code> on the <strong>first</strong> start with an empty data directory. If the volume already existed, changing the variable does nothing. Either create the database manually (Cause 1) or reset the volume (this deletes data):</p>
+<pre><code class="language-bash">docker compose down -v
+docker compose up -d
+</code></pre>
+<h2 id="cause-5-restoring-a-dump-into-a-database-that-doesnt-exist">Cause 5: restoring a dump into a database that doesn't exist</h2>
+<p><code>mysql -u root -p myapp &lt; dump.sql</code> fails with 1049 if <code>myapp</code> is missing. Create it first, or produce dumps with <code>--databases myapp</code> so the file contains <code>CREATE DATABASE</code> and <code>USE</code> statements:</p>
+<pre><code class="language-bash">mysql -u root -p -e &quot;CREATE DATABASE IF NOT EXISTS myapp&quot;
+mysql -u root -p myapp &lt; dump.sql
+</code></pre>
+<p class="upd">Last updated 2026-11-21.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-error-1046-no-database-selected/">ERROR 1046 (3D000): No database selected</a></li><li><a href="/database/db-mysql-error-2003-cant-connect-to-mysql-server/">ERROR 2003 (HY000): Can&#x27;t connect to MySQL server on &#x27;host&#x27; (111)</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1054-unknown-column-in-field-list/">ERROR 1054 (42S22): Unknown column in &#x27;field list&#x27;</a></li><li><a href="/database/db-mysql-error-1062-duplicate-entry/">ERROR 1062 (23000): Duplicate entry &#x27;1&#x27; for key &#x27;PRIMARY&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

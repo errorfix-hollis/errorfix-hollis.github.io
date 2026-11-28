@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal: unable to access &#x27;...&#x27;: Could not resolve proxy: proxy.example.com (Git) — how to fix</title>
+<meta name="description" content="Git (via curl) is configured to use an HTTP proxy whose hostname can&#x27;t be resolved. A proxy setting is left over in git config or an environment variable, typically from an office network or VPN you&#x27;re no longer on.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-could-not-resolve-proxy/">
+<meta property="og:title" content="fatal: unable to access &#x27;...&#x27;: Could not resolve proxy: proxy.example.com (Git) — how to fix"><meta property="og:description" content="Git (via curl) is configured to use an HTTP proxy whose hostname can&#x27;t be resolved. A proxy setting is left over in git config or an environment variable, typically from an office network or VPN you&#x27;re no longer on.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-could-not-resolve-proxy/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal: unable to access '...': Could not resolve proxy: proxy.example.com (Git) \u2014 how to fix", "description": "Git (via curl) is configured to use an HTTP proxy whose hostname can't be resolved. A proxy setting is left over in git config or an environment variable, typically from an office network or VPN you're no longer on.", "dateModified": "2026-11-18", "url": "https://errorfix-hollis.github.io/git/git-could-not-resolve-proxy/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "fatal: unable to access '...': Could not resolve proxy: proxy.example.com", "item": "https://errorfix-hollis.github.io/git/git-could-not-resolve-proxy/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>fatal: unable to access &#x27;...&#x27;: Could not resolve proxy: proxy.example.com (Git) — how to fix</h1>
+<pre class="err"><code>fatal: unable to access &#x27;https://github.com/user/repo.git/&#x27;: Could not resolve proxy: proxy.example.com
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find the setting with <code>git config --show-origin --get-regexp 'https?.*proxy'</code> and <code>env | grep -i proxy</code>. Remove it: <code>git config --global --unset http.proxy</code> and <code>git config --global --unset https.proxy</code>, and <code>unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY</code>. If you do need the proxy, fix its hostname or use its IP.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>For HTTPS remotes Git uses libcurl. When a proxy is configured, curl first resolves the <strong>proxy's</strong> hostname, not GitHub's. <code>Could not resolve proxy: X</code> means DNS lookup of <code>X</code> failed. Compare with <code>Could not resolve host: github.com</code>, where no proxy is involved and the remote's name fails.</p>
+<p>So the fix is either to remove a proxy you don't need, or to make the proxy name resolvable.</p>
+<h2 id="step-1-find-where-the-proxy-comes-from">Step 1: find where the proxy comes from</h2>
+<p>Git config (all levels, with the file each comes from):</p>
+<pre><code class="language-bash">git config --show-origin --get-regexp 'https?\..*proxy'
+</code></pre>
+<p>Environment variables (curl honours both cases, plus <code>ALL_PROXY</code>):</p>
+<pre><code class="language-bash">env | grep -i proxy
+</code></pre>
+<p>On Windows PowerShell: <code>Get-ChildItem Env: | Where-Object Name -match proxy</code>.</p>
+<h2 id="fix-1-remove-the-git-proxy-setting">Fix 1: remove the git proxy setting</h2>
+<pre><code class="language-bash">git config --global --unset http.proxy
+git config --global --unset https.proxy
+# if set at system or repo level:
+sudo git config --system --unset http.proxy
+git config --unset http.proxy          # inside the repo
+</code></pre>
+<p>Per-URL proxies look like <code>http.https://github.com.proxy</code>; remove them with the exact key shown in Step 1:</p>
+<pre><code class="language-bash">git config --global --unset http.https://github.com.proxy
+</code></pre>
+<h2 id="fix-2-unset-proxy-environment-variables">Fix 2: unset proxy environment variables</h2>
+<p>For the current shell:</p>
+<pre><code class="language-bash">unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY all_proxy
+</code></pre>
+<p>Then remove the <code>export ..._proxy=</code> lines from <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>~/.profile</code> or <code>/etc/environment</code> so they don't come back. On Windows, delete <code>HTTP_PROXY</code>/<code>HTTPS_PROXY</code> under System Properties → Environment Variables, then open a new terminal.</p>
+<p>To bypass a proxy just for one command without changing anything:</p>
+<pre><code class="language-bash">git -c http.proxy= clone https://github.com/user/repo.git
+</code></pre>
+<h2 id="fix-3-you-need-the-proxy-but-the-name-doesnt-resolve">Fix 3: you need the proxy, but the name doesn't resolve</h2>
+<p>On a corporate network the proxy name often only resolves on the internal DNS or VPN. Connect the VPN, or use the proxy's IP:</p>
+<pre><code class="language-bash">git config --global http.proxy http://10.0.0.5:8080
+</code></pre>
+<p>Check it's reachable: <code>nslookup proxy.example.com</code> and <code>curl -I -x http://proxy.example.com:8080 https://github.com</code>.</p>
+<p>If the proxy needs credentials: <code>http://user:password@proxy:8080</code> (URL-encode special characters in the password with a <a href="/tools/url-encode-decode/">URL encoder</a>). Prefer a credential helper over storing passwords in config.</p>
+<h2 id="fix-4-proxy-only-for-some-hosts">Fix 4: proxy only for some hosts</h2>
+<p>Use per-URL settings so public hosts go direct:</p>
+<pre><code class="language-bash">git config --global http.https://git.internal.corp.proxy http://proxy.corp:8080
+</code></pre>
+<p>Or exclude hosts with <code>no_proxy</code>:</p>
+<pre><code class="language-bash">export no_proxy=localhost,127.0.0.1,github.com
+</code></pre>
+<h2 id="fix-5-switch-to-ssh">Fix 5: switch to SSH</h2>
+<p>SSH remotes don't use <code>http.proxy</code> at all:</p>
+<pre><code class="language-bash">git remote set-url origin git@github.com:user/repo.git
+</code></pre>
+<p>(This requires an SSH key added to your account, and port 22 or <code>ssh.github.com:443</code> must be reachable.)</p>
+<h2 id="typo-in-the-proxy-url">Typo in the proxy URL</h2>
+<p>A malformed value like <code>http.proxy=http//proxy:8080</code> or a stray space makes curl treat part of it as the hostname. Check the exact value with <code>git config --global --get http.proxy</code>.</p>
+<p class="upd">Last updated 2026-11-18.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-could-not-resolve-host/">fatal: unable to access ... Could not resolve host: github.com</a></li><li><a href="/git/git-rpc-failed-curl-92-early-eof/">error: RPC failed; curl 92 HTTP/2 stream 0 was not closed cleanly</a></li><li><a href="/git/git-the-requested-url-returned-error-403/">fatal: unable to access ... The requested URL returned error: 403</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

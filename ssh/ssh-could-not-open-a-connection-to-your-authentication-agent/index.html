@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Could not open a connection to your authentication agent. (SSH) — how to fix</title>
+<meta name="description" content="ssh-add could not reach a running ssh-agent, because no agent is running in this session or the SSH_AUTH_SOCK variable is missing or points to a dead socket. Start an agent in the current shell, then add your key.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/ssh/ssh-could-not-open-a-connection-to-your-authentication-agent/">
+<meta property="og:title" content="Could not open a connection to your authentication agent. (SSH) — how to fix"><meta property="og:description" content="ssh-add could not reach a running ssh-agent, because no agent is running in this session or the SSH_AUTH_SOCK variable is missing or points to a dead socket. Start an agent in the current shell, then add your key.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/ssh/ssh-could-not-open-a-connection-to-your-authentication-agent/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Could not open a connection to your authentication agent. (SSH) \u2014 how to fix", "description": "ssh-add could not reach a running ssh-agent, because no agent is running in this session or the SSH_AUTH_SOCK variable is missing or points to a dead socket. Start an agent in the current shell, then add your key.", "dateModified": "2026-11-28", "url": "https://errorfix-hollis.github.io/ssh/ssh-could-not-open-a-connection-to-your-authentication-agent/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "SSH", "item": "https://errorfix-hollis.github.io/ssh/"}, {"@type": "ListItem", "position": 3, "name": "Could not open a connection to your authentication agent.", "item": "https://errorfix-hollis.github.io/ssh/ssh-could-not-open-a-connection-to-your-authentication-agent/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/ssh/">SSH</a></p>
+<article><h1>Could not open a connection to your authentication agent. (SSH) — how to fix</h1>
+<pre class="err"><code>$ ssh-add ~/.ssh/id_ed25519
+Could not open a connection to your authentication agent.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Start the agent in the current shell and add the key: <code>eval "$(ssh-agent -s)"</code> then <code>ssh-add ~/.ssh/id_ed25519</code>. On Windows (PowerShell as admin): <code>Get-Service ssh-agent | Set-Service -StartupType Automatic</code> and <code>Start-Service ssh-agent</code>. Add <code>AddKeysToAgent yes</code> to <code>~/.ssh/config</code> to load keys automatically.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>ssh-add</code> talks to <code>ssh-agent</code> through a Unix socket whose path is in the <code>SSH_AUTH_SOCK</code> environment variable (on Windows, through a named pipe). This message means that variable is unset, or nothing is listening on it. Newer OpenSSH versions word the same problem as <code>Error connecting to agent: No such file or directory</code> or <code>Connection refused</code>.</p>
+<p>Check:</p>
+<pre><code class="language-bash">echo &quot;$SSH_AUTH_SOCK&quot;
+ssh-add -l     # &quot;The agent has no identities.&quot; = agent OK, just empty
+</code></pre>
+<h2 id="fix-1-start-an-agent-in-this-shell-linux-macos-git-bash-wsl">Fix 1: start an agent in this shell (Linux, macOS, Git Bash, WSL)</h2>
+<p>Running <code>ssh-agent</code> on its own only prints the variables; they must be set in your current shell, which is what <code>eval</code> does:</p>
+<pre><code class="language-bash">eval &quot;$(ssh-agent -s)&quot;
+# Agent pid 12345
+ssh-add ~/.ssh/id_ed25519
+</code></pre>
+<p>The agent lives as long as that session. To avoid repeating it, either let SSH add keys on first use:</p>
+<pre><code class="language-sshconfig"># ~/.ssh/config
+Host *
+    AddKeysToAgent yes
+</code></pre>
+<p>or start the agent from your shell startup file only when none is reachable:</p>
+<pre><code class="language-bash"># ~/.bashrc
+ssh-add -l &gt;/dev/null 2&gt;&amp;1
+if [ $? -eq 2 ]; then
+    eval &quot;$(ssh-agent -s)&quot; &gt;/dev/null
+fi
+</code></pre>
+<p>(<code>ssh-add -l</code> exits with 2 when it can't reach an agent, 1 when the agent has no keys.) Desktop sessions on most Linux distributions and macOS already start an agent, so this mainly matters on servers, WSL and minimal setups.</p>
+<h2 id="fix-2-windows-openssh-powershell-cmd">Fix 2: Windows OpenSSH (PowerShell / cmd)</h2>
+<p>Windows ships <code>ssh-agent</code> as a service that is disabled by default. In an elevated PowerShell:</p>
+<pre><code class="language-powershell">Get-Service ssh-agent | Set-Service -StartupType Automatic
+Start-Service ssh-agent
+</code></pre>
+<p>Then, in a normal shell:</p>
+<pre><code class="language-powershell">ssh-add $env:USERPROFILE\.ssh\id_ed25519
+</code></pre>
+<p>Git for Windows has its own OpenSSH. If Git uses that one while you loaded keys into the Windows agent, point Git at the Windows client:</p>
+<pre><code class="language-powershell">git config --global core.sshCommand &quot;C:/Windows/System32/OpenSSH/ssh.exe&quot;
+</code></pre>
+<h2 id="fix-3-stale-socket-in-tmuxscreen-or-after-reconnecting">Fix 3: stale socket in tmux/screen or after reconnecting</h2>
+<p>A tmux session keeps the <code>SSH_AUTH_SOCK</code> of the login that created it. After you log out and back in, the old socket is gone. Inside tmux:</p>
+<pre><code class="language-bash">eval &quot;$(tmux show-environment -s SSH_AUTH_SOCK)&quot;
+</code></pre>
+<p>or start a new agent with Fix 1.</p>
+<h2 id="fix-4-sudo-or-a-different-user">Fix 4: sudo or a different user</h2>
+<p><code>sudo</code> strips most environment variables, so <code>sudo ssh-add</code> (or <code>sudo git pull</code> with SSH) can't see your agent, and root can't use your user's socket anyway. Run Git and ssh-add as your own user; if you must, <code>sudo --preserve-env=SSH_AUTH_SOCK command</code> passes the variable through.</p>
+<h2 id="fix-5-agent-forwarding">Fix 5: agent forwarding</h2>
+<p>On a remote host reached with <code>ssh -A</code>, <code>SSH_AUTH_SOCK</code> is set only if forwarding is allowed: <code>ForwardAgent yes</code> on the client side for that host and <code>AllowAgentForwarding yes</code> (the default) on the server. Only forward your agent to hosts you trust.</p>
+<h2 id="you-may-not-need-the-agent">You may not need the agent</h2>
+<p>The agent only saves you from typing a passphrase repeatedly. <code>ssh -i ~/.ssh/id_ed25519 host</code>, or an <code>IdentityFile</code> line in <code>~/.ssh/config</code>, works without one.</p>
+<p class="upd">Last updated 2026-11-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-permission-denied-publickey/">git@github.com: Permission denied (publickey).</a></li><li><a href="/ssh/ssh-permission-denied-publickey/">Permission denied (publickey)</a></li><li><a href="/ssh/ssh-unprotected-private-key-file/">WARNING: UNPROTECTED PRIVATE KEY FILE!</a></li><li><a href="/ssh/ssh-bad-configuration-option/">Bad configuration option</a></li><li><a href="/ssh/ssh-bad-owner-or-permissions-on-ssh-config/">Bad owner or permissions on ~/.ssh/config</a></li><li><a href="/ssh/ssh-connect-to-host-no-route-to-host/">ssh: connect to host port 22: No route to host</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

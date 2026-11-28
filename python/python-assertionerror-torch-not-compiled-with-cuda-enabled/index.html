@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AssertionError: Torch not compiled with CUDA enabled (Python) — how to fix</title>
+<meta name="description" content="The installed PyTorch is a CPU-only build, so any .cuda() or .to(&quot;cuda&quot;) call fails. A plain `pip install torch` on Windows or macOS gives you the CPU build; on macOS there is no CUDA at all.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">
+<meta property="og:title" content="AssertionError: Torch not compiled with CUDA enabled (Python) — how to fix"><meta property="og:description" content="The installed PyTorch is a CPU-only build, so any .cuda() or .to(&quot;cuda&quot;) call fails. A plain `pip install torch` on Windows or macOS gives you the CPU build; on macOS there is no CUDA at all.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "AssertionError: Torch not compiled with CUDA enabled (Python) \u2014 how to fix", "description": "The installed PyTorch is a CPU-only build, so any .cuda() or .to(\"cuda\") call fails. A plain `pip install torch` on Windows or macOS gives you the CPU build; on macOS there is no CUDA at all.", "dateModified": "2026-11-28", "url": "https://errorfix-hollis.github.io/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "AssertionError: Torch not compiled with CUDA enabled", "item": "https://errorfix-hollis.github.io/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>AssertionError: Torch not compiled with CUDA enabled (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;train.py&quot;, line 12, in &lt;module&gt;
+    model = model.to(&quot;cuda&quot;)
+  ...
+AssertionError: Torch not compiled with CUDA enabled
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check with <code>python -c "import torch; print(torch.__version__, torch.version.cuda)"</code> (CPU builds show <code>+cpu</code> / <code>None</code>). Reinstall a CUDA build using the command from pytorch.org, e.g. <code>pip uninstall -y torch torchvision torchaudio</code> then <code>pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121</code>. On a Mac, use <code>"mps"</code> instead of <code>"cuda"</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>PyTorch is published in several builds: CPU-only, and builds for specific CUDA versions. The CPU build has no CUDA code inside, so moving a tensor or model to <code>"cuda"</code> raises this assertion. It is not a driver problem (a missing driver gives <code>torch.cuda.is_available() == False</code> with a CUDA build, but not this message).</p>
+<p>Check what you have, using the same interpreter that runs your script:</p>
+<pre><code class="language-bash">python -c &quot;import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())&quot;
+# 2.3.1+cpu None False        &lt;- CPU build
+# 2.3.1+cu121 12.1 True       &lt;- CUDA build working
+</code></pre>
+<h2 id="fix-1-install-a-cuda-build-of-pytorch">Fix 1: install a CUDA build of PyTorch</h2>
+<p>On Windows the default <code>pip install torch</code> from PyPI is CPU-only. Uninstall and install from PyTorch's CUDA index. Pick the exact command for your OS and CUDA version from the selector on pytorch.org ("Get Started"); it looks like:</p>
+<pre><code class="language-bash">pip uninstall -y torch torchvision torchaudio
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li>The wheel bundles its own CUDA runtime, so you don't need the CUDA Toolkit installed, only a recent enough NVIDIA driver. Check the driver with <code>nvidia-smi</code> (the "CUDA Version" it shows is the highest the driver supports).</li>
+<li>Use <code>python -m pip</code> if you have several Pythons, so it installs into the right one.</li>
+<li><code>pip</code> may keep the cached CPU wheel; uninstalling first avoids "requirement already satisfied".</li>
+</ul>
+<h2 id="fix-2-a-dependency-pulled-in-the-cpu-build-again">Fix 2: a dependency pulled in the CPU build again</h2>
+<p>Installing another package afterwards (or <code>pip install -r requirements.txt</code> with a plain <code>torch==x.y.z</code> line) can replace your CUDA build with the PyPI one. Pin the index in requirements:</p>
+<pre><code class="language-text">--extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.3.1+cu121
+</code></pre>
+<p>Re-run the version check after every install step in Docker images and CI.</p>
+<h2 id="fix-3-macos-has-no-cuda">Fix 3: macOS has no CUDA</h2>
+<p>Macs don't have NVIDIA GPUs supported by PyTorch. On Apple Silicon, use the Metal backend:</p>
+<pre><code class="language-python">device = &quot;mps&quot; if torch.backends.mps.is_available() else &quot;cpu&quot;
+model.to(device)
+</code></pre>
+<h2 id="fix-4-write-device-agnostic-code">Fix 4: write device-agnostic code</h2>
+<p>Code copied from tutorials often hard-codes <code>.cuda()</code>. Choose the device once and fall back to CPU:</p>
+<pre><code class="language-python">import torch
+
+if torch.cuda.is_available():
+    device = torch.device(&quot;cuda&quot;)
+elif torch.backends.mps.is_available():
+    device = torch.device(&quot;mps&quot;)
+else:
+    device = torch.device(&quot;cpu&quot;)
+
+model = model.to(device)
+x = x.to(device)
+</code></pre>
+<p>When loading checkpoints saved on a GPU machine, map them to the device you have:</p>
+<pre><code class="language-python">state = torch.load(&quot;model.pt&quot;, map_location=device)
+</code></pre>
+<h2 id="fix-5-no-nvidia-gpu">Fix 5: no NVIDIA GPU</h2>
+<p>AMD GPUs on Linux use the ROCm builds of PyTorch (also listed on pytorch.org), which still use the <code>"cuda"</code> device name. Intel and other GPUs have their own backends. If there is no supported GPU, run on CPU with Fix 4.</p>
+<p class="upd">Last updated 2026-11-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-cuda-out-of-memory/">torch.cuda.OutOfMemoryError: CUDA out of memory</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-torch/">ModuleNotFoundError: No module named &#x27;torch&#x27;</a></li><li><a href="/python/python-runtimeerror-cuda-error-device-side-assert-triggered/">RuntimeError: CUDA error: device-side assert triggered</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

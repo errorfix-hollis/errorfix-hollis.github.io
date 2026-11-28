@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The following signatures were invalid: EXPKEYSIG (Linux) — how to fix</title>
+<meta name="description" content="apt found a valid signature on a repository&#x27;s Release file, but the signing key stored on your system has expired. The vendor has usually extended or rotated the key, so you need to download the current key.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-apt-expkeysig/">
+<meta property="og:title" content="The following signatures were invalid: EXPKEYSIG (Linux) — how to fix"><meta property="og:description" content="apt found a valid signature on a repository&#x27;s Release file, but the signing key stored on your system has expired. The vendor has usually extended or rotated the key, so you need to download the current key.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-apt-expkeysig/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "The following signatures were invalid: EXPKEYSIG (Linux) \u2014 how to fix", "description": "apt found a valid signature on a repository's Release file, but the signing key stored on your system has expired. The vendor has usually extended or rotated the key, so you need to download the current key.", "dateModified": "2026-11-26", "url": "https://errorfix-hollis.github.io/linux/linux-apt-expkeysig/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "The following signatures were invalid: EXPKEYSIG", "item": "https://errorfix-hollis.github.io/linux/linux-apt-expkeysig/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>The following signatures were invalid: EXPKEYSIG (Linux) — how to fix</h1>
+<pre class="err"><code>W: An error occurred during the signature verification. The repository is not updated and the previous index files will be used. GPG error: https://dl.yarnpkg.com/debian stable InRelease: The following signatures were invalid: EXPKEYSIG 23E7166788B63E1E Yarn Packaging &lt;yarn@dan.cx&gt;
+E: The repository &#x27;https://dl.yarnpkg.com/debian stable InRelease&#x27; is not signed.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Re-download the repository's current signing key into the keyring file its sources entry uses, e.g. <code>curl -fsSL https://dl.yarnpkg.com/debian/pubkey.gpg | sudo gpg --dearmor -o /usr/share/keyrings/yarn-archive-keyring.gpg --yes</code>, then <code>sudo apt update</code>. Find the key file with <code>grep -r signed-by /etc/apt/sources.list.d/</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>apt verifies each repository's <code>InRelease</code>/<code>Release.gpg</code> file with the keys it trusts. <code>EXPKEYSIG &lt;keyid&gt;</code> means the signature was made with a key you have, but your copy of that key is past its expiry date. apt then refuses to use the repository (newer apt versions make this an error; older ones a warning that uses stale package lists).</p>
+<p>This is different from <code>NO_PUBKEY</code> (you don't have the key at all, see <a href="/linux/linux-apt-no-pubkey/">NO_PUBKEY</a>) and <code>KEYEXPIRED</code> (similar meaning, reported by gpgv).</p>
+<p>Most vendors extend the expiry date and republish the same key, so downloading it again fixes the error. Recurring offenders: Yarn, Google Chrome, PostgreSQL (apt.postgresql.org), MongoDB, NodeSource, Sury PHP.</p>
+<h2 id="step-1-find-which-repository-and-key-file">Step 1: find which repository and key file</h2>
+<p>The URL in the message identifies the repo. Find its sources entry and keyring:</p>
+<pre><code class="language-bash">grep -rn &quot;yarnpkg&quot; /etc/apt/sources.list /etc/apt/sources.list.d/
+# deb [signed-by=/usr/share/keyrings/yarn-archive-keyring.gpg] https://dl.yarnpkg.com/debian stable main
+</code></pre>
+<p>Check the key's expiry:</p>
+<pre><code class="language-bash">gpg --show-keys /usr/share/keyrings/yarn-archive-keyring.gpg
+</code></pre>
+<h2 id="fix-1-re-download-the-key-to-the-same-file-signed-by-setups">Fix 1: re-download the key to the same file (signed-by setups)</h2>
+<pre><code class="language-bash">curl -fsSL https://dl.yarnpkg.com/debian/pubkey.gpg \
+  | sudo gpg --dearmor --yes -o /usr/share/keyrings/yarn-archive-keyring.gpg
+sudo apt update
+</code></pre>
+<p>Other common ones:</p>
+<pre><code class="language-bash"># Google Chrome
+curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
+  | sudo gpg --dearmor --yes -o /usr/share/keyrings/google-chrome.gpg
+
+# PostgreSQL PGDG
+curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+  | sudo gpg --dearmor --yes -o /usr/share/keyrings/postgresql.gpg
+</code></pre>
+<p>Use the path that your <code>signed-by=</code> actually references. If the key file ends in <code>.asc</code>, save the ASCII key directly without <code>--dearmor</code>.</p>
+<h2 id="fix-2-legacy-apt-key-keyring">Fix 2: legacy apt-key keyring</h2>
+<p>If the sources entry has no <code>signed-by</code>, the key is in <code>/etc/apt/trusted.gpg</code> or <code>/etc/apt/trusted.gpg.d/</code>. Refresh it by key ID:</p>
+<pre><code class="language-bash">sudo apt-key adv --keyserver hkps://keyserver.ubuntu.com --recv-keys 23E7166788B63E1E
+</code></pre>
+<p><code>apt-key</code> is deprecated (and removed in Debian 13 and newer Ubuntu releases), so better migrate: download the key to <code>/usr/share/keyrings/NAME.gpg</code> as in Fix 1, add <code>[signed-by=/usr/share/keyrings/NAME.gpg]</code> to the <code>deb</code> line, and delete the old key with <code>sudo apt-key del 23E7166788B63E1E</code>.</p>
+<h2 id="fix-3-the-key-was-rotated-not-extended">Fix 3: the key was rotated, not extended</h2>
+<p>If the freshly downloaded key still shows as expired, or the error turns into <code>NO_PUBKEY</code> with a new ID, the vendor switched to a new key. Follow their current install docs to get the new key and sources line. Package-managed keyrings (e.g. <code>ubuntu-keyring</code>, <code>debian-archive-keyring</code>, <code>postgresql-common</code>) can be updated with:</p>
+<pre><code class="language-bash">sudo apt install --reinstall debian-archive-keyring   # or ubuntu-keyring
+</code></pre>
+<h2 id="fix-4-you-dont-need-the-repository-anymore">Fix 4: you don't need the repository anymore</h2>
+<p>Remove the entry and move on:</p>
+<pre><code class="language-bash">sudo rm /etc/apt/sources.list.d/yarn.list
+sudo apt update
+</code></pre>
+<p>(Yarn is nowadays installed via <code>corepack enable</code> with Node.js, so the Debian repo is often unnecessary.)</p>
+<h2 id="dont">Don't</h2>
+<p>Don't use <code>[trusted=yes]</code> or <code>--allow-unauthenticated</code> to silence this. That disables signature checks for the repository entirely.</p>
+<h2 id="also-check-the-clock">Also check the clock</h2>
+<p>If many keys suddenly look expired, check <code>date</code>. A system clock far in the future makes valid keys appear expired: fix with <code>sudo timedatectl set-ntp true</code>.</p>
+<p class="upd">Last updated 2026-11-26.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-apt-hash-sum-mismatch/">E: Failed to fetch ... Hash Sum mismatch</a></li><li><a href="/linux/linux-apt-no-pubkey/">The following signatures couldn&#x27;t be verified because the public key is not available: NO_PUBKEY</a></li><li><a href="/linux/linux-apt-release-file-is-not-valid-yet/">Release file is not valid yet</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-argument-list-too-long/">Argument list too long</a></li><li><a href="/linux/linux-bad-interpreter-no-such-file/">/bin/bash^M: bad interpreter: No such file or directory</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

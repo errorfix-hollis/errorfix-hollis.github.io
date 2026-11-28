@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>failed to fetch oauth token (Docker) — how to fix</title>
+<meta name="description" content="BuildKit couldn&#x27;t get an auth token from the registry while pulling a base image or pushing. Usually stale or wrong credentials in ~/.docker/config.json, an expired token for a private registry, or a network/proxy problem reaching the auth server.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-failed-to-fetch-oauth-token/">
+<meta property="og:title" content="failed to fetch oauth token (Docker) — how to fix"><meta property="og:description" content="BuildKit couldn&#x27;t get an auth token from the registry while pulling a base image or pushing. Usually stale or wrong credentials in ~/.docker/config.json, an expired token for a private registry, or a network/proxy problem reaching the auth server.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-failed-to-fetch-oauth-token/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "failed to fetch oauth token (Docker) \u2014 how to fix", "description": "BuildKit couldn't get an auth token from the registry while pulling a base image or pushing. Usually stale or wrong credentials in ~/.docker/config.json, an expired token for a private registry, or a network/proxy problem reaching the auth server.", "dateModified": "2026-11-26", "url": "https://errorfix-hollis.github.io/docker/docker-failed-to-fetch-oauth-token/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "failed to fetch oauth token", "item": "https://errorfix-hollis.github.io/docker/docker-failed-to-fetch-oauth-token/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>failed to fetch oauth token (Docker) — how to fix</h1>
+<pre class="err"><code>ERROR: failed to solve: failed to fetch oauth token: unexpected status from POST request to https://auth.docker.io/token: 401 Unauthorized
+failed to authorize: failed to fetch oauth token: Post &quot;https://auth.docker.io/token&quot;: dial tcp: lookup auth.docker.io: no such host
+failed to fetch anonymous token: unexpected status: 401 Unauthorized
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Log out and back in: <code>docker logout</code> then <code>docker login</code> (use a personal access token, not your password, if 2FA is on). For private registries log in to that host, e.g. <code>aws ecr get-login-password | docker login --username AWS --password-stdin &lt;id&gt;.dkr.ecr.&lt;region&gt;.amazonaws.com</code>. If it's a network error, fix DNS/proxy, and retry with <code>DOCKER_BUILDKIT=0</code> to confirm.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Docker registries use token auth: before pulling or pushing, the client asks the registry's auth endpoint (for Docker Hub, <code>https://auth.docker.io/token</code>) for a bearer token, sending your stored credentials if you have any. BuildKit (the default builder in <code>docker build</code> and <code>docker buildx</code>) reports a failure of that step as <code>failed to fetch oauth token</code>.</p>
+<p>The part after it tells you which kind of problem you have:</p>
+<ul>
+<li><code>401 Unauthorized</code> / <code>403 Forbidden</code> → credentials problem.</li>
+<li><code>dial tcp</code>, <code>no such host</code>, <code>i/o timeout</code>, <code>connection refused</code> → network/DNS/proxy problem.</li>
+</ul>
+<h2 id="cause-1-stale-or-wrong-docker-hub-credentials">Cause 1: stale or wrong Docker Hub credentials</h2>
+<p>Docker sends saved credentials even for public images. If they're wrong (changed password, revoked access token, account with 2FA logged in with a password), the token request gets 401 — even though anonymous access would have worked.</p>
+<h2 id="fix-1-log-out-then-log-in-with-a-valid-token">Fix 1: log out, then log in with a valid token</h2>
+<pre><code class="language-bash">docker logout
+docker build .            # works anonymously for public images?
+docker login -u youruser  # paste a personal access token as the password
+</code></pre>
+<p>Create the access token at Docker Hub → Account settings → Personal access tokens. Check what's stored:</p>
+<pre><code class="language-bash">cat ~/.docker/config.json
+</code></pre>
+<p>If <code>credsStore</code> is set (<code>desktop</code>, <code>osxkeychain</code>, <code>pass</code>), the credentials live in that helper; <code>docker logout</code> clears them there.</p>
+<h2 id="cause-2-private-registry-token-expired">Cause 2: private registry token expired</h2>
+<p>ECR tokens expire after 12 hours; GCP and Azure tokens are short-lived as well.</p>
+<h2 id="fix-2-log-in-to-the-right-registry-host">Fix 2: log in to the right registry host</h2>
+<pre><code class="language-bash"># AWS ECR
+aws ecr get-login-password --region eu-west-1 | \
+  docker login --username AWS --password-stdin 123456789012.dkr.ecr.eu-west-1.amazonaws.com
+
+# GitHub Container Registry (PAT with read:packages / write:packages)
+echo &quot;$GITHUB_TOKEN&quot; | docker login ghcr.io -u USERNAME --password-stdin
+
+# Google Artifact Registry
+gcloud auth configure-docker europe-docker.pkg.dev
+
+# Azure
+az acr login --name myregistry
+</code></pre>
+<p>The hostname in <code>docker login</code> must match the image prefix exactly.</p>
+<h2 id="cause-3-network-dns-or-proxy">Cause 3: network, DNS or proxy</h2>
+<p><code>lookup auth.docker.io: no such host</code> or timeouts mean the build can't reach the auth server. Common with corporate proxies, VPNs, or broken DNS inside Docker Desktop/WSL.</p>
+<h2 id="fix-3-check-connectivity-from-the-host-and-configure-the-proxy">Fix 3: check connectivity from the host and configure the proxy</h2>
+<pre><code class="language-bash">curl -sI https://auth.docker.io/token
+nslookup auth.docker.io
+</code></pre>
+<p>For a proxy, set it for the daemon (<code>/etc/systemd/system/docker.service.d/http-proxy.conf</code> with <code>Environment="HTTPS_PROXY=http://proxy:3128"</code>, then <code>sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart docker</code>) or in Docker Desktop → Settings → Resources → Proxies. Restarting Docker Desktop or <code>wsl --shutdown</code> often fixes transient DNS issues.</p>
+<h2 id="cause-4-buildx-builder-with-its-own-config">Cause 4: buildx builder with its own config</h2>
+<p>A <code>docker-container</code> buildx builder runs in its own container. It uses your client credentials, but not necessarily your daemon's proxy or registry mirror settings.</p>
+<h2 id="fix-4-test-with-the-default-builder">Fix 4: test with the default builder</h2>
+<pre><code class="language-bash">docker buildx use default
+DOCKER_BUILDKIT=0 docker build .   # legacy builder, for comparison
+</code></pre>
+<p>If the legacy builder works, recreate the buildx builder with the needed settings (<code>docker buildx create --driver-opt env.HTTPS_PROXY=...</code>).</p>
+<h2 id="cause-5-docker-hub-rate-limit-or-outage">Cause 5: Docker Hub rate limit or outage</h2>
+<p>Anonymous pulls are rate-limited; repeated failures can surface as auth errors. Log in to get a higher limit (see <a href="/docker/docker-toomanyrequests-pull-rate-limit/">toomanyrequests</a>) and check status.docker.com.</p>
+<p class="upd">Last updated 2026-11-26.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-error-getting-credentials/">error getting credentials - err: exec: &quot;docker-credential-desktop&quot;: executable file not found in $PATH</a></li><li><a href="/docker/docker-pull-access-denied-repository-does-not-exist/">pull access denied for X, repository does not exist or may require &#x27;docker login&#x27;</a></li><li><a href="/docker/docker-unauthorized-authentication-required/">unauthorized: authentication required</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-additional-property-is-not-allowed/">Additional property is not allowed</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

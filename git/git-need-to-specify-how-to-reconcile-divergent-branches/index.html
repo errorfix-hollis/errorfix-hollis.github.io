@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal: Need to specify how to reconcile divergent branches. (Git) — how to fix</title>
+<meta name="description" content="Your local branch and the remote branch both have commits the other doesn&#x27;t, and Git (2.33+) won&#x27;t guess whether git pull should merge or rebase. Nothing is broken; you just have to choose.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-need-to-specify-how-to-reconcile-divergent-branches/">
+<meta property="og:title" content="fatal: Need to specify how to reconcile divergent branches. (Git) — how to fix"><meta property="og:description" content="Your local branch and the remote branch both have commits the other doesn&#x27;t, and Git (2.33+) won&#x27;t guess whether git pull should merge or rebase. Nothing is broken; you just have to choose.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-need-to-specify-how-to-reconcile-divergent-branches/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal: Need to specify how to reconcile divergent branches. (Git) \u2014 how to fix", "description": "Your local branch and the remote branch both have commits the other doesn't, and Git (2.33+) won't guess whether git pull should merge or rebase. Nothing is broken; you just have to choose.", "dateModified": "2026-11-16", "url": "https://errorfix-hollis.github.io/git/git-need-to-specify-how-to-reconcile-divergent-branches/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "fatal: Need to specify how to reconcile divergent branches.", "item": "https://errorfix-hollis.github.io/git/git-need-to-specify-how-to-reconcile-divergent-branches/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>fatal: Need to specify how to reconcile divergent branches. (Git) — how to fix</h1>
+<pre class="err"><code>hint: You have divergent branches and need to specify how to reconcile them.
+hint: You can do so by running one of the following commands sometime before
+hint: your next pull:
+hint:
+hint:   git config pull.rebase false  # merge
+hint:   git config pull.rebase true   # rebase
+hint:   git config pull.ff only       # fast-forward only
+hint:
+hint: You can replace &quot;git config&quot; with &quot;git config --global&quot; to set a default
+hint: preference for all repositories. You can also pass --rebase, --no-rebase,
+hint: or --ff-only on the command line to override the configured default per
+hint: invocation.
+fatal: Need to specify how to reconcile divergent branches.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Choose once per pull with <code>git pull --rebase</code> (replay your commits on top) or <code>git pull --no-rebase</code> (merge commit). Set a default with <code>git config --global pull.rebase true</code> (or <code>false</code>). If you have no local commits worth keeping, reset instead: <code>git fetch &amp;&amp; git reset --hard origin/main</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>git pull</code> is <code>git fetch</code> followed by integrating <code>origin/&lt;branch&gt;</code> into your branch. When both sides have new commits the history has <strong>diverged</strong>:</p>
+<pre><code>      A---B---C   origin/main
+     /
+D---E---F---G     main (your local commits F, G)
+</code></pre>
+<p>Git can combine them in two ways — a merge commit, or rebasing F and G on top of C. Since Git 2.27 it warned when you hadn't picked a default, and since about Git 2.33.1 it refuses to pull until you do. Your work is untouched; no merge happened yet.</p>
+<p>See what diverged:</p>
+<pre><code class="language-bash">git fetch
+git log --oneline --graph main origin/main
+git status          # &quot;Your branch and 'origin/main' have diverged, and have 2 and 3 different commits each&quot;
+</code></pre>
+<h2 id="fix-1-rebase-your-commits-on-top-linear-history">Fix 1: rebase your commits on top (linear history)</h2>
+<pre><code class="language-bash">git pull --rebase
+</code></pre>
+<p>Your local commits are replayed after the remote ones. If a conflict appears, fix the files, then:</p>
+<pre><code class="language-bash">git add &lt;file&gt;
+git rebase --continue      # or: git rebase --abort to go back
+</code></pre>
+<p>Don't rebase commits you have already pushed and others built on — that rewrites shared history.</p>
+<h2 id="fix-2-merge-keeps-both-histories-adds-a-merge-commit">Fix 2: merge (keeps both histories, adds a merge commit)</h2>
+<pre><code class="language-bash">git pull --no-rebase
+</code></pre>
+<p>This is the old default behaviour. Resolve any conflicts, <code>git add</code>, then <code>git commit</code>.</p>
+<h2 id="fix-3-set-a-default-so-the-message-stops">Fix 3: set a default so the message stops</h2>
+<p>Pick one, globally or per repository (drop <code>--global</code>):</p>
+<pre><code class="language-bash">git config --global pull.rebase true    # always rebase
+git config --global pull.rebase false   # always merge
+git config --global pull.ff only        # refuse unless fast-forward is possible
+</code></pre>
+<p><code>pull.ff only</code> is the safest: pulls that would create a merge or rebase stop with <code>fatal: Not possible to fast-forward, aborting.</code> and you decide case by case. Many people combine <code>pull.rebase true</code> with <code>rebase.autoStash true</code> so uncommitted changes are stashed automatically.</p>
+<h2 id="fix-4-you-dont-need-your-local-commits-reset-to-the-remote">Fix 4: you don't need your local commits — reset to the remote</h2>
+<p>If the local commits are mistakes, or the remote was force-pushed (for example after someone rebased the branch), make your branch identical to the remote:</p>
+<pre><code class="language-bash">git fetch origin
+git branch backup-before-reset       # optional safety net
+git reset --hard origin/main
+</code></pre>
+<p><code>reset --hard</code> discards local commits <strong>and</strong> uncommitted changes. The backup branch lets you recover them.</p>
+<h2 id="fix-5-the-remote-has-nothing-you-need-push-instead">Fix 5: the remote has nothing you need — push instead</h2>
+<p>If the remote commits should be replaced by yours (e.g. you amended a commit you'd already pushed to your own feature branch):</p>
+<pre><code class="language-bash">git push --force-with-lease
+</code></pre>
+<p><code>--force-with-lease</code> refuses to overwrite commits you haven't fetched. Never force-push to shared branches like <code>main</code> without agreement.</p>
+<h2 id="which-should-i-choose">Which should I choose?</h2>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Personal feature branch, unpushed local commits</td>
+<td><code>git pull --rebase</code></td>
+</tr>
+<tr>
+<td>Shared branch, team prefers merge commits</td>
+<td><code>git pull --no-rebase</code></td>
+</tr>
+<tr>
+<td>You never commit on this branch locally</td>
+<td><code>git config pull.ff only</code></td>
+</tr>
+<tr>
+<td>Local commits are junk / remote was rewritten</td>
+<td><code>git reset --hard origin/main</code></td>
+</tr>
+</tbody>
+</table>
+<p>IDEs (VS Code, JetBrains) show the same error when their "Sync"/"Pull" button runs <code>git pull</code>; setting <code>pull.rebase</code> globally fixes them too.</p>
+<p class="upd">Last updated 2026-11-16.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-failed-to-push-some-refs/">error: failed to push some refs to</a></li><li><a href="/git/git-merge-conflict/">CONFLICT (content): Merge conflict in</a></li><li><a href="/git/git-not-possible-to-fast-forward-aborting/">fatal: Not possible to fast-forward, aborting.</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

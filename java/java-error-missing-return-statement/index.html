@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error: missing return statement (Java) — how to fix</title>
+<meta name="description" content="A method with a non-void return type has at least one path through it that reaches the end without returning a value or throwing. javac checks every path, including loops and if/else branches it cannot prove are exhaustive.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-error-missing-return-statement/">
+<meta property="og:title" content="error: missing return statement (Java) — how to fix"><meta property="og:description" content="A method with a non-void return type has at least one path through it that reaches the end without returning a value or throwing. javac checks every path, including loops and if/else branches it cannot prove are exhaustive.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-error-missing-return-statement/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error: missing return statement (Java) \u2014 how to fix", "description": "A method with a non-void return type has at least one path through it that reaches the end without returning a value or throwing. javac checks every path, including loops and if/else branches it cannot prove are exhaustive.", "dateModified": "2026-11-21", "url": "https://errorfix-hollis.github.io/java/java-error-missing-return-statement/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "error: missing return statement", "item": "https://errorfix-hollis.github.io/java/java-error-missing-return-statement/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>error: missing return statement (Java) — how to fix</h1>
+<pre class="err"><code>Main.java:9: error: missing return statement
+    }
+    ^
+1 error
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Make sure every path ends in <code>return value;</code> or <code>throw</code>: add an <code>else</code> branch or a final <code>return</code> after the if/loop, or <code>throw new IllegalStateException()</code> for impossible cases. If the method shouldn't return anything, declare it <code>void</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The Java compiler does <em>definite-completion</em> analysis: for a method declared as returning <code>int</code>, <code>String</code>, etc., the end of the method body must be unreachable. If any path could "fall off" the closing brace, javac reports <code>missing return statement</code>, pointing at that brace. It does not evaluate your conditions at runtime, so it cannot know that "one of these ifs is always true".</p>
+<h2 id="cause-1-if-without-else">Cause 1: <code>if</code> without <code>else</code></h2>
+<pre><code class="language-java">static String grade(int score) {
+    if (score &gt;= 50) {
+        return &quot;pass&quot;;
+    } else if (score &lt; 50) {
+        return &quot;fail&quot;;
+    }
+}   // error: compiler can't prove the two conditions cover everything
+</code></pre>
+<p>Fix with a plain <code>else</code> or a final return:</p>
+<pre><code class="language-java">static String grade(int score) {
+    if (score &gt;= 50) {
+        return &quot;pass&quot;;
+    }
+    return &quot;fail&quot;;
+}
+</code></pre>
+<h2 id="cause-2-return-only-inside-a-loop">Cause 2: return only inside a loop</h2>
+<pre><code class="language-java">static int indexOf(int[] arr, int target) {
+    for (int i = 0; i &lt; arr.length; i++) {
+        if (arr[i] == target) return i;
+    }
+}   // error: loop might finish without returning
+</code></pre>
+<p>Add a result for the "not found" case:</p>
+<pre><code class="language-java">    }
+    return -1;
+}
+</code></pre>
+<p>Note <code>while (true) { ... }</code> with no <code>break</code> is fine: javac knows the end is unreachable.</p>
+<h2 id="cause-3-switch-that-isnt-exhaustive">Cause 3: <code>switch</code> that isn't exhaustive</h2>
+<p>A classic <code>switch</code> statement without <code>default</code> can fall through:</p>
+<pre><code class="language-java">static int days(String month) {
+    switch (month) {
+        case &quot;FEB&quot;: return 28;
+        case &quot;APR&quot;: return 30;
+    }
+    return 31;            // needed, or add default: return 31;
+}
+</code></pre>
+<p>On Java 14+ prefer a switch <em>expression</em>; for enums and sealed types, the compiler checks exhaustiveness for you:</p>
+<pre><code class="language-java">static int days(Month m) {
+    return switch (m) {
+        case FEBRUARY -&gt; 28;
+        case APRIL, JUNE, SEPTEMBER, NOVEMBER -&gt; 30;
+        default -&gt; 31;
+    };
+}
+</code></pre>
+<h2 id="cause-4-trycatch-where-the-catch-doesnt-return">Cause 4: try/catch where the catch doesn't return</h2>
+<pre><code class="language-java">static int parse(String s) {
+    try {
+        return Integer.parseInt(s);
+    } catch (NumberFormatException e) {
+        System.out.println(&quot;bad number&quot;);
+    }   // falls through here
+}
+</code></pre>
+<p>Return a fallback, or rethrow:</p>
+<pre><code class="language-java">    } catch (NumberFormatException e) {
+        throw new IllegalArgumentException(&quot;Not a number: &quot; + s, e);
+    }
+</code></pre>
+<h2 id="cause-5-impossible-cases">Cause 5: impossible cases</h2>
+<p>When you know a branch can't happen, say so with an exception instead of a dummy value. This also satisfies the compiler:</p>
+<pre><code class="language-java">throw new IllegalStateException(&quot;unreachable: &quot; + state);
+</code></pre>
+<h2 id="cause-6-the-method-should-be-void">Cause 6: the method should be <code>void</code></h2>
+<p>If you only print or modify state, change the signature:</p>
+<pre><code class="language-java">static void printTotal(int[] values) { ... }
+</code></pre>
+<h2 id="related-unreachable-statement">Related: <code>unreachable statement</code></h2>
+<p>The opposite error, <code>error: unreachable statement</code>, means code comes <em>after</em> a <code>return</code>, <code>break</code>, <code>continue</code> or <code>throw</code> in the same block. Delete it or move it before the return.</p>
+<p class="upd">Last updated 2026-11-21.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-error-cannot-find-symbol/">error: cannot find symbol</a></li><li><a href="/java/java-error-incompatible-types-possible-lossy-conversion/">error: incompatible types: possible lossy conversion from double to int</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li><li><a href="/java/java-classnotfoundexception-com-mysql-cj-jdbc-driver/">java.lang.ClassNotFoundException: com.mysql.cj.jdbc.Driver</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

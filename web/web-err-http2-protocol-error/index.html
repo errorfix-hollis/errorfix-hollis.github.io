@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>net::ERR_HTTP2_PROTOCOL_ERROR — how to fix</title>
+<meta name="description" content="Chrome received an HTTP/2 stream that broke the protocol, so it dropped the response. Usually the server or a proxy reset the stream mid-response: invalid response headers, a backend that crashed while streaming, a full disk/buffer on nginx, or a proxy/antivirus mangling HTTP/2.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-err-http2-protocol-error/">
+<meta property="og:title" content="net::ERR_HTTP2_PROTOCOL_ERROR — how to fix"><meta property="og:description" content="Chrome received an HTTP/2 stream that broke the protocol, so it dropped the response. Usually the server or a proxy reset the stream mid-response: invalid response headers, a backend that crashed while streaming, a full disk/buffer on nginx, or a proxy/antivirus mangling HTTP/2.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-err-http2-protocol-error/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "net::ERR_HTTP2_PROTOCOL_ERROR \u2014 how to fix", "description": "Chrome received an HTTP/2 stream that broke the protocol, so it dropped the response. Usually the server or a proxy reset the stream mid-response: invalid response headers, a backend that crashed while streaming, a full disk/buffer on nginx, or a proxy/antivirus mangling HTTP/2.", "dateModified": "2026-11-25", "url": "https://errorfix-hollis.github.io/web/web-err-http2-protocol-error/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "net::ERR_HTTP2_PROTOCOL_ERROR", "item": "https://errorfix-hollis.github.io/web/web-err-http2-protocol-error/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>net::ERR_HTTP2_PROTOCOL_ERROR — how to fix</h1>
+<pre class="err"><code>This site can&#x27;t be reached
+The webpage at https://example.com/ might be temporarily down or it may have moved permanently to a new web address.
+ERR_HTTP2_PROTOCOL_ERROR
+
+GET https://example.com/api/data net::ERR_HTTP2_PROTOCOL_ERROR 200 (OK)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Site owners: check the server/proxy error log at the time of the request. Common fixes: remove invalid headers (uppercase/duplicate <code>Connection</code>, <code>Transfer-Encoding</code>, header values with newlines), free disk space so nginx can buffer (<code>/var/lib/nginx</code>), raise <code>proxy_buffers</code>/timeouts, fix wrong <code>Content-Length</code>. Test with <code>curl -v --http2 https://site/</code>. Visitors: try incognito, disable extensions/antivirus HTTPS scanning, clear site data.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>HTTP/2 multiplexes many requests over one connection as <em>streams</em>. If the server sends something the HTTP/2 spec forbids, or abruptly resets the stream with <code>RST_STREAM</code> / <code>GOAWAY</code> (<code>PROTOCOL_ERROR</code> or <code>INTERNAL_ERROR</code>), Chrome shows <code>ERR_HTTP2_PROTOCOL_ERROR</code>. Firefox shows a blank page or <code>NS_ERROR_NET_INTERRUPT</code>/<code>NS_ERROR_NET_RESET</code>.</p>
+<p>The <code>200 (OK)</code> in DevTools is misleading: the status line arrived, then the body broke.</p>
+<p>Reproduce outside the browser:</p>
+<pre><code class="language-bash">curl -v --http2 -o /dev/null https://example.com/api/data
+# look for: &quot;HTTP/2 stream 1 was not closed cleanly: PROTOCOL_ERROR&quot;
+curl -v --http1.1 -o /dev/null https://example.com/api/data   # does HTTP/1.1 work?
+</code></pre>
+<p>If HTTP/1.1 works and HTTP/2 fails, it's a server-side HTTP/2 problem.</p>
+<h2 id="cause-1-invalid-response-headers">Cause 1: invalid response headers</h2>
+<p>HTTP/2 forbids connection-specific headers and requires valid header values. Problems include:</p>
+<ul>
+<li><code>Connection: keep-alive</code>, <code>Keep-Alive</code>, <code>Upgrade</code>, <code>Transfer-Encoding: chunked</code> set by app code (nginx strips most, but some proxies/servers forward them).</li>
+<li>Header values containing <code>\r</code>/<code>\n</code> or other control characters (e.g. a filename or user input in <code>Content-Disposition</code>).</li>
+<li>Very large headers or cookies exceeding the client's limits.</li>
+</ul>
+<p>Remove or sanitize those headers in your app. Encode filenames with <code>filename*=UTF-8''...</code>.</p>
+<h2 id="cause-2-wrong-content-length">Cause 2: wrong Content-Length</h2>
+<p>If the app sends <code>Content-Length: 5000</code> and then fewer or more bytes (gzip applied after setting length, middleware modifying the body), the stream is invalid. Let the server compute the length, or drop the header when compressing.</p>
+<h2 id="cause-3-backend-died-mid-response">Cause 3: backend died mid-response</h2>
+<p>The upstream (Node, PHP-FPM, Gunicorn) crashed, timed out or was OOM-killed while streaming. nginx can't change the already-sent <code>200</code>, so it resets the stream. Check:</p>
+<pre><code class="language-bash">sudo tail -f /var/log/nginx/error.log
+# &quot;upstream prematurely closed connection while reading upstream&quot;
+journalctl -u myapp --since &quot;10 min ago&quot;
+</code></pre>
+<p>Fix the backend error, or raise timeouts for slow endpoints:</p>
+<pre><code class="language-nginx">proxy_read_timeout 300s;
+proxy_send_timeout 300s;
+</code></pre>
+<h2 id="cause-4-nginx-cant-buffer-the-response-disk-full-permissions">Cause 4: nginx can't buffer the response (disk full / permissions)</h2>
+<p>Large responses are buffered to <code>/var/lib/nginx/proxy</code> (or <code>/var/cache/nginx</code>). If that disk is full or not writable you'll see <code>pwrite() ... failed (28: No space left on device)</code> or <code>Permission denied</code> in the error log, and big files fail with this error.</p>
+<pre><code class="language-bash">df -h /var/lib/nginx
+sudo chown -R www-data:www-data /var/lib/nginx    # user from nginx.conf
+</code></pre>
+<p>Or disable buffering for streaming endpoints: <code>proxy_buffering off;</code>.</p>
+<h2 id="cause-5-cdn-proxy-load-balancer">Cause 5: CDN / proxy / load balancer</h2>
+<p>Cloudflare, AWS ALB and others terminate HTTP/2 and talk to your origin separately. Check the origin directly (<code>curl --resolve example.com:443:ORIGIN_IP ...</code>). Disabling HTTP/2 to origin, or fixing origin headers, usually solves it.</p>
+<h2 id="cause-6-visitors-something-on-your-machine">Cause 6 (visitors): something on your machine</h2>
+<p>If many sites fail only in your browser:</p>
+<ul>
+<li>Try an incognito window (rules out extensions and cached data).</li>
+<li>Disable antivirus HTTPS/web scanning, VPN or a corporate proxy temporarily.</li>
+<li>Clear site data: DevTools → <em>Application → Storage → Clear site data</em>.</li>
+<li>Update Chrome; check the system clock is correct.</li>
+</ul>
+<p class="upd">Last updated 2026-11-25.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-err-connection-reset/">ERR_CONNECTION_RESET</a></li><li><a href="/web/web-nginx-502-bad-gateway/">502 Bad Gateway (nginx)</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/web/web-dns-probe-finished-no-internet/">DNS_PROBE_FINISHED_NO_INTERNET</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

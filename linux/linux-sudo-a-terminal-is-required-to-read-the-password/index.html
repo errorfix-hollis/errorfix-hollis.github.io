@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper (Linux) — how to fix</title>
+<meta name="description" content="sudo needs a password but there is no TTY to ask on, because the command runs non-interactively: over ssh without -t, in a script, cron job, CI pipeline, Ansible task or Docker build. Allow the command without a password, or provide a TTY.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/linux/linux-sudo-a-terminal-is-required-to-read-the-password/">
+<meta property="og:title" content="sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper (Linux) — how to fix"><meta property="og:description" content="sudo needs a password but there is no TTY to ask on, because the command runs non-interactively: over ssh without -t, in a script, cron job, CI pipeline, Ansible task or Docker build. Allow the command without a password, or provide a TTY.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/linux/linux-sudo-a-terminal-is-required-to-read-the-password/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper (Linux) \u2014 how to fix", "description": "sudo needs a password but there is no TTY to ask on, because the command runs non-interactively: over ssh without -t, in a script, cron job, CI pipeline, Ansible task or Docker build. Allow the command without a password, or provide a TTY.", "dateModified": "2026-11-27", "url": "https://errorfix-hollis.github.io/linux/linux-sudo-a-terminal-is-required-to-read-the-password/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Linux & shell", "item": "https://errorfix-hollis.github.io/linux/"}, {"@type": "ListItem", "position": 3, "name": "sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper", "item": "https://errorfix-hollis.github.io/linux/linux-sudo-a-terminal-is-required-to-read-the-password/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/linux/">Linux &amp; shell</a></p>
+<article><h1>sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper (Linux) — how to fix</h1>
+<pre class="err"><code>sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper
+sudo: a password is required
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> For a one-off ssh command, force a TTY: <code>ssh -t user@host 'sudo systemctl restart app'</code>. For automation, allow only the needed command without a password via <code>sudo visudo -f /etc/sudoers.d/deploy</code> with <code>deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart app</code>. In Ansible use <code>--ask-become-pass</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>By default sudo reads your password from the terminal (<code>/dev/tty</code>), not from standard input. When a command runs without a terminal — <code>ssh host 'sudo ...'</code>, a cron job, a systemd service, a CI runner, a Git hook, Ansible, <code>docker exec</code> without <code>-t</code> — there is nothing to prompt on, so sudo gives up. Older sudo versions print <code>sudo: no tty present and no askpass program specified</code> for the same situation.</p>
+<p>Check whether a terminal exists in that context with <code>tty</code> (prints <code>not a tty</code> when there is none) and see what sudo would allow without asking with <code>sudo -n -l</code>.</p>
+<h2 id="fix-1-ssh-allocate-a-tty">Fix 1: ssh — allocate a TTY</h2>
+<pre><code class="language-bash">ssh -t user@server 'sudo systemctl restart nginx'
+</code></pre>
+<p><code>-t</code> forces a pseudo-terminal so sudo can prompt. Use <code>-tt</code> if ssh's own stdin is not a terminal either (e.g. inside a script). This still needs a human to type the password, so it doesn't help in unattended jobs.</p>
+<h2 id="fix-2-allow-specific-commands-without-a-password-automation">Fix 2: allow specific commands without a password (automation)</h2>
+<p>Create a drop-in sudoers file — always with <code>visudo</code>, which checks syntax so you can't lock yourself out:</p>
+<pre><code class="language-bash">sudo visudo -f /etc/sudoers.d/deploy
+</code></pre>
+<pre><code>deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart myapp, /usr/bin/systemctl status myapp
+</code></pre>
+<ul>
+<li>Use full paths (<code>command -v systemctl</code>).</li>
+<li>Arguments are matched literally; restrict them as tightly as you can.</li>
+<li>Avoid <code>NOPASSWD: ALL</code> for service accounts that run code from the network (CI runners, web apps).</li>
+<li>Files in <code>/etc/sudoers.d/</code> must not contain <code>.</code> or end in <code>~</code> or they're ignored, and should be mode 0440.</li>
+</ul>
+<p>Test non-interactively: <code>sudo -n systemctl restart myapp</code> (<code>-n</code> fails instead of prompting).</p>
+<h2 id="fix-3-ansible">Fix 3: Ansible</h2>
+<p>Ansible's <code>become: true</code> needs the password passed in:</p>
+<pre><code class="language-bash">ansible-playbook site.yml --ask-become-pass     # prompts once
+</code></pre>
+<p>Or store <code>ansible_become_password</code> in an Ansible Vault-encrypted vars file. The error text <code>Missing sudo password</code> in Ansible is the same problem.</p>
+<h2 id="fix-4-ci-github-actions-gitlab-jenkins">Fix 4: CI (GitHub Actions, GitLab, Jenkins)</h2>
+<p>GitHub-hosted runners already have passwordless sudo. On self-hosted runners and Jenkins agents, grant the runner user <code>NOPASSWD</code> for exactly the commands the pipeline needs (Fix 2), or avoid sudo by running the job in a container or giving the user group permissions (e.g. <code>docker</code> group instead of <code>sudo docker</code>).</p>
+<h2 id="fix-5-sudo-s-use-with-care">Fix 5: sudo -S (use with care)</h2>
+<p><code>-S</code> makes sudo read the password from stdin:</p>
+<pre><code class="language-bash">echo &quot;$SUDO_PASS&quot; | sudo -S -p '' apt-get update
+</code></pre>
+<p>This works, but the password ends up in environment variables, shell history or process listings if you're careless. Prefer a NOPASSWD rule or a GUI askpass helper (<code>SUDO_ASKPASS=/usr/bin/ssh-askpass sudo -A ...</code>) on desktops.</p>
+<h2 id="fix-6-dont-use-sudo-where-you-dont-need-it">Fix 6: don't use sudo where you don't need it</h2>
+<ul>
+<li>In a <strong>Dockerfile</strong>, <code>RUN</code> steps already run as root unless you set <code>USER</code>; drop <code>sudo</code>, or put root steps before the <code>USER</code> line.</li>
+<li>In <strong>cron</strong>, put root jobs in root's crontab (<code>sudo crontab -e</code>) or <code>/etc/cron.d/</code> instead of calling sudo from a user crontab.</li>
+<li>For <strong>systemd services</strong>, set <code>User=</code> in the unit rather than calling sudo inside <code>ExecStart</code>.</li>
+</ul>
+<p class="upd">Last updated 2026-11-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-sudo-command-not-found/">sudo: command not found</a></li><li><a href="/linux/linux-user-is-not-in-the-sudoers-file/">user is not in the sudoers file. This incident will be reported.</a></li><li><a href="/ssh/ssh-permission-denied-publickey/">Permission denied (publickey)</a></li><li><a href="/linux/linux-address-already-in-use/">Error: listen EADDRINUSE: address already in use</a></li><li><a href="/linux/linux-apt-expkeysig/">The following signatures were invalid: EXPKEYSIG</a></li><li><a href="/linux/linux-apt-hash-sum-mismatch/">E: Failed to fetch ... Hash Sum mismatch</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

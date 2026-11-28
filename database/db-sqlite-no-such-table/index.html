@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>sqlite3.OperationalError: no such table — how to fix</title>
+<meta name="description" content="SQLite opened a database file that doesn&#x27;t contain that table. Most often the code opened a different (new, empty) file than you expect because of a relative path, or the migrations/CREATE TABLE never ran on that file.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-sqlite-no-such-table/">
+<meta property="og:title" content="sqlite3.OperationalError: no such table — how to fix"><meta property="og:description" content="SQLite opened a database file that doesn&#x27;t contain that table. Most often the code opened a different (new, empty) file than you expect because of a relative path, or the migrations/CREATE TABLE never ran on that file.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-sqlite-no-such-table/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "sqlite3.OperationalError: no such table \u2014 how to fix", "description": "SQLite opened a database file that doesn't contain that table. Most often the code opened a different (new, empty) file than you expect because of a relative path, or the migrations/CREATE TABLE never ran on that file.", "dateModified": "2026-11-24", "url": "https://errorfix-hollis.github.io/database/db-sqlite-no-such-table/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "sqlite3.OperationalError: no such table", "item": "https://errorfix-hollis.github.io/database/db-sqlite-no-such-table/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>sqlite3.OperationalError: no such table — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 8, in &lt;module&gt;
+    cur.execute(&quot;SELECT * FROM users&quot;)
+sqlite3.OperationalError: no such table: users
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Print the absolute path of the DB your code opens (<code>os.path.abspath('app.db')</code>) and check its tables with <code>sqlite3 app.db .tables</code>. Use an absolute path built from <code>__file__</code>, run your migrations (<code>python manage.py migrate</code>, <code>flask db upgrade</code>, <code>db.create_all()</code> inside an app context), and check table name spelling/case.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>sqlite3.connect("app.db")</code> <strong>creates an empty file</strong> if none exists at that path. No error is raised there; the error only appears at the first query. So "no such table" usually means you are connected to the wrong file, not that your table vanished.</p>
+<p>Check what the code actually opens:</p>
+<pre><code class="language-python">import os, sqlite3
+path = &quot;app.db&quot;
+print(os.path.abspath(path))
+con = sqlite3.connect(path)
+print(con.execute(&quot;SELECT name FROM sqlite_master WHERE type='table'&quot;).fetchall())
+</code></pre>
+<p>And from the shell:</p>
+<pre><code class="language-bash">sqlite3 app.db &quot;.tables&quot;
+sqlite3 app.db &quot;.schema users&quot;
+</code></pre>
+<h2 id="cause-1-relative-path-resolves-against-the-working-directory">Cause 1: relative path resolves against the working directory</h2>
+<p><code>"app.db"</code> is relative to the directory you <em>run</em> the program from, not to the script. Running from an IDE, cron, systemd or another folder creates a new empty DB elsewhere. Build the path from the script's location:</p>
+<pre><code class="language-python">from pathlib import Path
+DB_PATH = Path(__file__).resolve().parent / &quot;app.db&quot;
+con = sqlite3.connect(DB_PATH)
+</code></pre>
+<p>SQLAlchemy URLs: <code>sqlite:///app.db</code> (three slashes) is relative; <code>sqlite:////abs/path/app.db</code> (four) is absolute. In Flask-SQLAlchemy 3.x, a relative path is relative to the app's <code>instance/</code> folder, so the DB lives in <code>instance/app.db</code>.</p>
+<p>Delete stray empty <code>app.db</code> files created by wrong paths to avoid confusion.</p>
+<h2 id="cause-2-tables-were-never-created">Cause 2: tables were never created</h2>
+<ul>
+<li><strong>Django</strong>: <code>python manage.py makemigrations</code> then <code>python manage.py migrate</code>. For a new app, make sure it is in <code>INSTALLED_APPS</code>. Error <code>no such table: django_session</code> or <code>auth_user</code> = you never ran <code>migrate</code>.</li>
+<li><strong>Flask-SQLAlchemy</strong>:</li>
+</ul>
+<pre><code class="language-python">with app.app_context():
+    db.create_all()
+</code></pre>
+<p>Models must be imported before <code>create_all()</code>, or no tables are created. With Flask-Migrate: <code>flask db upgrade</code>.
+- <strong>Plain sqlite3</strong>: run your <code>CREATE TABLE IF NOT EXISTS ...</code> at startup and <code>con.commit()</code>.</p>
+<h2 id="cause-3-in-memory-or-per-connection-databases">Cause 3: in-memory or per-connection databases</h2>
+<p><code>sqlite3.connect(":memory:")</code> gives every connection its own empty database. Tables created on one connection don't exist on another. Common in tests and with SQLAlchemy connection pools. Use one shared connection, a file, or with SQLAlchemy:</p>
+<pre><code class="language-python">from sqlalchemy.pool import StaticPool
+engine = create_engine(&quot;sqlite://&quot;, connect_args={&quot;check_same_thread&quot;: False}, poolclass=StaticPool)
+</code></pre>
+<h2 id="cause-4-wrong-name">Cause 4: wrong name</h2>
+<p>Check spelling, plural/singular (<code>user</code> vs <code>users</code>), and that Django tables are prefixed with the app name (<code>blog_post</code>, not <code>post</code>). If the table is in an attached database, qualify it: <code>SELECT * FROM other.users</code>.</p>
+<h2 id="cause-5-docker-or-deployment">Cause 5: Docker or deployment</h2>
+<p>The DB file isn't in the image, or a volume mounts an empty directory over it. Run migrations as part of the container start, and store the DB on a named volume so it persists.</p>
+<p class="upd">Last updated 2026-11-24.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-postgres-relation-does-not-exist/">ERROR: relation does not exist</a></li><li><a href="/database/db-sqlite-database-is-locked/">sqlite3.OperationalError: database is locked</a></li><li><a href="/python/python-filenotfounderror-no-such-file-or-directory/">FileNotFoundError: [Errno 2] No such file or directory</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1046-no-database-selected/">ERROR 1046 (3D000): No database selected</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

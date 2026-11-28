@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;tensorflow&#x27; (Python) — how to fix</title>
+<meta name="description" content="TensorFlow is not installed for the Python interpreter running your code — often because your Python version is newer than the latest TensorFlow wheels, or pip installed it into another environment.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-tensorflow/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;tensorflow&#x27; (Python) — how to fix"><meta property="og:description" content="TensorFlow is not installed for the Python interpreter running your code — often because your Python version is newer than the latest TensorFlow wheels, or pip installed it into another environment.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-tensorflow/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'tensorflow' (Python) \u2014 how to fix", "description": "TensorFlow is not installed for the Python interpreter running your code \u2014 often because your Python version is newer than the latest TensorFlow wheels, or pip installed it into another environment.", "dateModified": "2026-11-16", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-tensorflow/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'tensorflow'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-tensorflow/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;tensorflow&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;train.py&quot;, line 1, in &lt;module&gt;
+    import tensorflow as tf
+ModuleNotFoundError: No module named &#x27;tensorflow&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check your Python version (<code>python --version</code>) — TensorFlow only ships wheels for 64-bit CPython 3.9-3.12 (3.13 needs TF 2.20+). Then install with the same interpreter: <code>python -m pip install tensorflow</code> (Linux GPU: <code>python -m pip install "tensorflow[and-cuda]"</code>). Verify: <code>python -c "import tensorflow as tf; print(tf.__version__)"</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Python could not find a <code>tensorflow</code> package on <code>sys.path</code>. Either it was never installed successfully, or it was installed into a different interpreter (system Python vs. venv vs. conda vs. Jupyter kernel).</p>
+<p>TensorFlow is stricter than most packages: it only publishes wheels for specific Python versions and 64-bit platforms. If no wheel matches, <code>pip install tensorflow</code> fails with <code>ERROR: No matching distribution found for tensorflow</code>, and the later import fails with this error.</p>
+<h2 id="fix-1-use-a-supported-python-version">Fix 1: use a supported Python version</h2>
+<pre><code class="language-bash">python --version
+python -c &quot;import struct; print(struct.calcsize('P') * 8, 'bit')&quot;
+</code></pre>
+<p>As a rule of thumb, TensorFlow supports the four or so Python releases before the newest one, and support for a brand new Python arrives months later. TF 2.16-2.19 support Python 3.9-3.12; Python 3.13 support came with TF 2.20. 32-bit Python is never supported. Check the current table at tensorflow.org/install/pip.</p>
+<p>If your Python is too new, create a venv with a supported version:</p>
+<pre><code class="language-bash"># Ubuntu, e.g. with deadsnakes or pyenv
+pyenv install 3.12
+pyenv local 3.12
+python -m venv .venv &amp;&amp; source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install tensorflow
+</code></pre>
+<p>Upgrading pip matters: old pip versions don't recognise newer wheel tags and report "no matching distribution".</p>
+<h2 id="fix-2-install-into-the-interpreter-that-runs-your-script">Fix 2: install into the interpreter that runs your script</h2>
+<pre><code class="language-bash">which python
+python -m pip --version        # which Python this pip belongs to
+python -m pip install tensorflow
+python -c &quot;import tensorflow as tf; print(tf.__version__)&quot;
+</code></pre>
+<p>Always prefer <code>python -m pip</code> over a bare <code>pip</code>. On Debian/Ubuntu 23.04+ installing into the system Python is blocked (<code>externally-managed-environment</code>) — use a venv as above.</p>
+<h2 id="fix-3-gpu-and-platform-specific-packages">Fix 3: GPU and platform-specific packages</h2>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Install</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Linux / WSL2 with NVIDIA GPU</td>
+<td><code>python -m pip install "tensorflow[and-cuda]"</code></td>
+</tr>
+<tr>
+<td>Linux / Windows CPU</td>
+<td><code>python -m pip install tensorflow</code></td>
+</tr>
+<tr>
+<td>macOS Apple Silicon</td>
+<td><code>python -m pip install tensorflow</code> (TF 2.13+); add <code>tensorflow-metal</code> for GPU</td>
+</tr>
+<tr>
+<td>Windows native GPU</td>
+<td>not supported after TF 2.10 — use WSL2</td>
+</tr>
+</tbody>
+</table>
+<p>The old names <code>tensorflow-gpu</code> and (for TF 2.13+) <code>tensorflow-macos</code> are deprecated; installing them on current versions fails or installs an outdated release.</p>
+<h2 id="fix-4-jupyter-vs-code-use-a-different-kernel">Fix 4: Jupyter / VS Code use a different kernel</h2>
+<p>Install from inside the notebook so it targets the kernel's Python:</p>
+<pre><code class="language-python">%pip install tensorflow
+</code></pre>
+<p>Then restart the kernel. In VS Code, select the venv interpreter (Ctrl+Shift+P → "Python: Select Interpreter").</p>
+<h2 id="fix-5-conda-environments">Fix 5: conda environments</h2>
+<pre><code class="language-bash">conda create -n tf python=3.11
+conda activate tf
+python -m pip install tensorflow
+</code></pre>
+<p>Google recommends installing TensorFlow with pip even inside conda; mixing <code>conda install tensorflow</code> and pip often yields broken installs.</p>
+<h2 id="fix-6-a-local-file-shadows-the-package">Fix 6: a local file shadows the package</h2>
+<p>A file named <code>tensorflow.py</code> (or a folder <code>tensorflow/</code>) in your project shadows the real package and causes confusing import errors. Rename it and delete <code>__pycache__</code>.</p>
+<h2 id="keras-3-note">Keras 3 note</h2>
+<p>If the error mentions <code>tensorflow</code> when you only imported <code>keras</code>, Keras 3 needs a backend: install <code>tensorflow</code> (or set <code>KERAS_BACKEND=jax</code>/<code>torch</code> and install that).</p>
+<p class="upd">Last updated 2026-11-16.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-could-not-find-a-version-that-satisfies-the-requirement/">ERROR: Could not find a version that satisfies the requirement</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-torch/">ModuleNotFoundError: No module named &#x27;torch&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

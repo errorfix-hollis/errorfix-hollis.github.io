@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>javax.net.ssl.SSLHandshakeException: PKIX path building failed — how to fix</title>
+<meta name="description" content="Java could not build a trust chain from the server&#x27;s TLS certificate to a CA in its truststore (cacerts). Usually a self-signed or corporate-proxy certificate, a missing intermediate, or an outdated JDK truststore.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-pkix-path-building-failed/">
+<meta property="og:title" content="javax.net.ssl.SSLHandshakeException: PKIX path building failed — how to fix"><meta property="og:description" content="Java could not build a trust chain from the server&#x27;s TLS certificate to a CA in its truststore (cacerts). Usually a self-signed or corporate-proxy certificate, a missing intermediate, or an outdated JDK truststore.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-pkix-path-building-failed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "javax.net.ssl.SSLHandshakeException: PKIX path building failed \u2014 how to fix", "description": "Java could not build a trust chain from the server's TLS certificate to a CA in its truststore (cacerts). Usually a self-signed or corporate-proxy certificate, a missing intermediate, or an outdated JDK truststore.", "dateModified": "2026-11-27", "url": "https://errorfix-hollis.github.io/java/java-pkix-path-building-failed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "javax.net.ssl.SSLHandshakeException: PKIX path building failed", "item": "https://errorfix-hollis.github.io/java/java-pkix-path-building-failed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>javax.net.ssl.SSLHandshakeException: PKIX path building failed — how to fix</h1>
+<pre class="err"><code>javax.net.ssl.SSLHandshakeException: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Import the server's (or your corporate proxy's) CA certificate into the JDK truststore: <code>keytool -importcert -alias myca -file ca.crt -cacerts -storepass changeit</code>, then restart the app. If the server is missing its intermediate certificate, fix the server's chain instead. Never disable certificate validation in production.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>During the TLS handshake Java checks the server's certificate against the CAs in its truststore (by default <code>$JAVA_HOME/lib/security/cacerts</code>). <code>PKIX path building failed</code> means it could not link the certificate to any trusted root. Java does <strong>not</strong> use the operating system's certificate store on Linux or macOS by default, so a URL that works in the browser or with <code>curl</code> can still fail in Java.</p>
+<p>First look at what the server actually sends:</p>
+<pre><code class="language-bash">openssl s_client -connect api.example.com:443 -servername api.example.com -showcerts &lt;/dev/null
+</code></pre>
+<p>Check the <code>Certificate chain</code> section and the <code>issuer=</code> lines.</p>
+<h2 id="cause-1-corporate-proxy-or-tls-inspection">Cause 1: corporate proxy or TLS inspection</h2>
+<p>Antivirus software or a company proxy (Zscaler, Netskope, Blue Coat...) re-signs HTTPS traffic with its own root CA. The OS trusts it; the JDK does not. Typical symptom: Maven, Gradle or IntelliJ can't download dependencies.</p>
+<h2 id="fix-1-import-the-ca-into-the-jdk-truststore">Fix 1: import the CA into the JDK truststore</h2>
+<p>Export the root CA (from the <code>openssl</code> output above, from your browser, or ask IT) as <code>ca.crt</code>, then:</p>
+<pre><code class="language-bash"># JDK 9+
+sudo keytool -importcert -alias corp-root -file ca.crt -cacerts -storepass changeit -noprompt
+
+# JDK 8
+sudo keytool -importcert -alias corp-root -file ca.crt \
+  -keystore &quot;$JAVA_HOME/jre/lib/security/cacerts&quot; -storepass changeit -noprompt
+</code></pre>
+<p><code>changeit</code> is the default password. Make sure you import into the <strong>same JDK</strong> that runs your app (<code>java -XshowSettings:properties -version 2&gt;&amp;1 | grep java.home</code>). IDEs and Gradle often use their own bundled JDK.</p>
+<p>Alternatively, keep a separate truststore and point the JVM at it:</p>
+<pre><code class="language-bash">java -Djavax.net.ssl.trustStore=/path/truststore.jks -Djavax.net.ssl.trustStorePassword=secret -jar app.jar
+</code></pre>
+<p>On Windows, JDK 21+ users can also use <code>-Djavax.net.ssl.trustStoreType=Windows-ROOT</code> to trust the Windows certificate store.</p>
+<h2 id="cause-2-self-signed-server-certificate">Cause 2: self-signed server certificate</h2>
+<p>Internal services with self-signed certificates fail the same way. Import that server's certificate (or the internal CA that signed it) with the same <code>keytool</code> command.</p>
+<h2 id="cause-3-server-doesnt-send-the-intermediate-certificate">Cause 3: server doesn't send the intermediate certificate</h2>
+<p>Browsers often fetch missing intermediates automatically; Java doesn't. If <code>openssl s_client</code> shows only one certificate in the chain (depth 0) and its issuer is an intermediate CA, the server is misconfigured. Fix it on the server: configure the full chain (e.g. nginx <code>ssl_certificate</code> should point to <code>fullchain.pem</code>, not <code>cert.pem</code>).</p>
+<h2 id="cause-4-very-old-jdk">Cause 4: very old JDK</h2>
+<p>An old JDK may lack newer root CAs (e.g. after Let's Encrypt's root change). Update to a current JDK release — the bundled <code>cacerts</code> is updated with each update release.</p>
+<h2 id="dont-do-this">Don't do this</h2>
+<p>Code that installs a "trust all" <code>TrustManager</code> or <code>HostnameVerifier</code> makes the error go away by disabling TLS security entirely. Use it only for a throwaway local test, never in shipped code.</p>
+<p class="upd">Last updated 2026-11-27.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-ssl-certificate-problem-unable-to-get-local-issuer-certificate/">SSL certificate problem: unable to get local issuer certificate</a></li><li><a href="/java/java-sockettimeoutexception-read-timed-out/">java.net.SocketTimeoutException: Read timed out</a></li><li><a href="/web/web-x509-certificate-signed-by-unknown-authority/">x509: certificate signed by unknown authority</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error[E0384]: cannot assign twice to immutable variable (Rust) — how to fix</title>
+<meta name="description" content="Rust variables are immutable by default. You assigned to a `let` binding a second time (including `+=`) without declaring it `mut`.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/rust/rust-e0384-cannot-assign-twice-to-immutable-variable/">
+<meta property="og:title" content="error[E0384]: cannot assign twice to immutable variable (Rust) — how to fix"><meta property="og:description" content="Rust variables are immutable by default. You assigned to a `let` binding a second time (including `+=`) without declaring it `mut`.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/rust/rust-e0384-cannot-assign-twice-to-immutable-variable/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error[E0384]: cannot assign twice to immutable variable (Rust) \u2014 how to fix", "description": "Rust variables are immutable by default. You assigned to a `let` binding a second time (including `+=`) without declaring it `mut`.", "dateModified": "2026-11-17", "url": "https://errorfix-hollis.github.io/rust/rust-e0384-cannot-assign-twice-to-immutable-variable/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Rust", "item": "https://errorfix-hollis.github.io/rust/"}, {"@type": "ListItem", "position": 3, "name": "error[E0384]: cannot assign twice to immutable variable", "item": "https://errorfix-hollis.github.io/rust/rust-e0384-cannot-assign-twice-to-immutable-variable/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/rust/">Rust</a></p>
+<article><h1>error[E0384]: cannot assign twice to immutable variable (Rust) — how to fix</h1>
+<pre class="err"><code>error[E0384]: cannot assign twice to immutable variable `count`
+ --&gt; src/main.rs:4:5
+  |
+2 |     let count = 0;
+  |         ----- first assignment to `count`
+3 |
+4 |     count += 1;
+  |     ^^^^^^^^^^ cannot assign twice to immutable variable
+  |
+help: consider making this binding mutable
+  |
+2 |     let mut count = 0;
+  |         +++
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Declare the binding as mutable: <code>let mut count = 0;</code>. For function parameters write <code>fn f(mut x: i32)</code>; for pattern bindings <code>let (mut a, b) = ...</code> or <code>for mut x in ...</code>. Or shadow it with a new <code>let</code> if you don't need mutation.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>let x = 5;</code> creates an immutable binding. Any later <code>x = ...</code>, <code>x += ...</code> or similar is rejected at compile time with E0384. The compiler's <code>help:</code> line almost always shows the exact fix.</p>
+<p>The related error for <em>references</em> is E0596 (<code>cannot borrow x as mutable, as it is not declared as mutable</code>), which happens when you call a <code>&amp;mut self</code> method like <code>v.push(1)</code> on a non-<code>mut</code> binding. The fix is the same: add <code>mut</code>.</p>
+<h2 id="fix-1-add-mut">Fix 1: add <code>mut</code></h2>
+<pre><code class="language-rust">fn main() {
+    let mut count = 0;
+    count += 1;
+    println!(&quot;{count}&quot;);
+}
+</code></pre>
+<h2 id="cause-2-function-parameters">Cause 2: function parameters</h2>
+<p>Parameters are immutable bindings too:</p>
+<pre><code class="language-rust">fn shout(s: String) {
+    s.push('!');      // E0596
+    s = s.to_uppercase();  // E0384
+}
+</code></pre>
+<pre><code class="language-rust">fn shout(mut s: String) -&gt; String {
+    s.push('!');
+    s = s.to_uppercase();
+    s
+}
+</code></pre>
+<p><code>mut</code> on a parameter is local to the function; callers aren't affected.</p>
+<h2 id="cause-3-loop-variables-and-patterns">Cause 3: loop variables and patterns</h2>
+<pre><code class="language-rust">for x in 0..3 {
+    x *= 2;           // E0384
+}
+</code></pre>
+<pre><code class="language-rust">for mut x in 0..3 {
+    x *= 2;
+    println!(&quot;{x}&quot;);
+}
+</code></pre>
+<p>Each binding in a pattern needs its own <code>mut</code>:</p>
+<pre><code class="language-rust">let (mut a, b) = (1, 2);
+a += b;
+if let Some(mut v) = maybe { v += 1; }
+</code></pre>
+<h2 id="cause-4-deferred-initialization">Cause 4: deferred initialization</h2>
+<p>Declaring first and assigning later is allowed once without <code>mut</code>:</p>
+<pre><code class="language-rust">let x;
+if cond { x = 1; } else { x = 2; }   // fine: each path assigns once
+</code></pre>
+<p>But assigning in a loop, or on two paths that can both run, is E0384:</p>
+<pre><code class="language-rust">let total;
+for n in nums {
+    total = n;        // may assign more than once
+}
+</code></pre>
+<p>Use <code>let mut total = 0;</code>, or better compute it as an expression:</p>
+<pre><code class="language-rust">let total: i32 = nums.iter().sum();
+let x = if cond { 1 } else { 2 };
+</code></pre>
+<h2 id="alternative-shadowing">Alternative: shadowing</h2>
+<p>If you only need a transformed value, rebind with a new <code>let</code> instead of mutating:</p>
+<pre><code class="language-rust">let input = &quot;  42 &quot;;
+let input = input.trim();
+let input: i32 = input.parse().unwrap();
+</code></pre>
+<p>Shadowing can even change the type, which <code>mut</code> cannot.</p>
+<h2 id="inside-closures-and-structs">Inside closures and structs</h2>
+<ul>
+<li>A closure that mutates a captured variable needs both the variable and the closure binding to be <code>mut</code>: <code>let mut count = 0; let mut inc = || count += 1; inc();</code>.</li>
+<li>Struct fields have no <code>mut</code> of their own: to change <code>p.x</code>, the binding <code>p</code> must be <code>let mut p</code>, or you need <code>&amp;mut p</code>. For mutation through a shared reference use <code>Cell</code>/<code>RefCell</code> (or <code>Mutex</code> across threads).</li>
+</ul>
+<p class="upd">Last updated 2026-11-17.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/rust/rust-borrow-of-moved-value/">error[E0382]: borrow of moved value</a></li><li><a href="/rust/rust-cannot-borrow-as-mutable/">error[E0502]: cannot borrow as mutable because it is also borrowed as immutable</a></li><li><a href="/rust/rust-e0308-mismatched-types/">error[E0308]: mismatched types</a></li><li><a href="/rust/rust-called-option-unwrap-on-a-none-value/">thread &#x27;main&#x27; panicked at called `Option::unwrap()` on a `None` value</a></li><li><a href="/rust/rust-called-result-unwrap-on-an-err-value/">thread &#x27;main&#x27; panicked at &#x27;called `Result::unwrap()` on an `Err` value&#x27;</a></li><li><a href="/rust/rust-e0106-missing-lifetime-specifier/">error[E0106]: missing lifetime specifier</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

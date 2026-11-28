@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Warning: Cannot update during an existing state transition (such as within `render`). (JavaScript) — how to fix</title>
+<meta name="description" content="React caught `setState` being called while a component was rendering. In class components this is almost always an event handler that is called (`onClick={this.handleClick()}`) instead of passed.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/javascript/js-cannot-update-during-an-existing-state-transition/">
+<meta property="og:title" content="Warning: Cannot update during an existing state transition (such as within `render`). (JavaScript) — how to fix"><meta property="og:description" content="React caught `setState` being called while a component was rendering. In class components this is almost always an event handler that is called (`onClick={this.handleClick()}`) instead of passed.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/javascript/js-cannot-update-during-an-existing-state-transition/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Warning: Cannot update during an existing state transition (such as within `render`). (JavaScript) \u2014 how to fix", "description": "React caught `setState` being called while a component was rendering. In class components this is almost always an event handler that is called (`onClick={this.handleClick()}`) instead of passed.", "dateModified": "2026-11-23", "url": "https://errorfix-hollis.github.io/javascript/js-cannot-update-during-an-existing-state-transition/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "JavaScript", "item": "https://errorfix-hollis.github.io/javascript/"}, {"@type": "ListItem", "position": 3, "name": "Warning: Cannot update during an existing state transition (such as within `render`).", "item": "https://errorfix-hollis.github.io/javascript/js-cannot-update-during-an-existing-state-transition/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/javascript/">JavaScript</a></p>
+<article><h1>Warning: Cannot update during an existing state transition (such as within `render`). (JavaScript) — how to fix</h1>
+<pre class="err"><code>Warning: Cannot update during an existing state transition (such as within `render`). Render methods should be a pure function of props and state.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Pass the handler, don't call it: <code>onClick={this.handleClick}</code> or <code>onClick={() =&gt; this.handleClick(id)}</code> instead of <code>onClick={this.handleClick(id)}</code>. Never call <code>setState</code> (or a parent callback that does) inside <code>render()</code>; move it to <code>componentDidMount</code>/<code>componentDidUpdate</code> or derive the value during render.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>render()</code> must only compute JSX from props and state. Calling <code>this.setState()</code> (or a function that does) while React is rendering would trigger another render in the middle of the current one, so React warns. It often comes with, or turns into, <a href="/javascript/js-maximum-update-depth-exceeded/">Maximum update depth exceeded</a>.</p>
+<p>The function-component version of the same mistake usually shows as <a href="/javascript/js-too-many-re-renders/">Too many re-renders</a>, or <a href="/javascript/js-cannot-update-a-component-while-rendering-a-different-component/">Cannot update a component while rendering a different component</a> when the setter belongs to a parent.</p>
+<h2 id="cause-1-calling-the-handler-instead-of-passing-it">Cause 1: calling the handler instead of passing it</h2>
+<pre><code class="language-jsx">class TodoList extends React.Component {
+  remove(id) {
+    this.setState(s =&gt; ({ items: s.items.filter(i =&gt; i.id !== id) }));
+  }
+  render() {
+    return this.state.items.map(item =&gt; (
+      &lt;button key={item.id} onClick={this.remove(item.id)}&gt;x&lt;/button&gt;
+      //                              ^ runs during render
+    ));
+  }
+}
+</code></pre>
+<p><code>onClick={this.remove(item.id)}</code> executes <code>remove</code> right away and passes its return value. Wrap it:</p>
+<pre><code class="language-jsx">&lt;button key={item.id} onClick={() =&gt; this.remove(item.id)}&gt;x&lt;/button&gt;
+</code></pre>
+<p>Without arguments, pass the bound method:</p>
+<pre><code class="language-jsx">constructor(props) {
+  super(props);
+  this.toggle = this.toggle.bind(this);
+}
+// ...
+&lt;button onClick={this.toggle}&gt;Toggle&lt;/button&gt;
+</code></pre>
+<p>or define it as a class field arrow function: <code>toggle = () =&gt; { this.setState(...) }</code>.</p>
+<h2 id="cause-2-setstate-directly-in-render">Cause 2: setState directly in render</h2>
+<pre><code class="language-jsx">render() {
+  if (this.props.items.length === 0) {
+    this.setState({ empty: true });   // warning
+  }
+  return ...;
+}
+</code></pre>
+<p>Derived values don't need state at all:</p>
+<pre><code class="language-jsx">render() {
+  const empty = this.props.items.length === 0;
+  return empty ? &lt;p&gt;No items&lt;/p&gt; : &lt;List items={this.props.items} /&gt;;
+}
+</code></pre>
+<p>If you really need to react to a prop change, do it after render:</p>
+<pre><code class="language-jsx">componentDidUpdate(prevProps) {
+  if (prevProps.userId !== this.props.userId) {
+    this.loadUser(this.props.userId);
+  }
+}
+</code></pre>
+<p>Always compare with <code>prevProps</code>; an unconditional <code>setState</code> in <code>componentDidUpdate</code> loops forever.</p>
+<h2 id="cause-3-calling-a-parent-callback-during-render">Cause 3: calling a parent callback during render</h2>
+<pre><code class="language-jsx">render() {
+  this.props.onCountChange(this.state.items.length);  // parent calls setState
+  return ...;
+}
+</code></pre>
+<p>Notify the parent in <code>componentDidMount</code>/<code>componentDidUpdate</code>, or lift the state up so the parent computes the count itself.</p>
+<h2 id="cause-4-reduxmobx-dispatch-in-render">Cause 4: Redux/MobX dispatch in render</h2>
+<p><code>dispatch(action)</code> or mutating an observable in <code>render()</code> updates store subscribers (other components) mid-render. Move the dispatch into a lifecycle method, <code>useEffect</code>, or the event handler that caused the change.</p>
+<h2 id="finding-the-culprit">Finding the culprit</h2>
+<p>The warning's component stack (expand it in the browser console) shows which component's render triggered the update. Search that component's JSX for <code>={this.</code> and <code>={handle</code> followed by <code>(</code> — the parenthesis is usually the bug.</p>
+<p class="upd">Last updated 2026-11-23.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/javascript/js-cannot-update-a-component-while-rendering-a-different-component/">Warning: Cannot update a component while rendering a different component</a></li><li><a href="/javascript/js-maximum-update-depth-exceeded/">Maximum update depth exceeded</a></li><li><a href="/javascript/js-too-many-re-renders/">Too many re-renders. React limits the number of renders to prevent an infinite loop.</a></li><li><a href="/javascript/js-a-component-is-changing-an-uncontrolled-input-to-be-controlled/">Warning: A component is changing an uncontrolled input to be controlled.</a></li><li><a href="/javascript/js-cannot-read-properties-of-null/">TypeError: Cannot read properties of null (reading &#x27;...&#x27;)</a></li><li><a href="/javascript/js-cannot-read-properties-of-undefined/">TypeError: Cannot read properties of undefined (reading &#x27;x&#x27;)</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;setuptools&#x27; (Python) — how to fix</title>
+<meta name="description" content="Code or a package build needed setuptools, but it isn&#x27;t installed in the Python environment being used. Since Python 3.12, new virtual environments no longer include setuptools by default, so old setup.py-based projects hit this often.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-setuptools/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;setuptools&#x27; (Python) — how to fix"><meta property="og:description" content="Code or a package build needed setuptools, but it isn&#x27;t installed in the Python environment being used. Since Python 3.12, new virtual environments no longer include setuptools by default, so old setup.py-based projects hit this often.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-setuptools/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'setuptools' (Python) \u2014 how to fix", "description": "Code or a package build needed setuptools, but it isn't installed in the Python environment being used. Since Python 3.12, new virtual environments no longer include setuptools by default, so old setup.py-based projects hit this often.", "dateModified": "2026-11-28", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-setuptools/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'setuptools'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-setuptools/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;setuptools&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;&lt;string&gt;&quot;, line 2, in &lt;module&gt;
+ModuleNotFoundError: No module named &#x27;setuptools&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install it into the same interpreter: <code>python -m pip install --upgrade setuptools</code> (inside your venv). On Debian/Ubuntu system Python use <code>sudo apt install python3-setuptools</code>. For a package that fails to build, upgrade pip first (<code>python -m pip install --upgrade pip</code>) so it can use build isolation.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>setuptools</code> is a third-party package (it provides <code>setup()</code>, <code>find_packages()</code> and <code>pkg_resources</code>). It used to be installed automatically into every virtual environment. Since <strong>Python 3.12</strong>, <code>python -m venv</code> only installs pip, and <code>distutils</code> was removed from the standard library, so anything that does <code>import setuptools</code> (or <code>import pkg_resources</code>) fails in a fresh environment.</p>
+<p>First check which interpreter is running:</p>
+<pre><code class="language-bash">python -c &quot;import sys; print(sys.executable)&quot;
+python -m pip --version
+</code></pre>
+<h2 id="fix-1-install-setuptools-in-the-active-environment">Fix 1: install setuptools in the active environment</h2>
+<pre><code class="language-bash">python -m pip install --upgrade setuptools
+</code></pre>
+<p>Use <code>python -m pip</code> rather than bare <code>pip</code> so the install goes into the same interpreter that raised the error. In a project with a <code>requirements.txt</code>, add <code>setuptools</code> there if your code imports it at runtime (e.g. <code>pkg_resources</code>).</p>
+<h2 id="fix-2-debianubuntu-system-python">Fix 2: Debian/Ubuntu system Python</h2>
+<p>System Python is managed by apt, and <code>pip install</code> outside a venv is blocked (<code>externally-managed-environment</code>):</p>
+<pre><code class="language-bash">sudo apt install python3-setuptools
+</code></pre>
+<p>Better: create a virtual environment for your project and install there.</p>
+<h2 id="fix-3-a-package-fails-to-build-from-source">Fix 3: a package fails to build from source</h2>
+<p>When <code>pip install somepackage</code> builds an old sdist whose <code>setup.py</code> imports setuptools, a modern pip installs setuptools in an isolated build environment automatically, as long as build isolation is on. Problems appear when:</p>
+<ul>
+<li><strong>pip is very old</strong>: upgrade it with <code>python -m pip install --upgrade pip</code>.</li>
+<li><strong><code>--no-build-isolation</code> is used</strong> (some ML packages' docs recommend it): then setuptools and wheel must already be installed in your env:</li>
+</ul>
+<pre><code class="language-bash">python -m pip install setuptools wheel
+python -m pip install --no-build-isolation somepackage
+</code></pre>
+<p>Often the cleanest fix is a newer version of the failing package that ships a prebuilt wheel for your Python version.</p>
+<h2 id="fix-4-your-own-project">Fix 4: your own project</h2>
+<p>If you maintain the package, declare the build backend in <code>pyproject.toml</code> so tools install setuptools for the build:</p>
+<pre><code class="language-toml">[build-system]
+requires = [&quot;setuptools&gt;=61&quot;, &quot;wheel&quot;]
+build-backend = &quot;setuptools.build_meta&quot;
+</code></pre>
+<p>and install with <code>python -m pip install .</code> instead of <code>python setup.py install</code>, which is deprecated.</p>
+<h2 id="fix-5-replace-pkg_resources">Fix 5: replace pkg_resources</h2>
+<p>Many runtime imports of setuptools are just <code>pkg_resources</code> for versions or data files. The standard library covers these:</p>
+<pre><code class="language-python">from importlib.metadata import version
+print(version(&quot;requests&quot;))
+
+from importlib.resources import files
+data = files(&quot;mypkg&quot;).joinpath(&quot;data.json&quot;).read_text()
+</code></pre>
+<p>That removes the runtime dependency on setuptools entirely.</p>
+<p class="upd">Last updated 2026-11-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-externally-managed-environment/">error: externally-managed-environment</a></li><li><a href="/python/python-failed-building-wheel/">error: Failed building wheel for X</a></li><li><a href="/python/python-no-module-named-distutils/">ModuleNotFoundError: No module named &#x27;distutils&#x27;</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

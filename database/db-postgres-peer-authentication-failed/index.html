@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FATAL: Peer authentication failed for user &quot;postgres&quot; (PostgreSQL) — how to fix</title>
+<meta name="description" content="You connected over the local Unix socket, where pg_hba.conf uses `peer` authentication: PostgreSQL only lets you in if your Linux username equals the database role name. Passwords are ignored for these connections.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-postgres-peer-authentication-failed/">
+<meta property="og:title" content="FATAL: Peer authentication failed for user &quot;postgres&quot; (PostgreSQL) — how to fix"><meta property="og:description" content="You connected over the local Unix socket, where pg_hba.conf uses `peer` authentication: PostgreSQL only lets you in if your Linux username equals the database role name. Passwords are ignored for these connections.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-postgres-peer-authentication-failed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "FATAL: Peer authentication failed for user \"postgres\" (PostgreSQL) \u2014 how to fix", "description": "You connected over the local Unix socket, where pg_hba.conf uses `peer` authentication: PostgreSQL only lets you in if your Linux username equals the database role name. Passwords are ignored for these connections.", "dateModified": "2026-11-20", "url": "https://errorfix-hollis.github.io/database/db-postgres-peer-authentication-failed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "FATAL: Peer authentication failed for user \"postgres\"", "item": "https://errorfix-hollis.github.io/database/db-postgres-peer-authentication-failed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>FATAL: Peer authentication failed for user &quot;postgres&quot; (PostgreSQL) — how to fix</h1>
+<pre class="err"><code>psql: error: connection to server on socket &quot;/var/run/postgresql/.s.PGSQL.5432&quot; failed: FATAL:  Peer authentication failed for user &quot;postgres&quot;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run psql as the matching OS user: <code>sudo -u postgres psql</code>. For other roles, connect over TCP so password auth is used: <code>psql -h localhost -U myuser mydb</code> (apps: host <code>localhost</code>/<code>127.0.0.1</code>, not an empty host). Or change the <code>local</code> line in <code>pg_hba.conf</code> from <code>peer</code> to <code>scram-sha-256</code> and <code>sudo systemctl reload postgresql</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>pg_hba.conf</code> decides <em>how</em> each connection authenticates. On Debian/Ubuntu (and many other packages) the default is:</p>
+<pre><code class="language-text"># TYPE  DATABASE  USER      ADDRESS        METHOD
+local   all       postgres                 peer
+local   all       all                      peer
+host    all       all       127.0.0.1/32   scram-sha-256
+host    all       all       ::1/128        scram-sha-256
+</code></pre>
+<p><code>local</code> = Unix socket connections (what <code>psql</code> uses when you don't pass <code>-h</code>). With <code>peer</code>, the server asks the kernel which OS user opened the socket and only allows a role with the <strong>same name</strong>. So:</p>
+<pre><code class="language-bash">me$ psql -U postgres         # OS user &quot;me&quot; != role &quot;postgres&quot; -&gt; Peer authentication failed
+</code></pre>
+<h2 id="fix-1-run-as-the-matching-os-user">Fix 1: run as the matching OS user</h2>
+<p>For the <code>postgres</code> superuser:</p>
+<pre><code class="language-bash">sudo -u postgres psql
+sudo -u postgres createuser --pwprompt myuser
+sudo -u postgres createdb -O myuser mydb
+</code></pre>
+<p>A role with your own Linux username also works with peer, without a password:</p>
+<pre><code class="language-bash">sudo -u postgres createuser --superuser &quot;$USER&quot;
+createdb &quot;$USER&quot;
+psql
+</code></pre>
+<h2 id="fix-2-connect-over-tcp-to-use-the-password">Fix 2: connect over TCP to use the password</h2>
+<p>Adding <code>-h localhost</code> makes psql use the <code>host</code> lines, which use password authentication:</p>
+<pre><code class="language-bash">psql -h localhost -U myuser -d mydb
+</code></pre>
+<p>Applications hit this when the host is empty or a socket path. Set it explicitly:</p>
+<pre><code class="language-python"># Django settings.py
+DATABASES = {&quot;default&quot;: {
+    &quot;ENGINE&quot;: &quot;django.db.backends.postgresql&quot;,
+    &quot;NAME&quot;: &quot;mydb&quot;, &quot;USER&quot;: &quot;myuser&quot;, &quot;PASSWORD&quot;: &quot;...&quot;,
+    &quot;HOST&quot;: &quot;localhost&quot;, &quot;PORT&quot;: &quot;5432&quot;,
+}}
+</code></pre>
+<pre><code class="language-yaml"># Rails config/database.yml
+development:
+  adapter: postgresql
+  database: mydb
+  username: myuser
+  password: &lt;%= ENV[&quot;DB_PASSWORD&quot;] %&gt;
+  host: localhost
+</code></pre>
+<p>A URL like <code>postgresql://myuser:pw@localhost:5432/mydb</code> also uses TCP.</p>
+<p>If that then fails with <code>password authentication failed</code>, the role has no password or a different one — set it with <code>sudo -u postgres psql -c "ALTER USER myuser WITH PASSWORD 'newpass';"</code>.</p>
+<h2 id="fix-3-change-pg_hbaconf-to-password-auth-for-local-sockets">Fix 3: change pg_hba.conf to password auth for local sockets</h2>
+<p>Find the file:</p>
+<pre><code class="language-bash">sudo -u postgres psql -c &quot;SHOW hba_file;&quot;
+# e.g. /etc/postgresql/16/main/pg_hba.conf
+</code></pre>
+<p>Change the line for all users (keep <code>postgres</code> on peer so <code>sudo -u postgres psql</code> still works):</p>
+<pre><code class="language-text">local   all       postgres                 peer
+local   all       all                      scram-sha-256
+</code></pre>
+<p>Use <code>md5</code> instead of <code>scram-sha-256</code> only for very old clients. Lines are matched top to bottom and the first match wins, so edit the existing line rather than appending one below it. Then reload:</p>
+<pre><code class="language-bash">sudo systemctl reload postgresql
+</code></pre>
+<h2 id="fix-4-map-os-users-to-roles-pg_identconf">Fix 4: map OS users to roles (pg_ident.conf)</h2>
+<p>If an OS user must log in as a differently named role without a password, use a user map:</p>
+<pre><code class="language-text"># pg_ident.conf
+# MAPNAME   SYSTEM-USERNAME   PG-USERNAME
+appmap      deploy            appuser
+</code></pre>
+<pre><code class="language-text"># pg_hba.conf
+local   all   appuser   peer map=appmap
+</code></pre>
+<p>Reload PostgreSQL, then <code>deploy$ psql -U appuser mydb</code> works.</p>
+<p class="upd">Last updated 2026-11-20.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-postgres-connection-refused/">psql: error: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: Connection refused</a></li><li><a href="/database/db-postgres-password-authentication-failed/">FATAL: password authentication failed for user &quot;postgres&quot;</a></li><li><a href="/database/db-postgres-role-does-not-exist/">FATAL: role &quot;username&quot; does not exist</a></li><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1046-no-database-selected/">ERROR 1046 (3D000): No database selected</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

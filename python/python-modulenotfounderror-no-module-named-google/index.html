@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;google&#x27; (Python) — how to fix</title>
+<meta name="description" content="There is no single package called google: google is a namespace shared by many separate packages (google-cloud-storage, protobuf, google-genai, google-api-python-client...). You need to install the specific one your import refers to, in the active environment.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-google/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;google&#x27; (Python) — how to fix"><meta property="og:description" content="There is no single package called google: google is a namespace shared by many separate packages (google-cloud-storage, protobuf, google-genai, google-api-python-client...). You need to install the specific one your import refers to, in the active environment.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-google/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'google' (Python) \u2014 how to fix", "description": "There is no single package called google: google is a namespace shared by many separate packages (google-cloud-storage, protobuf, google-genai, google-api-python-client...). You need to install the specific one your import refers to, in the active environment.", "dateModified": "2026-11-26", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-google/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'google'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-google/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;google&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;main.py&quot;, line 1, in &lt;module&gt;
+    from google.cloud import storage
+ModuleNotFoundError: No module named &#x27;google&#x27;
+ModuleNotFoundError: No module named &#x27;google.protobuf&#x27;
+ImportError: cannot import name &#x27;genai&#x27; from &#x27;google&#x27; (unknown location)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install the package that matches the import, using the interpreter that runs your code: <code>from google.cloud import storage</code> → <code>python -m pip install google-cloud-storage</code>; <code>google.protobuf</code> → <code>protobuf</code>; <code>from google import genai</code> → <code>google-genai</code>; <code>google.generativeai</code> → <code>google-generativeai</code>; <code>googleapiclient</code> → <code>google-api-python-client</code>. Don't <code>pip install google</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>google</code> is a <strong>namespace package</strong>: dozens of independent PyPI packages each install a subpackage under <code>google/</code>. Python reports <code>No module named 'google'</code> when none of them is installed in the current environment, and <code>No module named 'google.xyz'</code> when others are installed but not the one you need.</p>
+<p>Installing <code>pip install google</code> doesn't help — that package is an unrelated Google <em>search</em> scraper.</p>
+<h2 id="fix-install-the-package-that-matches-your-import">Fix: install the package that matches your import</h2>
+<table>
+<thead>
+<tr>
+<th>Import</th>
+<th>Install</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>from google.cloud import storage</code></td>
+<td><code>google-cloud-storage</code></td>
+</tr>
+<tr>
+<td><code>from google.cloud import bigquery</code></td>
+<td><code>google-cloud-bigquery</code></td>
+</tr>
+<tr>
+<td><code>from google.cloud import firestore</code></td>
+<td><code>google-cloud-firestore</code></td>
+</tr>
+<tr>
+<td><code>from google.cloud import pubsub_v1</code></td>
+<td><code>google-cloud-pubsub</code></td>
+</tr>
+<tr>
+<td><code>from google.cloud import secretmanager</code></td>
+<td><code>google-cloud-secret-manager</code></td>
+</tr>
+<tr>
+<td><code>import google.protobuf</code> / <code>from google.protobuf import ...</code></td>
+<td><code>protobuf</code></td>
+</tr>
+<tr>
+<td><code>from google import genai</code> (Gemini, new SDK)</td>
+<td><code>google-genai</code></td>
+</tr>
+<tr>
+<td><code>import google.generativeai as genai</code> (older Gemini SDK)</td>
+<td><code>google-generativeai</code></td>
+</tr>
+<tr>
+<td><code>from googleapiclient.discovery import build</code></td>
+<td><code>google-api-python-client</code></td>
+</tr>
+<tr>
+<td><code>from google.oauth2 import service_account</code> / <code>google.auth</code></td>
+<td><code>google-auth</code></td>
+</tr>
+<tr>
+<td><code>from google_auth_oauthlib.flow import InstalledAppFlow</code></td>
+<td><code>google-auth-oauthlib</code></td>
+</tr>
+<tr>
+<td><code>from google.colab import drive</code></td>
+<td>only exists inside Google Colab</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-bash">python -m pip install google-cloud-storage
+python -c &quot;from google.cloud import storage; print('ok')&quot;
+</code></pre>
+<h2 id="cause-1-installed-into-a-different-environment">Cause 1: installed into a different environment</h2>
+<p>The most common cause after the wrong package name. <code>pip</code> and <code>python</code> point at different installations (system vs venv vs conda vs the IDE's interpreter).</p>
+<pre><code class="language-bash">which python; python -m pip --version
+python -m pip show google-cloud-storage
+</code></pre>
+<p>Always install with <code>python -m pip ...</code> using the same <code>python</code> that runs the script, and select the venv in VS Code (Python: Select Interpreter) or PyCharm. In Jupyter, install into the kernel with <code>%pip install google-cloud-storage</code>.</p>
+<h2 id="cause-2-no-module-named-googleprotobuf">Cause 2: <code>No module named 'google.protobuf'</code></h2>
+<p>TensorFlow, gRPC, ONNX and Streamlit need protobuf. Install or repair it:</p>
+<pre><code class="language-bash">python -m pip install --upgrade protobuf
+</code></pre>
+<p>If a library pins an older version, follow its requirement (e.g. <code>pip install "protobuf&lt;5"</code>), as protobuf major versions are not always compatible with older generated code.</p>
+<h2 id="cause-3-a-broken-namespace-package">Cause 3: a broken namespace package</h2>
+<p>Mixing conda and pip installs, or an old package that ships <code>google/__init__.py</code> as a regular package, can hide the other <code>google.*</code> subpackages. Symptoms: one google import works, another fails with <code>cannot import name ... from 'google' (unknown location)</code>. Reinstall the affected packages in a clean venv:</p>
+<pre><code class="language-bash">python -m venv .venv &amp;&amp; source .venv/bin/activate
+python -m pip install google-cloud-storage google-genai
+</code></pre>
+<h2 id="cause-4-local-file-or-folder-named-google">Cause 4: local file or folder named google</h2>
+<p>A <code>google.py</code> or <code>google/</code> directory in your project shadows the namespace. Rename it and remove <code>__pycache__</code>.</p>
+<h2 id="cause-5-from-googlecolab-import-outside-colab">Cause 5: <code>from google.colab import ...</code> outside Colab</h2>
+<p><code>google.colab</code> is only available in Colab runtimes. Guard it:</p>
+<pre><code class="language-python">try:
+    from google.colab import drive
+    drive.mount('/content/drive')
+except ImportError:
+    pass   # running locally
+</code></pre>
+<p class="upd">Last updated 2026-11-26.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-importerror-cannot-import-name/">ImportError: cannot import name &#x27;X&#x27; from &#x27;Y&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-tensorflow/">ModuleNotFoundError: No module named &#x27;tensorflow&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

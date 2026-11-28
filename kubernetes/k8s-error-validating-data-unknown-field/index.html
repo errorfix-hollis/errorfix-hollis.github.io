@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>error validating data: ValidationError(Deployment.spec): unknown field &quot;containers&quot; in io.k8s.api.apps.v1.DeploymentSpec (Kubernetes) — how to fix</title>
+<meta name="description" content="A field in your manifest doesn&#x27;t exist at that position in the resource&#x27;s schema. Almost always it&#x27;s indented at the wrong level, misspelled, or belongs to a different API version.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-error-validating-data-unknown-field/">
+<meta property="og:title" content="error validating data: ValidationError(Deployment.spec): unknown field &quot;containers&quot; in io.k8s.api.apps.v1.DeploymentSpec (Kubernetes) — how to fix"><meta property="og:description" content="A field in your manifest doesn&#x27;t exist at that position in the resource&#x27;s schema. Almost always it&#x27;s indented at the wrong level, misspelled, or belongs to a different API version.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-error-validating-data-unknown-field/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "error validating data: ValidationError(Deployment.spec): unknown field \"containers\" in io.k8s.api.apps.v1.DeploymentSpec (Kubernetes) \u2014 how to fix", "description": "A field in your manifest doesn't exist at that position in the resource's schema. Almost always it's indented at the wrong level, misspelled, or belongs to a different API version.", "dateModified": "2026-11-18", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-error-validating-data-unknown-field/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "error validating data: ValidationError(Deployment.spec): unknown field \"containers\" in io.k8s.api.apps.v1.DeploymentSpec", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-error-validating-data-unknown-field/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>error validating data: ValidationError(Deployment.spec): unknown field &quot;containers&quot; in io.k8s.api.apps.v1.DeploymentSpec (Kubernetes) — how to fix</h1>
+<pre class="err"><code>error: error validating &quot;deployment.yaml&quot;: error validating data: ValidationError(Deployment.spec): unknown field &quot;containers&quot; in io.k8s.api.apps.v1.DeploymentSpec; if you choose to ignore these errors, turn validation off with --validate=false
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Look up where the field belongs with <code>kubectl explain deployment.spec.template.spec --recursive | less</code> and fix the indentation or spelling. In a Deployment, <code>containers</code> goes under <code>spec.template.spec</code>, not <code>spec</code>. Validate before applying with <code>kubectl apply --dry-run=server -f file.yaml</code>. Don't just use <code>--validate=false</code>: the field would be silently dropped.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>kubectl validates manifests against the API server's OpenAPI schema. <code>unknown field "X" in &lt;Type&gt;</code> means the type at that location has no field called <code>X</code>. Newer clusters (server-side field validation, Kubernetes 1.25+) report the same problem as:</p>
+<pre><code>Error from server (BadRequest): error when creating &quot;deployment.yaml&quot;: Deployment in version &quot;v1&quot; cannot be handled as a Deployment: strict decoding error: unknown field &quot;spec.containers&quot;
+</code></pre>
+<p>The path in parentheses (<code>Deployment.spec</code>) or the dotted path tells you exactly where the bad field is.</p>
+<h2 id="cause-1-wrong-indentation-most-common">Cause 1: wrong indentation (most common)</h2>
+<p>In a Deployment, pod settings live under <code>spec.template.spec</code>:</p>
+<pre><code class="language-yaml"># Wrong: containers directly under Deployment spec
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 2
+  containers:
+    - name: web
+      image: nginx:1.27
+</code></pre>
+<pre><code class="language-yaml"># Right
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: web }
+  template:
+    metadata:
+      labels: { app: web }
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27
+          ports:
+            - containerPort: 80
+</code></pre>
+<p>Other classics: <code>env</code>, <code>resources</code> or <code>volumeMounts</code> indented at the pod level instead of under a container; <code>volumes</code> under a container instead of the pod spec; <code>ports</code> of a Service placed under <code>metadata</code>.</p>
+<p>A <a href="/tools/yaml-validator/">YAML validator</a> helps you see the actual nesting, since one extra or missing space changes the parent.</p>
+<h2 id="cause-2-misspelled-or-wrongly-cased-field">Cause 2: misspelled or wrongly cased field</h2>
+<p>Field names are case-sensitive camelCase:</p>
+<table>
+<thead>
+<tr>
+<th>Wrong</th>
+<th>Right</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>containerport</code></td>
+<td><code>containerPort</code></td>
+</tr>
+<tr>
+<td><code>imagepullpolicy</code></td>
+<td><code>imagePullPolicy</code></td>
+</tr>
+<tr>
+<td><code>env_from</code></td>
+<td><code>envFrom</code></td>
+</tr>
+<tr>
+<td><code>volumeMount</code></td>
+<td><code>volumeMounts</code></td>
+</tr>
+<tr>
+<td><code>label</code></td>
+<td><code>labels</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="cause-3-field-from-another-api-version-or-newer-kubernetes">Cause 3: field from another API version or newer Kubernetes</h2>
+<p>A field may exist only in a newer API version or Kubernetes release than your cluster, or in a CRD version that isn't installed. Check what your cluster supports:</p>
+<pre><code class="language-bash">kubectl version
+kubectl explain deployment.spec.template.spec.containers --api-version=apps/v1
+kubectl api-resources | grep -i ingress
+</code></pre>
+<p>For CRDs (cert-manager, Istio, Argo...), make sure the installed CRD version matches the docs you're following.</p>
+<h2 id="cause-4-helmkustomize-output">Cause 4: Helm/Kustomize output</h2>
+<p>With Helm, the bad YAML is generated. Render it and inspect:</p>
+<pre><code class="language-bash">helm template myrelease ./chart -f values.yaml &gt; out.yaml
+kubectl apply --dry-run=server -f out.yaml
+</code></pre>
+<p>Often a <code>toYaml</code> block has the wrong <code>nindent</code>, or a value was put at the wrong level in <code>values.yaml</code>.</p>
+<h2 id="find-the-right-place-for-a-field">Find the right place for a field</h2>
+<p><code>kubectl explain</code> prints the schema from your actual cluster:</p>
+<pre><code class="language-bash">kubectl explain deployment.spec
+kubectl explain pod.spec.containers.resources
+kubectl explain deployment --recursive | grep -n containers
+</code></pre>
+<h2 id="validate-before-applying">Validate before applying</h2>
+<pre><code class="language-bash">kubectl apply --dry-run=server -f deployment.yaml     # full server-side validation
+kubectl apply --validate=strict -f deployment.yaml    # fail on unknown fields (default)
+</code></pre>
+<h2 id="about-validatefalse">About --validate=false</h2>
+<p>The message suggests <code>--validate=false</code>, but that only hides the problem: the unknown field is dropped and your setting silently has no effect (e.g. containers missing, limits not applied). Fix the manifest instead.</p>
+<p class="upd">Last updated 2026-11-18.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-error-converting-yaml-to-json-mapping-values-are-not-allowed/">error converting YAML to JSON: yaml: line N: mapping values are not allowed in this context</a></li><li><a href="/kubernetes/k8s-field-is-immutable/">spec.selector: Invalid value: field is immutable</a></li><li><a href="/kubernetes/k8s-no-matches-for-kind/">error: resource mapping not found ... no matches for kind &quot;Deployment&quot; in version &quot;extensions/v1beta1&quot;</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-container-is-waiting-to-start/">Error from server (BadRequest): container is waiting to start: ContainerCreating</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

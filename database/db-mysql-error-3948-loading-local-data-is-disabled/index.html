@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERROR 3948 (42000): Loading local data is disabled; this must be enabled on both the client and server sides (MySQL) — how to fix</title>
+<meta name="description" content="`LOAD DATA LOCAL INFILE` reads a file from the client machine, and MySQL 8.0 disables that by default on the server (`local_infile=OFF`). The client must allow it too.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/database/db-mysql-error-3948-loading-local-data-is-disabled/">
+<meta property="og:title" content="ERROR 3948 (42000): Loading local data is disabled; this must be enabled on both the client and server sides (MySQL) — how to fix"><meta property="og:description" content="`LOAD DATA LOCAL INFILE` reads a file from the client machine, and MySQL 8.0 disables that by default on the server (`local_infile=OFF`). The client must allow it too.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/database/db-mysql-error-3948-loading-local-data-is-disabled/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERROR 3948 (42000): Loading local data is disabled; this must be enabled on both the client and server sides (MySQL) \u2014 how to fix", "description": "`LOAD DATA LOCAL INFILE` reads a file from the client machine, and MySQL 8.0 disables that by default on the server (`local_infile=OFF`). The client must allow it too.", "dateModified": "2026-11-23", "url": "https://errorfix-hollis.github.io/database/db-mysql-error-3948-loading-local-data-is-disabled/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Databases", "item": "https://errorfix-hollis.github.io/database/"}, {"@type": "ListItem", "position": 3, "name": "ERROR 3948 (42000): Loading local data is disabled; this must be enabled on both the client and server sides", "item": "https://errorfix-hollis.github.io/database/db-mysql-error-3948-loading-local-data-is-disabled/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/database/">Databases</a></p>
+<article><h1>ERROR 3948 (42000): Loading local data is disabled; this must be enabled on both the client and server sides (MySQL) — how to fix</h1>
+<pre class="err"><code>ERROR 3948 (42000): Loading local data is disabled; this must be enabled on both the client and server sides
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Enable it on the server: <code>SET GLOBAL local_infile = 1;</code> (or <code>local_infile=1</code> under <code>[mysqld]</code> in my.cnf), then connect the client with <code>mysql --local-infile=1 -u user -p db</code>. In code, set the driver option (<code>allowLoadLocalInfile=true</code> for Connector/J, <code>local_infile=True</code> for PyMySQL/mysql-connector). Or drop <code>LOCAL</code> and load from the server's <code>secure_file_priv</code> directory.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>LOAD DATA LOCAL INFILE 'file.csv'</code> makes the <em>client</em> read the file and stream it to the server. Because a malicious server could ask a client for arbitrary files, both sides must opt in:</p>
+<ul>
+<li>server: system variable <code>local_infile</code> (default <code>OFF</code> since MySQL 8.0)</li>
+<li>client: the <code>--local-infile</code> option / driver flag (default off in most clients)</li>
+</ul>
+<p>Error 3948 comes from the server side. If only the client side is missing, you get <code>ERROR 2068 (HY000): LOAD DATA LOCAL INFILE file request rejected due to restrictions on access</code>.</p>
+<h2 id="fix-1-enable-local_infile-on-the-server">Fix 1: enable local_infile on the server</h2>
+<p>Check it:</p>
+<pre><code class="language-sql">SHOW GLOBAL VARIABLES LIKE 'local_infile';
+</code></pre>
+<p>Turn it on (needs <code>SYSTEM_VARIABLES_ADMIN</code> or <code>SUPER</code>):</p>
+<pre><code class="language-sql">SET GLOBAL local_infile = 1;
+</code></pre>
+<p>That lasts until restart. To persist, either:</p>
+<pre><code class="language-sql">SET PERSIST local_infile = 1;
+</code></pre>
+<p>or add to <code>my.cnf</code> / <code>mysqld.cnf</code> and restart:</p>
+<pre><code class="language-ini">[mysqld]
+local_infile=1
+</code></pre>
+<p>Managed databases: on AWS RDS/Aurora, Azure and Google Cloud SQL, change <code>local_infile</code> in the parameter group / flags instead (RDS enables it in the default group).</p>
+<h2 id="fix-2-enable-it-on-the-client">Fix 2: enable it on the client</h2>
+<p>Command-line client:</p>
+<pre><code class="language-bash">mysql --local-infile=1 -u app -p mydb
+</code></pre>
+<pre><code class="language-sql">LOAD DATA LOCAL INFILE '/home/me/users.csv'
+INTO TABLE users
+FIELDS TERMINATED BY ',' ENCLOSED BY '&quot;'
+LINES TERMINATED BY '\n'
+IGNORE 1 LINES;
+</code></pre>
+<p>Or permanently in <code>~/.my.cnf</code>:</p>
+<pre><code class="language-ini">[client]
+local_infile=1
+</code></pre>
+<p>MySQL Workbench: edit the connection &gt; <strong>Advanced</strong> &gt; Others, add <code>OPT_LOCAL_INFILE=1</code>, reconnect.</p>
+<h2 id="fix-3-enable-it-in-your-driver">Fix 3: enable it in your driver</h2>
+<p>Java (Connector/J):</p>
+<pre><code>jdbc:mysql://localhost:3306/mydb?allowLoadLocalInfile=true
+</code></pre>
+<p>Python PyMySQL / mysqlclient:</p>
+<pre><code class="language-python">conn = pymysql.connect(host=&quot;localhost&quot;, user=&quot;app&quot;, password=&quot;...&quot;,
+                       database=&quot;mydb&quot;, local_infile=True)
+</code></pre>
+<p>mysql-connector-python:</p>
+<pre><code class="language-python">conn = mysql.connector.connect(..., allow_local_infile=True)
+</code></pre>
+<p>Node <code>mysql2</code>: pass an <code>infileStreamFactory</code> function in the query options so the driver can open the local file.</p>
+<p>PHP PDO: <code>PDO::MYSQL_ATTR_LOCAL_INFILE =&gt; true</code> in the constructor options.</p>
+<h2 id="alternative-load-from-the-server-without-local">Alternative: load from the server without LOCAL</h2>
+<p>If the file can be placed on the database server, skip <code>LOCAL</code>. Then the server reads it directly, <code>local_infile</code> doesn't matter, but the file must be inside <code>secure_file_priv</code> and the user needs the <code>FILE</code> privilege:</p>
+<pre><code class="language-sql">SHOW VARIABLES LIKE 'secure_file_priv';
+LOAD DATA INFILE '/var/lib/mysql-files/users.csv' INTO TABLE users ...;
+</code></pre>
+<p>See <a href="/database/db-mysql-error-1290-secure-file-priv/">secure-file-priv error 1290</a>.</p>
+<h2 id="docker">Docker</h2>
+<p>For the official image, pass the option on the command line:</p>
+<pre><code class="language-bash">docker run -d -e MYSQL_ROOT_PASSWORD=secret mysql:8 --local-infile=1
+</code></pre>
+<p>If your CSV came from Excel, convert and check it first (the <a href="/tools/csv-to-json/">CSV to JSON tool</a> helps spot broken quoting), and watch for <code>\r\n</code> line endings: use <code>LINES TERMINATED BY '\r\n'</code>.</p>
+<p class="upd">Last updated 2026-11-23.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/database/db-mysql-access-denied-for-user-root-localhost/">ERROR 1045 (28000): Access denied for user &#x27;root&#x27;@&#x27;localhost&#x27;</a></li><li><a href="/database/db-mysql-error-1064-you-have-an-error-in-your-sql-syntax/">ERROR 1064 (42000): You have an error in your SQL syntax</a></li><li><a href="/database/db-mysql-error-1290-secure-file-priv/">ERROR 1290 (HY000): The MySQL server is running with the --secure-file-priv option so it cannot execute this statement</a></li><li><a href="/database/db-mysql-cant-connect-to-local-mysql-server-through-socket/">ERROR 2002 (HY000): Can&#x27;t connect to local MySQL server through socket &#x27;/var/run/mysqld/mysqld.sock&#x27; (2)</a></li><li><a href="/database/db-mysql-error-1046-no-database-selected/">ERROR 1046 (3D000): No database selected</a></li><li><a href="/database/db-mysql-error-1049-unknown-database/">ERROR 1049 (42000): Unknown database</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

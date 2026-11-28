@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;langchain&#x27; (Python) — how to fix</title>
+<meta name="description" content="The `langchain` package isn&#x27;t installed in the Python interpreter running your code, or you&#x27;re importing a module that moved into a separate package such as `langchain_openai` or `langchain_community`.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-langchain/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;langchain&#x27; (Python) — how to fix"><meta property="og:description" content="The `langchain` package isn&#x27;t installed in the Python interpreter running your code, or you&#x27;re importing a module that moved into a separate package such as `langchain_openai` or `langchain_community`.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-langchain/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'langchain' (Python) \u2014 how to fix", "description": "The `langchain` package isn't installed in the Python interpreter running your code, or you're importing a module that moved into a separate package such as `langchain_openai` or `langchain_community`.", "dateModified": "2026-11-19", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-langchain/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'langchain'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-langchain/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;langchain&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 1, in &lt;module&gt;
+    from langchain.chat_models import ChatOpenAI
+ModuleNotFoundError: No module named &#x27;langchain&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Install into the same interpreter: <code>python -m pip install -U langchain</code>. For integrations install the partner package too, e.g. <code>python -m pip install langchain-openai</code> and import <code>from langchain_openai import ChatOpenAI</code>. For <code>No module named 'langchain_community'</code> run <code>pip install langchain-community</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Python searched <code>sys.path</code> of the <em>current interpreter</em> and found no <code>langchain</code> package. Either it's not installed there, or it's installed for a different Python (another venv, system Python, a different Jupyter kernel).</p>
+<p>LangChain is also split into several distributions, so the module name in the error matters:</p>
+<table>
+<thead>
+<tr>
+<th>Error says</th>
+<th>Install</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>No module named 'langchain'</code></td>
+<td><code>langchain</code></td>
+</tr>
+<tr>
+<td><code>No module named 'langchain_core'</code></td>
+<td><code>langchain-core</code></td>
+</tr>
+<tr>
+<td><code>No module named 'langchain_community'</code></td>
+<td><code>langchain-community</code></td>
+</tr>
+<tr>
+<td><code>No module named 'langchain_openai'</code></td>
+<td><code>langchain-openai</code></td>
+</tr>
+<tr>
+<td><code>No module named 'langchain_anthropic'</code></td>
+<td><code>langchain-anthropic</code></td>
+</tr>
+<tr>
+<td><code>No module named 'langchain_text_splitters'</code></td>
+<td><code>langchain-text-splitters</code></td>
+</tr>
+</tbody>
+</table>
+<p>Note the pip name uses hyphens; the import name uses underscores.</p>
+<h2 id="cause-1-not-installed-in-this-interpreter">Cause 1: not installed in this interpreter</h2>
+<p>Install with the exact Python you run:</p>
+<pre><code class="language-bash">python -m pip install -U langchain
+python -c &quot;import langchain, sys; print(langchain.__version__, sys.executable)&quot;
+</code></pre>
+<p>Using <code>python -m pip</code> instead of bare <code>pip</code> avoids installing into a different Python. On Debian/Ubuntu system Python you'll get <code>externally-managed-environment</code> — use a venv:</p>
+<pre><code class="language-bash">python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install langchain langchain-openai
+</code></pre>
+<h2 id="cause-2-jupyter-vs-code-uses-another-kernel">Cause 2: Jupyter / VS Code uses another kernel</h2>
+<p>In a notebook, install into the kernel's own interpreter:</p>
+<pre><code class="language-python">%pip install -U langchain langchain-openai
+</code></pre>
+<p>Then restart the kernel. In VS Code, pick the right interpreter with <em>Python: Select Interpreter</em> (the <code>.venv</code> one).</p>
+<h2 id="cause-3-old-import-paths-after-upgrading">Cause 3: old import paths after upgrading</h2>
+<p>Many tutorials use imports from LangChain 0.0.x that were moved. Since 0.1/0.2 integrations live in separate packages:</p>
+<pre><code class="language-python"># Old (fails or warns on current versions)
+from langchain.chat_models import ChatOpenAI
+from langchain.llms import OpenAI
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.vectorstores import FAISS
+from langchain.document_loaders import PyPDFLoader
+
+# Current
+from langchain_openai import ChatOpenAI, OpenAI, OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_core.prompts import ChatPromptTemplate
+</code></pre>
+<pre><code class="language-bash">pip install -U langchain langchain-openai langchain-community faiss-cpu pypdf
+</code></pre>
+<h2 id="cause-4-a-file-named-langchainpy">Cause 4: a file named langchain.py</h2>
+<p>If your script or a folder in the project is called <code>langchain.py</code> / <code>langchain/</code>, Python imports that instead and then can't find submodules (<code>No module named 'langchain.chains'; 'langchain' is not a package</code>). Rename it and delete <code>__pycache__</code>.</p>
+<h2 id="cause-5-unsupported-python-version">Cause 5: unsupported Python version</h2>
+<p>Current LangChain releases require Python 3.9+ (newer ones 3.10+). On older Python, pip may install an ancient version or fail with <code>Could not find a version that satisfies the requirement</code>. Check <code>python --version</code> and upgrade.</p>
+<h2 id="pin-versions">Pin versions</h2>
+<p>LangChain packages must be compatible with each other. Upgrade them together and pin in <code>requirements.txt</code>:</p>
+<pre><code class="language-bash">pip install -U langchain langchain-core langchain-community langchain-openai
+pip freeze | grep -i langchain &gt;&gt; requirements.txt
+</code></pre>
+<p class="upd">Last updated 2026-11-19.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-importerror-cannot-import-name/">ImportError: cannot import name &#x27;X&#x27; from &#x27;Y&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-openai/">ModuleNotFoundError: No module named &#x27;openai&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

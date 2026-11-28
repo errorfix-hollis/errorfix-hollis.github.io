@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModuleNotFoundError: No module named &#x27;django&#x27; (Python) — how to fix</title>
+<meta name="description" content="Django is not installed in the Python interpreter running manage.py. Usually the project&#x27;s virtualenv isn&#x27;t activated, or Django was installed for another Python.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-django/">
+<meta property="og:title" content="ModuleNotFoundError: No module named &#x27;django&#x27; (Python) — how to fix"><meta property="og:description" content="Django is not installed in the Python interpreter running manage.py. Usually the project&#x27;s virtualenv isn&#x27;t activated, or Django was installed for another Python.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-django/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ModuleNotFoundError: No module named 'django' (Python) \u2014 how to fix", "description": "Django is not installed in the Python interpreter running manage.py. Usually the project's virtualenv isn't activated, or Django was installed for another Python.", "dateModified": "2026-11-15", "url": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-django/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "ModuleNotFoundError: No module named 'django'", "item": "https://errorfix-hollis.github.io/python/python-modulenotfounderror-no-module-named-django/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>ModuleNotFoundError: No module named &#x27;django&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;manage.py&quot;, line 11, in main
+    from django.core.management import execute_from_command_line
+ModuleNotFoundError: No module named &#x27;django&#x27;
+
+The above exception was the direct cause of the following exception:
+
+ImportError: Couldn&#x27;t import Django. Are you sure it&#x27;s installed and available on your PYTHONPATH environment variable? Did you forget to activate a virtual environment?
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Activate the project's venv (<code>source .venv/bin/activate</code>, Windows <code>.venv\Scripts\activate</code>) and run <code>python -m pip install django</code> or <code>python -m pip install -r requirements.txt</code>. Then run <code>python manage.py runserver</code> with that interpreter. In production point gunicorn/uwsgi/mod_wsgi at the venv.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>manage.py</code> tried to import Django and Python couldn't find it on <code>sys.path</code>. Django's <code>manage.py</code> catches that error and re-raises it as <strong>"Couldn't import Django... Did you forget to activate a virtual environment?"</strong> That hint is usually correct: the project's venv isn't active, so the system Python runs and has no Django.</p>
+<pre><code class="language-bash">python -c &quot;import sys; print(sys.executable)&quot;
+</code></pre>
+<p>If this doesn't print a path inside your project's venv, that's the problem.</p>
+<h2 id="fix-1-activate-the-venv">Fix 1: activate the venv</h2>
+<pre><code class="language-bash"># macOS / Linux
+source .venv/bin/activate        # or venv/bin/activate, env/bin/activate
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+# Windows cmd
+.venv\Scripts\activate.bat
+</code></pre>
+<p>Then run <code>python manage.py runserver</code>. With pipenv use <code>pipenv run python manage.py runserver</code>. With poetry use <code>poetry run python manage.py runserver</code>. With uv use <code>uv run manage.py runserver</code>.</p>
+<p>On PowerShell, if activation is blocked with "running scripts is disabled", run <code>Set-ExecutionPolicy -Scope CurrentUser RemoteSigned</code> once.</p>
+<h2 id="fix-2-install-django-or-the-requirements">Fix 2: install Django (or the requirements)</h2>
+<pre><code class="language-bash">python -m venv .venv &amp;&amp; source .venv/bin/activate   # if there is no venv yet
+python -m pip install -r requirements.txt           # existing project
+python -m pip install django                        # new project
+python -m django --version
+</code></pre>
+<p>Use <code>python -m pip</code> so pip and Python match. Install outside a venv on Debian/Ubuntu and you get <a href="/python/python-externally-managed-environment/">externally-managed-environment</a>.</p>
+<h2 id="fix-3-the-venv-was-moved-or-python-was-upgraded">Fix 3: the venv was moved or Python was upgraded</h2>
+<p>A venv stores absolute paths. If you renamed the project folder, copied it to another machine, or upgraded Python (e.g. Homebrew 3.12 → 3.13), the venv's <code>python</code> may point at nothing or at an interpreter without Django. Recreate it:</p>
+<pre><code class="language-bash">rm -rf .venv
+python3 -m venv .venv &amp;&amp; source .venv/bin/activate
+python -m pip install -r requirements.txt
+</code></pre>
+<p>Never commit the venv folder to git. Commit <code>requirements.txt</code> instead (<code>python -m pip freeze &gt; requirements.txt</code>).</p>
+<h2 id="fix-4-the-ide-uses-another-interpreter">Fix 4: the IDE uses another interpreter</h2>
+<ul>
+<li><strong>VS Code:</strong> <code>Ctrl+Shift+P</code> → <strong>Python: Select Interpreter</strong> → the project's <code>.venv</code>, then open a new terminal.</li>
+<li><strong>PyCharm:</strong> <strong>Settings → Project → Python Interpreter</strong> → <strong>Add Interpreter → Existing</strong> → <code>.venv/bin/python</code>.</li>
+</ul>
+<h2 id="fix-5-production-servers">Fix 5: production servers</h2>
+<p>The web server doesn't activate your venv:</p>
+<ul>
+<li><strong>gunicorn:</strong> start the venv's binary, <code>/srv/site/.venv/bin/gunicorn mysite.wsgi:application</code>, in the systemd <code>ExecStart=</code>.</li>
+<li><strong>uWSGI:</strong> set <code>home = /srv/site/.venv</code> (or <code>virtualenv =</code>).</li>
+<li><strong>Apache mod_wsgi:</strong> <code>WSGIDaemonProcess mysite python-home=/srv/site/.venv python-path=/srv/site</code>. mod_wsgi must be built for the same Python version as the venv.</li>
+<li><strong>Docker:</strong> make sure <code>pip install -r requirements.txt</code> runs in the image, and that <code>CMD</code> uses the same Python.</li>
+</ul>
+<h2 id="related-errors">Related errors</h2>
+<ul>
+<li><code>No module named 'mysite.settings'</code> or <code>'myapp'</code>: Django is installed, but the project folder isn't on the path. Run commands from the folder containing <code>manage.py</code>, and check <code>DJANGO_SETTINGS_MODULE</code>.</li>
+<li><code>No module named 'rest_framework'</code> → <code>pip install djangorestframework</code>. <code>'corsheaders'</code> → <code>pip install django-cors-headers</code>. <code>'environ'</code> → <code>pip install django-environ</code>.</li>
+</ul>
+<p class="upd">Last updated 2026-11-15.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-externally-managed-environment/">error: externally-managed-environment</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-dotenv/">ModuleNotFoundError: No module named &#x27;dotenv&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named/">ModuleNotFoundError: No module named</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERR_CONNECTION_RESET — how to fix</title>
+<meta name="description" content="The TCP connection was opened but then abruptly closed with a RST packet before a response arrived. Something between the browser and the site (firewall, proxy, antivirus, VPN, ISP filtering) or the server itself killed it.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-err-connection-reset/">
+<meta property="og:title" content="ERR_CONNECTION_RESET — how to fix"><meta property="og:description" content="The TCP connection was opened but then abruptly closed with a RST packet before a response arrived. Something between the browser and the site (firewall, proxy, antivirus, VPN, ISP filtering) or the server itself killed it.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-err-connection-reset/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "ERR_CONNECTION_RESET \u2014 how to fix", "description": "The TCP connection was opened but then abruptly closed with a RST packet before a response arrived. Something between the browser and the site (firewall, proxy, antivirus, VPN, ISP filtering) or the server itself killed it.", "dateModified": "2026-11-23", "url": "https://errorfix-hollis.github.io/web/web-err-connection-reset/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "ERR_CONNECTION_RESET", "item": "https://errorfix-hollis.github.io/web/web-err-connection-reset/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>ERR_CONNECTION_RESET — how to fix</h1>
+<pre class="err"><code>This site can&#x27;t be reached
+The connection was reset.
+ERR_CONNECTION_RESET
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Try another network or a mobile hotspot, and disable VPN/proxy/antivirus HTTPS scanning to find who resets the connection. On Windows run <code>netsh winsock reset</code> and <code>netsh int ip reset</code>, then reboot. If it's your server, check that it isn't crashing mid-request, that the TLS port actually speaks TLS, and proxy/upload size limits; test with <code>curl -v https://site</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The browser connected, then received a TCP reset (RST). Compare:</p>
+<ul>
+<li><code>ERR_CONNECTION_REFUSED</code>: nothing listening on the port; RST right away.</li>
+<li><code>ERR_CONNECTION_TIMED_OUT</code>: no answer at all.</li>
+<li><code>ERR_CONNECTION_RESET</code>: connection established, then forcibly killed, often during the TLS handshake or while sending/receiving data.</li>
+</ul>
+<p>Firefox shows "The connection was reset"; <code>curl</code> shows <code>Connection reset by peer</code> (<code>curl: (35)</code> or <code>(56)</code>); Node shows <code>ECONNRESET</code>.</p>
+<h2 id="step-1-find-out-who-resets-it">Step 1: find out who resets it</h2>
+<pre><code class="language-bash">curl -v https://example.com/
+</code></pre>
+<ul>
+<li>Fails the same way on another network (mobile hotspot) too → server side.</li>
+<li>Works on another network/device → your machine, network, ISP or a middlebox.</li>
+<li>Only some sites fail, especially by name → filtering (corporate firewall, ISP blocking, parental controls) which often injects RSTs based on the hostname in the TLS SNI.</li>
+</ul>
+<h2 id="fix-1-visitor-vpn-proxy-antivirus">Fix 1 (visitor): VPN, proxy, antivirus</h2>
+<p>Disable these one at a time and retry:</p>
+<ul>
+<li>VPN clients and browser VPN/proxy extensions</li>
+<li>system proxy (Windows: Settings &gt; Network &amp; internet &gt; Proxy; turn off "Use a proxy server")</li>
+<li>antivirus "HTTPS scanning"/"web shield" (Avast, AVG, Kaspersky, ESET, Bitdefender)</li>
+</ul>
+<p>Also try an incognito window (rules out extensions) and a different browser.</p>
+<h2 id="fix-2-visitor-reset-the-network-stack-on-windows">Fix 2 (visitor): reset the network stack on Windows</h2>
+<p>Admin Command Prompt:</p>
+<pre><code class="language-bat">netsh winsock reset
+netsh int ip reset
+ipconfig /flushdns
+</code></pre>
+<p>Reboot afterwards. On macOS/Linux, toggling the interface or restarting the router clears most transient states.</p>
+<h2 id="fix-3-mtu-problems-on-vpns-pppoe-tunnels">Fix 3: MTU problems on VPNs, PPPoE, tunnels</h2>
+<p>Small requests work but large pages or TLS handshakes with long certificate chains reset or hang. Test the path MTU:</p>
+<pre><code class="language-bash">ping -M do -s 1472 example.com     # Linux; macOS: ping -D -s 1472
+</code></pre>
+<p>If it fails, lower it step by step and set the interface MTU accordingly (e.g. 1400 for many VPNs), or enable MSS clamping on the router.</p>
+<h2 id="fix-4-site-owner-the-server-or-app-drops-the-connection">Fix 4 (site owner): the server or app drops the connection</h2>
+<p>Common causes when <em>every</em> client sees it:</p>
+<ul>
+<li><strong>app crash mid-request</strong>: the process dies (segfault, OOM kill) and the kernel resets the socket. Check app logs and <code>dmesg | grep -i oom</code>.</li>
+<li><strong>HTTP on an HTTPS port, or the reverse</strong>: e.g. nginx <code>listen 443;</code> without <code>ssl</code>, so the TLS ClientHello gets a garbage reply. Use <code>listen 443 ssl;</code>. Test with <code>openssl s_client -connect host:443 -servername host</code>.</li>
+<li><strong>upload limits</strong>: some servers reset instead of answering 413 when a body is too large. In nginx raise <code>client_max_body_size</code> (see <a href="/web/web-nginx-413-request-entity-too-large/">413 Request Entity Too Large</a>).</li>
+<li><strong>keep-alive mismatch</strong>: a backend closes idle keep-alive connections sooner than the proxy in front of it expects. Make the backend's keep-alive timeout longer than the proxy's (e.g. Node <code>server.keepAliveTimeout = 65000</code> behind an AWS ALB with 60 s idle timeout).</li>
+<li><strong>firewall / fail2ban / rate limiting</strong> rejecting your IP with <code>REJECT --reject-with tcp-reset</code>. Check <code>sudo iptables -L -n</code> or <code>sudo nft list ruleset</code>.</li>
+</ul>
+<h2 id="fix-5-localhost-dev-servers">Fix 5: localhost dev servers</h2>
+<p>A dev server that crashes while handling the request resets the connection; check the terminal running it. A very common Docker case: the port is published (<code>-p 3000:3000</code>) but the app inside the container listens on <code>127.0.0.1</code>, so Docker's proxy accepts the connection and then gets nothing, giving <code>curl: (56) Recv failure: Connection reset by peer</code>. Bind the app to <code>0.0.0.0</code> inside containers and WSL (e.g. <code>vite --host 0.0.0.0</code>, <code>flask run --host=0.0.0.0</code>).</p>
+<p class="upd">Last updated 2026-11-23.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-err-connection-refused/">ERR_CONNECTION_REFUSED</a></li><li><a href="/web/web-err-connection-timed-out/">ERR_CONNECTION_TIMED_OUT</a></li><li><a href="/web/web-err-ssl-protocol-error/">ERR_SSL_PROTOCOL_ERROR</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

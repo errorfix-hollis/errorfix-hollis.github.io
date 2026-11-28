@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>nginx: [emerg] no &quot;ssl_certificate&quot; is defined for the &quot;listen ... ssl&quot; directive — how to fix</title>
+<meta name="description" content="A server block has listen 443 ssl (or another port with ssl) but no ssl_certificate and ssl_certificate_key directive applies to it, either in that block or inherited from the http block.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/web/web-nginx-no-ssl-certificate-is-defined/">
+<meta property="og:title" content="nginx: [emerg] no &quot;ssl_certificate&quot; is defined for the &quot;listen ... ssl&quot; directive — how to fix"><meta property="og:description" content="A server block has listen 443 ssl (or another port with ssl) but no ssl_certificate and ssl_certificate_key directive applies to it, either in that block or inherited from the http block.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/web/web-nginx-no-ssl-certificate-is-defined/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "nginx: [emerg] no \"ssl_certificate\" is defined for the \"listen ... ssl\" directive \u2014 how to fix", "description": "A server block has listen 443 ssl (or another port with ssl) but no ssl_certificate and ssl_certificate_key directive applies to it, either in that block or inherited from the http block.", "dateModified": "2026-11-26", "url": "https://errorfix-hollis.github.io/web/web-nginx-no-ssl-certificate-is-defined/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Web & HTTP", "item": "https://errorfix-hollis.github.io/web/"}, {"@type": "ListItem", "position": 3, "name": "nginx: [emerg] no \"ssl_certificate\" is defined for the \"listen ... ssl\" directive", "item": "https://errorfix-hollis.github.io/web/web-nginx-no-ssl-certificate-is-defined/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/web/">Web &amp; HTTP</a></p>
+<article><h1>nginx: [emerg] no &quot;ssl_certificate&quot; is defined for the &quot;listen ... ssl&quot; directive — how to fix</h1>
+<pre class="err"><code>nginx: [emerg] no &quot;ssl_certificate&quot; is defined for the &quot;listen ... ssl&quot; directive in /etc/nginx/sites-enabled/default:22
+nginx: configuration file /etc/nginx/nginx.conf test failed
+[error] no &quot;ssl_certificate&quot; is defined in server listening on SSL port while SSL handshaking
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Add the certificate to every server block that listens with ssl: <code>ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem;</code> and <code>ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;</code>, or remove <code>ssl</code> from the listen line. Then <code>sudo nginx -t &amp;&amp; sudo systemctl reload nginx</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Every <code>server</code> block that accepts TLS (<code>listen 443 ssl;</code>, <code>listen [::]:443 ssl;</code>, <code>listen 8443 ssl http2;</code>) needs a certificate and key. Since nginx 1.15.9 the config test fails at startup (<code>[emerg]</code>) if one is missing; older versions failed later, during the handshake, with the <code>[error] ... while SSL handshaking</code> variant.</p>
+<p>The line number in the message points to the <code>listen</code> directive of the offending block. Find all SSL listeners:</p>
+<pre><code class="language-bash">sudo nginx -T 2&gt;/dev/null | grep -nE 'listen .*ssl|ssl_certificate|server_name|# configuration file'
+</code></pre>
+<h2 id="cause-1-certificate-lines-missing-from-the-block">Cause 1: certificate lines missing from the block</h2>
+<p>Often you copied an HTTP server block and only changed the listen line.</p>
+<h2 id="fix-1-add-the-certificate-and-key">Fix 1: add the certificate and key</h2>
+<pre><code class="language-nginx">server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;                      # nginx 1.25.1+; older: listen 443 ssl http2;
+    server_name example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+    ...
+}
+</code></pre>
+<p>If you don't have a certificate yet, get one with Certbot first (it can edit the config for you):</p>
+<pre><code class="language-bash">sudo certbot --nginx -d example.com -d www.example.com
+</code></pre>
+<p>Then test and reload:</p>
+<pre><code class="language-bash">sudo nginx -t &amp;&amp; sudo systemctl reload nginx
+</code></pre>
+<h2 id="cause-2-certbot-removed-or-never-wrote-the-lines">Cause 2: certbot removed or never wrote the lines</h2>
+<p>After a failed <code>certbot --nginx</code> run, or when Certbot couldn't match <code>server_name</code>, the block keeps <code>listen 443 ssl</code> without certificate paths. Check <code>ls /etc/letsencrypt/live/</code> for the certificate name and add the paths manually, or rerun <code>sudo certbot install --cert-name example.com</code>.</p>
+<h2 id="cause-3-a-defaultcatch-all-ssl-server-without-a-certificate">Cause 3: a default/catch-all SSL server without a certificate</h2>
+<p>A <code>default_server</code> on 443 meant to reject unknown hosts still needs a certificate — unless you use <code>ssl_reject_handshake</code> (nginx 1.19.4+):</p>
+<pre><code class="language-nginx">server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    ssl_reject_handshake on;
+}
+</code></pre>
+<p>This rejects TLS for unmatched names without needing any certificate.</p>
+<h2 id="cause-4-ssl-on-a-port-that-should-be-plain-http">Cause 4: ssl on a port that should be plain HTTP</h2>
+<p><code>listen 80 ssl;</code> or <code>listen 8080 ssl;</code> behind a TLS-terminating load balancer. If TLS is handled elsewhere (Cloudflare, AWS ALB, Kubernetes ingress), remove <code>ssl</code> from the listen line:</p>
+<pre><code class="language-nginx">listen 80;
+</code></pre>
+<h2 id="cause-5-certificate-defined-in-an-included-file-that-isnt-loaded">Cause 5: certificate defined in an included file that isn't loaded</h2>
+<p>The paths may live in a snippet such as <code>include snippets/ssl-example.com.conf;</code> or <code>/etc/letsencrypt/options-ssl-nginx.conf</code> (note: the Certbot options file contains protocol/cipher settings, not the certificate paths). Make sure the include is inside the right <code>server</code> block and the file exists.</p>
+<h2 id="shared-certificate-for-all-blocks">Shared certificate for all blocks</h2>
+<p>You can put <code>ssl_certificate</code> / <code>ssl_certificate_key</code> in the <code>http {}</code> block; every server inherits them unless it sets its own. Useful for a wildcard certificate, but clients will get a name mismatch for hosts not covered by it.</p>
+<p class="upd">Last updated 2026-11-26.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/web/web-nginx-bind-address-already-in-use/">nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use)</a></li><li><a href="/web/web-nginx-unknown-directive/">nginx: [emerg] unknown directive</a></li><li><a href="/web/web-ssl-error-rx-record-too-long/">SSL_ERROR_RX_RECORD_TOO_LONG</a></li><li><a href="/web/web-504-gateway-timeout/">504 Gateway Timeout</a></li><li><a href="/web/web-cors-no-access-control-allow-origin/">has been blocked by CORS policy: No &#x27;Access-Control-Allow-Origin&#x27; header is present on the requested resource</a></li><li><a href="/web/web-curl-60-ssl-certificate-problem/">curl: (60) SSL certificate problem: unable to get local issuer certificate</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

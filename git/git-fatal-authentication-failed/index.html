@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fatal: Authentication failed for &#x27;https://...&#x27; (Git) — how to fix</title>
+<meta name="description" content="The Git host rejected the credentials sent over HTTPS. Usually a stored password or token is wrong, expired or revoked, or the host requires a token instead of your account password.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/git/git-fatal-authentication-failed/">
+<meta property="og:title" content="fatal: Authentication failed for &#x27;https://...&#x27; (Git) — how to fix"><meta property="og:description" content="The Git host rejected the credentials sent over HTTPS. Usually a stored password or token is wrong, expired or revoked, or the host requires a token instead of your account password.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/git/git-fatal-authentication-failed/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "fatal: Authentication failed for 'https://...' (Git) \u2014 how to fix", "description": "The Git host rejected the credentials sent over HTTPS. Usually a stored password or token is wrong, expired or revoked, or the host requires a token instead of your account password.", "dateModified": "2026-11-15", "url": "https://errorfix-hollis.github.io/git/git-fatal-authentication-failed/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Git", "item": "https://errorfix-hollis.github.io/git/"}, {"@type": "ListItem", "position": 3, "name": "fatal: Authentication failed for 'https://...'", "item": "https://errorfix-hollis.github.io/git/git-fatal-authentication-failed/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/git/">Git</a></p>
+<article><h1>fatal: Authentication failed for &#x27;https://...&#x27; (Git) — how to fix</h1>
+<pre class="err"><code>remote: Invalid username or password.
+fatal: Authentication failed for &#x27;https://gitlab.com/team/project.git/&#x27;
+
+remote: HTTP Basic: Access denied. If a password was provided for Git authentication, the password was incorrect or you&#x27;re required to use a token instead of a password.
+fatal: Authentication failed for &#x27;https://gitlab.example.com/team/project.git/&#x27;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Clear the stale stored credential (<code>printf "protocol=https\nhost=github.com\n\n" | git credential reject</code>, or remove it from Windows Credential Manager / macOS Keychain), then push again and enter your username plus a personal access token as the password. Or switch the remote to SSH: <code>git remote set-url origin git@host:owner/repo.git</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>The server answered your HTTPS request with "401 Unauthorized" after Git sent a username and password. Git then gives up with <code>Authentication failed</code>. The repository exists and you reached the server, but the credentials are wrong for it.</p>
+<p>Almost every Git host no longer accepts your account password for Git:</p>
+<table>
+<thead>
+<tr>
+<th>Host</th>
+<th>What to use as the password</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GitHub</td>
+<td>Personal access token, or <code>gh auth login</code> (see <a href="/git/git-password-authentication-removed/">password authentication was removed</a>)</td>
+</tr>
+<tr>
+<td>GitLab</td>
+<td>Personal/project access token with <code>read_repository</code> / <code>write_repository</code> scope</td>
+</tr>
+<tr>
+<td>Bitbucket Cloud</td>
+<td>An API token (app passwords are being phased out), username = your Bitbucket username</td>
+</tr>
+<tr>
+<td>Azure DevOps</td>
+<td>PAT with <strong>Code (Read &amp; write)</strong> scope, or Git Credential Manager</td>
+</tr>
+<tr>
+<td>Self-hosted (Gitea, Gerrit, ...)</td>
+<td>Usually a token from your user settings</td>
+</tr>
+</tbody>
+</table>
+<h2 id="fix-1-clear-the-stored-stale-credential">Fix 1: clear the stored (stale) credential</h2>
+<p>The most common case: it used to work, then you changed your password, or the token expired or was revoked. Git keeps sending the old one from the credential helper, so it never asks again.</p>
+<p>See which helper is in use:</p>
+<pre><code class="language-bash">git config --show-origin --get-all credential.helper
+</code></pre>
+<p>Remove the stored entry for the host:</p>
+<pre><code class="language-bash">printf &quot;protocol=https\nhost=gitlab.com\n\n&quot; | git credential reject
+</code></pre>
+<p>Or by OS:</p>
+<ul>
+<li><strong>Windows:</strong> Control Panel → <strong>Credential Manager</strong> → <strong>Windows Credentials</strong> → remove <code>git:https://gitlab.com</code>. With Git Credential Manager you can also run <code>git credential-manager erase</code> and feed it the same lines.</li>
+<li><strong>macOS:</strong> Keychain Access → search for the host → delete the "internet password" entry. Or run <code>git credential-osxkeychain erase</code> and feed it the lines above.</li>
+<li><strong>Linux <code>store</code> helper:</strong> edit <code>~/.git-credentials</code> and delete the line for the host.</li>
+</ul>
+<p>Then run <code>git fetch</code>. Git will prompt, and you enter your username and the <strong>token</strong> as the password.</p>
+<h2 id="fix-2-create-a-token-with-the-right-scope">Fix 2: create a token with the right scope</h2>
+<p>A token that authenticates but lacks scope gives <code>403</code> on some hosts, and <code>Authentication failed</code> on others:</p>
+<ul>
+<li>GitLab: <strong>Preferences → Access tokens</strong>, scopes <code>read_repository</code> + <code>write_repository</code>.</li>
+<li>Azure DevOps: <strong>User settings → Personal access tokens</strong>, scope <strong>Code: Read &amp; write</strong>, correct organization.</li>
+<li>GitHub fine-grained tokens: give the repository access and <strong>Contents: Read and write</strong>.</li>
+</ul>
+<p>Check the expiry date. Organizations often enforce short lifetimes.</p>
+<h2 id="fix-3-wrong-username-in-the-url">Fix 3: wrong username in the URL</h2>
+<p>If the remote URL contains a username, Git uses it no matter what you type:</p>
+<pre><code class="language-bash">git remote -v
+# https://olduser@gitlab.com/team/project.git
+git remote set-url origin https://gitlab.com/team/project.git
+</code></pre>
+<p>Never put a token in the remote URL. It gets saved in <code>.git/config</code> and shows up in logs.</p>
+<h2 id="fix-4-2fa-sso-or-saml">Fix 4: 2FA, SSO or SAML</h2>
+<p>With two-factor auth on, passwords never work over HTTPS. Use a token or SSH. On GitHub orgs with SAML SSO, a classic token must also be <strong>authorized for the org</strong> (Settings → Tokens → Configure SSO).</p>
+<h2 id="fix-5-use-ssh-instead">Fix 5: use SSH instead</h2>
+<pre><code class="language-bash">ssh-keygen -t ed25519 -C &quot;you@example.com&quot;
+cat ~/.ssh/id_ed25519.pub        # add to the host's SSH keys page
+git remote set-url origin git@gitlab.com:team/project.git
+ssh -T git@gitlab.com
+</code></pre>
+<p>If SSH then fails, see <a href="/git/git-permission-denied-publickey/">Permission denied (publickey)</a>.</p>
+<h2 id="ci-pipelines">CI pipelines</h2>
+<p>In CI, <code>Authentication failed</code> usually means the token variable is empty (a protected or masked variable not available on this branch), or expired. On GitLab CI, clone with <code>https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/group/repo.git</code>. That job token also needs access granted in the target project's <strong>CI/CD → Job token permissions</strong>.</p>
+<p class="upd">Last updated 2026-11-15.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-password-authentication-removed/">remote: Support for password authentication was removed</a></li><li><a href="/git/git-permission-denied-publickey/">git@github.com: Permission denied (publickey).</a></li><li><a href="/git/git-the-requested-url-returned-error-403/">fatal: unable to access ... The requested URL returned error: 403</a></li><li><a href="/git/git-adding-embedded-git-repository/">warning: adding embedded git repository</a></li><li><a href="/git/git-cannot-lock-ref/">error: cannot lock ref</a></li><li><a href="/git/git-cannot-pull-with-rebase-unstaged-changes/">error: cannot pull with rebase: You have unstaged changes.</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

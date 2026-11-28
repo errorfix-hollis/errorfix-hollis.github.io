@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>npm ERR! code ENOTFOUND — how to fix</title>
+<meta name="description" content="npm couldn&#x27;t resolve the registry&#x27;s hostname (getaddrinfo failed). Either DNS/internet is broken on this machine, the registry URL in your npm config is wrong, or a proxy setting points to a host that doesn&#x27;t exist.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-err-code-enotfound/">
+<meta property="og:title" content="npm ERR! code ENOTFOUND — how to fix"><meta property="og:description" content="npm couldn&#x27;t resolve the registry&#x27;s hostname (getaddrinfo failed). Either DNS/internet is broken on this machine, the registry URL in your npm config is wrong, or a proxy setting points to a host that doesn&#x27;t exist.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-err-code-enotfound/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "npm ERR! code ENOTFOUND \u2014 how to fix", "description": "npm couldn't resolve the registry's hostname (getaddrinfo failed). Either DNS/internet is broken on this machine, the registry URL in your npm config is wrong, or a proxy setting points to a host that doesn't exist.", "dateModified": "2026-11-28", "url": "https://errorfix-hollis.github.io/npm/npm-err-code-enotfound/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "npm ERR! code ENOTFOUND", "item": "https://errorfix-hollis.github.io/npm/npm-err-code-enotfound/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>npm ERR! code ENOTFOUND — how to fix</h1>
+<pre class="err"><code>npm ERR! code ENOTFOUND
+npm ERR! syscall getaddrinfo
+npm ERR! errno ENOTFOUND
+npm ERR! network request to https://registry.npmjs.org/express failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org
+npm ERR! network This is a problem related to network connectivity.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Test DNS with <code>nslookup registry.npmjs.org</code>. Check <code>npm config get registry</code> (should be <code>https://registry.npmjs.org/</code> unless you use a private registry) and <code>npm config get proxy</code> / <code>npm config get https-proxy</code>; remove stale ones with <code>npm config delete proxy</code> and <code>npm config delete https-proxy</code>. Look for overrides in <code>.npmrc</code> files in the project and home directory.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>getaddrinfo ENOTFOUND &lt;host&gt;</code> is the operating system saying the hostname could not be resolved to an IP address. npm never got as far as connecting. The hostname in the message tells you where to look:</p>
+<ul>
+<li><code>registry.npmjs.org</code>: general DNS / connectivity problem;</li>
+<li>a misspelled or internal registry host (<code>registry.npmjs.og</code>, <code>nexus.corp.local</code>): your npm config;</li>
+<li>a proxy host (<code>proxy.company.com</code>): your proxy settings;</li>
+<li><code>github.com</code> / <code>codeload.github.com</code>: a dependency installed from Git.</li>
+</ul>
+<p>(npm 10 prints <code>npm error</code> instead of <code>npm ERR!</code>; the fix is the same.)</p>
+<h2 id="fix-1-check-dns-and-connectivity">Fix 1: check DNS and connectivity</h2>
+<pre><code class="language-bash">nslookup registry.npmjs.org
+curl -I https://registry.npmjs.org/
+</code></pre>
+<p>If <code>nslookup</code> fails too, it's not npm. Check your network, VPN, and DNS server. On Linux see the "Temporary failure in name resolution" page. On WSL 2 a broken <code>/etc/resolv.conf</code> is a common cause; restarting WSL with <code>wsl --shutdown</code> (from Windows) regenerates it.</p>
+<h2 id="fix-2-wrong-registry-url">Fix 2: wrong registry URL</h2>
+<pre><code class="language-bash">npm config get registry
+# should usually print https://registry.npmjs.org/
+npm config set registry https://registry.npmjs.org/
+</code></pre>
+<p>Settings can come from several files: the project's <code>.npmrc</code>, <code>~/.npmrc</code>, the global npmrc, and environment variables like <code>npm_config_registry</code>. See all of them and where they're defined:</p>
+<pre><code class="language-bash">npm config list
+npm config ls -l | grep -i registry
+</code></pre>
+<p>A scoped registry (<code>@company:registry=https://npm.company.internal/</code>) only affects that scope; if the internal host is only reachable over VPN, connect first.</p>
+<h2 id="fix-3-stale-or-wrong-proxy-settings">Fix 3: stale or wrong proxy settings</h2>
+<p>Proxy settings left over from an office network make npm try to resolve a proxy host that doesn't exist at home:</p>
+<pre><code class="language-bash">npm config get proxy
+npm config get https-proxy
+npm config delete proxy
+npm config delete https-proxy
+</code></pre>
+<p>Also check <code>HTTP_PROXY</code>, <code>HTTPS_PROXY</code> and <code>NO_PROXY</code> environment variables (<code>env | grep -i proxy</code>). If you do need a proxy:</p>
+<pre><code class="language-bash">npm config set proxy http://proxy.company.com:8080
+npm config set https-proxy http://proxy.company.com:8080
+</code></pre>
+<h2 id="fix-4-lockfile-points-to-another-registry">Fix 4: lockfile points to another registry</h2>
+<p><code>package-lock.json</code> stores the full <code>resolved</code> URL of every package. A lockfile created against a private mirror keeps pointing there even if your registry setting is the public one. Search for it:</p>
+<pre><code class="language-bash">grep -o '&quot;resolved&quot;: &quot;https://[^/]*' package-lock.json | sort | uniq -c
+</code></pre>
+<p>If the host is unreachable for you, regenerate the lockfile with the correct registry configured (<code>rm package-lock.json &amp;&amp; npm install</code>), and commit the result if that's intended for the team.</p>
+<h2 id="fix-5-docker-builds-and-ci">Fix 5: Docker builds and CI</h2>
+<p>Inside <code>docker build</code>, DNS comes from the Docker daemon. If <code>npm install</code> fails only there, test with <code>docker run --rm node:20 getent hosts registry.npmjs.org</code>. Corporate DNS that the daemon can't use may need <code>"dns": ["10.0.0.2"]</code> in <code>/etc/docker/daemon.json</code> (then restart Docker). In CI, make sure the runner can reach your private registry and that the <code>.npmrc</code> with the right registry is present at install time.</p>
+<h2 id="retry-transient-failures">Retry transient failures</h2>
+<p>For flaky networks, npm retries failed fetches; you can raise the number of retries with <code>npm config set fetch-retries 5</code>.</p>
+<p class="upd">Last updated 2026-11-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/linux/linux-temporary-failure-in-name-resolution/">Temporary failure in name resolution</a></li><li><a href="/npm/npm-err-code-err-socket-timeout/">npm ERR! code ERR_SOCKET_TIMEOUT</a></li><li><a href="/npm/npm-err-code-etimedout/">npm ERR! code ETIMEDOUT</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

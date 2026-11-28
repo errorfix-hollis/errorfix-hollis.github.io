@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Error response from daemon: No such container (Docker) — how to fix</title>
+<meta name="description" content="The Docker daemon has no container with that name or ID. It was removed, never created, has a different name (Compose adds prefixes), or you are talking to a different Docker daemon or context.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-no-such-container/">
+<meta property="og:title" content="Error response from daemon: No such container (Docker) — how to fix"><meta property="og:description" content="The Docker daemon has no container with that name or ID. It was removed, never created, has a different name (Compose adds prefixes), or you are talking to a different Docker daemon or context.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-no-such-container/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Error response from daemon: No such container (Docker) \u2014 how to fix", "description": "The Docker daemon has no container with that name or ID. It was removed, never created, has a different name (Compose adds prefixes), or you are talking to a different Docker daemon or context.", "dateModified": "2026-11-21", "url": "https://errorfix-hollis.github.io/docker/docker-no-such-container/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "Error response from daemon: No such container", "item": "https://errorfix-hollis.github.io/docker/docker-no-such-container/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>Error response from daemon: No such container (Docker) — how to fix</h1>
+<pre class="err"><code>Error response from daemon: No such container: myapp
+Error: No such container: 3f2a1bc9d8e7
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>docker ps -a</code> to list all containers, including stopped ones, and use the exact name or ID shown. With Compose use <code>docker compose exec web sh</code> (service name) instead of the container name. Check <code>docker context ls</code> and that you aren't mixing <code>sudo docker</code> and <code>docker</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Commands like <code>docker exec</code>, <code>docker logs</code>, <code>docker stop</code>, <code>docker rm</code> and <code>docker inspect</code> look up a container by name or ID prefix. The daemon found no match. First see what actually exists:</p>
+<pre><code class="language-bash">docker ps -a --format 'table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Image}}'
+</code></pre>
+<p><code>docker ps</code> without <code>-a</code> only shows <em>running</em> containers.</p>
+<h2 id="cause-1-compose-generated-a-different-name">Cause 1: Compose generated a different name</h2>
+<p>Compose names containers <code>&lt;project&gt;-&lt;service&gt;-&lt;index&gt;</code> (Compose v2, e.g. <code>myapp-web-1</code>) or <code>&lt;project&gt;_&lt;service&gt;_1</code> (old v1). <code>docker exec web</code> fails; use the Compose command with the <strong>service</strong> name instead:</p>
+<pre><code class="language-bash">docker compose ps
+docker compose exec web sh
+docker compose logs -f web
+</code></pre>
+<p>Or set a fixed name in <code>compose.yaml</code>:</p>
+<pre><code class="language-yaml">services:
+  web:
+    image: nginx
+    container_name: web
+</code></pre>
+<h2 id="cause-2-the-container-was-removed">Cause 2: the container was removed</h2>
+<ul>
+<li>Started with <code>docker run --rm</code>: it is deleted as soon as it exits.</li>
+<li><code>docker compose down</code> removes the project's containers.</li>
+<li><code>docker system prune</code> / <code>docker container prune</code> delete stopped containers.</li>
+<li>Restarting Docker Desktop or resetting it can wipe everything.</li>
+</ul>
+<p>If it's gone, recreate it (<code>docker run ...</code> or <code>docker compose up -d</code>). To see why it exited before removal, run it without <code>--rm</code> and check <code>docker logs &lt;name&gt;</code>.</p>
+<h2 id="cause-3-stale-or-wrong-container-id">Cause 3: stale or wrong container ID</h2>
+<p>IDs change every time a container is recreated. Scripts that saved an ID earlier, or <code>docker compose up</code> after a config change, leave you with an old ID. Look containers up by name or label at runtime:</p>
+<pre><code class="language-bash">docker ps -q -f name=^myapp$
+docker ps -q -f label=com.docker.compose.service=web
+</code></pre>
+<h2 id="cause-4-different-daemon-context-or-user">Cause 4: different daemon, context or user</h2>
+<p>Containers created with <code>sudo docker</code> (root daemon) are invisible to rootless Docker, and Docker Desktop on Linux uses its own context separate from the system Docker Engine.</p>
+<pre><code class="language-bash">docker context ls          # the active one has a *
+docker context use default
+echo $DOCKER_HOST          # an env var overrides the context
+</code></pre>
+<p>Use the same user and context that created the container.</p>
+<h2 id="cause-5-errors-during-docker-compose-up">Cause 5: errors during <code>docker compose up</code></h2>
+<p><code>No such container: &lt;id&gt;</code> during <code>up</code> usually means Compose's view is out of sync after a container was removed by hand. Clean up and recreate:</p>
+<pre><code class="language-bash">docker compose down --remove-orphans
+docker compose up -d
+</code></pre>
+<p>If that doesn't help, <code>docker compose up -d --force-recreate</code>.</p>
+<p class="upd">Last updated 2026-11-21.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-container-name-already-in-use/">Conflict. The container name is already in use by container</a></li><li><a href="/docker/docker-network-not-found/">Error response from daemon: network not found</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-compose-additional-property-is-not-allowed/">Additional property is not allowed</a></li><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

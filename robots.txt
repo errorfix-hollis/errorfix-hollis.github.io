@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://errorfix-hollis.github.io/sitemap.xml

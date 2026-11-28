@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion (Docker) — how to fix</title>
+<meta name="description" content="Docker Compose v2 follows the Compose Specification, which has no version field. The warning is harmless. Delete the version line from the top of your compose file.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/docker/docker-compose-version-is-obsolete/">
+<meta property="og:title" content="the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion (Docker) — how to fix"><meta property="og:description" content="Docker Compose v2 follows the Compose Specification, which has no version field. The warning is harmless. Delete the version line from the top of your compose file.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/docker/docker-compose-version-is-obsolete/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion (Docker) \u2014 how to fix", "description": "Docker Compose v2 follows the Compose Specification, which has no version field. The warning is harmless. Delete the version line from the top of your compose file.", "dateModified": "2026-11-15", "url": "https://errorfix-hollis.github.io/docker/docker-compose-version-is-obsolete/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Docker", "item": "https://errorfix-hollis.github.io/docker/"}, {"@type": "ListItem", "position": 3, "name": "the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion", "item": "https://errorfix-hollis.github.io/docker/docker-compose-version-is-obsolete/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/docker/">Docker</a></p>
+<article><h1>the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion (Docker) — how to fix</h1>
+<pre class="err"><code>WARN[0000] /home/me/app/docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Delete the <code>version: "3.8"</code> (or similar) line at the top of <code>docker-compose.yml</code> / <code>compose.yaml</code>. Nothing else changes: Compose v2 already ignores it. If the project must still work with the old Python <code>docker-compose</code> v1, keep the line or upgrade those machines to <code>docker compose</code> v2.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Older Compose files started with a schema version:</p>
+<pre><code class="language-yaml">version: &quot;3.8&quot;
+services:
+  web:
+    image: nginx
+</code></pre>
+<p>The <code>version</code> key selected a file format (2.x or 3.x) in the old Python <code>docker-compose</code> (v1). Docker Compose v2 (<code>docker compose</code>, written in Go) implements the <strong>Compose Specification</strong>, which merges all those formats and doesn't use <code>version</code>. Since Compose v2.25 it prints this warning whenever the key is present.</p>
+<p>The warning changes nothing: the file is parsed the same with or without the line, and containers aren't affected.</p>
+<h2 id="fix-remove-the-line">Fix: remove the line</h2>
+<pre><code class="language-yaml">services:
+  web:
+    image: nginx
+    ports:
+      - &quot;8080:80&quot;
+</code></pre>
+<p>Remove it in place with sed (keeps a backup):</p>
+<pre><code class="language-bash">sed -i.bak '/^version:/d' docker-compose.yml
+docker compose config --quiet &amp;&amp; echo OK
+</code></pre>
+<p><code>docker compose config</code> validates the file and prints the fully resolved configuration. It's a good check after editing. A <a href="/tools/yaml-validator/">YAML validator</a> also catches indentation mistakes.</p>
+<p>If you have several files (<code>docker-compose.override.yml</code>, <code>compose.prod.yaml</code>), the warning names each one. Remove the line from all of them.</p>
+<h2 id="but-i-need-3x-features">"But I need 3.x features"</h2>
+<p>There's nothing to lose. Every option from formats 2.x and 3.x (<code>deploy</code>, <code>depends_on</code> with <code>condition: service_healthy</code>, <code>extends</code>, healthchecks, profiles, <code>secrets</code>) is valid in the Compose Specification without a version line. Some 2.x-only options (<code>mem_limit</code>, <code>cpus</code>) that 3.x dropped work again.</p>
+<h2 id="when-to-keep-it">When to keep it</h2>
+<p>Keep <code>version:</code> only if the same file must still work with <strong>docker-compose v1</strong> (<code>docker-compose</code> with a hyphen, Python). v1 requires the key for 3.x features. v1 has been end-of-life since 2023 and doesn't run on current Python versions, so the better fix is to upgrade those machines:</p>
+<pre><code class="language-bash">docker compose version          # v2 plugin present?
+sudo apt-get install docker-compose-plugin    # Docker's apt repo
+</code></pre>
+<p>See <a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a> if only the old command exists.</p>
+<h2 id="related-warnings-and-errors">Related warnings and errors</h2>
+<ul>
+<li><code>name</code> at the top level is now allowed and sets the project name (instead of the folder name or <code>-p</code>).</li>
+<li><code>services.web Additional property foo is not allowed</code>: a typo or misplaced key, not a version problem. Check the indentation.</li>
+<li><code>obsolete</code> warnings for other keys follow the same rule: remove them and run <code>docker compose config</code> to confirm.</li>
+<li>The preferred file name is now <code>compose.yaml</code>. <code>docker-compose.yml</code> still works, and Compose looks for both.</li>
+</ul>
+<h2 id="silence-it-in-ci-without-editing">Silence it in CI without editing?</h2>
+<p>There's no flag to disable just this warning. Edit the file; it's a one-line change and keeps logs clean.</p>
+<p class="upd">Last updated 2026-11-15.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/docker/docker-compose-command-not-found/">docker-compose: command not found</a></li><li><a href="/docker/docker-compose-service-refers-to-undefined-volume/">service &quot;app&quot; refers to undefined volume data: invalid compose project</a></li><li><a href="/docker/docker-found-orphan-containers/">Found orphan containers for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.</a></li><li><a href="/docker/docker-build-copy-failed-file-not-found/">COPY failed: file not found in build context</a></li><li><a href="/docker/docker-cannot-connect-to-the-docker-daemon/">Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?</a></li><li><a href="/docker/docker-compose-additional-property-is-not-allowed/">Additional property is not allowed</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

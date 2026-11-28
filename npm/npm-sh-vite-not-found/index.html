@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>sh: vite: not found (Node.js) — how to fix</title>
+<meta name="description" content="An npm script runs a CLI (vite, next, tsc, nodemon...) from node_modules/.bin, but it isn&#x27;t there. Dependencies were never installed, were installed without devDependencies, or node_modules is broken.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/npm/npm-sh-vite-not-found/">
+<meta property="og:title" content="sh: vite: not found (Node.js) — how to fix"><meta property="og:description" content="An npm script runs a CLI (vite, next, tsc, nodemon...) from node_modules/.bin, but it isn&#x27;t there. Dependencies were never installed, were installed without devDependencies, or node_modules is broken.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/npm/npm-sh-vite-not-found/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "sh: vite: not found (Node.js) \u2014 how to fix", "description": "An npm script runs a CLI (vite, next, tsc, nodemon...) from node_modules/.bin, but it isn't there. Dependencies were never installed, were installed without devDependencies, or node_modules is broken.", "dateModified": "2026-11-18", "url": "https://errorfix-hollis.github.io/npm/npm-sh-vite-not-found/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "npm & Node.js", "item": "https://errorfix-hollis.github.io/npm/"}, {"@type": "ListItem", "position": 3, "name": "sh: vite: not found", "item": "https://errorfix-hollis.github.io/npm/npm-sh-vite-not-found/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/npm/">npm &amp; Node.js</a></p>
+<article><h1>sh: vite: not found (Node.js) — how to fix</h1>
+<pre class="err"><code>&gt; my-app@0.0.0 dev
+&gt; vite
+
+sh: 1: vite: not found
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Run <code>npm install</code> in the project folder (the one with package.json), then <code>npm run dev</code>. If it persists: <code>rm -rf node_modules package-lock.json &amp;&amp; npm install</code>. Check that NODE_ENV isn't <code>production</code> (<code>npm install --include=dev</code>). In Docker, install deps inside the image and don't overwrite node_modules with a bind mount.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>npm run &lt;script&gt;</code> adds <code>./node_modules/.bin</code> to <code>PATH</code> and runs the command with <code>sh</code>. <code>vite: not found</code> (also <code>next: not found</code>, <code>tsc: not found</code>, <code>nodemon: not found</code>, <code>'vite' is not recognized...</code> on Windows) means there is no <code>node_modules/.bin/vite</code>. The script itself is fine; the package isn't installed where npm looks.</p>
+<p>Check quickly:</p>
+<pre><code class="language-bash">ls node_modules/.bin/vite
+npm ls vite
+</code></pre>
+<h2 id="fix-1-install-dependencies">Fix 1: install dependencies</h2>
+<p>After cloning a repo or pulling new changes:</p>
+<pre><code class="language-bash">npm install      # or: pnpm install / yarn
+npm run dev
+</code></pre>
+<p>Run it in the folder that contains <code>package.json</code>. In monorepos, install at the workspace root.</p>
+<h2 id="fix-2-devdependencies-were-skipped">Fix 2: devDependencies were skipped</h2>
+<p>Vite, TypeScript and most build tools are in <code>devDependencies</code>. They are <strong>not</strong> installed when:</p>
+<ul>
+<li><code>NODE_ENV=production</code> is set in your shell, <code>.env</code> loader, CI or Dockerfile</li>
+<li>you ran <code>npm install --production</code> / <code>npm ci --omit=dev</code></li>
+<li>npm config has <code>omit=dev</code> (<code>npm config get omit</code>)</li>
+</ul>
+<pre><code class="language-bash">echo $NODE_ENV
+npm install --include=dev
+</code></pre>
+<p>For a production Docker image, build in one stage with dev deps and copy only the output (<code>dist/</code>) to the final stage.</p>
+<h2 id="fix-3-broken-or-partial-node_modules">Fix 3: broken or partial node_modules</h2>
+<p>An interrupted install, switching Node versions or switching package managers can leave <code>.bin</code> links missing:</p>
+<pre><code class="language-bash">rm -rf node_modules package-lock.json
+npm cache verify
+npm install
+</code></pre>
+<p>Only delete <code>package-lock.json</code> if you're fine with re-resolving versions; otherwise keep it and just remove <code>node_modules</code>, then run <code>npm ci</code>.</p>
+<h2 id="fix-4-package-is-missing-from-packagejson">Fix 4: package is missing from package.json</h2>
+<p>If <code>npm ls vite</code> shows <code>(empty)</code>, it was never added:</p>
+<pre><code class="language-bash">npm install -D vite
+# next.js:
+npm install next react react-dom
+</code></pre>
+<h2 id="fix-5-docker-bind-mount-hides-node_modules">Fix 5: Docker bind mount hides node_modules</h2>
+<p>With <code>volumes: - .:/app</code> in docker-compose, the host folder (which may have no <code>node_modules</code>, or one built for another OS) hides the one installed in the image. Add an anonymous volume so the container keeps its own:</p>
+<pre><code class="language-yaml">services:
+  web:
+    build: .
+    volumes:
+      - .:/app
+      - /app/node_modules
+</code></pre>
+<p>And make sure the Dockerfile runs <code>npm install</code> <em>before</em> <code>CMD ["npm", "run", "dev"]</code>, with <code>COPY package*.json ./</code> first.</p>
+<h2 id="fix-6-permission-or-exec-bit-lost">Fix 6: permission or exec bit lost</h2>
+<p>Files copied from Windows, zipped, or on a <code>noexec</code> mount may lose the executable bit; the error then is <code>Permission denied</code> rather than <code>not found</code>. Reinstall on the target system, or <code>chmod +x node_modules/.bin/*</code>.</p>
+<h2 id="running-it-without-a-script">Running it without a script</h2>
+<p><code>npx vite</code> uses the local binary if present and otherwise offers to download it. That's handy for checking, but fix the install so <code>npm run dev</code> works for everyone.</p>
+<p class="upd">Last updated 2026-11-18.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/npm/npm-elifecycle/">npm ERR! code ELIFECYCLE</a></li><li><a href="/npm/npm-npx-command-not-found/">npx: command not found</a></li><li><a href="/npm/npm-react-scripts-not-found/">react-scripts: not found</a></li><li><a href="/npm/node-cannot-find-module/">Error: Cannot find module</a></li><li><a href="/npm/node-enospc-system-limit-for-number-of-file-watchers-reached/">Error: ENOSPC: System limit for number of file watchers reached</a></li><li><a href="/npm/node-err-module-not-found/">Error [ERR_MODULE_NOT_FOUND]: Cannot find module</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UnicodeEncodeError: &#x27;charmap&#x27; codec can&#x27;t encode character (Python) — how to fix</title>
+<meta name="description" content="Python tried to write text using a legacy Windows code page (usually cp1252) that has no byte for one of the characters, such as emoji, CJK text or symbols. It happens when a file is opened without an encoding, or when output is redirected or piped on Windows.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-unicodeencodeerror-charmap-codec-cant-encode-character/">
+<meta property="og:title" content="UnicodeEncodeError: &#x27;charmap&#x27; codec can&#x27;t encode character (Python) — how to fix"><meta property="og:description" content="Python tried to write text using a legacy Windows code page (usually cp1252) that has no byte for one of the characters, such as emoji, CJK text or symbols. It happens when a file is opened without an encoding, or when output is redirected or piped on Windows.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-unicodeencodeerror-charmap-codec-cant-encode-character/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "UnicodeEncodeError: 'charmap' codec can't encode character (Python) \u2014 how to fix", "description": "Python tried to write text using a legacy Windows code page (usually cp1252) that has no byte for one of the characters, such as emoji, CJK text or symbols. It happens when a file is opened without an encoding, or when output is redirected or piped on Windows.", "dateModified": "2026-11-28", "url": "https://errorfix-hollis.github.io/python/python-unicodeencodeerror-charmap-codec-cant-encode-character/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "UnicodeEncodeError: 'charmap' codec can't encode character", "item": "https://errorfix-hollis.github.io/python/python-unicodeencodeerror-charmap-codec-cant-encode-character/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>UnicodeEncodeError: &#x27;charmap&#x27; codec can&#x27;t encode character (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 5, in &lt;module&gt;
+    f.write(text)
+  File &quot;C:\Python311\Lib\encodings\cp1252.py&quot;, line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: &#x27;charmap&#x27; codec can&#x27;t encode character &#x27;\u2713&#x27; in position 0: character maps to &lt;undefined&gt;
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Open files with an explicit encoding: <code>open(path, "w", encoding="utf-8")</code> (also <code>df.to_csv(path, encoding="utf-8")</code>). For print output, run with UTF-8 mode: <code>python -X utf8 app.py</code> or set <code>PYTHONUTF8=1</code>, or call <code>sys.stdout.reconfigure(encoding="utf-8")</code> at startup.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Strings in Python 3 are Unicode. Writing them to a file or a byte stream requires an encoding. On Windows, if you don't specify one, Python uses the locale's code page, typically <code>cp1252</code> (Western Europe/US). That code page has only 256 characters; anything else (<code>✓</code>, <code>€</code> is fine but <code>→</code>, emoji, Chinese...) has no mapping, hence <code>character maps to &lt;undefined&gt;</code>.</p>
+<p>The traceback mentions <code>cp1252.py</code> (or another <code>cpXXXX</code>), which tells you the encoding in use.</p>
+<h2 id="cause-1-open-without-encoding">Cause 1: open() without encoding</h2>
+<pre><code class="language-python"># Wrong on Windows: uses cp1252
+with open(&quot;out.txt&quot;, &quot;w&quot;) as f:
+    f.write(&quot;Done ✓&quot;)
+
+# Right
+with open(&quot;out.txt&quot;, &quot;w&quot;, encoding=&quot;utf-8&quot;) as f:
+    f.write(&quot;Done ✓&quot;)
+</code></pre>
+<p>The same applies to libraries that write files:</p>
+<pre><code class="language-python">df.to_csv(&quot;out.csv&quot;, encoding=&quot;utf-8&quot;)          # pandas
+json.dump(data, open(&quot;d.json&quot;, &quot;w&quot;, encoding=&quot;utf-8&quot;), ensure_ascii=False)
+</code></pre>
+<p>If the file must be opened by Excel, <code>encoding="utf-8-sig"</code> adds a BOM so Excel detects UTF-8.</p>
+<h2 id="cause-2-print-when-output-is-redirected-or-piped">Cause 2: print() when output is redirected or piped</h2>
+<p>Since Python 3.6 the interactive Windows console uses UTF-8, so <code>print("✓")</code> works in a terminal. But when stdout is redirected (<code>python app.py &gt; log.txt</code>), piped, captured by a subprocess, an IDE, a scheduled task or a service, Python falls back to the code page and print fails.</p>
+<p>Options, from broadest to narrowest:</p>
+<pre><code class="language-bash"># UTF-8 mode for everything (files and std streams)
+set PYTHONUTF8=1             # cmd
+$env:PYTHONUTF8 = &quot;1&quot;        # PowerShell
+python -X utf8 app.py        # per run
+
+# Only the std streams
+set PYTHONIOENCODING=utf-8
+</code></pre>
+<p>Or fix it in code, at the top of the script:</p>
+<pre><code class="language-python">import sys
+sys.stdout.reconfigure(encoding=&quot;utf-8&quot;)
+sys.stderr.reconfigure(encoding=&quot;utf-8&quot;)
+</code></pre>
+<h2 id="cause-3-reading-output-of-a-subprocess">Cause 3: reading output of a subprocess</h2>
+<p>When you capture another program's output as text, Python decodes/encodes with the locale encoding too. Be explicit:</p>
+<pre><code class="language-python">subprocess.run(cmd, capture_output=True, text=True, encoding=&quot;utf-8&quot;)
+</code></pre>
+<h2 id="cause-4-you-cant-change-the-target-encoding">Cause 4: you can't change the target encoding</h2>
+<p>If something downstream really requires cp1252 (an old system, a legacy file format), decide what to do with characters it can't hold:</p>
+<pre><code class="language-python">text.encode(&quot;cp1252&quot;, errors=&quot;replace&quot;)       # unknown chars become ?
+text.encode(&quot;cp1252&quot;, errors=&quot;xmlcharrefreplace&quot;)  # &amp;#10003;
+open(&quot;out.txt&quot;, &quot;w&quot;, encoding=&quot;cp1252&quot;, errors=&quot;replace&quot;)
+</code></pre>
+<h2 id="make-utf-8-the-default">Make UTF-8 the default</h2>
+<p>On Windows 10/11 you can also enable "Beta: Use Unicode UTF-8 for worldwide language support" in the region settings, which changes the system code page to UTF-8. It affects all programs, so test before relying on it; setting <code>encoding="utf-8"</code> in code is the portable fix.</p>
+<p class="upd">Last updated 2026-11-28.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-filenotfounderror-no-such-file-or-directory/">FileNotFoundError: [Errno 2] No such file or directory</a></li><li><a href="/python/python-syntaxerror-unicode-error-unicodeescape-codec-cant-decode-bytes/">SyntaxError: (unicode error) &#x27;unicodeescape&#x27; codec can&#x27;t decode bytes in position 2-3: truncated \UXXXXXXXX escape</a></li><li><a href="/python/python-unicodedecodeerror-utf-8/">UnicodeDecodeError: &#x27;utf-8&#x27; codec can&#x27;t decode byte 0xff in position 0: invalid start byte</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

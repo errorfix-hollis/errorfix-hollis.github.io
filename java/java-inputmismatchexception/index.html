@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>java.util.InputMismatchException — how to fix</title>
+<meta name="description" content="Scanner.nextInt(), nextDouble() and similar found a token that isn&#x27;t a valid number of that type, e.g. letters, a decimal for nextInt, or 3.5 when the locale expects 3,5.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/java/java-inputmismatchexception/">
+<meta property="og:title" content="java.util.InputMismatchException — how to fix"><meta property="og:description" content="Scanner.nextInt(), nextDouble() and similar found a token that isn&#x27;t a valid number of that type, e.g. letters, a decimal for nextInt, or 3.5 when the locale expects 3,5.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/java/java-inputmismatchexception/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "java.util.InputMismatchException \u2014 how to fix", "description": "Scanner.nextInt(), nextDouble() and similar found a token that isn't a valid number of that type, e.g. letters, a decimal for nextInt, or 3.5 when the locale expects 3,5.", "dateModified": "2026-11-15", "url": "https://errorfix-hollis.github.io/java/java-inputmismatchexception/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Java", "item": "https://errorfix-hollis.github.io/java/"}, {"@type": "ListItem", "position": 3, "name": "java.util.InputMismatchException", "item": "https://errorfix-hollis.github.io/java/java-inputmismatchexception/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/java/">Java</a></p>
+<article><h1>java.util.InputMismatchException — how to fix</h1>
+<pre class="err"><code>Exception in thread &quot;main&quot; java.util.InputMismatchException
+	at java.base/java.util.Scanner.throwFor(Scanner.java:947)
+	at java.base/java.util.Scanner.next(Scanner.java:1602)
+	at java.base/java.util.Scanner.nextInt(Scanner.java:2267)
+	at java.base/java.util.Scanner.nextInt(Scanner.java:2221)
+	at com.example.Main.main(Main.java:9)
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Check with <code>hasNextInt()</code> before <code>nextInt()</code> and discard bad input with <code>next()</code>. For decimals, set the locale: <code>new Scanner(System.in).useLocale(Locale.US)</code>. Or read whole lines with <code>nextLine()</code> and parse with <code>Integer.parseInt(line.trim())</code> inside a try/catch.</p>
+<h2 id="what-it-means">What it means</h2>
+<p><code>Scanner</code> splits input into tokens (separated by whitespace by default). <code>nextInt()</code> takes the next token and tries to read it as an <code>int</code>. If the token is <code>abc</code>, <code>4.5</code>, <code>99999999999</code> (too big for int), or <code>1,000</code>, it throws <code>InputMismatchException</code>. The bad token is <strong>not consumed</strong>. It stays in the buffer, so calling <code>nextInt()</code> again in a loop fails forever.</p>
+<p>The exception message is often empty. Print the token to see what Scanner got:</p>
+<pre><code class="language-java">if (!sc.hasNextInt()) System.err.println(&quot;bad token: [&quot; + sc.next() + &quot;]&quot;);
+</code></pre>
+<h2 id="cause-1-the-user-typed-something-that-isnt-a-number">Cause 1: the user typed something that isn't a number</h2>
+<p>Validate with <code>hasNextInt()</code> and throw away bad tokens:</p>
+<pre><code class="language-java">Scanner sc = new Scanner(System.in);
+int age;
+while (true) {
+    System.out.print(&quot;Age: &quot;);
+    if (sc.hasNextInt()) {
+        age = sc.nextInt();
+        break;
+    }
+    System.out.println(&quot;Please enter a whole number.&quot;);
+    sc.next();            // consume the bad token, or the loop never ends
+}
+</code></pre>
+<p>Without <code>sc.next()</code> (or <code>sc.nextLine()</code>) the same bad token is checked again and again, which gives an infinite loop.</p>
+<h2 id="cause-2-decimals-and-the-locale">Cause 2: decimals and the locale</h2>
+<p><code>nextDouble()</code> uses your system locale. In German, French, Portuguese, South African and many other locales the decimal separator is a comma, so <code>3.5</code> throws and <code>3,5</code> works. Make it predictable:</p>
+<pre><code class="language-java">Scanner sc = new Scanner(System.in).useLocale(Locale.US);   // expects 3.5
+double price = sc.nextDouble();
+</code></pre>
+<p>Also, <code>nextInt()</code> on <code>3.5</code> always fails. Use <code>nextDouble()</code> or round explicitly.</p>
+<h2 id="cause-3-reading-a-file-with-the-wrong-token-order">Cause 3: reading a file with the wrong token order</h2>
+<p>When parsing a data file, the column order, a header line, or extra text (<code>Score: 42</code>) makes <code>nextInt()</code> hit a word:</p>
+<pre><code class="language-java">try (Scanner in = new Scanner(Path.of(&quot;scores.txt&quot;))) {
+    in.nextLine();                    // skip header
+    while (in.hasNext()) {
+        String name = in.next();
+        int score = in.nextInt();
+    }
+}
+</code></pre>
+<p>Names with spaces ("Mary Ann") shift every token after them. For structured files, read line by line and <code>split</code>, or use a CSV library.</p>
+<p>Watch the file encoding too: a UTF-8 BOM at the start makes the first token <code>\uFEFF42</code>, which isn't an int. Save without BOM or strip it.</p>
+<h2 id="cause-4-value-out-of-range">Cause 4: value out of range</h2>
+<p><code>nextInt()</code> accepts only -2147483648 to 2147483647. For bigger numbers use <code>nextLong()</code> or <code>nextBigInteger()</code>.</p>
+<h2 id="robust-pattern-read-lines-then-parse">Robust pattern: read lines, then parse</h2>
+<p>Mixing <code>nextInt()</code> and <code>nextLine()</code> also causes the "nextLine is skipped" bug: <code>nextInt()</code> leaves the newline behind, and the next <code>nextLine()</code> returns <code>""</code>. Reading whole lines avoids both problems:</p>
+<pre><code class="language-java">Scanner sc = new Scanner(System.in);
+while (true) {
+    System.out.print(&quot;Quantity: &quot;);
+    String line = sc.nextLine().trim();
+    try {
+        int qty = Integer.parseInt(line);
+        break;
+    } catch (NumberFormatException e) {
+        System.out.println(&quot;Not a number: &quot; + line);
+    }
+}
+</code></pre>
+<p><code>Integer.parseInt</code> throws <a href="/java/java-numberformatexception-for-input-string/">NumberFormatException</a> instead. It's the same idea, but the message includes the bad input.</p>
+<h2 id="nosuchelementexception-instead"><code>NoSuchElementException</code> instead?</h2>
+<p>That means there was no token at all: input ended (Ctrl+D or Ctrl+Z, end of file, or no stdin in an IDE or CI run), or you closed a <code>Scanner</code> on <code>System.in</code> earlier. Closing it closes <code>System.in</code> for the whole program. Create one Scanner and keep it open.</p>
+<p class="upd">Last updated 2026-11-15.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/java/java-nullpointerexception/">java.lang.NullPointerException: Cannot invoke &quot;String.length()&quot; because &quot;&lt;local1&gt;&quot; is null</a></li><li><a href="/java/java-numberformatexception-for-input-string/">java.lang.NumberFormatException: For input string</a></li><li><a href="/java/java-stringindexoutofboundsexception/">java.lang.StringIndexOutOfBoundsException: String index out of range</a></li><li><a href="/java/java-arrayindexoutofboundsexception/">java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5</a></li><li><a href="/java/java-class-is-public-should-be-declared-in-a-file-named/">error: class X is public, should be declared in a file named X.java</a></li><li><a href="/java/java-classcastexception/">java.lang.ClassCastException: class X cannot be cast to class Y</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

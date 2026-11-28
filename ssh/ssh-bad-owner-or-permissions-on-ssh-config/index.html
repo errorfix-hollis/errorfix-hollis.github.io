@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bad owner or permissions on ~/.ssh/config — how to fix</title>
+<meta name="description" content="OpenSSH refuses to read a config file that other users could modify, or that isn&#x27;t owned by you (or root). Fix the file&#x27;s owner and mode; on Windows, fix the ACL.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/ssh/ssh-bad-owner-or-permissions-on-ssh-config/">
+<meta property="og:title" content="Bad owner or permissions on ~/.ssh/config — how to fix"><meta property="og:description" content="OpenSSH refuses to read a config file that other users could modify, or that isn&#x27;t owned by you (or root). Fix the file&#x27;s owner and mode; on Windows, fix the ACL.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/ssh/ssh-bad-owner-or-permissions-on-ssh-config/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Bad owner or permissions on ~/.ssh/config \u2014 how to fix", "description": "OpenSSH refuses to read a config file that other users could modify, or that isn't owned by you (or root). Fix the file's owner and mode; on Windows, fix the ACL.", "dateModified": "2026-11-19", "url": "https://errorfix-hollis.github.io/ssh/ssh-bad-owner-or-permissions-on-ssh-config/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "SSH", "item": "https://errorfix-hollis.github.io/ssh/"}, {"@type": "ListItem", "position": 3, "name": "Bad owner or permissions on ~/.ssh/config", "item": "https://errorfix-hollis.github.io/ssh/ssh-bad-owner-or-permissions-on-ssh-config/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/ssh/">SSH</a></p>
+<article><h1>Bad owner or permissions on ~/.ssh/config — how to fix</h1>
+<pre class="err"><code>Bad owner or permissions on /home/me/.ssh/config
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> On Linux/macOS: <code>chown $USER ~/.ssh/config &amp;&amp; chmod 600 ~/.ssh/config</code> and <code>chmod 700 ~/.ssh</code>. On Windows, remove other users' access: <code>icacls %USERPROFILE%\.ssh\config /inheritance:r /grant:r "%USERNAME%:F"</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Before using <code>~/.ssh/config</code>, ssh checks that it's owned by you (or root) and that <strong>no one else can write to it</strong> (no group- or world-write bit). The config can set <code>ProxyCommand</code>, which runs arbitrary commands, so a writable config would let another user run code as you. If the check fails, ssh exits immediately — and Git reports it as <code>Could not read from remote repository</code>.</p>
+<p>Check:</p>
+<pre><code class="language-bash">ls -la ~/.ssh/config ~/.ssh
+id -un
+</code></pre>
+<h2 id="fix-1-linux-and-macos">Fix 1: Linux and macOS</h2>
+<pre><code class="language-bash">chown &quot;$USER&quot; ~/.ssh/config
+chmod 600 ~/.ssh/config     # 644 is also accepted; no group/other write
+chmod 700 ~/.ssh
+</code></pre>
+<p>Strictly, ssh only rejects write access for group/others, but <code>600</code> is the safe default. Fix private keys at the same time (<code>chmod 600 ~/.ssh/id_*</code>, public keys can be <code>644</code>). The <a href="/tools/chmod-calculator/">chmod calculator</a> explains what each mode allows.</p>
+<p>If the file was created with <code>sudo</code> (common when following tutorials), it's owned by root but sitting in your home directory — the <code>chown</code> above fixes it.</p>
+<h2 id="fix-2-windows-openssh-for-windows">Fix 2: Windows (OpenSSH for Windows)</h2>
+<p>Windows OpenSSH checks the file's ACL: only your user, <code>SYSTEM</code> and <code>Administrators</code> may have access. Inherited permissions often add <code>Users</code> or <code>Authenticated Users</code>. In <strong>cmd</strong>:</p>
+<pre><code class="language-bat">icacls &quot;%USERPROFILE%\.ssh\config&quot; /inheritance:r
+icacls &quot;%USERPROFILE%\.ssh\config&quot; /grant:r &quot;%USERNAME%:F&quot;
+icacls &quot;%USERPROFILE%\.ssh\config&quot; /grant:r &quot;SYSTEM:F&quot;
+</code></pre>
+<p>In <strong>PowerShell</strong>, replace <code>%USERPROFILE%</code> with <code>$env:USERPROFILE</code> and <code>%USERNAME%</code> with <code>$env:USERNAME</code>. Or via Explorer: <em>Properties → Security → Advanced → Disable inheritance → Remove all inherited permissions</em>, then add only your user with Full control.</p>
+<p>Verify with <code>icacls "%USERPROFILE%\.ssh\config"</code>.</p>
+<h2 id="fix-3-wsl-using-files-on-the-windows-drive">Fix 3: WSL using files on the Windows drive</h2>
+<p>Files on <code>/mnt/c/...</code> show as <code>777</code> by default, and <code>chmod</code> has no effect unless metadata is enabled. Either keep your SSH files in the Linux home (<code>~/.ssh</code> inside WSL), or enable metadata in <code>/etc/wsl.conf</code>:</p>
+<pre><code class="language-ini">[automount]
+options = &quot;metadata,umask=22,fmask=11&quot;
+</code></pre>
+<p>Run <code>wsl --shutdown</code>, reopen, then <code>chmod 600</code> works. A symlink from <code>~/.ssh</code> to the Windows profile folder causes the same problem.</p>
+<h2 id="fix-4-config-mounted-into-a-container">Fix 4: config mounted into a container</h2>
+<p>Mounting <code>~/.ssh</code> into Docker or a dev container can change ownership to a different UID. Copy the files in and fix owner/permissions, or mount read-only and run ssh as the same UID that owns them.</p>
+<h2 id="using-a-different-config-file">Using a different config file</h2>
+<p>To test whether the config itself is the problem, bypass it:</p>
+<pre><code class="language-bash">ssh -F /dev/null -v git@github.com
+</code></pre>
+<p>If that works, the issue is only the config file's ownership/permissions.</p>
+<p class="upd">Last updated 2026-11-19.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/git/git-could-not-read-from-remote-repository/">fatal: Could not read from remote repository.</a></li><li><a href="/ssh/ssh-permission-denied-publickey/">Permission denied (publickey)</a></li><li><a href="/ssh/ssh-unprotected-private-key-file/">WARNING: UNPROTECTED PRIVATE KEY FILE!</a></li><li><a href="/ssh/ssh-bad-configuration-option/">Bad configuration option</a></li><li><a href="/ssh/ssh-connect-to-host-no-route-to-host/">ssh: connect to host port 22: No route to host</a></li><li><a href="/ssh/ssh-connect-to-host-port-22-connection-refused/">ssh: connect to host port 22: Connection refused</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

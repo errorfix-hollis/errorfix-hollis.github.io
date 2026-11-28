@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27; (Python) — how to fix</title>
+<meta name="description" content="`DataFrame.append()` and `Series.append()` were deprecated in pandas 1.4 and removed in pandas 2.0. Code and tutorials written for older pandas fail after upgrading.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-attributeerror-dataframe-object-has-no-attribute-append/">
+<meta property="og:title" content="AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27; (Python) — how to fix"><meta property="og:description" content="`DataFrame.append()` and `Series.append()` were deprecated in pandas 1.4 and removed in pandas 2.0. Code and tutorials written for older pandas fail after upgrading.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-attributeerror-dataframe-object-has-no-attribute-append/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "AttributeError: 'DataFrame' object has no attribute 'append' (Python) \u2014 how to fix", "description": "`DataFrame.append()` and `Series.append()` were deprecated in pandas 1.4 and removed in pandas 2.0. Code and tutorials written for older pandas fail after upgrading.", "dateModified": "2026-11-19", "url": "https://errorfix-hollis.github.io/python/python-attributeerror-dataframe-object-has-no-attribute-append/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "AttributeError: 'DataFrame' object has no attribute 'append'", "item": "https://errorfix-hollis.github.io/python/python-attributeerror-dataframe-object-has-no-attribute-append/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27; (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;main.py&quot;, line 8, in &lt;module&gt;
+    df = df.append({&quot;name&quot;: &quot;Ann&quot;, &quot;age&quot;: 31}, ignore_index=True)
+  File &quot;.../pandas/core/generic.py&quot;, line 6299, in __getattr__
+    return object.__getattribute__(self, name)
+AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;. Did you mean: &#x27;_append&#x27;?
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Use <code>pd.concat</code>: <code>df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)</code>. Better, collect rows in a list and build once: <code>df = pd.DataFrame(rows)</code>. For one row with a default index, <code>df.loc[len(df)] = row</code> works too. Don't use the private <code>_append</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>pandas 2.0 (April 2023) removed <code>DataFrame.append</code> and <code>Series.append</code>. Check your version:</p>
+<pre><code class="language-bash">python -c &quot;import pandas; print(pandas.__version__)&quot;
+</code></pre>
+<p><code>append</code> was removed partly because it was slow: each call copies the whole DataFrame, so appending in a loop is quadratic. The replacements below are both correct and faster.</p>
+<p>The <code>Did you mean: '_append'?</code> hint points to a private method — it may change or disappear, so don't rely on it.</p>
+<h2 id="fix-1-pdconcat-for-joining-dataframes">Fix 1: pd.concat for joining DataFrames</h2>
+<pre><code class="language-python">import pandas as pd
+
+# Old
+df = df1.append(df2, ignore_index=True)
+# New
+df = pd.concat([df1, df2], ignore_index=True)
+</code></pre>
+<p>Appending a single row (a dict) means wrapping it in a one-row DataFrame:</p>
+<pre><code class="language-python">row = {&quot;name&quot;: &quot;Ann&quot;, &quot;age&quot;: 31}
+df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
+</code></pre>
+<p>Note the brackets: <code>pd.DataFrame([row])</code> (list of dicts → one row). <code>pd.DataFrame(row)</code> with scalar values raises <code>If using all scalar values, you must pass an index</code>.</p>
+<p>For Series: <code>s = pd.concat([s, pd.Series([value])], ignore_index=True)</code>.</p>
+<h2 id="fix-2-build-the-list-first-dataframe-once-best-for-loops">Fix 2: build the list first, DataFrame once (best for loops)</h2>
+<pre><code class="language-python">rows = []
+for item in items:
+    rows.append({&quot;name&quot;: item.name, &quot;age&quot;: item.age})   # list.append is fine
+df = pd.DataFrame(rows)
+</code></pre>
+<p>This is much faster than concatenating inside the loop. If you're producing DataFrames in a loop, collect them and concat once:</p>
+<pre><code class="language-python">frames = [pd.read_csv(f) for f in files]
+df = pd.concat(frames, ignore_index=True)
+</code></pre>
+<h2 id="fix-3-dfloc-for-a-single-row">Fix 3: df.loc for a single row</h2>
+<p>With a default <code>RangeIndex</code>, you can assign a new row by label:</p>
+<pre><code class="language-python">df.loc[len(df)] = [&quot;Ann&quot;, 31]               # values in column order
+df.loc[len(df)] = {&quot;name&quot;: &quot;Ann&quot;, &quot;age&quot;: 31}
+</code></pre>
+<p>This modifies <code>df</code> in place. It only works as "append" when the index is <code>0..n-1</code> — otherwise <code>len(df)</code> may overwrite an existing label.</p>
+<h2 id="watch-out-for-dtypes-and-empty-frames">Watch out for dtypes and empty frames</h2>
+<ul>
+<li>Concatenating with an empty or all-NA DataFrame raised a <code>FutureWarning</code> in pandas 2.1+ about dtype determination. Start with a list (Fix 2) instead of an empty DataFrame to avoid it.</li>
+<li>Columns missing from one side become <code>NaN</code>, which can turn integer columns into floats. Use <code>astype</code> afterwards or the nullable <code>Int64</code> dtype.</li>
+</ul>
+<h2 id="pinning-an-old-pandas-temporary">Pinning an old pandas (temporary)</h2>
+<p>If you can't change the code right now (e.g. a third-party script):</p>
+<pre><code class="language-bash">python -m pip install &quot;pandas&lt;2&quot;
+</code></pre>
+<p>pandas 1.5 still has <code>append</code> with a deprecation warning, but it doesn't support the newest Python versions — treat this as a stopgap and port the code.</p>
+<p class="upd">Last updated 2026-11-19.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-attributeerror-module-has-no-attribute/">AttributeError: module &#x27;X&#x27; has no attribute &#x27;Y&#x27;</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-pandas/">ModuleNotFoundError: No module named &#x27;pandas&#x27;</a></li><li><a href="/python/python-pandas-settingwithcopywarning/">SettingWithCopyWarning: A value is trying to be set on a copy of a slice from a DataFrame</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dict-object-has-no-attribute-iteritems/">AttributeError: &#x27;dict&#x27; object has no attribute &#x27;iteritems&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

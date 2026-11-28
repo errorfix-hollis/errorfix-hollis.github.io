@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TypeError: expected str, bytes or os.PathLike object, not NoneType (Python) — how to fix</title>
+<meta name="description" content="A function that needs a file path (`open`, `os.path.join`, `Path`, `os.listdir`, `subprocess`) got `None`. Usually the path came from an unset environment variable, a missing argument, or a function that returned nothing.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/python/python-typeerror-expected-str-bytes-or-os-pathlike-object-not-nonetype/">
+<meta property="og:title" content="TypeError: expected str, bytes or os.PathLike object, not NoneType (Python) — how to fix"><meta property="og:description" content="A function that needs a file path (`open`, `os.path.join`, `Path`, `os.listdir`, `subprocess`) got `None`. Usually the path came from an unset environment variable, a missing argument, or a function that returned nothing.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/python/python-typeerror-expected-str-bytes-or-os-pathlike-object-not-nonetype/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "TypeError: expected str, bytes or os.PathLike object, not NoneType (Python) \u2014 how to fix", "description": "A function that needs a file path (`open`, `os.path.join`, `Path`, `os.listdir`, `subprocess`) got `None`. Usually the path came from an unset environment variable, a missing argument, or a function that returned nothing.", "dateModified": "2026-11-23", "url": "https://errorfix-hollis.github.io/python/python-typeerror-expected-str-bytes-or-os-pathlike-object-not-nonetype/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Python", "item": "https://errorfix-hollis.github.io/python/"}, {"@type": "ListItem", "position": 3, "name": "TypeError: expected str, bytes or os.PathLike object, not NoneType", "item": "https://errorfix-hollis.github.io/python/python-typeerror-expected-str-bytes-or-os-pathlike-object-not-nonetype/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/python/">Python</a></p>
+<article><h1>TypeError: expected str, bytes or os.PathLike object, not NoneType (Python) — how to fix</h1>
+<pre class="err"><code>Traceback (most recent call last):
+  File &quot;app.py&quot;, line 5, in &lt;module&gt;
+    with open(config_path) as f:
+TypeError: expected str, bytes or os.PathLike object, not NoneType
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Find which argument is <code>None</code> and why. Most often <code>os.getenv("X")</code> / <code>os.environ.get("X")</code> returned <code>None</code> because the variable isn't set: export it, load your <code>.env</code> with <code>load_dotenv()</code> before reading it, or give a default <code>os.getenv("X", "default.json")</code>. Fail early with a clear message: <code>if path is None: raise SystemExit("X is not set")</code>.</p>
+<h2 id="what-it-means">What it means</h2>
+<p>File-system functions accept a <code>str</code>, <code>bytes</code> or an object with <code>__fspath__</code> (like <code>pathlib.Path</code>). Passing <code>None</code> raises this error. The last line of the traceback shows which call; then trace back where its argument was set.</p>
+<p>Variants with other types: <code>not int</code> (passed a file descriptor or number by mistake), <code>not list</code> (passed a list of paths instead of one), <code>not dict</code>, <code>not TextIOWrapper</code> (passed an open file object instead of its name).</p>
+<h2 id="cause-1-environment-variable-not-set">Cause 1: environment variable not set</h2>
+<pre><code class="language-python">import os
+path = os.getenv(&quot;CONFIG_PATH&quot;)      # None if not set
+open(path)                           # TypeError
+</code></pre>
+<p>Check and set it:</p>
+<pre><code class="language-bash">echo &quot;$CONFIG_PATH&quot;
+export CONFIG_PATH=/etc/myapp/config.json
+python app.py
+</code></pre>
+<p>Use a default or fail loudly:</p>
+<pre><code class="language-python">path = os.getenv(&quot;CONFIG_PATH&quot;, &quot;config.json&quot;)
+# or
+path = os.environ[&quot;CONFIG_PATH&quot;]    # KeyError naming the variable — clearer
+</code></pre>
+<p>Environment variables set in your shell profile are not seen by cron, systemd services, IDE run configurations or Docker containers unless passed explicitly (<code>Environment=</code> in the unit, <code>-e VAR=...</code> / <code>env_file:</code> for Docker).</p>
+<h2 id="cause-2-env-file-not-loaded-or-loaded-too-late">Cause 2: .env file not loaded (or loaded too late)</h2>
+<pre><code class="language-python">from dotenv import load_dotenv
+import os
+
+load_dotenv()                         # must run before getenv
+DB_FILE = os.getenv(&quot;DB_FILE&quot;)
+</code></pre>
+<p>If the module that reads the variable is imported before <code>load_dotenv()</code> runs, it captures <code>None</code>. Call <code>load_dotenv()</code> at the very top of your entry point. <code>load_dotenv()</code> searches from the calling file's directory upward; pass an explicit path if needed: <code>load_dotenv("/app/.env")</code>.</p>
+<h2 id="cause-3-a-function-that-doesnt-return-the-path">Cause 3: a function that doesn't return the path</h2>
+<pre><code class="language-python">def get_output_path(name):
+    path = os.path.join(&quot;out&quot;, name)
+    # forgot: return path
+
+open(get_output_path(&quot;a.txt&quot;), &quot;w&quot;)   # open(None)
+</code></pre>
+<p>Any function without <code>return</code> returns <code>None</code>. Same for branches that fall through:</p>
+<pre><code class="language-python">def pick_file(kind):
+    if kind == &quot;csv&quot;:
+        return &quot;data.csv&quot;
+    # kind == &quot;json&quot; -&gt; None
+</code></pre>
+<h2 id="cause-4-optional-argparse-cli-arguments">Cause 4: optional argparse / CLI arguments</h2>
+<pre><code class="language-python">parser.add_argument(&quot;--input&quot;)
+args = parser.parse_args()
+open(args.input)        # None when --input wasn't passed
+</code></pre>
+<p>Make it required or give a default:</p>
+<pre><code class="language-python">parser.add_argument(&quot;--input&quot;, required=True)
+# or
+parser.add_argument(&quot;--input&quot;, default=&quot;input.txt&quot;)
+</code></pre>
+<h2 id="cause-5-library-settings-and-dialogs">Cause 5: library settings and dialogs</h2>
+<ul>
+<li>Django: <code>os.path.join(BASE_DIR, ...)</code> where a custom setting is <code>None</code>, or <code>STATIC_ROOT = None</code> with <code>collectstatic</code>.</li>
+<li>Tkinter: <code>filedialog.askopenfilename()</code> returns <code>''</code> on cancel, but some wrappers return <code>None</code>. Check before opening.</li>
+<li><code>shutil.which("tool")</code> returns <code>None</code> if the program isn't on PATH; passing that to <code>subprocess.run([...])</code> gives this error. Check it first:</li>
+</ul>
+<pre><code class="language-python">import shutil
+exe = shutil.which(&quot;ffmpeg&quot;)
+if exe is None:
+    raise SystemExit(&quot;ffmpeg not found on PATH&quot;)
+</code></pre>
+<h2 id="debugging-tip">Debugging tip</h2>
+<p>Print the value and its type right before the failing line:</p>
+<pre><code class="language-python">print(repr(path), type(path))
+</code></pre>
+<p class="upd">Last updated 2026-11-23.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/python/python-attributeerror-nonetype-object-has-no-attribute/">AttributeError: &#x27;NoneType&#x27; object has no attribute</a></li><li><a href="/python/python-filenotfounderror-no-such-file-or-directory/">FileNotFoundError: [Errno 2] No such file or directory</a></li><li><a href="/python/python-modulenotfounderror-no-module-named-dotenv/">ModuleNotFoundError: No module named &#x27;dotenv&#x27;</a></li><li><a href="/python/python-assertionerror-torch-not-compiled-with-cuda-enabled/">AssertionError: Torch not compiled with CUDA enabled</a></li><li><a href="/python/python-attempted-relative-import-with-no-known-parent-package/">ImportError: attempted relative import with no known parent package</a></li><li><a href="/python/python-attributeerror-dataframe-object-has-no-attribute-append/">AttributeError: &#x27;DataFrame&#x27; object has no attribute &#x27;append&#x27;</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>

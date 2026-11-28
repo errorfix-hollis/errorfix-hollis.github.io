@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Multi-Attach error for volume: Volume is already exclusively attached to one node and can&#x27;t be attached to another (Kubernetes) — how to fix</title>
+<meta name="description" content="A ReadWriteOnce volume (EBS, Azure Disk, GCE PD, most block storage) can be attached to only one node at a time. A new pod on a different node is waiting for the volume, which is still attached to the old node.">
+<link rel="canonical" href="https://errorfix-hollis.github.io/kubernetes/k8s-multi-attach-error-for-volume/">
+<meta property="og:title" content="Multi-Attach error for volume: Volume is already exclusively attached to one node and can&#x27;t be attached to another (Kubernetes) — how to fix"><meta property="og:description" content="A ReadWriteOnce volume (EBS, Azure Disk, GCE PD, most block storage) can be attached to only one node at a time. A new pod on a different node is waiting for the volume, which is still attached to the old node.">
+<meta property="og:url" content="https://errorfix-hollis.github.io/kubernetes/k8s-multi-attach-error-for-volume/"><meta property="og:type" content="article"><meta property="og:site_name" content="errorfix">
+<link rel="stylesheet" href="/style.css?v=aa4aa5d7"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "TechArticle", "headline": "Multi-Attach error for volume: Volume is already exclusively attached to one node and can't be attached to another (Kubernetes) \u2014 how to fix", "description": "A ReadWriteOnce volume (EBS, Azure Disk, GCE PD, most block storage) can be attached to only one node at a time. A new pod on a different node is waiting for the volume, which is still attached to the old node.", "dateModified": "2026-11-23", "url": "https://errorfix-hollis.github.io/kubernetes/k8s-multi-attach-error-for-volume/", "author": {"@type": "Organization", "name": "errorfix"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "errorfix", "item": "https://errorfix-hollis.github.io/"}, {"@type": "ListItem", "position": 2, "name": "Kubernetes", "item": "https://errorfix-hollis.github.io/kubernetes/"}, {"@type": "ListItem", "position": 3, "name": "Multi-Attach error for volume: Volume is already exclusively attached to one node and can't be attached to another", "item": "https://errorfix-hollis.github.io/kubernetes/k8s-multi-attach-error-for-volume/"}]}</script></head><body>
+<header><div class="wrap"><a class="logo" href="/">error<b>fix</b></a>
+<form class="search" action="/search/" role="search"><input name="q" type="search" placeholder="Paste an error message…" aria-label="Search errors"></form></div>
+<nav class="wrap cats"><a href="/tools/" class="navtools">Tools</a><a href="/git/">Git</a><a href="/npm/">npm &amp; Node.js</a><a href="/python/">Python</a><a href="/docker/">Docker</a><a href="/ssh/">SSH</a><a href="/linux/">Linux &amp; shell</a><a href="/javascript/">JavaScript</a><a href="/java/">Java</a><a href="/database/">Databases</a><a href="/web/">Web &amp; HTTP</a><a href="/rust/">Rust</a><a href="/go/">Go</a><a href="/kubernetes/">Kubernetes</a></nav></header>
+<main class="wrap"><p class="crumbs"><a href="/">Home</a> › <a href="/kubernetes/">Kubernetes</a></p>
+<article><h1>Multi-Attach error for volume: Volume is already exclusively attached to one node and can&#x27;t be attached to another (Kubernetes) — how to fix</h1>
+<pre class="err"><code>Warning  FailedAttachVolume  2m  attachdetach-controller  Multi-Attach error for volume &quot;pvc-3f2a9c1e-...&quot; Volume is already exclusively attached to one node and can&#x27;t be attached to another
+Warning  FailedMount  1m  kubelet  Unable to attach or mount volumes: unmounted volumes=[data], unattached volumes=[data]: timed out waiting for the condition
+</code></pre>
+<p class="tldr"><strong>Quick fix:</strong> Usually it's a Deployment rolling update: set <code>strategy: type: Recreate</code> for single-replica Deployments with an RWO PVC (or use a StatefulSet). If the old node is dead, delete the stuck pod (<code>kubectl delete pod &lt;old&gt; --grace-period=0 --force</code>) and, if needed, the stale <code>VolumeAttachment</code> (<code>kubectl get volumeattachment</code>). For many pods sharing data, use ReadWriteMany storage (EFS, Azure Files, NFS).</p>
+<h2 id="what-it-means">What it means</h2>
+<p>Block volumes are attached to a node like a disk. With access mode <code>ReadWriteOnce</code> (RWO), Kubernetes' attach/detach controller won't attach it to a second node while it's attached to the first. The new pod sits in <code>ContainerCreating</code> with <code>FailedAttachVolume</code> events until the volume is detached from the old node.</p>
+<p>Find where it's attached:</p>
+<pre><code class="language-bash">kubectl describe pod &lt;new-pod&gt;          # events show the PVC name
+kubectl get pvc &lt;claim&gt; -o jsonpath='{.spec.volumeName}'
+kubectl get volumeattachment | grep &lt;pv-name&gt;
+kubectl get pods -o wide | grep &lt;app&gt;   # which node the old pod is on
+</code></pre>
+<h2 id="cause-1-deployment-rolling-update-with-an-rwo-volume">Cause 1: Deployment rolling update with an RWO volume</h2>
+<p>The default <code>RollingUpdate</code> strategy starts the new pod <em>before</em> stopping the old one. If the scheduler puts it on another node, it can't get the disk. Use <code>Recreate</code> so the old pod is gone first:</p>
+<pre><code class="language-yaml">apiVersion: apps/v1
+kind: Deployment
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+</code></pre>
+<p>Or use a <strong>StatefulSet</strong> (one PVC per replica via <code>volumeClaimTemplates</code>, pods replaced one at a time), which is the intended controller for stateful apps.</p>
+<p>Scaling a Deployment with an RWO PVC above 1 replica hits the same error for pods on other nodes; RWO doesn't support that.</p>
+<h2 id="cause-2-the-old-node-is-down-or-notready">Cause 2: the old node is down or NotReady</h2>
+<p>When a node dies, its pods stay <code>Terminating</code>/<code>Unknown</code> and Kubernetes won't detach the volume, because it can't confirm the disk is no longer in use (a safety measure against data corruption). After the default timeout (about 6 minutes for the attach/detach controller's force-detach) it may recover alone.</p>
+<p>To speed it up, once you're sure the node is really off:</p>
+<pre><code class="language-bash">kubectl get nodes
+kubectl delete pod &lt;old-pod&gt; --grace-period=0 --force
+</code></pre>
+<p>If it's still stuck, remove the stale attachment:</p>
+<pre><code class="language-bash">kubectl get volumeattachment
+kubectl delete volumeattachment &lt;name&gt;
+</code></pre>
+<p>On Kubernetes 1.28+ you can also mark a shut-down node so its volumes are released:</p>
+<pre><code class="language-bash">kubectl taint nodes &lt;node&gt; node.kubernetes.io/out-of-service=nodeshutdown:NoExecute
+</code></pre>
+<p>Remove the taint after the node is recovered or deleted. If the node is gone permanently, <code>kubectl delete node &lt;node&gt;</code>.</p>
+<h2 id="cause-3-a-cronjobjob-or-second-deployment-uses-the-same-pvc">Cause 3: a CronJob/Job or second Deployment uses the same PVC</h2>
+<p>Backup jobs or sidecar Deployments mounting the same RWO claim get scheduled elsewhere. Options: pin them to the same node with pod affinity:</p>
+<pre><code class="language-yaml">affinity:
+  podAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchLabels:
+          app: myapp
+      topologyKey: kubernetes.io/hostname
+</code></pre>
+<p>or use ReadWriteMany storage, or volume snapshots for backups.</p>
+<p>Note: RWO allows several pods <em>on the same node</em> to mount the volume. <code>ReadWriteOncePod</code> (1.22+, GA in 1.29) restricts it to one pod.</p>
+<h2 id="cause-4-you-actually-need-shared-storage">Cause 4: you actually need shared storage</h2>
+<p>If several pods on different nodes must read and write the same files, RWO block storage can't do it. Use a storage class that supports <code>ReadWriteMany</code>: AWS EFS CSI, Azure Files, GCP Filestore, NFS, CephFS, Longhorn RWX.</p>
+<pre><code class="language-yaml">spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: efs-sc
+</code></pre>
+<h2 id="cause-5-csi-driver-failed-to-detach">Cause 5: CSI driver failed to detach</h2>
+<p>If the old pod is gone but the attachment remains, check the CSI controller logs (e.g. <code>kubectl logs -n kube-system deploy/ebs-csi-controller -c csi-attacher</code>) and the cloud console: the disk may be stuck "detaching". Detaching it from the cloud side and deleting the <code>VolumeAttachment</code> resolves it.</p>
+<p class="upd">Last updated 2026-11-23.</p></article>
+<aside><h2>Related errors</h2><ul class="list"><li><a href="/kubernetes/k8s-container-is-waiting-to-start/">Error from server (BadRequest): container is waiting to start: ContainerCreating</a></li><li><a href="/kubernetes/k8s-crashloopbackoff/">CrashLoopBackOff</a></li><li><a href="/kubernetes/k8s-pod-has-unbound-immediate-persistentvolumeclaims/">pod has unbound immediate PersistentVolumeClaims</a></li><li><a href="/kubernetes/k8s-0-nodes-are-available-insufficient-cpu/">0/3 nodes are available: Insufficient cpu</a></li><li><a href="/kubernetes/k8s-connection-to-the-server-localhost-8080-was-refused/">The connection to the server localhost:8080 was refused - did you specify the right host or port?</a></li><li><a href="/kubernetes/k8s-createcontainerconfigerror/">CreateContainerConfigError</a></li></ul></aside></main>
+<footer><div class="wrap"><p>errorfix — plain fixes for confusing error messages. No ads, no tracking cookies. <a href="/about/">About</a> · <a href="/all/">All errors</a> · <a href="/tools/">Developer tools</a> · <a href="https://github.com/errorfix-hollis/errorfix/issues">Report a wrong fix</a> · <a href="https://github.com/errorfix-hollis/errorfix">Source</a></p></div></footer>
+<script src="/app.js" defer></script><script data-goatcounter="https://errorfix.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body></html>
